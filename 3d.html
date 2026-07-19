@@ -48,6 +48,9 @@
   .pbtn{pointer-events:auto;border:none;border-radius:16px;padding:14px 20px;font-size:16px;font-weight:800;font-family:var(--font);color:#fff;
     background:var(--accent);box-shadow:0 4px 0 rgba(0,0,0,.18);cursor:pointer;}
   .pbtn.ok{background:var(--good);} .pbtn.no{background:#e05555;} .pbtn.pbtn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.18);}
+  #exitBtn{position:fixed;top:calc(env(safe-area-inset-top) + 78px);left:12px;display:none;z-index:14;pointer-events:auto;border:none;border-radius:16px;
+    padding:11px 17px;font-size:15px;font-weight:800;font-family:var(--font);color:#fff;background:var(--accent);box-shadow:0 4px 0 var(--accent-d);}
+  #exitBtn.on{display:block;}#exitBtn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--accent-d);}
   #hint{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 148px);text-align:center;z-index:11;pointer-events:none;
     transition:opacity .6s;font-weight:700;font-size:13px;}
   #hint span{background:rgba(30,25,18,.78);color:#fff;padding:8px 16px;border-radius:20px;}
@@ -109,6 +112,7 @@
 <button id="menuBtn" class="sidebtn" title="Menu">🎒</button>
 <button id="shopBtn" class="sidebtn" title="Negozio">🛒</button>
 <button id="buildBtn" class="sidebtn" title="Costruisci">🔨</button>
+<button id="exitBtn">🚪 Esci</button>
 <div id="placeBar"><button id="pRot" class="pbtn">↻</button><button id="pOk" class="pbtn ok">✓ Posiziona</button><button id="pNo" class="pbtn no">✗</button></div>
 <div id="hint" class="hud"><span>Joystick 🕹️ / WASD · pulsante arancione per interagire · 🎒 menu · 🔄 cambia cane</span></div>
 <div id="toast" class="hud"></div>
@@ -526,12 +530,17 @@ function nearNPCpos(x,z){for(const k in NPCDEF){const p=NPCDEF[k].pos;if(Math.hy
 /* ---- walkable multi-level terrain (Pokopia-style plateau + ramp) ---- */
 const PLAT={x0:22,x1:38,z0:10,z1:28,h:3.0};
 const RAMP={x0:27,x1:33,z0:3.5,z1:10.2,h0:0,h1:3.0};
+const PLAT2={x0:22,x1:38,z0:33,z1:47,h:3.0};                 // second plateau
+const SUSP={x0:27.5,x1:32.5,z0:27.9,z1:33.1,h:3.0};          // rope bridge span between them
 const BRIDGE={x:LAKE.x-5,hw:1.4,z0:LAKE.z-LAKE.r-2,z1:LAKE.z+LAKE.r+2,h:0.45};
 function onBridge(x,z){return x>BRIDGE.x-BRIDGE.hw&&x<BRIDGE.x+BRIDGE.hw&&z>BRIDGE.z0&&z<BRIDGE.z1;}
-function onRaised(x,z){return x>PLAT.x0-1&&x<PLAT.x1+1&&z>RAMP.z0-1&&z<PLAT.z1+1;}
+function onSusp(x,z){return x>SUSP.x0&&x<SUSP.x1&&z>SUSP.z0&&z<SUSP.z1;}
+function onRaised(x,z){return x>PLAT.x0-1&&x<PLAT.x1+1&&z>RAMP.z0-1&&z<PLAT2.z1+1;}
 function groundHeight(x,z){let h=0;
   if(x>=RAMP.x0&&x<=RAMP.x1&&z>=RAMP.z0&&z<=RAMP.z1){const t=(z-RAMP.z0)/(RAMP.z1-RAMP.z0);h=Math.max(h,RAMP.h0+(RAMP.h1-RAMP.h0)*t);}
   if(x>=PLAT.x0&&x<=PLAT.x1&&z>=PLAT.z0&&z<=PLAT.z1)h=Math.max(h,PLAT.h);
+  if(x>=PLAT2.x0&&x<=PLAT2.x1&&z>=PLAT2.z0&&z<=PLAT2.z1)h=Math.max(h,PLAT2.h);
+  if(onSusp(x,z))h=Math.max(h,SUSP.h);
   if(onBridge(x,z))h=Math.max(h,BRIDGE.h);
   return h;}
 // plateau geometry: brick retaining block + grass cap
@@ -554,6 +563,25 @@ function groundHeight(x,z){let h=0;
   const bench=new T.Group();const seat=new T.Mesh(new T.BoxGeometry(2,0.15,0.7),new T.MeshStandardMaterial({color:0xb07a45,roughness:0.9}));seat.position.y=0.55;bench.add(seat);
   for(const sx of[-0.8,0.8]){const lg=new T.Mesh(new T.BoxGeometry(0.15,0.55,0.6),new T.MeshStandardMaterial({color:0x8a5f39}));lg.position.set(sx,0.27,0);bench.add(lg);}
   bench.traverse(o=>{if(o.isMesh)o.castShadow=true;});bench.position.set(pcx+2,PLAT.h,pcz+5);scene.add(bench);}
+// second plateau + suspension bridge
+function connect3(x0,y0,z0,x1,y1,z1,thick,mat){const dx=x1-x0,dy=y1-y0,dz=z1-z0,len=Math.hypot(dx,dy,dz);
+  const m=new T.Mesh(new T.CylinderGeometry(thick,thick,len,6),mat);m.position.set((x0+x1)/2,(y0+y1)/2,(z0+z1)/2);
+  m.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),new T.Vector3(dx,dy,dz).normalize());m.castShadow=true;scene.add(m);return m;}
+{const pw=PLAT2.x1-PLAT2.x0,pd=PLAT2.z1-PLAT2.z0,pcx=(PLAT2.x0+PLAT2.x1)/2,pcz=(PLAT2.z0+PLAT2.z1)/2;
+  const wall=new T.Mesh(new T.BoxGeometry(pw,PLAT2.h,pd),brickMat);wall.position.set(pcx,PLAT2.h/2,pcz);wall.castShadow=true;wall.receiveShadow=true;scene.add(wall);
+  const cap=new T.Mesh(new T.BoxGeometry(pw+0.3,0.5,pd+0.3),capMat);cap.position.set(pcx,PLAT2.h+0.03,pcz);cap.castShadow=true;cap.receiveShadow=true;scene.add(cap);
+  const t2=makeTree(0.9);t2.position.set(pcx-4,PLAT2.h,pcz+2);scene.add(t2);
+  for(let k=0;k<8;k++){const fx=pcx+(rand(k*4+9)-0.5)*pw*0.8,fz=pcz+(rand(k*6+3)-0.5)*pd*0.8;
+    const fl=new T.Mesh(new T.SphereGeometry(0.13,8,8),new T.MeshStandardMaterial({color:[0xff6f91,0xffd23f,0xc77dff,0x5ad1e6][k%4],roughness:0.55}));fl.position.set(fx,PLAT2.h+0.18,fz);scene.add(fl);}
+  // suspension rope bridge over the gap
+  const bx=(SUSP.x0+SUSP.x1)/2,by=SUSP.h,z0=PLAT.z1,z1=PLAT2.z0,hw=(SUSP.x1-SUSP.x0)/2;
+  const rope=new T.MeshStandardMaterial({color:0x8a5f39,roughness:0.9});
+  for(let z=z0;z<z1;z+=0.4){const pl=new T.Mesh(new T.BoxGeometry(hw*2,0.1,0.34),plankMat);pl.position.set(bx,by-0.04,z+0.18);pl.castShadow=true;pl.receiveShadow=true;scene.add(pl);}
+  for(const zz of[z0,z1])for(const sx of[-1,1]){const post=new T.Mesh(new T.CylinderGeometry(0.09,0.09,1.5,7),rope);post.position.set(bx+sx*hw,by+0.45,zz);post.castShadow=true;scene.add(post);}
+  for(const sx of[-1,1]){const N=10,top=by+1.2,sag=0.7;let px=bx+sx*hw,py=top,pz=z0;
+    for(let i=1;i<=N;i++){const t=i/N,nz=z0+(z1-z0)*t,ny=top-Math.sin(t*Math.PI)*sag;connect3(px,py,pz,px,ny,nz,0.035,rope);
+      // vertical hangers
+      if(i%2===0)connect3(px,ny,nz,px,by,nz,0.02,rope);px=bx+sx*hw;py=ny;pz=nz;}}}
 function reg(o){interactables.push(o);}
 
 // trees (some give wood)
@@ -562,7 +590,7 @@ for(let i=0;i<58;i++){const a=rand(i*1.7)*6.28,rad=8+rand(i*3.1)*44,x=Math.cos(a
   colliders.push({x,z,r:1.1});if(i%2===0)reg({type:'tree',x,z,r:2.4,mesh:t,cd:0});}
 // houses
 const houseDefs=[[10,-14,0xe57d5a],[18,4,0x6fae5a],[-8,17,0xc77dff],[22,-6,0x6fa8e0]];
-houseDefs.forEach((h,i)=>{const H=makeHouse(5,5,3.4,h[2]);H.position.set(h[0],0,h[1]);H.rotation.y=rand(i*9)*0.6-0.3;scene.add(H);colliders.push({x:h[0],z:h[1],r:3.6});});
+houseDefs.forEach((h,i)=>{const H=makeHouse(5,5,3.4,h[2]);H.position.set(h[0],0,h[1]);H.rotation.y=rand(i*9)*0.6-0.3;scene.add(H);colliders.push({x:h[0],z:h[1],r:3.6});reg({type:'door',x:h[0],z:h[1]+3.2,r:2.4});});
 // doghouse near spawn
 const dogHouse=makeHouse(3,3,1.8,0xe0342f,0xd9a066);dogHouse.position.set(4,0,3);scene.add(dogHouse);colliders.push({x:4,z:3,r:2.2});
 // bushes (some give berries)
@@ -645,6 +673,34 @@ for(let i=0;i<8;i++){const bg=new T.Group();const mat=new T.MeshStandardMaterial
   const w2=new T.Mesh(new T.CircleGeometry(0.16,8),mat);w2.position.x=-0.15;pl.add(w2);
   const cx=(rand(i*4.4+7)-0.5)*70,cz=(rand(i*2.7+3)-0.5)*70;
   bg.position.set(cx,1.4,cz);scene.add(bg);butterflies.push({bg,pl,pr,cx,cz,r:2+rand(i)*3.5,ph:rand(i*9)*6.28,sp:0.5+rand(i)*0.6});}
+// ---- ambient animals: ducks on the pond, rabbits in the meadow ----
+function makeDuck(){const g=new T.Group();const w=new T.MeshStandardMaterial({color:0xf3f0e6,roughness:0.7,flatShading:true});
+  const body=new T.Mesh(new T.SphereGeometry(0.32,12,10),w);body.scale.set(1,0.8,1.3);body.position.y=0.24;body.castShadow=true;g.add(body);
+  const tail=new T.Mesh(new T.ConeGeometry(0.13,0.26,5),w);tail.position.set(0,0.32,-0.34);tail.rotation.x=-1.1;g.add(tail);
+  const head=new T.Mesh(new T.SphereGeometry(0.17,10,9),w);head.position.set(0,0.56,0.3);head.castShadow=true;g.add(head);
+  const neck=new T.Mesh(new T.CylinderGeometry(0.09,0.11,0.26,7),w);neck.position.set(0,0.42,0.24);g.add(neck);
+  const beak=new T.Mesh(new T.ConeGeometry(0.08,0.18,6),new T.MeshStandardMaterial({color:0xf2a03a}));beak.rotation.x=Math.PI/2;beak.position.set(0,0.55,0.48);g.add(beak);
+  for(const sx of[-1,1]){const e=new T.Mesh(new T.SphereGeometry(0.03,6,6),new T.MeshStandardMaterial({color:0x201a15}));e.position.set(sx*0.08,0.6,0.4);g.add(e);}return g;}
+function makeRabbit(){const g=new T.Group();const w=new T.MeshStandardMaterial({color:0xd9c7b0,roughness:0.85,flatShading:true}),wb=new T.MeshStandardMaterial({color:0xfff4ea,roughness:0.85});
+  const body=new T.Mesh(new T.SphereGeometry(0.26,12,10),w);body.scale.set(1,0.9,1.2);body.position.y=0.28;body.castShadow=true;g.add(body);
+  const head=new T.Mesh(new T.SphereGeometry(0.18,10,9),w);head.position.set(0,0.44,0.2);head.castShadow=true;g.add(head);
+  for(const sx of[-1,1]){const ear=new T.Mesh(new T.CapsuleGeometry(0.045,0.24,4,6),w);ear.position.set(sx*0.07,0.68,0.15);ear.rotation.x=-0.2;ear.castShadow=true;g.add(ear);
+    const eye=new T.Mesh(new T.SphereGeometry(0.028,6,6),new T.MeshStandardMaterial({color:0x201a15}));eye.position.set(sx*0.08,0.46,0.34);g.add(eye);}
+  const tail=new T.Mesh(new T.SphereGeometry(0.08,8,8),wb);tail.position.set(0,0.3,-0.24);g.add(tail);return g;}
+const animals=[];
+for(let i=0;i<5;i++){const a=Math.random()*6.28,r=Math.random()*(LAKE.r-3.5),x=LAKE.x+Math.cos(a)*r,z=LAKE.z+Math.sin(a)*r;
+  const d=makeDuck();d.position.set(x,0.18,z);scene.add(d);animals.push({g:d,type:'duck',hx:LAKE.x,hz:LAKE.z,x,z,dir:0,tx:x,tz:z,mv:false,wait:Math.random()*3,ph:Math.random()*6,rad:LAKE.r-3.5});}
+for(let i=0,gu=0;i<6&&gu<40;gu++){const a=Math.random()*6.28,r=9+Math.random()*30,x=Math.cos(a)*r,z=Math.sin(a)*r;
+  if(inLake(x,z)||onRaised(x,z)||inGarden(x,z))continue;const rb=makeRabbit();rb.position.set(x,0,z);scene.add(rb);
+  animals.push({g:rb,type:'rabbit',hx:x,hz:z,x,z,dir:0,tx:x,tz:z,mv:false,wait:Math.random()*3,ph:Math.random()*6,rad:6});i++;}
+function updateAnimals(dt){for(const n of animals){
+  if(!n.mv){n.wait-=dt;if(n.wait<=0){const a=Math.random()*6.28,r=Math.random()*n.rad,tx=n.hx+Math.cos(a)*r,tz=n.hz+Math.sin(a)*r;
+    if(n.type==='rabbit'&&inLake(tx,tz)){n.wait=0.5;}else{n.tx=tx;n.tz=tz;n.mv=true;}}}
+  else{const dx=n.tx-n.x,dz=n.tz-n.z,d=Math.hypot(dx,dz);if(d<0.25){n.mv=false;n.wait=1+Math.random()*3;}
+    else{const sp=Math.min((n.type==='duck'?0.9:2.4)*dt,d);n.x+=dx/d*sp;n.z+=dz/d*sp;n.dir=Math.atan2(dx,dz);}}
+  n.ph+=dt*(n.type==='rabbit'?10:3);
+  const y=n.type==='duck'?0.18+Math.sin(n.ph)*0.03:(n.mv?Math.abs(Math.sin(n.ph))*0.22:0);
+  n.g.position.set(n.x,y,n.z);n.g.rotation.y+=(n.dir-n.g.rotation.y)*Math.min(1,dt*8);}}
 // ---- particle bursts ----
 const PPOOL=[],pfree=[];{const geo=new T.IcosahedronGeometry(0.09,0);for(let i=0;i<90;i++){
   const m=new T.Mesh(geo,new T.MeshStandardMaterial({color:0xffffff,emissive:0x222222,transparent:true,roughness:0.5}));m.visible=false;scene.add(m);PPOOL.push({m,life:0,vx:0,vy:0,vz:0});pfree.push(i);}}
@@ -763,6 +819,8 @@ function advanceDialogue(){if(!dialogue)return;dialogue.i++;if(dialogue.i>=dialo
 /* ================= INTERACTION ================= */
 let near=null;
 function detectNear(){near=null;let best=3.4;
+  if(inside){const pd=Math.hypot(player.x-INT.x,player.z-(INT.z+INT.hw-0.7));near=pd<1.7?{type:'exit'}:null;
+    const act=$('act');act.disabled=!near;act.textContent=near?'🚪':'🏠';return;}
   if(removeMode){best=3;for(const o of placedObjs){const d=Math.hypot(player.x-o.p.x,player.z-o.p.z);if(d<best){best=d;near={type:'remove',obj:o};}}
     const act=$('act');act.disabled=!near;act.textContent=near?'🗑️':'👀';return;}
   for(const o of interactables){const d=Math.hypot(player.x-o.x,player.z-o.z);if(d<best){best=d;near=o;}}
@@ -774,12 +832,14 @@ function detectNear(){near=null;let best=3.4;
   act.disabled=!near;
   act.textContent=!near?'👀':near.type==='npc'?'💬':near.type==='flower'?'✋':near.type==='fish'?'🎣':
     near.type==='bush'?'🫐':near.type==='tree'?'🪵':near.type==='dig'?'⛏️':
-    near.type==='plot'?((S.plots[near.idx].stage||0)>=3?'🌾':'🌱'):'👀';}
+    near.type==='door'?'🚪':near.type==='plot'?((S.plots[near.idx].stage||0)>=3?'🌾':'🌱'):'👀';}
 
 function doAction(){
   if(dialogue){advanceDialogue();return;}
   if(fishing){fishPull();return;}
   if(!near)return;
+  if(near.type==='exit'){exitInterior();return;}
+  if(near.type==='door'){enterInterior();return;}
   if(near.type==='remove'){removePlaced(near.obj);return;}
   if(near.type==='flower'){addInv('fiore',1);toast('+1 🌼 Fiore');burst(near.x,0.5,near.z,0xffd23f,14);sfx('pick');scene.remove(near.mesh);interactables.splice(interactables.indexOf(near),1);after();}
   else if(near.type==='bush'){if(near.cd>Date.now()){toast('🫐 Ancora acerbo…');return;}near.cd=Date.now()+12000;addInv('bacca',1);toast('+1 🫐 Bacca');burst(near.x,0.8,near.z,0x5aa9ff,12);sfx('pick');after();}
@@ -893,8 +953,8 @@ function startPlace(k){cancelPlace();if(removeMode){removeMode=false;if(removeHi
   scene.add(ghost);scene.add(ring);placeMode={k,ghost,ring,rot:0,valid:false};
   $('placeBar').classList.add('on');$('act').style.display='none';}
 function updatePlace(){if(!placeMode)return;const def=BUILD[placeMode.k];
-  const fx=player.x+Math.sin(player.dir)*3,fz=player.z+Math.cos(player.dir)*3,gy=groundHeight(fx,fz);
-  const valid=Math.abs(fx)<BOUND&&Math.abs(fz)<BOUND&&!inLake(fx,fz)&&!onBridge(fx,fz);placeMode.valid=valid;
+  const fx=player.x+Math.sin(player.dir)*2.6,fz=player.z+Math.cos(player.dir)*2.6,gy=groundHeight(fx,fz);
+  const valid=inside?(Math.abs(fx-INT.x)<INT.hw-0.7&&Math.abs(fz-INT.z)<INT.hw-0.7):(Math.abs(fx)<BOUND&&Math.abs(fz)<BOUND&&!inLake(fx,fz)&&!onBridge(fx,fz));placeMode.valid=valid;
   placeMode.ghost.position.set(fx,gy+(def.yoff||0),fz);placeMode.ghost.rotation.y=placeMode.rot;
   placeMode.ring.position.set(fx,gy+0.06,fz);placeMode.ring.material.color.setHex(valid?0x4bbf5a:0xe05555);}
 function confirmPlace(){if(!placeMode)return;if(!placeMode.valid){toast('Qui non si può 🚫');return;}
@@ -905,6 +965,33 @@ function confirmPlace(){if(!placeMode)return;if(!placeMode.valid){toast('Qui non
   const k=placeMode.k;cancelPlace();if(S.coins>=BUILD[k].cost)startPlace(k);}
 function cancelPlace(){if(!placeMode)return;scene.remove(placeMode.ghost);scene.remove(placeMode.ring);placeMode=null;$('placeBar').classList.remove('on');$('act').style.display='';}
 $('buildBtn').onclick=openBuild;$('pOk').onclick=confirmPlace;$('pNo').onclick=()=>{if(removeMode)toggleRemove();else cancelPlace();};$('pRot').onclick=()=>{if(placeMode)placeMode.rot+=Math.PI/4;};
+
+/* ================= HOUSE INTERIOR ================= */
+const INT={x:200,z:200,hw:5.5};
+let inside=false,returnPos=null;
+{const g=new T.Group();scene.add(g);
+  const floor=new T.Mesh(new T.PlaneGeometry(INT.hw*2,INT.hw*2),new T.MeshStandardMaterial({color:0xb98f5e,roughness:0.9}));floor.rotation.x=-Math.PI/2;floor.position.set(INT.x,0.01,INT.z);floor.receiveShadow=true;g.add(floor);
+  const rug=new T.Mesh(new T.CircleGeometry(2.2,22),new T.MeshStandardMaterial({color:0xd06a7a,roughness:0.9}));rug.rotation.x=-Math.PI/2;rug.position.set(INT.x,0.02,INT.z+0.5);g.add(rug);
+  const wallMat=new T.MeshStandardMaterial({color:0xf2e2c0,roughness:0.9}),wh=3,wt=0.3;
+  const wn=new T.Mesh(new T.BoxGeometry(INT.hw*2+wt,wh,wt),wallMat);wn.position.set(INT.x,wh/2,INT.z-INT.hw);wn.castShadow=true;wn.receiveShadow=true;g.add(wn);
+  for(const sx of[-1,1]){const w=new T.Mesh(new T.BoxGeometry(wt,wh,INT.hw*2),wallMat);w.position.set(INT.x+sx*INT.hw,wh/2,INT.z);w.castShadow=true;w.receiveShadow=true;g.add(w);}
+  for(const sx of[-1,1]){const w=new T.Mesh(new T.BoxGeometry(INT.hw-0.9,wh,wt),wallMat);w.position.set(INT.x+sx*(INT.hw/2+0.45),wh/2,INT.z+INT.hw);g.add(w);}
+  const win=new T.Mesh(new T.BoxGeometry(1.6,1.2,0.12),new T.MeshStandardMaterial({color:0xbfe6ff,emissive:0x223344,roughness:0.2,metalness:0.3}));win.position.set(INT.x,1.8,INT.z-INT.hw+0.06);g.add(win);
+  const wood=new T.MeshStandardMaterial({color:0x8a5f39,roughness:0.9}),sheet=new T.MeshStandardMaterial({color:0xbfe6ff,roughness:0.8});
+  const bed=new T.Mesh(new T.BoxGeometry(2,0.4,3),wood);bed.position.set(INT.x-3.6,0.2,INT.z-3);bed.castShadow=true;g.add(bed);
+  const matt=new T.Mesh(new T.BoxGeometry(1.9,0.25,2.9),new T.MeshStandardMaterial({color:0xef9bb0,roughness:0.85}));matt.position.set(INT.x-3.6,0.5,INT.z-3);g.add(matt);
+  const pillow=new T.Mesh(new T.BoxGeometry(1.6,0.28,0.7),sheet);pillow.position.set(INT.x-3.6,0.62,INT.z-4.2);g.add(pillow);
+  const ttop=new T.Mesh(new T.CylinderGeometry(0.7,0.7,0.15,16),wood);ttop.position.set(INT.x+3.4,0.85,INT.z-3);ttop.castShadow=true;g.add(ttop);
+  const tleg=new T.Mesh(new T.CylinderGeometry(0.12,0.12,0.85,8),wood);tleg.position.set(INT.x+3.4,0.42,INT.z-3);g.add(tleg);
+  const pl=new T.PointLight(0xffe0a8,0.7,17,2);pl.position.set(INT.x,3.4,INT.z);scene.add(pl);
+  const lampb=new T.Mesh(new T.SphereGeometry(0.2,10,10),new T.MeshStandardMaterial({color:0xffe08a,emissive:0xffcf6a,emissiveIntensity:0.8}));lampb.position.set(INT.x,2.9,INT.z);g.add(lampb);
+  const pad=new T.Mesh(new T.CircleGeometry(0.9,18),new T.MeshBasicMaterial({color:0x8fd0ff,transparent:true,opacity:0.55}));pad.rotation.x=-Math.PI/2;pad.position.set(INT.x,0.03,INT.z+INT.hw-0.7);g.add(pad);}
+function enterInterior(){returnPos={x:player.x,z:player.z};inside=true;cancelPlace();if(removeMode)toggleRemove();
+  player.x=INT.x;player.z=INT.z+INT.hw-1.6;player.y=0;player.dir=Math.PI;player.moving=false;
+  comp.x=INT.x+1.4;comp.z=INT.z+INT.hw-1.6;comp.y=0;trail.length=0;$('exitBtn').classList.add('on');toast('🏠 Sei entrato in casa — arreda con 🔨');}
+function exitInterior(){inside=false;cancelPlace();if(removeMode)toggleRemove();if(returnPos){player.x=returnPos.x;player.z=returnPos.z;}
+  player.y=groundHeight(player.x,player.z);player.moving=false;comp.x=player.x-1;comp.z=player.z-1;trail.length=0;$('exitBtn').classList.remove('on');toast('👋 Sei uscito');}
+$('exitBtn').onclick=exitInterior;
 
 /* ================= DAY / NIGHT ================= */
 let clock=0.28,prevClock=0.28;const CYCLE=150;
@@ -919,7 +1006,7 @@ function updateSky(dt){prevClock=clock;clock=(clock+dt/CYCLE)%1;
   const sky=SKY_NIGHT.clone().lerp(SKY_DAY,dayN);if(dayN>0.02&&dayN<0.6&&!wet)sky.lerp(new T.Color(0xffb27a),(0.6-dayN)*0.5);
   if(wet)sky.lerp(GREY,wet*0.6);
   scene.background.copy(sky);scene.fog.color.copy(sky);scene.fog.far=150-(1-dayN)*40-wet*45;
-  rainGroup.visible=(weather==='pioggia');
+  rainGroup.visible=(weather==='pioggia'&&!inside);
   const night=1-dayN;
   moon.intensity=night*0.55;moon.position.set(player.x-Math.cos(ang)*50,Math.max(4,-elev*60+40),player.z-Math.sin(ang)*70);
   moonMesh.position.set(player.x-Math.cos(ang)*120,60+(-elev)*40,player.z-140);moonMesh.visible=night>0.15;
@@ -940,7 +1027,10 @@ function animateDog(d,a){d.group.position.set(a.x,a.y||0,a.z);d.group.rotation.y
   if(d.ears){const tw=Math.sin(now/850+s),t2=((now/1000+s)%4)<0.2?Math.sin(now/55)*0.22:0;d.ears[0].rotation.z=tw*0.05+t2;d.ears[1].rotation.z=-tw*0.05-t2;}
   if(d.eyes){const b=((now+s*400)%3200)<110?0.14:1;d.eyes[0].scale.y=b;d.eyes[1].scale.y=b;}
   if(d.fur){const amp=a.moving?0.17:0.06,sp=a.moving?a.walk*1.1:now/650+s;for(const f of d.fur){f.rotation.z=f.userData.bz+Math.sin(sp+f.userData.ph)*amp;}}}
-function blocked(x,z){if(Math.abs(x)>BOUND||Math.abs(z)>BOUND)return true;
+function blocked(x,z){
+  if(inside){if(Math.abs(x-INT.x)>INT.hw-0.4||Math.abs(z-INT.z)>INT.hw-0.4)return true;
+    for(const c of colliders)if(Math.hypot(x-c.x,z-c.z)<c.r)return true;return false;}
+  if(Math.abs(x)>BOUND||Math.abs(z)>BOUND)return true;
   if(Math.hypot(x-LAKE.x,z-LAKE.z)<LAKE.r-1&&!onBridge(x,z))return true;
   for(const c of colliders)if(Math.hypot(x-c.x,z-c.z)<c.r)return true;return false;}
 function moveActor(a,dx,dz){const h0=groundHeight(a.x,a.z);
@@ -966,7 +1056,7 @@ function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
   // spin dig sparkles
   for(const o of interactables)if(o.type==='dig'&&o.spark){o.spark.rotation.y+=dt*2;o.spark.visible=!(S.dug[o.id]&&S.dug[o.id]>Date.now());}
   // npcs wander + quest markers bob & toggle
-  updateNPCs(dt);
+  updateNPCs(dt);updateAnimals(dt);
   for(const id in npcObjs){const m=npcObjs[id].userData.mark;const q=QUESTS[S.quest];
     m.visible=!!(q&&q.npc===id);m.position.y=2.1+Math.sin(now/300)*0.12;m.rotation.y+=dt*2;}
   // grass wind
