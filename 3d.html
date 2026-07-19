@@ -1,0 +1,396 @@
+<!doctype html>
+<!-- Bucky & Loki — Il Mondo di Coda (3D) -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#8fd07a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Bucky &amp; Loki — 3D</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+  html,body{margin:0;height:100%;overflow:hidden;background:#0d1512;
+    font-family:"Baloo 2",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#2f2416;touch-action:none;}
+  #c{display:block;width:100%;height:100%;}
+  #loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;background:linear-gradient(180deg,#bfe9ff,#d9f5c4);z-index:50;color:#3a4a2a;font-weight:800;}
+  #loading .dot{font-size:44px;animation:bob 1s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  .hud{position:fixed;pointer-events:none;z-index:10;}
+  #top{top:calc(env(safe-area-inset-top) + 12px);left:12px;right:12px;display:flex;justify-content:space-between;gap:10px;}
+  .pill{background:rgba(255,253,246,.92);border-radius:14px;padding:8px 13px;font-weight:800;font-size:14px;
+    box-shadow:0 3px 0 rgba(0,0,0,.10),0 6px 12px rgba(60,40,20,.18);pointer-events:auto;display:flex;align-items:center;gap:6px;}
+  a.pill{color:#e06f22;text-decoration:none;}
+  #joy{position:fixed;left:24px;bottom:calc(env(safe-area-inset-bottom) + 30px);width:140px;height:140px;border-radius:50%;
+    z-index:12;pointer-events:auto;touch-action:none;background:radial-gradient(circle,rgba(255,255,255,.30),rgba(255,255,255,.12));
+    border:3px solid rgba(255,255,255,.5);box-shadow:0 6px 16px rgba(0,0,0,.25);}
+  #stick{position:absolute;left:50%;top:50%;width:62px;height:62px;border-radius:50%;
+    background:radial-gradient(circle at 40% 35%,#fff,#ffe6c2);box-shadow:0 4px 10px rgba(0,0,0,.3);transform:translate(-50%,-50%);}
+  #hint{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 18px);text-align:center;z-index:11;pointer-events:none;
+    transition:opacity .6s;font-weight:700;font-size:13px;}
+  #hint span{background:rgba(30,25,18,.78);color:#fff;padding:8px 16px;border-radius:20px;}
+  #switch{position:fixed;right:24px;bottom:calc(env(safe-area-inset-bottom) + 44px);z-index:12;pointer-events:auto;
+    width:64px;height:64px;border-radius:20px;border:none;font-size:26px;font-family:inherit;
+    background:rgba(255,253,246,.95);box-shadow:0 5px 0 #eadcbe,0 9px 16px rgba(60,40,20,.22);}
+  #switch:active{transform:translateY(3px);box-shadow:0 2px 0 #eadcbe;}
+</style>
+
+<div id="loading"><div class="dot">🐶</div><div>Costruisco il mondo 3D…</div></div>
+<canvas id="c"></canvas>
+<div id="top" class="hud">
+  <div class="pill" id="dogName">🐶 Bucky</div>
+  <div style="display:flex;gap:8px;">
+    <div class="pill" id="tod">☀️ Giorno</div>
+    <a class="pill" href="index.html">2D ↩</a>
+  </div>
+</div>
+<div id="joy" class="hud"><div id="stick"></div></div>
+<button id="switch" title="Cambia cane">🔄</button>
+<div id="hint" class="hud"><span>Muoviti col joystick 🕹️ o WASD · 🔄 cambia cane · l'altro ti segue 🐾</span></div>
+
+<script src="vendor/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+if(!window.THREE){document.getElementById('loading').innerHTML='<div>⚠️ Impossibile caricare il motore 3D</div>';return;}
+const T=THREE;
+
+/* ---------- RENDERER / SCENE ---------- */
+const canvas=document.getElementById('c');
+const renderer=new T.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=T.PCFSoftShadowMap;
+renderer.outputColorSpace=T.SRGBColorSpace;
+renderer.toneMapping=T.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.05;
+
+const scene=new T.Scene();
+const SKY_DAY=new T.Color(0x8fd0ff), SKY_NIGHT=new T.Color(0x141d33);
+scene.background=SKY_DAY.clone();
+scene.fog=new T.Fog(SKY_DAY.clone(),60,150);
+
+const camera=new T.PerspectiveCamera(52,innerWidth/innerHeight,0.1,400);
+camera.position.set(0,11,14);
+
+function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);}
+addEventListener('resize',resize);resize();
+
+/* ---------- LIGHTS ---------- */
+const hemi=new T.HemisphereLight(0xcfeaff,0x5a7040,0.9);
+scene.add(hemi);
+const sun=new T.DirectionalLight(0xfff2d6,2.2);
+sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.near=1;sun.shadow.camera.far=160;
+const SH=70;
+sun.shadow.camera.left=-SH;sun.shadow.camera.right=SH;sun.shadow.camera.top=SH;sun.shadow.camera.bottom=-SH;
+sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.02;
+scene.add(sun);scene.add(sun.target);
+
+/* ---------- TEXTURES (procedural) ---------- */
+function noiseTex(base,spots,size,density){
+  const cv=document.createElement('canvas');cv.width=cv.height=size||128;const g=cv.getContext('2d');
+  g.fillStyle=base;g.fillRect(0,0,cv.width,cv.height);
+  const n=density||1200;
+  for(let i=0;i<n;i++){const c=spots[(Math.random()*spots.length)|0];g.fillStyle=c;
+    const x=Math.random()*cv.width,y=Math.random()*cv.height,r=Math.random()*2+0.5;
+    g.beginPath();g.arc(x,y,r,0,7);g.fill();}
+  const tx=new T.CanvasTexture(cv);tx.colorSpace=T.SRGBColorSpace;tx.wrapS=tx.wrapT=T.RepeatWrapping;return tx;
+}
+const grassTex=noiseTex('#7cc35f',['#84cf6c','#6cb352','#8fd57a','#5da046'],128,1600);
+grassTex.repeat.set(60,60);
+const sandTex=noiseTex('#e6d3a0',['#e9d8ab','#d9c188','#efe0b6'],64,500);
+sandTex.repeat.set(6,6);
+
+/* ---------- GROUND ---------- */
+const ground=new T.Mesh(new T.PlaneGeometry(300,300),
+  new T.MeshStandardMaterial({map:grassTex,roughness:1,metalness:0}));
+ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+
+// gentle rolling hills via a low subdivided plane laid just under the flat ground edges
+const hills=new T.Mesh(new T.PlaneGeometry(300,300,40,40),
+  new T.MeshStandardMaterial({color:0x6fb457,roughness:1}));
+hills.rotation.x=-Math.PI/2;hills.position.y=-0.05;
+{const pos=hills.geometry.attributes.position;for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i);
+  const d=Math.hypot(x,y);const h=d>70?Math.min((d-70)*0.12,10)+Math.sin(x*0.05)*Math.cos(y*0.05)*2:0;pos.setZ(i,h);}
+  pos.needsUpdate=true;hills.geometry.computeVertexNormals();}
+hills.receiveShadow=true;scene.add(hills);
+
+/* ---------- LAKE ---------- */
+const LAKE={x:-26,z:-22,r:15};
+const sand=new T.Mesh(new T.CircleGeometry(LAKE.r+3,48),
+  new T.MeshStandardMaterial({map:sandTex,roughness:1}));
+sand.rotation.x=-Math.PI/2;sand.position.set(LAKE.x,0.02,LAKE.z);sand.receiveShadow=true;scene.add(sand);
+const waterGeo=new T.CircleGeometry(LAKE.r,64,0,Math.PI*2);
+const water=new T.Mesh(waterGeo,new T.MeshStandardMaterial({
+  color:0x2f83b8,roughness:0.12,metalness:0.35,transparent:true,opacity:0.86}));
+water.rotation.x=-Math.PI/2;water.position.set(LAKE.x,0.08,LAKE.z);water.receiveShadow=true;scene.add(water);
+const waterBase=waterGeo.attributes.position.array.slice();
+
+/* ---------- TREE / HOUSE FACTORIES ---------- */
+const barkMat=new T.MeshStandardMaterial({color:0x7d5636,roughness:0.9});
+const leafMats=[0x3f8f45,0x4fa557,0x357a3c].map(c=>new T.MeshStandardMaterial({color:c,roughness:0.85}));
+function makeTree(scale){
+  const g=new T.Group();
+  const trunk=new T.Mesh(new T.CylinderGeometry(0.32,0.5,3.2,7),barkMat);
+  trunk.position.y=1.6;trunk.castShadow=true;g.add(trunk);
+  const blobs=[[0,3.6,0,1.9],[-1.2,3.2,0.3,1.2],[1.2,3.3,-0.2,1.3],[0.2,4.4,0.2,1.3]];
+  for(const b of blobs){const m=new T.Mesh(new T.IcosahedronGeometry(b[3],1),leafMats[(Math.random()*3)|0]);
+    m.position.set(b[0],b[1],b[2]);m.castShadow=true;m.receiveShadow=true;g.add(m);}
+  g.scale.setScalar(scale||1);return g;
+}
+function makeHouse(w,d,h,roofColor,wallColor){
+  const g=new T.Group();
+  const wall=new T.Mesh(new T.BoxGeometry(w,h,d),new T.MeshStandardMaterial({color:wallColor||0xf2e2c0,roughness:0.85}));
+  wall.position.y=h/2;wall.castShadow=true;wall.receiveShadow=true;g.add(wall);
+  const roof=new T.Mesh(new T.ConeGeometry(Math.max(w,d)*0.82,h*0.8,4),
+    new T.MeshStandardMaterial({color:roofColor||0xe57d5a,roughness:0.8}));
+  roof.position.y=h+h*0.4;roof.rotation.y=Math.PI/4;roof.castShadow=true;g.add(roof);
+  const door=new T.Mesh(new T.BoxGeometry(w*0.28,h*0.55,0.1),new T.MeshStandardMaterial({color:0x8a5a34,roughness:0.7}));
+  door.position.set(0,h*0.28,d/2+0.02);g.add(door);
+  const winMat=new T.MeshStandardMaterial({color:0xbfe6ff,emissive:0x223344,roughness:0.2,metalness:0.3});
+  for(const sx of [-1,1]){const win=new T.Mesh(new T.BoxGeometry(w*0.2,w*0.2,0.1),winMat);
+    win.position.set(sx*w*0.28,h*0.6,d/2+0.02);g.add(win);}
+  return g;
+}
+
+/* ---------- DOG MODEL ---------- */
+function makeDog(bandanaColor){
+  const g=new T.Group();
+  const tan=new T.MeshStandardMaterial({color:0xe0a866,roughness:0.75});
+  const tanL=new T.MeshStandardMaterial({color:0xecbb80,roughness:0.75});
+  const dark=new T.MeshStandardMaterial({color:0x3a4048,roughness:0.7});
+  const nose=new T.MeshStandardMaterial({color:0x201c18,roughness:0.5});
+  const eyeM=new T.MeshStandardMaterial({color:0x1a1712,roughness:0.3});
+  const bandM=new T.MeshStandardMaterial({color:bandanaColor,roughness:0.6});
+
+  // body (short, tall capsule along Z) — a plump little Yorkie
+  const body=new T.Mesh(new T.CapsuleGeometry(0.55,0.55,8,14),tan);
+  body.rotation.x=Math.PI/2;body.position.set(0,1.35,0);body.scale.set(1,1,1.05);
+  body.castShadow=true;body.receiveShadow=true;g.add(body);
+  // chest (a touch higher at the front)
+  const chest=new T.Mesh(new T.SphereGeometry(0.5,14,12),tan);chest.position.set(0,1.35,0.5);chest.castShadow=true;g.add(chest);
+  // saddle (dark steel back — the Yorkshire's coat)
+  const saddle=new T.Mesh(new T.SphereGeometry(0.58,16,12),dark);
+  saddle.position.set(0,1.5,0.0);saddle.scale.set(1,0.8,1.35);saddle.castShadow=true;g.add(saddle);
+
+  // head group up front (+Z)
+  const head=new T.Group();head.position.set(0,1.78,0.78);g.add(head);
+  const skull=new T.Mesh(new T.SphereGeometry(0.5,18,16),tanL);skull.castShadow=true;head.add(skull);
+  const snout=new T.Mesh(new T.SphereGeometry(0.3,12,10),tan);snout.position.set(0,-0.16,0.42);snout.scale.set(1,0.85,1.1);snout.castShadow=true;head.add(snout);
+  const noseM=new T.Mesh(new T.SphereGeometry(0.12,10,10),nose);noseM.position.set(0,-0.1,0.72);head.add(noseM);
+  const eyeW=new T.MeshStandardMaterial({color:0xffffff,roughness:0.3});
+  for(const sx of [-1,1]){
+    const eye=new T.Mesh(new T.SphereGeometry(0.11,12,12),eyeM);eye.position.set(sx*0.22,0.08,0.4);head.add(eye);
+    const gl=new T.Mesh(new T.SphereGeometry(0.03,6,6),eyeW);gl.position.set(sx*0.19,0.13,0.5);head.add(gl);
+    const ear=new T.Mesh(new T.ConeGeometry(0.2,0.4,10),dark);ear.position.set(sx*0.38,0.5,0.02);
+    ear.rotation.z=-sx*0.28;ear.castShadow=true;head.add(ear);
+  }
+  // dark top-knot cap (the grey "helmet" look from the 2D dogs)
+  const cap=new T.Mesh(new T.SphereGeometry(0.51,18,12,0,Math.PI*2,0,Math.PI*0.45),dark);
+  cap.position.set(0,0.05,-0.03);cap.castShadow=true;head.add(cap);
+  const topknot=new T.Mesh(new T.SphereGeometry(0.14,10,10),bandM);topknot.position.set(0,0.5,0.02);head.add(topknot);
+
+  // bandana at neck
+  const band=new T.Mesh(new T.TorusGeometry(0.46,0.13,10,18),bandM);
+  band.position.set(0,1.45,0.42);band.rotation.x=Math.PI/2.3;band.scale.set(1,1,0.7);band.castShadow=true;g.add(band);
+  const knot=new T.Mesh(new T.ConeGeometry(0.17,0.34,7),bandM);knot.position.set(0,1.2,0.62);knot.rotation.x=1.1;g.add(knot);
+
+  // legs
+  const legs=[];const legGeo=new T.CylinderGeometry(0.17,0.14,1.0,9);
+  const lp=[[-0.34,0.42],[0.34,0.42],[-0.34,-0.42],[0.34,-0.42]];
+  for(const p of lp){const pivot=new T.Group();pivot.position.set(p[0],1.0,p[1]);
+    const leg=new T.Mesh(legGeo,tan);leg.position.y=-0.5;leg.castShadow=true;
+    const paw=new T.Mesh(new T.SphereGeometry(0.19,10,9),dark);paw.position.y=-0.52;paw.scale.set(1,0.7,1.2);leg.add(paw);
+    pivot.add(leg);g.add(pivot);legs.push(pivot);}
+
+  // tail (perky, up)
+  const tail=new T.Group();tail.position.set(0,1.55,-0.55);g.add(tail);
+  const tailM=new T.Mesh(new T.CapsuleGeometry(0.13,0.5,6,10),dark);tailM.geometry.translate(0,0.35,0);
+  tail.add(tailM);tail.rotation.x=0.5;
+
+  g.scale.setScalar(0.85);
+  return {group:g,legs,tail,head};
+}
+
+/* ---------- WORLD POPULATION ---------- */
+const BOUND=58;
+function rand(seed){let s=Math.sin(seed*127.1)*43758.5453;return s-Math.floor(s);}
+const colliders=[]; // {x,z,r}
+function inLake(x,z){return Math.hypot(x-LAKE.x,z-LAKE.z)<LAKE.r+4;}
+// trees
+for(let i=0;i<60;i++){
+  const a=rand(i*1.7)*Math.PI*2,rad=8+rand(i*3.1)*46;
+  const x=Math.cos(a)*rad,z=Math.sin(a)*rad;
+  if(inLake(x,z)||Math.hypot(x,z)<7)continue;
+  const t=makeTree(0.8+rand(i*5.9)*0.7);t.position.set(x,0,z);t.rotation.y=rand(i)*6.28;scene.add(t);
+  colliders.push({x,z,r:1.1});
+}
+// houses
+const houses=[[10,-14,'#e57d5a'],[18,4,'#6fae5a'],[-8,16,'#c77dff'],[22,-6,'#6fa8e0']];
+for(let i=0;i<houses.length;i++){const h=houses[i];const H=makeHouse(5,5,3.4,new T.Color(h[2]).getHex());
+  H.position.set(h[0],0,h[1]);H.rotation.y=rand(i*9)*0.6-0.3;scene.add(H);colliders.push({x:h[0],z:h[1],r:3.6});}
+// doghouse near spawn
+const dogHouse=makeHouse(3,3,1.8,0xe0342f,0xd9a066);dogHouse.position.set(4,0,4);scene.add(dogHouse);
+colliders.push({x:4,z:4,r:2.2});
+// scattered bushes
+const bushMat=new T.MeshStandardMaterial({color:0x3f8f45,roughness:0.9});
+for(let i=0;i<40;i++){const a=rand(i*2.3+99)*6.28,rad=6+rand(i*4.4)*44;const x=Math.cos(a)*rad,z=Math.sin(a)*rad;
+  if(inLake(x,z))continue;const b=new T.Mesh(new T.IcosahedronGeometry(0.8+rand(i)*0.4,1),bushMat);
+  b.position.set(x,0.6,z);b.castShadow=true;b.receiveShadow=true;scene.add(b);}
+// simple flowers (instanced-ish colored dots on the grass)
+const flowerCols=[0xff6f91,0xffd23f,0xc77dff,0x5ad1e6];
+for(let i=0;i<120;i++){const x=(rand(i*1.1)-0.5)*100,z=(rand(i*2.2)-0.5)*100;if(inLake(x,z))continue;
+  const f=new T.Mesh(new T.SphereGeometry(0.12,6,6),new T.MeshStandardMaterial({color:flowerCols[i%4],emissive:new T.Color(flowerCols[i%4]).multiplyScalar(0.15)}));
+  f.position.set(x,0.14,z);scene.add(f);}
+
+/* ---------- STARS (night) ---------- */
+const starGeo=new T.BufferGeometry();const sc=[];
+for(let i=0;i<400;i++){const r=180,u=Math.random(),v=Math.random();const th=2*Math.PI*u,ph=Math.acos(2*v-1);
+  const y=Math.abs(r*Math.cos(ph));sc.push(r*Math.sin(ph)*Math.cos(th),y,r*Math.sin(ph)*Math.sin(th));}
+starGeo.setAttribute('position',new T.Float32BufferAttribute(sc,3));
+const stars=new T.Points(starGeo,new T.PointsMaterial({color:0xffffff,size:0.9,transparent:true,opacity:0}));
+scene.add(stars);
+
+/* ---------- PLAYER & COMPANION ---------- */
+let activeDog='bucky';
+const dogBucky=makeDog(0xe6352f), dogLoki=makeDog(0x2f6fe0);
+scene.add(dogBucky.group);scene.add(dogLoki.group);
+const player={x:0,z:0,dir:0,walk:0,moving:false};
+const comp={x:-3.4,z:-1.2,dir:0.3,walk:0,moving:false};
+const trail=[];
+
+function dogRefs(){return activeDog==='bucky'?[dogBucky,dogLoki]:[dogLoki,dogBucky];}
+
+/* ---------- INPUT ---------- */
+const keys={};
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;});
+addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+const joy={active:false,dx:0,dy:0,id:null};
+const joyEl=document.getElementById('joy'),stick=document.getElementById('stick');
+function joyStart(e){const t=e.changedTouches?e.changedTouches[0]:e;joy.active=true;joy.id=t.identifier;joyMove(e);}
+function joyMove(e){if(!joy.active)return;const r=joyEl.getBoundingClientRect();
+  let t=e.changedTouches?[...e.changedTouches].find(x=>x.identifier===joy.id):e;if(!t)return;
+  let dx=t.clientX-(r.left+r.width/2),dy=t.clientY-(r.top+r.height/2);const m=Math.hypot(dx,dy),max=r.width/2;
+  if(m>max){dx=dx/m*max;dy=dy/m*max;}joy.dx=dx/max;joy.dy=dy/max;
+  stick.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;}
+function joyEnd(){joy.active=false;joy.dx=joy.dy=0;stick.style.transform='translate(-50%,-50%)';}
+joyEl.addEventListener('touchstart',e=>{e.preventDefault();joyStart(e);},{passive:false});
+joyEl.addEventListener('touchmove',e=>{e.preventDefault();joyMove(e);},{passive:false});
+joyEl.addEventListener('touchend',e=>{e.preventDefault();joyEnd();},{passive:false});
+joyEl.addEventListener('mousedown',joyStart);
+addEventListener('mousemove',e=>{if(joy.active)joyMove(e);});
+addEventListener('mouseup',()=>{if(joy.active)joyEnd();});
+
+document.getElementById('switch').addEventListener('click',()=>{
+  activeDog=activeDog==='bucky'?'loki':'bucky';
+  // swap positions so the new active dog is where you stood
+  const px=player.x,pz=player.z;player.x=comp.x;player.z=comp.z;comp.x=px;comp.z=pz;
+  document.getElementById('dogName').textContent=(activeDog==='bucky'?'🐶 Bucky':'🐶 Loki');
+});
+
+/* ---------- DAY/NIGHT ---------- */
+let clock=0.28;const CYCLE=140; // seconds per full day
+function updateSky(dt){
+  clock=(clock+dt/CYCLE)%1;
+  // sun angle: elevation over the day
+  const ang=(clock-0.25)*Math.PI*2;           // noon at clock .5
+  const elev=Math.sin(clock*Math.PI);          // 0 at midnight-ish, up during day
+  const day=Math.max(0,Math.sin((clock-0.0)*Math.PI)); // brightness 0..1 (day around .5)
+  const dayN=Math.max(0,Math.min(1,(clock>0.05&&clock<0.95)?Math.sin((clock-0.05)/0.9*Math.PI):0));
+  const sunDist=80;
+  sun.position.set(Math.cos(ang)*sunDist*0.6, Math.max(6,elev*70+8), Math.sin(ang)*sunDist);
+  sun.intensity=0.3+dayN*2.1;
+  hemi.intensity=0.35+dayN*0.75;
+  // warm at dawn/dusk
+  const warm=1-Math.abs(clock-0.5)*2;           // 1 at noon
+  const dawn=Math.max(0,1-Math.abs(clock-0.5)*3.2);
+  sun.color.setRGB(1,0.92-(1-dawn)*0.05,0.78+dawn*0.1);
+  const sky=SKY_NIGHT.clone().lerp(SKY_DAY,dayN);
+  // dusk tint
+  if(dayN>0.02&&dayN<0.6){sky.lerp(new T.Color(0xffb27a),(0.6-dayN)*0.5);}
+  scene.background.copy(sky);scene.fog.color.copy(sky);
+  stars.material.opacity=Math.max(0,1-dayN*2.2);
+  document.getElementById('tod').textContent=dayN>0.55?'☀️ Giorno':dayN>0.15?'🌇 Tramonto':'🌙 Notte';
+  // keep shadow frustum centred on the player for crisp shadows
+  sun.target.position.set(player.x,0,player.z);
+  sun.position.x+=player.x;sun.position.z+=player.z;
+}
+
+/* ---------- WATER ANIMATION ---------- */
+function updateWater(t){
+  const pos=water.geometry.attributes.position;
+  for(let i=0;i<pos.count;i++){const x=waterBase[i*3],y=waterBase[i*3+1];
+    pos.setZ(i,Math.sin(x*0.5+t*1.8)*0.08+Math.cos(y*0.6+t*1.3)*0.08);}
+  pos.needsUpdate=true;water.geometry.computeVertexNormals();
+}
+
+/* ---------- MOVEMENT ---------- */
+function blocked(x,z){
+  if(Math.abs(x)>BOUND||Math.abs(z)>BOUND)return true;
+  if(inLake(x,z)&&Math.hypot(x-LAKE.x,z-LAKE.z)<LAKE.r-1)return true;
+  for(const c of colliders)if(Math.hypot(x-c.x,z-c.z)<c.r)return true;
+  return false;
+}
+function moveActor(a,dx,dz){if(!blocked(a.x+dx,a.z))a.x+=dx;if(!blocked(a.x,a.z+dz))a.z+=dz;}
+
+function animateDog(d,actor,bob){
+  d.group.position.set(actor.x,0,actor.z);
+  d.group.rotation.y=actor.dir;
+  const sw=actor.moving?Math.sin(actor.walk)*0.5:0;
+  d.legs[0].rotation.x=sw;d.legs[3].rotation.x=sw;
+  d.legs[1].rotation.x=-sw;d.legs[2].rotation.x=-sw;
+  d.tail.rotation.y=Math.sin((actor.moving?actor.walk*1.5:performance.now()/300))*0.5;
+  d.group.position.y=actor.moving?Math.abs(Math.sin(actor.walk))*0.08:Math.sin(performance.now()/650)*0.03;
+  d.head.rotation.z=Math.sin(performance.now()/800)*0.04;
+}
+
+/* ---------- LOOP ---------- */
+const camOffset=new T.Vector3(0,10.5,12.5);
+const camTarget=new T.Vector3();
+let last=performance.now();
+document.getElementById('loading').style.display='none';
+let hintTimer=setTimeout(()=>{const h=document.getElementById('hint');if(h)h.style.opacity='0';},6000);
+
+function frame(now){
+  const dt=Math.min((now-last)/1000,0.05);last=now;
+  // input
+  let ix=0,iz=0;
+  if(keys['w']||keys['arrowup'])iz-=1;if(keys['s']||keys['arrowdown'])iz+=1;
+  if(keys['a']||keys['arrowleft'])ix-=1;if(keys['d']||keys['arrowright'])ix+=1;
+  if(joy.active){ix+=joy.dx;iz+=joy.dy;}
+  let mag=Math.hypot(ix,iz);if(mag>1){ix/=mag;iz/=mag;}
+  player.moving=mag>0.08;
+  if(player.moving){
+    const sp=7*Math.min(mag,1)*dt;
+    moveActor(player,ix*sp,iz*sp);
+    player.dir=Math.atan2(ix,iz);
+    player.walk+=dt*11*Math.min(mag,1)+dt*3;
+  }
+  // companion trail follow
+  trail.push({x:player.x,z:player.z});if(trail.length>24)trail.shift();
+  const tg=trail[0]||player;const cx=tg.x-comp.x,cz=tg.z-comp.z,cd=Math.hypot(cx,cz);
+  comp.moving=cd>2.0;
+  if(comp.moving){const step=Math.min(cd-1.8,7*dt);comp.x+=cx/cd*step;comp.z+=cz/cd*step;comp.dir=Math.atan2(cx,cz);comp.walk+=dt*11;}
+
+  const [pd,cdog]=dogRefs();
+  animateDog(pd,player);animateDog(cdog,comp);
+
+  // camera follows the active dog
+  camTarget.set(player.x,1.2,player.z);
+  const desired=new T.Vector3(player.x+camOffset.x,camOffset.y,player.z+camOffset.z);
+  camera.position.lerp(desired,1-Math.pow(0.001,dt));
+  camera.lookAt(camTarget);
+
+  updateSky(dt);
+  updateWater(now/1000);
+
+  renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// expose for debugging/testing
+window.__game={get clock(){return clock;},set clock(v){clock=v;},scene,camera,player};
+})();
+</script>

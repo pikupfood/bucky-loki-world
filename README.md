@@ -25,8 +25,15 @@ Aggiungilo alla schermata Home del telefono per giocarci come un'app a schermo i
 - 🌦️ **Meteo dinamico** (sole/nuvoloso/pioggia) e **ciclo giorno/notte** con lampioni e lucciole
 - 🧭 **Bussola** verso l'obiettivo · 💾 **salvataggio automatico** · 🔊 musica e suoni
 
+## 🧊 Modalità 3D (nuova!)
+Una versione **3D vera** del mondo di Coda, con Bucky e Loki modellati in tre dimensioni,
+camera prospettica, **sole con ombre reali**, ciclo giorno/notte, alberi, case e un laghetto.
+👉 **https://pikupfood.github.io/bucky-loki-world/3d.html** (o il pulsante *🌍 Prova la versione 3D* nel menu iniziale).
+- Muoviti col joystick 🕹️ o **WASD/frecce** · 🔄 cambia cane · l'altro ti segue 🐾
+- Costruita con [Three.js](https://threejs.org) (WebGL), incluso in locale in `vendor/`.
+
 ## 🗺️ Prossimo passo
-Pacchetto **app** installabile (Android / iOS) tramite Capacitor.
+Portare i contenuti (negozi, missioni, pesca, orto) anche nella modalità 3D · pacchetto **app** installabile (Android / iOS) tramite Capacitor.
 
 ---
 In sviluppo continuo · fatto con ❤️ per Bucky & Loki
