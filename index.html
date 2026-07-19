@@ -121,6 +121,12 @@
   .housecard .hreq{font-size:14px;opacity:.7;font-weight:600;margin-bottom:12px;}
   .qcard{background:var(--panel2);border-radius:16px;padding:12px 14px;margin-top:10px;}
   .qcard .qrow{font-size:14px;font-weight:600;line-height:1.4;margin-top:2px;}
+  .sellrow{display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid var(--line);font-weight:700;font-size:14px;gap:8px;}
+  .sellact{display:flex;align-items:center;gap:6px;white-space:nowrap;font-weight:800;}
+  .fishbox{background:var(--panel);border-radius:24px;padding:26px 30px;display:flex;flex-direction:column;gap:14px;align-items:center;box-shadow:0 8px 0 var(--line),0 14px 30px var(--shadow);}
+  .fishtitle{font-weight:800;font-size:19px;}
+  .fishbob{font-size:46px;animation:bobber 1.1s ease-in-out infinite;}
+  @keyframes bobber{0%,100%{transform:translateY(-4px)}50%{transform:translateY(6px)}}
 
   #toast{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 74px);transform:translateX(-50%);background:rgba(47,36,22,.94);color:#fff;
     padding:10px 18px;border-radius:22px;font-weight:800;font-size:14px;opacity:0;transition:opacity .25s,transform .25s;z-index:28;pointer-events:none;white-space:nowrap;box-shadow:0 6px 18px var(--shadow);}
@@ -298,7 +304,11 @@ const npcs=[
 /* ---------- ITEM DEFS ---------- */
 const ITEMS={bone:{em:'🦴',name:'Osso'},flower:{em:'🌼',name:'Fiore'},stick:{em:'🪵',name:'Bastoncino'},
   berry:{em:'🫐',name:'Bacca'},ball:{em:'🎾',name:'Pallina di Loki'},
-  shard:{em:'🔶',name:"Frammento d'oro"},goldbone:{em:'🏆',name:"Osso d'oro"}};
+  shard:{em:'🔶',name:"Frammento d'oro"},goldbone:{em:'🏆',name:"Osso d'oro"},
+  fish_s:{em:'🐟',name:'Sardina'},fish_m:{em:'🐠',name:'Trota'},fish_l:{em:'🐡',name:'Pesce palla'},junk:{em:'🥾',name:'Stivale vecchio'},
+  seed:{em:'🌱',name:'Semino'},carrot:{em:'🥕',name:'Carota'},fossil:{em:'🦴',name:'Fossile'},clover:{em:'🍀',name:'Quadrifoglio'},
+  butterfly:{em:'🦋',name:'Farfalla'},beetle:{em:'🪲',name:'Scarabeo'}};
+const SELL={flower:2,berry:3,stick:2,fish_s:3,fish_m:6,fish_l:11,junk:1,carrot:5,fossil:14,clover:8,butterfly:6,beetle:9};
 
 /* ---------- CHAPTERS + QUESTS ---------- */
 const CHAPTERS=["Il Villaggio Addormentato","Le Voci nel Bosco","Il Segreto del Pozzo","L'Osso d'Oro"];
@@ -459,6 +469,7 @@ function doAction(){
   if(mode!=='play')return;
   if(nearNPC)interactNPC(nearNPC);
   else if(nearItem)pickItem(nearItem);
+  else if(nearWater)startFishing();
   else if(nearProp)interactProp(nearProp);
 }
 function pickItem(it){addInv(it.type,1);toast(`+1 ${ITEMS[it.type].em} ${ITEMS[it.type].name}`);burst((it.x+.5)*TILE,(it.y+.5)*TILE,'#ffd23f');sfx('pick');items=items.filter(i=>i!==it);updateHUD();save();}
@@ -491,6 +502,26 @@ function grant(q){if(!q.reward)return;if(q.reward.coins){S.coins+=q.reward.coins
 function completeQuest(){const q=Q[S.quest];if(!(q&&q.repeat))S.quest=Math.min(S.quest+1,Q.length-1);sfx('quest');updateHUD();maybeBanner(false);save();}
 function sleep(){openDialogue('😴 Cuccia',["Fai un bel pisolino con il tuo compagno...","☀️ È un nuovo giorno a Coda!"],()=>{S.day++;spawnItems();props.forEach(p=>p._cd=0);clock=0.34;toast('☀️ Giorno '+S.day);updateHUD();save();});}
 function addInv(t,n){S.inv[t]=(S.inv[t]||0)+n;if(S.inv[t]<=0)delete S.inv[t];}
+
+/* ---------- FISHING ---------- */
+let nearWater=false;
+function nearWaterTile(){const tx=Math.floor(player.x/TILE),ty=Math.floor(player.y/TILE);
+  for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]])if(groundAt(tx+dx,ty+dy)==='~')return true;return false;}
+function startFishing(){mode='fishing';sfx('tap');
+  const ov=document.createElement('div');ov.id='fishing';ov.className='overlay';ov.style.background='rgba(20,50,70,.4)';ov.style.zIndex='26';
+  ov.innerHTML=`<div class="fishbox"><div class="fishtitle" id="ftitle">🎣 Lenza in acqua...</div><div class="fishbob" id="fbob">🎣</div><button class="btn" id="fbtn" style="display:none">Tira su! 🎣</button><button class="btn ghost sm" id="fcancel">Smetti</button></div>`;
+  document.body.appendChild(ov);
+  let caught=false,windowOpen=false,to2=null;
+  document.getElementById('fcancel').onclick=endFishing;
+  const btn=document.getElementById('fbtn');
+  const to1=setTimeout(()=>{windowOpen=true;const T=document.getElementById('ftitle'),B=document.getElementById('fbob');
+    if(T)T.textContent='‼️ ABBOCCA! Tira!';if(B)B.textContent='🐟';btn.style.display='';sfx('pick');
+    to2=setTimeout(()=>{if(!caught){toast('È scappato! 🐟');endFishing();}},1150);},1200+Math.random()*1700);
+  btn.onclick=()=>{if(!windowOpen){clearTimeout(to1);toast('Troppo presto! 🎣');endFishing();return;}caught=true;if(to2)clearTimeout(to2);catchFish();};
+}
+function endFishing(){const ov=document.getElementById('fishing');if(ov)ov.remove();mode='play';}
+function catchFish(){const r=Math.random();let f=r<.14?'junk':r<.6?'fish_s':r<.88?'fish_m':'fish_l';
+  addInv(f,1);endFishing();toast(`Preso! ${ITEMS[f].em} ${ITEMS[f].name}`);sfx('win');burst(player.x,player.y-6,'#7fd8ff');updateHUD();save();}
 
 /* ---------- CHAPTER BANNER ---------- */
 function maybeBanner(force){const c=curChapter();if(!force&&S.flags.lastCh===c)return;if(S.flags.lastCh===c&&!force)return;
@@ -546,6 +577,7 @@ function openMenu(tab){if(mode!=='play')return;tab=tab||'zaino';
   sh.innerHTML=`<div class="panel">
     <div class="hubhead"><div class="tabbar">
       <button class="tabbtn" data-t="zaino">🎒<span>Zaino</span></button>
+      <button class="tabbtn" data-t="mercato">💰<span>Mercato</span></button>
       <button class="tabbtn" data-t="negozio">🛒<span>Negozio</span></button>
       <button class="tabbtn" data-t="boutique">👕<span>Boutique</span></button>
       <button class="tabbtn" data-t="casa">🏡<span>Casa</span></button>
@@ -558,7 +590,7 @@ function openMenu(tab){if(mode!=='play')return;tab=tab||'zaino';
 function renderTab(tab){const sh=menuSheet;if(!sh)return;
   sh.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
   const c=sh.querySelector('#tabc');
-  c.innerHTML=({zaino:tabZaino,negozio:tabNegozio,boutique:tabBoutique,casa:tabCasa,missioni:tabMissioni}[tab])();
+  c.innerHTML=({zaino:tabZaino,mercato:tabMercato,negozio:tabNegozio,boutique:tabBoutique,casa:tabCasa,missioni:tabMissioni}[tab])();
   bindTab(tab,c);}
 function bal(){return `<span class="bal">🦴 <b>${S.coins}</b></span>`;}
 function tabZaino(){const ks=Object.keys(S.inv);
@@ -576,6 +608,9 @@ function tabBoutique(){const ICO={neck_red:'🟥',neck_blue:'🟦',neck_green:'�
       html+=`<div class="shopitem ${owned?'':(S.coins<c.cost?'cant':'')} ${on?'wear':''}" data-cos="${id}"><div class="em">${ICO[id]||'✨'}</div><div class="nm">${c.name}</div><div class="pr">${owned?(on?'✓ Indossato':'Indossa'):'🦴 '+c.cost}</div></div>`;}
     html+='</div>';}
   return html;}
+function tabMercato(){const ks=Object.keys(SELL).filter(k=>(S.inv[k]||0)>0);
+  const rows=ks.length?ks.map(k=>`<div class="sellrow"><span>${ITEMS[k].em} ${ITEMS[k].name} <b style="opacity:.6">×${S.inv[k]}</b></span><span class="sellact">🦴${SELL[k]} <button class="btn sm" data-sell="${k}">Vendi</button><button class="btn ghost sm" data-sellall="${k}">Tutto</button></span></div>`).join(''):'<div class="empty">Niente da vendere. Raccogli fiori, bacche, legna o vai a pescare al laghetto 🎣</div>';
+  return `<h3>💰 Mercato ${bal()}</h3><p class="muted">Vendi le risorse per ottenere ossa 🦴 da spendere in vestiti, arredi e casa.</p>${rows}`;}
 function tabCasa(){const t=S.house,cur=HOUSE[t],nxt=HOUSE[t+1];
   let html=`<h3>🏡 Casa ${bal()}</h3><p class="muted">La tua dimora attuale: <b>${cur.name}</b>. Migliora la cuccia fino a diventare una villa!</p>`;
   if(nxt){const can=S.coins>=nxt.cost.coins&&(S.inv.stick||0)>=(nxt.cost.stick||0);
@@ -595,6 +630,9 @@ function bindTab(tab,c){
     if(!S.wardrobe[id]){if(S.coins<cs.cost){toast('Ossa insufficienti 🦴');return;}S.coins-=cs.cost;S.wardrobe[id]=true;of[cs.slot]=id;toast(`Comprato: ${cs.name}!`);sfx('buy');}
     else{if(of[cs.slot]===id)delete of[cs.slot];else of[cs.slot]=id;sfx('tap');}
     save();updateHUD();renderTab('boutique');});}
+  else if(tab==='mercato'){const sell=(k,all)=>{const n=all?(S.inv[k]||0):Math.min(1,S.inv[k]||0);if(n<=0)return;addInv(k,-n);S.coins+=SELL[k]*n;toast(`Venduto! +${SELL[k]*n} 🦴`);sfx('buy');save();updateHUD();renderTab('mercato');};
+    c.querySelectorAll('[data-sell]').forEach(el=>el.onclick=()=>sell(el.dataset.sell,false));
+    c.querySelectorAll('[data-sellall]').forEach(el=>el.onclick=()=>sell(el.dataset.sellall,true));}
   else if(tab==='casa'){const b=c.querySelector('#upBtn');if(b)b.onclick=()=>{const nxt=HOUSE[S.house+1];if(!nxt)return;
     if(S.coins<nxt.cost.coins||(S.inv.stick||0)<(nxt.cost.stick||0)){toast('Risorse insufficienti');return;}
     S.coins-=nxt.cost.coins;addInv('stick',-(nxt.cost.stick||0));S.house++;toast(`Costruita: ${nxt.name}! 🏡`);sfx('build');burst(player.x,player.y-10,'#ffd23f');save();updateHUD();renderTab('casa');};}
@@ -655,8 +693,9 @@ function detectNear(){const R=46;nearNPC=nearItem=nearProp=null;let best=R;
   for(const it of items){const d=dist(player.x,player.y,(it.x+.5)*TILE,(it.y+.5)*TILE);if(d<best){best=d;nearItem=it;nearNPC=nearProp=null;}}
   for(const p of props){if(!['tree','bush','doghouse','sign','well','house','bigtree','dock'].includes(p.kind))continue;
     const d=dist(player.x,player.y,(p.x+p.w/2)*TILE,(p.y+p.h/2)*TILE);if(d<best+p.w*9){best=d;nearProp=p;nearNPC=nearItem=null;}}
-  const act=document.getElementById('act');act.disabled=!(nearNPC||nearItem||nearProp);
-  act.textContent=nearNPC?'💬':nearItem?'✋':nearProp?(nearProp.kind==='doghouse'?'😴':(nearProp.kind==='tree'||nearProp.kind==='bush')?'🐾':'👀'):'👀';
+  nearWater=(!nearNPC&&!nearItem&&!nearProp&&nearWaterTile());
+  const act=document.getElementById('act');act.disabled=!(nearNPC||nearItem||nearProp||nearWater);
+  act.textContent=nearNPC?'💬':nearItem?'✋':nearWater?'🎣':nearProp?(nearProp.kind==='doghouse'?'😴':(nearProp.kind==='tree'||nearProp.kind==='bush')?'🐾':'👀'):'👀';
 }
 function dist(a,b,c,d){return Math.hypot(a-c,b-d);}
 
