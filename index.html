@@ -663,8 +663,8 @@ function updateInterior(dt){
   floaters=floaters.filter(f=>{f.y-=30*dt;f.life-=dt*0.85;return f.life>0;});
   detectNearInterior();
 }
-function detectNearInterior(){nearObj=null;let best=52;
-  for(const o of interior.obj){const d=dist(player.x,player.y,(o.x+.5)*TILE,(o.y+.6)*TILE);if(d<best){best=d;nearObj=o;}}
+function detectNearInterior(){nearObj=null;let best=62;
+  for(const o of interior.obj){const ay=(o.k==='exit'?o.y-0.05:o.y+0.6);const d=dist(player.x,player.y,(o.x+.5)*TILE,ay*TILE);if(d<best){best=d;nearObj=o;}}
   const act=document.getElementById('act');act.disabled=!nearObj;
   act.textContent=nearObj?({exit:'🚪',counter:'💬',bed:'😴',chest:'📦',expand:'🔨'}[nearObj.k]||'👀'):'👀';}
 function interiorAction(){if(!nearObj)return;const o=nearObj;
