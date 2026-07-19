@@ -397,7 +397,8 @@ document.getElementById('pNo').addEventListener('click',cancelPlace);
 /* ---------- ENTITIES ---------- */
 const player={x:0,y:0,face:1,walk:0,moving:false};
 const comp={x:0,y:0,face:1,walk:0,moving:false,trail:[]};
-let particles=[],fireflies=[];
+let particles=[],fireflies=[],floaters=[];
+function floatText(wx,wy,txt,color){floaters.push({x:wx,y:wy,txt,color:color||'#fff',life:1});}
 
 /* ---------- DOG ART (bandana + outfits!) ---------- */
 function shade(hex,f){const n=parseInt(hex.slice(1),16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;r=Math.max(0,r*f|0);g=Math.max(0,g*f|0);b=Math.max(0,b*f|0);return`rgb(${r},${g},${b})`;}
@@ -483,9 +484,17 @@ function startGame(fresh){
   document.getElementById('title').classList.add('hidden');
   document.getElementById('select').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
-  mode='play';updateHUD();maybeBanner(true);if(S.settings&&S.settings.music)startMusic();save();
+  mode='play';updateHUD();maybeBanner(true);if(S.settings&&S.settings.music)startMusic();
+  if(!S.flags.tut){S.flags.tut=true;setTimeout(showTutorial,1400);}
+  save();
 }
 
+function showTutorial(){if(mode!=='play')return;openDialogue('👋 Benvenuto a Coda!',[
+  "Sei Bucky (o Loki)! Il tuo compagno ti segue ovunque 🐾",
+  "Muoviti col joystick 🕹️ in basso a sinistra.",
+  "Il pulsante arancione a destra serve per interagire: parla 💬, raccogli ✋, pesca 🎣, scava ⛏️, cattura 🥅.",
+  "Tocca 🎒 per aprire zaino, mercato, negozio, boutique, casa e missioni!",
+  "Aiuta gli abitanti, guadagna ossa 🦴 e fai crescere il villaggio. Buon divertimento! 🌿"]);}
 /* ---------- ACTIONS ---------- */
 function doAction(){
   if(mode==='dialogue'){advanceDialogue();return;}
@@ -498,7 +507,7 @@ function doAction(){
   else if(nearWater)startFishing();
   else if(nearProp)interactProp(nearProp);
 }
-function pickItem(it){addInv(it.type,1);toast(`+1 ${ITEMS[it.type].em} ${ITEMS[it.type].name}`);burst((it.x+.5)*TILE,(it.y+.5)*TILE,'#ffd23f');sfx('pick');items=items.filter(i=>i!==it);updateHUD();save();}
+function pickItem(it){addInv(it.type,1);toast(`+1 ${ITEMS[it.type].em} ${ITEMS[it.type].name}`);burst((it.x+.5)*TILE,(it.y+.5)*TILE,'#ffd23f');floatText((it.x+.5)*TILE,it.y*TILE,`+1 ${ITEMS[it.type].em}`,'#fff');sfx('pick');items=items.filter(i=>i!==it);updateHUD();save();}
 function interactProp(p){
   if(p.kind==='tree'||p.kind==='bush'){
     if(p._cd&&p._cd>Date.now()){toast('Niente per ora... 🌿');return;}
@@ -524,7 +533,7 @@ function interactNPC(n){
     if(have>=q.amount)openDialogue(n.name+' '+n.em,q.done,()=>{if(q.giveBack)addInv(q.item,-q.amount);grant(q);completeQuest();});
     else openDialogue(n.name+' '+n.em,q.intro.concat([`Ti servono ancora ${q.amount-have} ${ITEMS[q.item].em}.`]));}
 }
-function grant(q){if(!q.reward)return;if(q.reward.coins){S.coins+=q.reward.coins;toast(`+${q.reward.coins} 🦴`);}if(q.reward.item){addInv(q.reward.item,1);toast(`Ottenuto ${ITEMS[q.reward.item].em} ${ITEMS[q.reward.item].name}!`);burst(player.x,player.y-10,'#ffcf4d');}}
+function grant(q){if(!q.reward)return;if(q.reward.coins){S.coins+=q.reward.coins;toast(`+${q.reward.coins} 🦴`);floatText(player.x,player.y-18,`+${q.reward.coins} 🦴`,'#ffe08a');}if(q.reward.item){addInv(q.reward.item,1);toast(`Ottenuto ${ITEMS[q.reward.item].em} ${ITEMS[q.reward.item].name}!`);floatText(player.x,player.y-18,ITEMS[q.reward.item].em,'#fff');burst(player.x,player.y-10,'#ffcf4d');}}
 function completeQuest(){const q=Q[S.quest];if(!(q&&q.repeat))S.quest=Math.min(S.quest+1,Q.length-1);sfx('quest');updateHUD();maybeBanner(false);save();}
 function sleep(){openDialogue('😴 Cuccia',["Fai un bel pisolino con il tuo compagno...","☀️ È un nuovo giorno a Coda!"],()=>{S.day++;(S.plots||[]).forEach(p=>p.stage=Math.min(3,(p.stage||0)+1));spawnItems();props.forEach(p=>p._cd=0);clock=0.25;rollWeather();ensureDaily();toast(`${WEATHERS[S.weather]} Giorno ${S.day}`);updateHUD();save();});}
 function addInv(t,n){S.inv[t]=(S.inv[t]||0)+n;if(S.inv[t]<=0)delete S.inv[t];}
@@ -547,7 +556,7 @@ function startFishing(){mode='fishing';sfx('tap');
 }
 function endFishing(){const ov=document.getElementById('fishing');if(ov)ov.remove();mode='play';}
 function catchFish(){const r=Math.random();let f=r<.14?'junk':r<.6?'fish_s':r<.88?'fish_m':'fish_l';
-  addInv(f,1);stat('fish');endFishing();toast(`Preso! ${ITEMS[f].em} ${ITEMS[f].name}`);sfx('win');burst(player.x,player.y-6,'#7fd8ff');updateHUD();save();}
+  addInv(f,1);stat('fish');endFishing();toast(`Preso! ${ITEMS[f].em} ${ITEMS[f].name}`);floatText(player.x,player.y-18,ITEMS[f].em,'#7fd8ff');sfx('win');burst(player.x,player.y-6,'#7fd8ff');updateHUD();save();}
 
 /* ---------- DIGGING ---------- */
 function digSpot(d){
@@ -558,7 +567,7 @@ function digSpot(d){
   else if(r<.85){addInv('clover',1);msg='Un quadrifoglio 🍀!';em='🍀';}
   else if(r<.95){addInv('carrot',1);msg='Una carota 🥕';em='🥕';}
   else{addInv('junk',1);msg='...uno stivale vecchio 🥾';em='🥾';}
-  stat('dig');S.digs=S.digs.filter(x=>x!==d);burst((d.x+.5)*TILE,(d.y+.4)*TILE,'#b98a3f');toast(msg);sfx('build');updateHUD();save();}
+  stat('dig');S.digs=S.digs.filter(x=>x!==d);burst((d.x+.5)*TILE,(d.y+.4)*TILE,'#b98a3f');floatText((d.x+.5)*TILE,d.y*TILE,em,'#ffe08a');toast(msg);sfx('build');updateHUD();save();}
 
 /* ---------- CRITTERS (butterflies / beetles) ---------- */
 let critters=[];
@@ -569,12 +578,12 @@ function updateCritters(dt){const L=getLight();const dayt=L.dark<.12;
   for(const cr of critters){cr.ph+=dt*4;cr.x+=cr.vx*dt+Math.sin(cr.ph)*.4;cr.y+=cr.vy*dt+Math.cos(cr.ph)*.4;
     if(Math.random()<.01){cr.vx=(Math.random()-.5)*20;cr.vy=(Math.random()-.5)*20;}}
   critters=critters.filter(cr=>cr.x>camX-60&&cr.x<camX+VW+60&&cr.y>camY-60&&cr.y<camY+VH+60);}
-function catchCritter(cr){addInv(cr.type,1);stat('critter');critters=critters.filter(x=>x!==cr);toast(`Catturato! ${cr.em} ${ITEMS[cr.type].name}`);sfx('win');burst(cr.x,cr.y,'#c77dff');updateHUD();save();}
+function catchCritter(cr){addInv(cr.type,1);stat('critter');critters=critters.filter(x=>x!==cr);toast(`Catturato! ${cr.em} ${ITEMS[cr.type].name}`);floatText(cr.x,cr.y-12,cr.em,'#c77dff');sfx('win');burst(cr.x,cr.y,'#c77dff');updateHUD();save();}
 
 /* ---------- FARMING (orto) ---------- */
 function startPlant(){mode='play';placeMode={plant:true};document.getElementById('placeBar').classList.remove('hidden');document.getElementById('placeHint').classList.remove('hidden');
   document.getElementById('act').style.display='none';document.getElementById('menuBtn').style.display='none';document.getElementById('shopBtn').style.display='none';toast('Pianta il semino su un prato 🌱');}
-function harvestPlot(p){const n=2+Math.floor(Math.random()*2);addInv('carrot',n);stat('harvest');S.plots=S.plots.filter(x=>x!==p);toast(`Raccolte ${n} 🥕 carote!`);sfx('win');burst((p.x+.5)*TILE,(p.y+.3)*TILE,'#ff9e3d');updateHUD();save();}
+function harvestPlot(p){const n=2+Math.floor(Math.random()*2);addInv('carrot',n);stat('harvest');S.plots=S.plots.filter(x=>x!==p);toast(`Raccolte ${n} 🥕 carote!`);floatText((p.x+.5)*TILE,p.y*TILE,`+${n} 🥕`,'#ff9e3d');sfx('win');burst((p.x+.5)*TILE,(p.y+.3)*TILE,'#ff9e3d');updateHUD();save();}
 function drawPlot(p){const sx=p.x*TILE-camX,sy=p.y*TILE-camY;
   ctx.fillStyle='#8a6239';ctx.fillRect(sx+6,sy+20,TILE-12,14);ctx.fillStyle='#6f4a28';for(let i=0;i<3;i++)ctx.fillRect(sx+8+i*9,sy+22,2,10);
   const st=p.stage||0;
@@ -729,7 +738,7 @@ function bindTab(tab,c){
     if(!S.wardrobe[id]){if(S.coins<cs.cost){toast('Ossa insufficienti 🦴');return;}S.coins-=cs.cost;S.wardrobe[id]=true;of[cs.slot]=id;toast(`Comprato: ${cs.name}!`);sfx('buy');}
     else{if(of[cs.slot]===id)delete of[cs.slot];else of[cs.slot]=id;sfx('tap');}
     save();updateHUD();renderTab('boutique');});}
-  else if(tab==='mercato'){const sell=(k,all)=>{const n=all?(S.inv[k]||0):Math.min(1,S.inv[k]||0);if(n<=0)return;addInv(k,-n);S.coins+=SELL[k]*n;toast(`Venduto! +${SELL[k]*n} 🦴`);sfx('buy');save();updateHUD();renderTab('mercato');};
+  else if(tab==='mercato'){const sell=(k,all)=>{const n=all?(S.inv[k]||0):Math.min(1,S.inv[k]||0);if(n<=0)return;addInv(k,-n);S.coins+=SELL[k]*n;toast(`Venduto! +${SELL[k]*n} 🦴`);floatText(player.x,player.y-18,`+${SELL[k]*n} 🦴`,'#ffe08a');sfx('buy');save();updateHUD();renderTab('mercato');};
     c.querySelectorAll('[data-sell]').forEach(el=>el.onclick=()=>sell(el.dataset.sell,false));
     c.querySelectorAll('[data-sellall]').forEach(el=>el.onclick=()=>sell(el.dataset.sellall,true));}
   else if(tab==='casa'){const b=c.querySelector('#upBtn');if(b)b.onclick=()=>{const nxt=HOUSE[S.house+1];if(!nxt)return;
@@ -777,6 +786,7 @@ function update(dt){
   targetCamX=clampX(player.x-VW/2);targetCamY=clampY(player.y-VH/2);
   camX+=(targetCamX-camX)*.12;camY+=(targetCamY-camY)*.12;
   particles=particles.filter(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.12;p.life-=dt*1.8;return p.life>0;});
+  floaters=floaters.filter(f=>{f.y-=30*dt;f.life-=dt*0.85;return f.life>0;});
   // fireflies at night
   const L=getLight();
   if(L.dark>.15){if(fireflies.length<26&&Math.random()<.3)fireflies.push({x:camX+Math.random()*VW,y:camY+Math.random()*VH,ph:Math.random()*7,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3});}
@@ -847,6 +857,9 @@ function draw(){
   list.push({y:player.y+18,f:()=>drawDog(ctx,player.x-camX,player.y-camY,1.75,S.dog,player.face,player.walk,player.moving,S.outfits[S.dog])});
   list.sort((a,b)=>a.y-b.y);list.forEach(d=>d.f());
   for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x-camX,p.y-camY,(p.r||2.5)*p.life+.5,0,7);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const f of floaters){ctx.globalAlpha=Math.max(0,Math.min(1,f.life*1.4));ctx.font='800 15px '+FONT;ctx.textAlign='center';
+    ctx.lineWidth=3;ctx.strokeStyle='rgba(0,0,0,.35)';ctx.strokeText(f.txt,f.x-camX,f.y-camY);ctx.fillStyle=f.color;ctx.fillText(f.txt,f.x-camX,f.y-camY);}
   ctx.globalAlpha=1;
   // ghost for place mode
   if(placeMode){const{tx,ty}=ghostTile();const ok=!occupied(tx,ty);const sx=tx*TILE-camX,sy=ty*TILE-camY;
