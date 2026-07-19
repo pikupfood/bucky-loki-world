@@ -172,11 +172,13 @@ function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMa
 addEventListener('resize',resize);resize();
 
 /* ================= LIGHTS ================= */
-const hemi=new T.HemisphereLight(0xdcf2ff,0x7fa858,1.05);scene.add(hemi);
+const hemi=new T.HemisphereLight(0xdcf2ff,0x86ad5c,1.1);scene.add(hemi);
 const sun=new T.DirectionalLight(0xfff4dc,2.5);sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.near=1;sun.shadow.camera.far=180;
 const SH=64;sun.shadow.camera.left=-SH;sun.shadow.camera.right=SH;sun.shadow.camera.top=SH;sun.shadow.camera.bottom=-SH;
-sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;scene.add(sun);scene.add(sun.target);
+sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;sun.shadow.radius=4.5;scene.add(sun);scene.add(sun.target);
+// soft sky-tinted fill from the opposite side to lift the shadows (no shadow casting)
+const fill=new T.DirectionalLight(0xbfe0ff,0.5);fill.position.set(-40,30,-30);scene.add(fill);
 const moon=new T.DirectionalLight(0x9fb4e6,0.0);scene.add(moon);
 const nightPointLights=[];
 
@@ -188,7 +190,14 @@ function noiseTex(base,spots,size,density){
     const x=Math.random()*cv.width,y=Math.random()*cv.height,r=Math.random()*2+0.5;g.beginPath();g.arc(x,y,r,0,7);g.fill();}
   const tx=new T.CanvasTexture(cv);tx.colorSpace=T.SRGBColorSpace;tx.wrapS=tx.wrapT=T.RepeatWrapping;return tx;
 }
-const grassTex=noiseTex('#84cf63',['#8fd96e','#72bd54','#9be07f','#67ac4c'],128,1600);grassTex.repeat.set(55,55);
+function softGrassTex(){const cv=document.createElement('canvas');cv.width=cv.height=256;const g=cv.getContext('2d');
+  g.fillStyle='#83cf60';g.fillRect(0,0,256,256);
+  const tints=['#8fdc6c','#74be51','#98e278','#6bb04c','#8ad566'];
+  for(let i=0;i<90;i++){const x=Math.random()*256,y=Math.random()*256,r=18+Math.random()*44;
+    const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,tints[(Math.random()*tints.length)|0]);gr.addColorStop(1,'rgba(131,207,96,0)');
+    g.globalAlpha=0.5;g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,7);g.fill();}g.globalAlpha=1;
+  const t=new T.CanvasTexture(cv);t.colorSpace=T.SRGBColorSpace;t.wrapS=t.wrapT=T.RepeatWrapping;return t;}
+const grassTex=softGrassTex();grassTex.repeat.set(42,42);
 const sandTex=noiseTex('#e6d3a0',['#e9d8ab','#d9c188','#efe0b6'],64,500);sandTex.repeat.set(6,6);
 function brickTex(){const cv=document.createElement('canvas');cv.width=cv.height=128;const g=cv.getContext('2d');
   g.fillStyle='#d8c08a';g.fillRect(0,0,128,128);const bh=17;let off=0;
@@ -221,7 +230,9 @@ for(let i=0;i<11;i++){const a=(i/11)*6.283+0.2;
   const R=50+((i*37)%9);const x=Math.cos(a)*R,z=Math.sin(a)*R;
   const w=14+((i*53)%10),d=10+((i*31)%6);
   const tr=makeTerrace(w,d,2+((i*7)%2),2.6,4.5);tr.position.set(x,0,z);tr.rotation.y=-a+Math.PI/2+((i%2)?0.3:-0.3);
-  scene.add(tr);terrColliders.push({x,z,r:Math.max(w,d)*0.5});}
+  scene.add(tr);terrColliders.push({x,z,r:Math.max(w,d)*0.5});
+  const dl=Math.hypot(x,z),st=makeStairs(3.2,4,0.62,0.85);
+  st.position.set(x-x/dl*(Math.min(w,d)*0.5+1),0,z-z/dl*(Math.min(w,d)*0.5+1));st.rotation.y=Math.atan2(x,z);scene.add(st);}
 // a few detached plateaus dotted further out for depth
 for(let i=0;i<5;i++){const a=i*1.7+0.6,R=66+i*4,x=Math.cos(a)*R,z=Math.sin(a)*R;
   const tr=makeTerrace(16,12,3,2.8,4);tr.position.set(x,0,z);tr.rotation.y=-a;scene.add(tr);}
@@ -236,30 +247,40 @@ water.rotation.x=-Math.PI/2;water.position.set(LAKE.x,0.10,LAKE.z);scene.add(wat
 const skin=new T.Mesh(new T.CircleGeometry(LAKE.r,64),new T.MeshStandardMaterial({color:0x2f7ea8,transparent:true,opacity:0.18,roughness:0.08,metalness:0.3}));
 skin.rotation.x=-Math.PI/2;skin.position.set(LAKE.x,0.11,LAKE.z);scene.add(skin);
 
-/* ================= GRASS BLADES (instanced cross-blades + wind) ================= */
+/* ================= GRASS TUFTS (instanced, gradient, wind) ================= */
 function crossBlade(w,h){
-  const p1=new T.PlaneGeometry(w,h,1,1).translate(0,h/2,0).toNonIndexed();
-  const p2=new T.PlaneGeometry(w,h,1,1).rotateY(Math.PI/2).translate(0,h/2,0).toNonIndexed();
+  const p1=new T.PlaneGeometry(w,h,1,2).translate(0,h/2,0).toNonIndexed();
+  const p2=new T.PlaneGeometry(w,h,1,2).rotateY(Math.PI/2).translate(0,h/2,0).toNonIndexed();
   const cat=(a,b)=>{const m=new Float32Array(a.length+b.length);m.set(a);m.set(b,a.length);return m;};
   const g=new T.BufferGeometry();
-  g.setAttribute('position',new T.BufferAttribute(cat(p1.attributes.position.array,p2.attributes.position.array),3));
+  const pos=cat(p1.attributes.position.array,p2.attributes.position.array);
+  g.setAttribute('position',new T.BufferAttribute(pos,3));
   g.setAttribute('normal',new T.BufferAttribute(cat(p1.attributes.normal.array,p2.attributes.normal.array),3));
   g.setAttribute('uv',new T.BufferAttribute(cat(p1.attributes.uv.array,p2.attributes.uv.array),2));
-  return g;}
-const bladeGeo=crossBlade(0.085,0.6);
-const grassMat=new T.MeshStandardMaterial({color:0x5aa54a,roughness:1,side:T.DoubleSide,vertexColors:false});
+  const cols=new Float32Array(pos.length),base=new T.Color(0x3c8235),tip=new T.Color(0x9ee06f);
+  for(let i=0;i<pos.length/3;i++){const f=Math.min(1,Math.max(0,pos[i*3+1]/h));const c=base.clone().lerp(tip,f*f);
+    cols[i*3]=c.r;cols[i*3+1]=c.g;cols[i*3+2]=c.b;}
+  g.setAttribute('color',new T.BufferAttribute(cols,3));return g;}
+const bladeGeo=crossBlade(0.11,0.34);
+const grassMat=new T.MeshStandardMaterial({color:0xffffff,roughness:1,side:T.DoubleSide,vertexColors:true});
 grassMat.userData.sh=null;
 grassMat.onBeforeCompile=sh=>{sh.uniforms.uTime={value:0};grassMat.userData.sh=sh;
   sh.vertexShader='uniform float uTime;\n'+sh.vertexShader.replace('#include <begin_vertex>',
-    '#include <begin_vertex>\nfloat _w=step(0.25,position.y);transformed.x+=sin(uTime*1.6+ (instanceMatrix[3][0])*0.6 + (instanceMatrix[3][2])*0.6)*0.16*_w;transformed.z+=cos(uTime*1.3+(instanceMatrix[3][0])*0.5)*0.09*_w;');};
-const GRASSN=5600;
-const grass=new T.InstancedMesh(bladeGeo,grassMat,GRASSN);grass.receiveShadow=true;
-{const dummy=new T.Object3D();const col=new T.Color();let i=0,guard=0;while(i<GRASSN&&guard<GRASSN*3){guard++;
-  const x=(Math.random()-0.5)*98,z=(Math.random()-0.5)*98;
-  if(Math.hypot(x-LAKE.x,z-LAKE.z)<LAKE.r+2)continue;
-  dummy.position.set(x,0,z);dummy.rotation.y=Math.random()*6.28;const s=0.65+Math.random()*1.0;dummy.scale.set(0.8+Math.random()*0.5,s,1);
-  dummy.updateMatrix();grass.setMatrixAt(i,dummy.matrix);
-  col.setHSL(0.26+Math.random()*0.08,0.5+Math.random()*0.2,0.36+Math.random()*0.16);grass.setColorAt(i,col);i++;}}
+    '#include <begin_vertex>\nfloat _w=smoothstep(0.15,1.0,position.y/0.34);transformed.x+=sin(uTime*1.7+(instanceMatrix[3][0])*0.7+(instanceMatrix[3][2])*0.7)*0.05*_w;transformed.z+=cos(uTime*1.4+(instanceMatrix[3][0])*0.5)*0.03*_w;');};
+const GRASSN=9000;
+const grass=new T.InstancedMesh(bladeGeo,grassMat,GRASSN);grass.receiveShadow=true;grass.castShadow=false;
+{const dummy=new T.Object3D();const col=new T.Color();let i=0,guard=0;
+ while(i<GRASSN&&guard<GRASSN*4){guard++;
+  // clump: pick a clump centre, scatter a few blades around it
+  const cxp=(Math.random()-0.5)*100,czp=(Math.random()-0.5)*100;
+  const clump=2+((Math.random()*4)|0);
+  for(let k=0;k<clump&&i<GRASSN;k++){
+    const x=cxp+(Math.random()-0.5)*1.6,z=czp+(Math.random()-0.5)*1.6;
+    if(Math.hypot(x-LAKE.x,z-LAKE.z)<LAKE.r+1.5)continue;
+    dummy.position.set(x,0,z);dummy.rotation.y=Math.random()*6.28;
+    const s=0.7+Math.random()*0.9;dummy.scale.set(0.85+Math.random()*0.4,s,1);dummy.updateMatrix();
+    grass.setMatrixAt(i,dummy.matrix);col.setHSL(0.27,0.5,0.92+Math.random()*0.08);grass.setColorAt(i,col);i++;}}
+ for(;i<GRASSN;i++){dummy.position.set(999,0,999);dummy.updateMatrix();grass.setMatrixAt(i,dummy.matrix);}}
 grass.instanceMatrix.needsUpdate=true;if(grass.instanceColor)grass.instanceColor.needsUpdate=true;scene.add(grass);
 
 /* ================= FACTORIES ================= */
@@ -284,8 +305,24 @@ function makeHouse(w,d,h,roofColor,wallColor){const g=new T.Group();
   const winMat=new T.MeshStandardMaterial({color:0xbfe6ff,emissive:0x3a2a10,emissiveIntensity:0,roughness:0.2,metalness:0.3});windowMats.push(winMat);
   for(const sx of[-1,1]){const win=new T.Mesh(new T.BoxGeometry(w*0.2,w*0.2,0.1),winMat);win.position.set(sx*w*0.28,h*0.6,d/2+0.02);g.add(win);}
   return g;}
-function makeBush(s){const b=new T.Mesh(new T.IcosahedronGeometry(s,1),new T.MeshStandardMaterial({color:0x3f8f45,roughness:0.9}));
+function makeBush(s){const b=new T.Mesh(new T.IcosahedronGeometry(s,1),new T.MeshStandardMaterial({color:0x3f8f45,roughness:0.9,flatShading:true}));
   b.castShadow=true;b.receiveShadow=true;return b;}
+const rockMat=new T.MeshStandardMaterial({color:0x9aa0a6,roughness:1,flatShading:true});
+function makeRock(s){const r=new T.Mesh(new T.DodecahedronGeometry(s,0),rockMat);
+  r.rotation.set(Math.random()*3,Math.random()*3,Math.random()*3);r.scale.set(1,0.7,1);r.castShadow=true;r.receiveShadow=true;return r;}
+function makeMushroom(){const g=new T.Group();
+  const stem=new T.Mesh(new T.CylinderGeometry(0.07,0.09,0.24,8),new T.MeshStandardMaterial({color:0xf3ead6,roughness:0.9}));stem.position.y=0.12;g.add(stem);
+  const cap=new T.Mesh(new T.SphereGeometry(0.17,12,10,0,6.3,0,1.55),new T.MeshStandardMaterial({color:0xe0483a,roughness:0.55}));cap.position.y=0.23;g.add(cap);
+  for(let i=0;i<4;i++){const d=new T.Mesh(new T.SphereGeometry(0.032,6,6),new T.MeshStandardMaterial({color:0xffffff}));const a=Math.random()*6.28,rr=0.05+Math.random()*0.08;d.position.set(Math.cos(a)*rr,0.28,Math.sin(a)*rr);g.add(d);}
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});return g;}
+const plankMat=new T.MeshStandardMaterial({color:0xb07a45,roughness:0.9});
+function makePier(){const g=new T.Group();
+  for(let i=0;i<8;i++){const pl=new T.Mesh(new T.BoxGeometry(2.4,0.14,0.56),plankMat);pl.position.set(0,0.2,-i*0.62);pl.castShadow=true;pl.receiveShadow=true;g.add(pl);}
+  for(const sx of[-1,1])for(let i=0;i<3;i++){const post=new T.Mesh(new T.CylinderGeometry(0.1,0.1,1.1,7),new T.MeshStandardMaterial({color:0x7d5636,roughness:0.9}));post.position.set(sx*1.05,-0.2,-i*2.2);post.castShadow=true;g.add(post);}
+  return g;}
+function makeStairs(w,steps,sh,sd){const g=new T.Group();for(let i=0;i<steps;i++){
+  const s=new T.Mesh(new T.BoxGeometry(w,sh,sd),brickMat);s.position.set(0,i*sh+sh/2,i*sd);s.castShadow=true;s.receiveShadow=true;g.add(s);
+  const cap=new T.Mesh(new T.BoxGeometry(w+0.08,0.05,sd),capMat);cap.position.set(0,i*sh+sh,i*sd);g.add(cap);}return g;}
 function makeHatMesh(type){const h=new T.Group();
   if(type==='cappello'){const brim=new T.Mesh(new T.CylinderGeometry(0.42,0.42,0.06,16),new T.MeshStandardMaterial({color:0x222028}));brim.position.y=0.5;h.add(brim);
     const top=new T.Mesh(new T.CylinderGeometry(0.28,0.28,0.5,16),new T.MeshStandardMaterial({color:0x2a2730}));top.position.y=0.76;h.add(top);
@@ -374,6 +411,16 @@ for(let i=0;i<70;i++){const x=(rand(i*1.1)-0.5)*90,z=(rand(i*2.2)-0.5)*90;if(inL
   for(let k=0;k<5;k++){const pet=new T.Mesh(new T.SphereGeometry(0.1,8,8),new T.MeshStandardMaterial({color:flowerCols[i%4],roughness:0.6}));const a=k/5*6.28;pet.position.set(Math.cos(a)*0.13,0.44,Math.sin(a)*0.13);grp.add(pet);}
   const mid=new T.Mesh(new T.SphereGeometry(0.07,8,8),new T.MeshStandardMaterial({color:0xffd23f}));mid.position.y=0.46;grp.add(mid);
   grp.position.set(x,0,z);scene.add(grp);reg({type:'flower',x,z,r:1.8,mesh:grp});}
+// scenic details: rocks, mushrooms, flower patches
+for(let i=0;i<16;i++){const a=rand(i*5.1+2)*6.28,rad=7+rand(i*2.9)*44,x=Math.cos(a)*rad,z=Math.sin(a)*rad;
+  if(inLake(x,z)||inGarden(x,z)||Math.hypot(x,z)<6)continue;const r=makeRock(0.5+rand(i)*0.9);r.position.set(x,0.12,z);scene.add(r);colliders.push({x,z,r:0.9});}
+for(let i=0;i<14;i++){const a=rand(i*3.7+9)*6.28,rad=6+rand(i*4.1)*40,x=Math.cos(a)*rad,z=Math.sin(a)*rad;
+  if(inLake(x,z)||inGarden(x,z)||Math.hypot(x,z)<5)continue;const m=makeMushroom();m.position.set(x,0,z);m.scale.setScalar(0.8+rand(i)*0.7);scene.add(m);}
+for(let i=0;i<26;i++){const a=rand(i*1.9+4)*6.28,rad=5+rand(i*2.3)*44,cx=Math.cos(a)*rad,cz=Math.sin(a)*rad;
+  if(inLake(cx,cz)||inGarden(cx,cz)||Math.hypot(cx,cz)<4)continue;
+  for(let k=0;k<3;k++){const fx=cx+(rand(i*9+k)-0.5)*1.5,fz=cz+(rand(i*7+k*3)-0.5)*1.5;
+    const st=new T.Mesh(new T.CylinderGeometry(0.025,0.025,0.3,4),new T.MeshStandardMaterial({color:0x4c9a3a}));st.position.set(fx,0.15,fz);scene.add(st);
+    const fl=new T.Mesh(new T.SphereGeometry(0.13,8,8),new T.MeshStandardMaterial({color:flowerCols[(i+k)%4],roughness:0.55}));fl.position.set(fx,0.32,fz);scene.add(fl);}}
 // dig spots (mounds) -> gems
 for(let i=0;i<8;i++){const x=(rand(i*7.7+3)-0.5)*70,z=(rand(i*3.3+5)-0.5)*70;if(inLake(x,z)||inGarden(x,z)||Math.hypot(x,z)<6)continue;
   const m=new T.Mesh(new T.SphereGeometry(0.5,10,8,0,6.3,0,1.4),new T.MeshStandardMaterial({color:0x8a6239,roughness:1}));m.position.set(x,0,z);m.scale.set(1,0.5,1);m.receiveShadow=true;scene.add(m);
@@ -411,6 +458,8 @@ for(let row=0;row<2;row++){const rz=10.2+row*1.15;const soil=new T.Mesh(new T.Bo
   for(let cc=0;cc<6;cc++){const px=0.6+cc*1.08;
     const bush=new T.Mesh(new T.IcosahedronGeometry(0.28,0),new T.MeshStandardMaterial({color:0x3f8f45,flatShading:true}));bush.position.set(px,0.42,rz);bush.castShadow=true;scene.add(bush);
     for(let t=0;t<3;t++){const tom=new T.Mesh(new T.SphereGeometry(0.09,8,8),new T.MeshStandardMaterial({color:0xe23c2f,roughness:0.5}));tom.position.set(px+(t-1)*0.15,0.4+rand(cc*7+t)*0.16,rz+0.12);scene.add(tom);}}}
+// wooden pier over the lake (south shore, by the fishing spot)
+const pier=makePier();pier.position.set(LAKE.x,0,LAKE.z+LAKE.r-1);scene.add(pier);
 // winding dirt paths
 const pathMat=new T.MeshStandardMaterial({map:sandTex.clone(),color:0xdcc38a,roughness:1});pathMat.map.repeat.set(4,1);
 function pathSeg(x1,z1,x2,z2,w){const dx=x2-x1,dz=z2-z1,len=Math.hypot(dx,dz);const s=new T.Mesh(new T.BoxGeometry(len,0.06,w||2.4),pathMat);
