@@ -291,7 +291,12 @@ function spawnItems(){items=[];
   const add=(l,type,em)=>l.forEach(([x,y])=>{if(!solidAt(x,y))items.push({x,y,type,em});});
   add([[16,13],[29,11],[35,20],[19,27],[44,18],[12,31],[48,12],[23,36],[15,9],[39,35],[31,26],[7,33],[45,26]],'bone','🦴');
   add([[8,16],[28,14],[18,24],[32,25],[42,29],[13,27],[22,8],[47,25],[10,36],[36,20],[5,29]],'flower','🌼');
-  items.push({x:50,y:12,type:'ball',em:'🎾'});}
+  items.push({x:50,y:12,type:'ball',em:'🎾'});
+  // dig spots (respawn each day; more with higher day)
+  S.digs=[];const nd=3+Math.min(5,S.day);let tr=0;
+  while(S.digs.length<nd&&tr<300){tr++;const x=2+Math.floor(Math.random()*(MAPW-4)),y=2+Math.floor(Math.random()*(MAPH-4));
+    if(solidAt(x,y)||groundAt(x,y)==='~'||groundAt(x,y)==='='||occupied(x,y))continue;
+    if(S.digs.some(d=>Math.abs(d.x-x)<2&&Math.abs(d.y-y)<2))continue;S.digs.push({x,y});}}
 
 /* ---------- NPCs ---------- */
 const npcs=[
@@ -445,7 +450,7 @@ function rr(g,x,y,w,h,r){r=Math.min(r,w/2,h/2);g.beginPath();g.moveTo(x+r,y);g.a
 
 /* ---------- STATE ---------- */
 let mode='title',camX=0,camY=0,targetCamX=0,targetCamY=0;
-let dialogue=null,nearNPC=null,nearItem=null,nearProp=null;
+let dialogue=null,nearNPC=null,nearItem=null,nearProp=null,nearDig=null,nearCritter=null;
 let placeMode=null; // {t}
 let clock=0.25; // time of day 0..1 (runtime)
 const CYCLE=600; // long, day-dominant cycle so it stays bright most of the time
@@ -467,7 +472,9 @@ function startGame(fresh){
 function doAction(){
   if(mode==='dialogue'){advanceDialogue();return;}
   if(mode!=='play')return;
-  if(nearNPC)interactNPC(nearNPC);
+  if(nearCritter)catchCritter(nearCritter);
+  else if(nearDig)digSpot(nearDig);
+  else if(nearNPC)interactNPC(nearNPC);
   else if(nearItem)pickItem(nearItem);
   else if(nearWater)startFishing();
   else if(nearProp)interactProp(nearProp);
@@ -522,6 +529,28 @@ function startFishing(){mode='fishing';sfx('tap');
 function endFishing(){const ov=document.getElementById('fishing');if(ov)ov.remove();mode='play';}
 function catchFish(){const r=Math.random();let f=r<.14?'junk':r<.6?'fish_s':r<.88?'fish_m':'fish_l';
   addInv(f,1);endFishing();toast(`Preso! ${ITEMS[f].em} ${ITEMS[f].name}`);sfx('win');burst(player.x,player.y-6,'#7fd8ff');updateHUD();save();}
+
+/* ---------- DIGGING ---------- */
+function digSpot(d){
+  const r=Math.random();let msg,em;
+  if(r<.30){const c=5+Math.floor(Math.random()*8);S.coins+=c;msg=`+${c} 🦴 ossa`;em='🦴';}
+  else if(r<.55){addInv('bone',1);msg='+1 🦴 Osso';em='🦴';}
+  else if(r<.72){addInv('fossil',1);msg='Un fossile antico! 🦴';em='🦴';}
+  else if(r<.85){addInv('clover',1);msg='Un quadrifoglio 🍀!';em='🍀';}
+  else if(r<.95){addInv('carrot',1);msg='Una carota 🥕';em='🥕';}
+  else{addInv('junk',1);msg='...uno stivale vecchio 🥾';em='🥾';}
+  S.digs=S.digs.filter(x=>x!==d);burst((d.x+.5)*TILE,(d.y+.4)*TILE,'#b98a3f');toast(msg);sfx('build');updateHUD();save();}
+
+/* ---------- CRITTERS (butterflies / beetles) ---------- */
+let critters=[];
+function updateCritters(dt){const L=getLight();const dayt=L.dark<.12;
+  if(dayt&&critters.length<5&&Math.random()<.02){const t=Math.random()<.6?'butterfly':'beetle';
+    critters.push({x:camX+Math.random()*VW,y:camY+Math.random()*VH,vx:(Math.random()-.5)*20,vy:(Math.random()-.5)*20,type:t,ph:Math.random()*7,em:t==='butterfly'?'🦋':'🪲'});}
+  if(!dayt)critters=[];
+  for(const cr of critters){cr.ph+=dt*4;cr.x+=cr.vx*dt+Math.sin(cr.ph)*.4;cr.y+=cr.vy*dt+Math.cos(cr.ph)*.4;
+    if(Math.random()<.01){cr.vx=(Math.random()-.5)*20;cr.vy=(Math.random()-.5)*20;}}
+  critters=critters.filter(cr=>cr.x>camX-60&&cr.x<camX+VW+60&&cr.y>camY-60&&cr.y<camY+VH+60);}
+function catchCritter(cr){addInv(cr.type,1);critters=critters.filter(x=>x!==cr);toast(`Catturato! ${cr.em} ${ITEMS[cr.type].name}`);sfx('win');burst(cr.x,cr.y,'#c77dff');updateHUD();save();}
 
 /* ---------- CHAPTER BANNER ---------- */
 function maybeBanner(force){const c=curChapter();if(!force&&S.flags.lastCh===c)return;if(S.flags.lastCh===c&&!force)return;
@@ -681,21 +710,24 @@ function update(dt){
   if(L.dark>.15){if(fireflies.length<26&&Math.random()<.3)fireflies.push({x:camX+Math.random()*VW,y:camY+Math.random()*VH,ph:Math.random()*7,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3});}
   fireflies=fireflies.filter(f=>{f.x+=f.vx;f.y+=f.vy;f.ph+=dt*3;if(Math.random()<.005)return false;return true;});
   if(L.dark<=.15&&fireflies.length)fireflies.length=Math.max(0,fireflies.length-1);
+  updateCritters(dt);
   detectNear();
 }
 function clampX(x){return Math.max(0,Math.min(x,MAPW*TILE-VW));}
 function clampY(y){return Math.max(0,Math.min(y,MAPH*TILE-VH));}
 function move(o,dx,dy){const r=9;if(!hit(o.x+dx,o.y,r))o.x+=dx;if(!hit(o.x,o.y+dy,r))o.y+=dy;}
 function hit(x,y,r){for(const[a,b]of[[x-r,y-r+4],[x+r,y-r+4],[x-r,y+r],[x+r,y+r]])if(solidAt(Math.floor(a/TILE),Math.floor(b/TILE)))return true;return false;}
-function detectNear(){const R=46;nearNPC=nearItem=nearProp=null;let best=R;
+function detectNear(){const R=46;nearNPC=nearItem=nearProp=nearDig=nearCritter=null;let best=R;
   if(placeMode){document.getElementById('act').disabled=true;return;}
-  for(const n of npcs){const d=dist(player.x,player.y,(n.x+.5)*TILE,(n.y+.5)*TILE);if(d<best){best=d;nearNPC=n;nearItem=nearProp=null;}}
-  for(const it of items){const d=dist(player.x,player.y,(it.x+.5)*TILE,(it.y+.5)*TILE);if(d<best){best=d;nearItem=it;nearNPC=nearProp=null;}}
+  for(const n of npcs){const d=dist(player.x,player.y,(n.x+.5)*TILE,(n.y+.5)*TILE);if(d<best){best=d;nearNPC=n;nearItem=nearProp=nearDig=nearCritter=null;}}
+  for(const it of items){const d=dist(player.x,player.y,(it.x+.5)*TILE,(it.y+.5)*TILE);if(d<best){best=d;nearItem=it;nearNPC=nearProp=nearDig=nearCritter=null;}}
+  for(const d2 of (S.digs||[])){const d=dist(player.x,player.y,(d2.x+.5)*TILE,(d2.y+.5)*TILE);if(d<best){best=d;nearDig=d2;nearNPC=nearItem=nearProp=nearCritter=null;}}
+  for(const cr of critters){const d=dist(player.x,player.y,cr.x,cr.y);if(d<best){best=d;nearCritter=cr;nearNPC=nearItem=nearProp=nearDig=null;}}
   for(const p of props){if(!['tree','bush','doghouse','sign','well','house','bigtree','dock'].includes(p.kind))continue;
-    const d=dist(player.x,player.y,(p.x+p.w/2)*TILE,(p.y+p.h/2)*TILE);if(d<best+p.w*9){best=d;nearProp=p;nearNPC=nearItem=null;}}
-  nearWater=(!nearNPC&&!nearItem&&!nearProp&&nearWaterTile());
-  const act=document.getElementById('act');act.disabled=!(nearNPC||nearItem||nearProp||nearWater);
-  act.textContent=nearNPC?'💬':nearItem?'✋':nearWater?'🎣':nearProp?(nearProp.kind==='doghouse'?'😴':(nearProp.kind==='tree'||nearProp.kind==='bush')?'🐾':'👀'):'👀';
+    const d=dist(player.x,player.y,(p.x+p.w/2)*TILE,(p.y+p.h/2)*TILE);if(d<best+p.w*9){best=d;nearProp=p;nearNPC=nearItem=nearDig=nearCritter=null;}}
+  nearWater=(!nearNPC&&!nearItem&&!nearProp&&!nearDig&&!nearCritter&&nearWaterTile());
+  const act=document.getElementById('act');act.disabled=!(nearNPC||nearItem||nearProp||nearWater||nearDig||nearCritter);
+  act.textContent=nearCritter?'🥅':nearDig?'⛏️':nearNPC?'💬':nearItem?'✋':nearWater?'🎣':nearProp?(nearProp.kind==='doghouse'?'😴':(nearProp.kind==='tree'||nearProp.kind==='bush')?'🐾':'👀'):'👀';
 }
 function dist(a,b,c,d){return Math.hypot(a-c,b-d);}
 
@@ -734,7 +766,9 @@ function draw(){
   for(const p of props)list.push({y:(p.y+p.h)*TILE,f:()=>drawProp(p)});
   for(const d of S.placed)list.push({y:(d.y+1)*TILE,f:()=>drawDecor(d)});
   for(const it of items)list.push({y:(it.y+1)*TILE,f:()=>drawItem(it)});
+  for(const d of (S.digs||[]))list.push({y:(d.y+1)*TILE,f:()=>drawDig(d)});
   for(const n of npcs)list.push({y:(n.y+1)*TILE,f:()=>drawNPC(n)});
+  for(const cr of critters)list.push({y:cr.y+8,f:()=>drawCritter(cr)});
   list.push({y:comp.y+16,f:()=>drawDog(ctx,comp.x-camX,comp.y-camY,1.55,other(S.dog),comp.face,comp.walk,comp.moving,S.outfits[other(S.dog)])});
   list.push({y:player.y+18,f:()=>drawDog(ctx,player.x-camX,player.y-camY,1.75,S.dog,player.face,player.walk,player.moving,S.outfits[S.dog])});
   list.sort((a,b)=>a.y-b.y);list.forEach(d=>d.f());
@@ -746,7 +780,7 @@ function draw(){
     ctx.strokeStyle=ok?'#4bbf5a':'#e05555';ctx.lineWidth=2;ctx.strokeRect(sx+2,sy+2,TILE-4,TILE-4);
     ctx.globalAlpha=.85;drawDecor({t:placeMode.t,x:tx,y:ty});ctx.globalAlpha=1;}
   // interaction arrow
-  if(mode==='play'&&!placeMode){const h=nearNPC?{x:(nearNPC.x+.5)*TILE,y:nearNPC.y*TILE}:nearItem?{x:(nearItem.x+.5)*TILE,y:nearItem.y*TILE}:nearProp?{x:(nearProp.x+nearProp.w/2)*TILE,y:nearProp.y*TILE}:null;
+  if(mode==='play'&&!placeMode){const h=nearCritter?{x:nearCritter.x,y:nearCritter.y-16}:nearDig?{x:(nearDig.x+.5)*TILE,y:nearDig.y*TILE}:nearNPC?{x:(nearNPC.x+.5)*TILE,y:nearNPC.y*TILE}:nearItem?{x:(nearItem.x+.5)*TILE,y:nearItem.y*TILE}:nearProp?{x:(nearProp.x+nearProp.w/2)*TILE,y:nearProp.y*TILE}:null;
     if(h){ctx.fillStyle='rgba(255,138,61,.95)';ctx.font='800 22px '+FONT;ctx.textAlign='center';ctx.fillText('▾',h.x-camX,h.y-camY-4+Math.sin(Date.now()/220)*3);}}
   // ---- LIGHTING ----
   const L=getLight();
@@ -852,6 +886,13 @@ function drawDecorShape(g,t,full){ // origin at base-center
   else if(t==='bushdeco'){g.fillStyle='#3f8f45';g.beginPath();g.arc(-7,-6,9,0,7);g.arc(7,-6,10,0,7);g.arc(0,-12,10,0,7);g.fill();g.fillStyle='#57b158';g.beginPath();g.arc(-4,-9,4,0,7);g.fill();}
 }
 
+function drawDig(d){const sx=(d.x+.5)*TILE-camX,sy=(d.y+.62)*TILE-camY;
+  ctx.fillStyle='#8a6239';ctx.beginPath();ctx.ellipse(sx,sy,11,6,0,0,7);ctx.fill();
+  ctx.fillStyle='#6f4a28';ctx.beginPath();ctx.ellipse(sx,sy,7,3.6,0,0,7);ctx.fill();
+  ctx.strokeStyle='#e8c98a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx-4,sy-2);ctx.lineTo(sx+4,sy+2);ctx.moveTo(sx+4,sy-2);ctx.lineTo(sx-4,sy+2);ctx.stroke();
+  ctx.fillStyle='rgba(255,240,160,'+(0.45+Math.sin(Date.now()/300+d.x)*0.35)+')';ctx.font='11px '+FONT;ctx.textAlign='center';ctx.fillText('✨',sx+9,sy-9);}
+function drawCritter(cr){const sx=cr.x-camX,sy=cr.y-camY;ctx.fillStyle='rgba(0,0,0,.10)';ctx.beginPath();ctx.ellipse(sx,sy+12,7,2.5,0,0,7);ctx.fill();
+  ctx.font='19px '+FONT;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(cr.em,sx,sy+Math.sin(cr.ph)*2);ctx.textBaseline='alphabetic';}
 function drawItem(it){const sx=(it.x+.5)*TILE-camX,sy=(it.y+.5)*TILE-camY,bob=Math.sin(Date.now()/300+it.x)*2.5;
   ctx.fillStyle='rgba(30,20,10,.14)';ctx.beginPath();ctx.ellipse(sx,sy+9,8,3,0,0,7);ctx.fill();
   ctx.save();ctx.translate(sx,sy-2+bob);ctx.fillStyle='rgba(255,220,120,.35)';ctx.beginPath();ctx.arc(0,0,13,0,7);ctx.fill();
