@@ -217,31 +217,44 @@ function rollWeather(){S.weather=['sole','sole','sole','nuvoloso','pioggia'][Mat
 function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}}
 function loadSave(){try{return JSON.parse(localStorage.getItem(SAVE_KEY));}catch(e){return null;}}
 
-/* ---------- MAP ---------- */
-const MAPW=54,MAPH=46;
+/* ---------- MAP (grande, con quartieri) ---------- */
+const MAPW=70,MAPH=58;
 const ground=[];
 (function gen(){for(let y=0;y<MAPH;y++){const row=[];for(let x=0;x<MAPW;x++){
   let t='.'; if((x*3+y*7)%13===0)t=',';
-  const dx=x-41,dy=y-9; if(dx*dx*0.62+dy*dy<30)t='~';
-  if(y>=22&&y<=23&&x>=8&&x<=46)t='='; if(x>=25&&x<=26&&y>=7&&y<=38)t='=';
-  if(y>=22&&y<=23&&x>=25&&x<=26)t='='; row.push(t);
+  if(y>=28&&y<=29&&x>=5&&x<=64)t='=';            // via principale orizzontale
+  if(x>=34&&x<=35&&y>=5&&y<=52)t='=';            // via principale verticale
+  if(y>=11&&y<=12&&x>=8&&x<=50)t='=';            // via del quartiere nord
+  if(y>=44&&y<=45&&x>=8&&x<=55)t='=';            // via dei negozi sud
+  if(x>=30&&x<=39&&y>=25&&y<=32)t='=';           // piazza centrale
+  const dx=x-58,dy=y-15; if(dx*dx*0.55+dy*dy<42)t='~'; // stagno (est)
+  row.push(t);
 }ground.push(row);}})();
 function groundAt(tx,ty){if(tx<0||ty<0||tx>=MAPW||ty>=MAPH)return'#';return ground[ty][tx];}
 
 /* ---------- PROPS ---------- */
 const props=[
-  {kind:'house',x:9,y:9,w:6,h:5,name:"Casa di Mochi",roof:'#e57d5a'},
-  {kind:'house',x:34,y:27,w:6,h:5,name:"Bottega di Pip",roof:'#6fae5a'},
-  {kind:'bigtree',x:6,y:5,w:3,h:3,name:"Grande Quercia"},
-  {kind:'well',x:24,y:17,w:2,h:2},
-  {kind:'doghouse',x:21,y:31,w:2,h:2,name:"La tua cuccia"},
-  {kind:'sign',x:27,y:22,w:1,h:1,text:"Benvenuti a Coda! ↖ Mochi · ↑ Quercia (Aldo) · Stagno a est →"},
-  {kind:'lamppost',x:23,y:21,w:1,h:1},{kind:'lamppost',x:28,y:24,w:1,h:1},
-  {kind:'lamppost',x:19,y:29,w:1,h:1},{kind:'dock',x:36,y:11,w:2,h:1},
+  {kind:'house',x:9,y:6,w:6,h:5,name:"Casa di Mochi",roof:'#e57d5a'},
+  {kind:'house',x:19,y:6,w:6,h:5,name:"Casa di Nina",roof:'#d6a3e0'},
+  {kind:'house',x:27,y:6,w:6,h:5,name:"Casa",roof:'#7fa8d0'},
+  {kind:'house',x:44,y:6,w:6,h:5,name:"Casa",roof:'#e0b06a'},
+  {kind:'shopbld',x:50,y:6,w:5,h:5,name:"Caffè di Coda",roof:'#c98a52',shop:'caffe'},
+  {kind:'shopbld',x:9,y:39,w:6,h:5,name:"Bottega di Pip",roof:'#6fae5a',shop:'negozio'},
+  {kind:'shopbld',x:21,y:39,w:6,h:5,name:"Emporio",roof:'#e57d5a',shop:'mercato'},
+  {kind:'shopbld',x:38,y:39,w:6,h:5,name:"Boutique",roof:'#d66fa0',shop:'boutique'},
+  {kind:'shopbld',x:50,y:39,w:6,h:5,name:"Bazar",roof:'#8a6fd0',shop:'negozio'},
+  {kind:'bigtree',x:4,y:22,w:3,h:3,name:"Grande Quercia"},
+  {kind:'well',x:34,y:24,w:2,h:2},
+  {kind:'doghouse',x:31,y:34,w:2,h:2,name:"La tua cuccia"},
+  {kind:'sign',x:37,y:31,w:1,h:1,text:"Benvenuti a Coda! ↑ Quartiere · ↓ Negozi · Stagno a est →"},
+  {kind:'lamppost',x:33,y:23,w:1,h:1},{kind:'lamppost',x:33,y:33,w:1,h:1},
+  {kind:'lamppost',x:20,y:28,w:1,h:1},{kind:'lamppost',x:48,y:28,w:1,h:1},
+  {kind:'lamppost',x:34,y:13,w:1,h:1},{kind:'lamppost',x:34,y:43,w:1,h:1},
+  {kind:'dock',x:54,y:20,w:2,h:1},
 ];
-const treeSpots=[[3,15],[6,26],[10,34],[16,38],[30,5],[32,11],[46,23],[49,16],[47,34],[42,38],[28,36],[13,25],[37,17],[50,6],[2,23],[19,6],[30,32],[40,11],[5,40],[51,29],[4,10],[44,6]];
+const treeSpots=[[3,15],[6,17],[8,20],[3,26],[6,28],[9,25],[4,33],[8,35],[12,31],[15,27],[6,40],[11,42],[14,38],[3,48],[17,22],[19,35],[24,33],[27,37],[24,50],[31,49],[42,50],[47,48],[54,50],[60,46],[63,40],[65,30],[62,24],[59,26],[16,50],[46,26],[26,16],[47,16],[42,25],[49,33],[15,16],[62,52]];
 treeSpots.forEach(([x,y],i)=>props.push({kind:'tree',x,y,w:1,h:1,harvest:'stick',seed:i}));
-[[11,19],[13,20],[28,18],[30,19],[39,24],[17,29],[25,28],[35,34],[8,23],[44,30],[20,15],[47,20]].forEach(([x,y])=>props.push({kind:'bush',x,y,w:1,h:1,harvest:'berry'}));
+[[8,24],[12,26],[16,32],[20,36],[26,34],[42,34],[47,31],[54,34],[58,38],[10,49],[22,47],[44,47],[61,22],[30,20],[46,20],[14,42],[52,47],[27,50]].forEach(([x,y])=>props.push({kind:'bush',x,y,w:1,h:1,harvest:'berry'}));
 const decoFlowers=[];
 for(let i=0;i<70;i++){const x=(i*17+3)%MAPW,y=(i*11+5)%MAPH;if(groundAt(x,y)==='.'||groundAt(x,y)===',')decoFlowers.push({x:x+(i%3)*0.3,y:y+(i%2)*0.4,c:['#ff6f91','#ffd23f','#c77dff','#fff'][i%4],s:i});}
 
@@ -288,7 +301,7 @@ const COSMETICS={
 
 function decorSolidAt(tx,ty){for(const d of S.placed){if(d.x===tx&&d.y===ty&&DECOR[d.t]&&DECOR[d.t].solid)return true;}return false;}
 function solidAt(tx,ty){const g=groundAt(tx,ty);if(g==='~'||g==='#')return true;
-  for(const p of props){if(!['tree','bigtree','house','well','doghouse'].includes(p.kind))continue;
+  for(const p of props){if(!['tree','bigtree','house','shopbld','well','doghouse'].includes(p.kind))continue;
     if(tx>=p.x&&tx<p.x+p.w&&ty>=p.y&&ty<p.y+p.h)return true;}
   if(decorSolidAt(tx,ty))return true; return false;}
 function occupied(tx,ty){ // for placing: any prop/water/existing decor/npc
@@ -304,9 +317,9 @@ function findOpen(tdx,tdy){for(let r=0;r<14;r++)for(let dy=-r;dy<=r;dy++)for(let
 let items=[];
 function spawnItems(){items=[];
   const add=(l,type,em)=>l.forEach(([x,y])=>{if(!solidAt(x,y))items.push({x,y,type,em});});
-  add([[16,13],[29,11],[35,20],[19,27],[44,18],[12,31],[48,12],[23,36],[15,9],[39,35],[31,26],[7,33],[45,26]],'bone','🦴');
-  add([[8,16],[28,14],[18,24],[32,25],[42,29],[13,27],[22,8],[47,25],[10,36],[36,20],[5,29]],'flower','🌼');
-  items.push({x:50,y:12,type:'ball',em:'🎾'});
+  add([[18,16],[30,16],[40,18],[22,24],[46,26],[14,34],[52,30],[26,40],[8,18],[42,42],[36,22],[60,30],[16,48],[50,16],[6,36],[28,50],[62,34]],'bone','🦴');
+  add([[10,20],[26,22],[20,34],[38,26],[44,32],[16,26],[24,16],[56,28],[12,46],[48,24],[6,26],[58,34],[32,50]],'flower','🌼');
+  items.push({x:63,y:22,type:'ball',em:'🎾'});
   // dig spots (respawn each day; more with higher day)
   S.digs=[];const nd=3+Math.min(5,S.day);let tr=0;
   while(S.digs.length<nd&&tr<300){tr++;const x=2+Math.floor(Math.random()*(MAPW-4)),y=2+Math.floor(Math.random()*(MAPH-4));
@@ -315,12 +328,12 @@ function spawnItems(){items=[];
 
 /* ---------- NPCs ---------- */
 const npcs=[
-  {id:'mochi',name:'Mochi',em:'🐱',x:12,y:15,c:'#f4a259'},
-  {id:'pip',name:'Pip',em:'🐦',x:36,y:25,c:'#6fb1e0'},
-  {id:'rocco',name:'Rocco',em:'🦔',x:29,y:34,c:'#b07a4a'},
-  {id:'aldo',name:'Aldo',em:'🦉',x:8,y:9,c:'#c9a26a'},
-  {id:'nina',name:'Nina',em:'🐰',x:15,y:20,c:'#e8b6c0'},
-  {id:'sasha',name:'Sasha',em:'🦊',x:37,y:14,c:'#e0894a'},
+  {id:'mochi',name:'Mochi',em:'🐱',x:12,y:13,c:'#f4a259'},
+  {id:'nina',name:'Nina',em:'🐰',x:24,y:13,c:'#e8b6c0'},
+  {id:'pip',name:'Pip',em:'🐦',x:12,y:37,c:'#6fb1e0'},
+  {id:'rocco',name:'Rocco',em:'🦔',x:31,y:38,c:'#b07a4a'},
+  {id:'aldo',name:'Aldo',em:'🦉',x:7,y:20,c:'#c9a26a'},
+  {id:'sasha',name:'Sasha',em:'🦊',x:49,y:22,c:'#e0894a'},
 ];
 
 /* ---------- ITEM DEFS ---------- */
@@ -487,7 +500,7 @@ const CYCLE=600; // long, day-dominant cycle so it stays bright most of the time
 function startGame(fresh){
   if(fresh)S=defaultState();
   migrate();
-  if(!S.px||!S.py||solidAt(Math.floor(S.px/TILE),Math.floor(S.py/TILE))){const sp=findOpen(23,26);S.px=sp.x;S.py=sp.y;}
+  if(!S.px||!S.py||solidAt(Math.floor(S.px/TILE),Math.floor(S.py/TILE))){const sp=findOpen(30,33);S.px=sp.x;S.py=sp.y;}
   player.x=S.px;player.y=S.py;comp.x=S.px-28;comp.y=S.py+6;
   spawnItems();
   camX=targetCamX=clampX(player.x-VW/2);camY=targetCamY=clampY(player.y-VH/2);
@@ -529,6 +542,9 @@ function interactProp(p){
     if(q&&q.type==='talk'&&q.target==='well'){openDialogue('🪣 Pozzo',q.intro,()=>{if(q.reward)grant(q);completeQuest();});}
     else openDialogue('🪣 Vecchio pozzo',["Un'eco profonda risale dal buio...","Per ora è tranquillo. 👀"]);}
   else if(p.kind==='house')openDialogue('🏠 '+(p.name||'Casa'),["La porta è chiusa per ora. Bussa più avanti!"]);
+  else if(p.kind==='shopbld'){sfx('tap');
+    if(p.shop==='caffe'){S.coins+=2;updateHUD();save();openDialogue('☕ Caffè di Coda',["Benvenuto al Caffè! ☕","Offre la casa: +2 🦴 e tanta energia per l'avventura!"]);}
+    else openMenu(p.shop);}
   else if(p.kind==='bigtree')openDialogue('🌳 Grande Quercia',["Un albero antico e maestoso.","Il gufo Aldo vive tra i suoi rami. 🦉"]);
   else if(p.kind==='dock')openDialogue('🪵 Pontile',["Il pontile scricchiola sull'acqua.","Bello sedersi qui al tramonto 🌇"]);
 }
@@ -591,6 +607,20 @@ function updateCritters(dt){const L=getLight();const dayt=L.dark<.12;
     if(Math.random()<.01){cr.vx=(Math.random()-.5)*20;cr.vy=(Math.random()-.5)*20;}}
   critters=critters.filter(cr=>cr.x>camX-60&&cr.x<camX+VW+60&&cr.y>camY-60&&cr.y<camY+VH+60);}
 function catchCritter(cr){addInv(cr.type,1);stat('critter');critters=critters.filter(x=>x!==cr);toast(`Catturato! ${cr.em} ${ITEMS[cr.type].name}`);floatText(cr.x,cr.y-12,cr.em,'#c77dff');sfx('win');burst(cr.x,cr.y,'#c77dff');updateHUD();save();}
+
+/* ---------- ABITANTI AUTONOMI (wandering NPC AI) ---------- */
+function npx(n){return n.wx!=null?n.wx:(n.x+.5)*TILE;}
+function npy(n){return n.wy!=null?n.wy:(n.y+.5)*TILE;}
+function updateNPCs(dt){for(const n of npcs){
+  if(n.wx==null){n.wx=(n.x+.5)*TILE;n.wy=(n.y+.5)*TILE;n.hx=n.wx;n.hy=n.wy;n.tx=n.wx;n.ty=n.wy;n.wait=Math.random()*2.5;n.face=1;n.mv=false;n.wk=0;}
+  if(n.wait>0){n.wait-=dt;n.mv=false;continue;}
+  const dx=n.tx-n.wx,dy=n.ty-n.wy,d=Math.hypot(dx,dy);
+  if(d<4){n.mv=false;n.wait=1.4+Math.random()*3.6;
+    const a=Math.random()*Math.PI*2,r=TILE*(1+Math.random()*3.5);n.tx=n.hx+Math.cos(a)*r;n.ty=n.hy+Math.sin(a)*r;}
+  else{const sp=24*dt,nx=n.wx+dx/d*sp,ny=n.wy+dy/d*sp;
+    if(!solidAt(Math.floor(nx/TILE),Math.floor((ny+6)/TILE))){n.wx=nx;n.wy=ny;n.face=dx>0?1:-1;n.mv=true;n.wk+=dt*9;}
+    else{n.tx=n.wx;n.ty=n.wy;n.wait=0.3;}}
+}}
 
 /* ---------- FARMING (orto) ---------- */
 function startPlant(){mode='play';placeMode={plant:true};document.getElementById('placeBar').classList.remove('hidden');document.getElementById('placeHint').classList.remove('hidden');
@@ -805,6 +835,7 @@ function update(dt){
   fireflies=fireflies.filter(f=>{f.x+=f.vx;f.y+=f.vy;f.ph+=dt*3;if(Math.random()<.005)return false;return true;});
   if(L.dark<=.15&&fireflies.length)fireflies.length=Math.max(0,fireflies.length-1);
   updateCritters(dt);
+  updateNPCs(dt);
   detectNear();
 }
 function clampX(x){return Math.max(0,Math.min(x,MAPW*TILE-VW));}
@@ -814,15 +845,15 @@ function hit(x,y,r){for(const[a,b]of[[x-r,y-r+4],[x+r,y-r+4],[x-r,y+r],[x+r,y+r]
 function detectNear(){const R=46;nearNPC=nearItem=nearProp=nearDig=nearCritter=nearPlot=null;let best=R;
   if(placeMode){document.getElementById('act').disabled=true;return;}
   for(const p of (S.plots||[])){if((p.stage||0)<3)continue;const d=dist(player.x,player.y,(p.x+.5)*TILE,(p.y+.5)*TILE);if(d<best){best=d;nearPlot=p;}}
-  for(const n of npcs){const d=dist(player.x,player.y,(n.x+.5)*TILE,(n.y+.5)*TILE);if(d<best){best=d;nearNPC=n;nearItem=nearProp=nearDig=nearCritter=nearPlot=null;}}
+  for(const n of npcs){const d=dist(player.x,player.y,npx(n),npy(n));if(d<best){best=d;nearNPC=n;nearItem=nearProp=nearDig=nearCritter=nearPlot=null;}}
   for(const it of items){const d=dist(player.x,player.y,(it.x+.5)*TILE,(it.y+.5)*TILE);if(d<best){best=d;nearItem=it;nearNPC=nearProp=nearDig=nearCritter=nearPlot=null;}}
   for(const d2 of (S.digs||[])){const d=dist(player.x,player.y,(d2.x+.5)*TILE,(d2.y+.5)*TILE);if(d<best){best=d;nearDig=d2;nearNPC=nearItem=nearProp=nearCritter=nearPlot=null;}}
   for(const cr of critters){const d=dist(player.x,player.y,cr.x,cr.y);if(d<best){best=d;nearCritter=cr;nearNPC=nearItem=nearProp=nearDig=nearPlot=null;}}
-  for(const p of props){if(!['tree','bush','doghouse','sign','well','house','bigtree','dock'].includes(p.kind))continue;
+  for(const p of props){if(!['tree','bush','doghouse','sign','well','house','shopbld','bigtree','dock'].includes(p.kind))continue;
     const d=dist(player.x,player.y,(p.x+p.w/2)*TILE,(p.y+p.h/2)*TILE);if(d<best+p.w*9){best=d;nearProp=p;nearNPC=nearItem=nearDig=nearCritter=nearPlot=null;}}
   nearWater=(!nearNPC&&!nearItem&&!nearProp&&!nearDig&&!nearCritter&&!nearPlot&&nearWaterTile());
   const act=document.getElementById('act');act.disabled=!(nearNPC||nearItem||nearProp||nearWater||nearDig||nearCritter||nearPlot);
-  act.textContent=nearPlot?'🌾':nearCritter?'🥅':nearDig?'⛏️':nearNPC?'💬':nearItem?'✋':nearWater?'🎣':nearProp?(nearProp.kind==='doghouse'?'😴':(nearProp.kind==='tree'||nearProp.kind==='bush')?'🐾':'👀'):'👀';
+  act.textContent=nearPlot?'🌾':nearCritter?'🥅':nearDig?'⛏️':nearNPC?'💬':nearItem?'✋':nearWater?'🎣':nearProp?(nearProp.kind==='doghouse'?'😴':nearProp.kind==='shopbld'?'🚪':(nearProp.kind==='tree'||nearProp.kind==='bush')?'🐾':'👀'):'👀';
 }
 function dist(a,b,c,d){return Math.hypot(a-c,b-d);}
 
@@ -863,7 +894,7 @@ function draw(){
   for(const it of items)list.push({y:(it.y+1)*TILE,f:()=>drawItem(it)});
   for(const d of (S.digs||[]))list.push({y:(d.y+1)*TILE,f:()=>drawDig(d)});
   for(const p of (S.plots||[]))list.push({y:(p.y+1)*TILE,f:()=>drawPlot(p)});
-  for(const n of npcs)list.push({y:(n.y+1)*TILE,f:()=>drawNPC(n)});
+  for(const n of npcs)list.push({y:npy(n)+14,f:()=>drawNPC(n)});
   for(const cr of critters)list.push({y:cr.y+8,f:()=>drawCritter(cr)});
   list.push({y:comp.y+16,f:()=>drawDog(ctx,comp.x-camX,comp.y-camY,1.55,other(S.dog),comp.face,comp.walk,comp.moving,S.outfits[other(S.dog)])});
   list.push({y:player.y+18,f:()=>drawDog(ctx,player.x-camX,player.y-camY,1.75,S.dog,player.face,player.walk,player.moving,S.outfits[S.dog])});
@@ -906,7 +937,7 @@ const FONT='"Baloo 2",system-ui,sans-serif';
 function other(d){return d==='bucky'?'loki':'bucky';}
 function drawQuestCompass(){const q=Q[S.quest];if(!q)return;const id=q.target||q.npc;let wx,wy,em='📍';
   if(id==='well'){const w=props.find(p=>p.kind==='well');if(!w)return;wx=(w.x+1)*TILE;wy=(w.y+1)*TILE;em='🪣';}
-  else{const n=npcs.find(x=>x.id===id);if(!n)return;wx=(n.x+.5)*TILE;wy=(n.y+.5)*TILE;em=n.em;}
+  else{const n=npcs.find(x=>x.id===id);if(!n)return;wx=npx(n);wy=npy(n);em=n.em;}
   const sx=wx-camX,sy=wy-camY,m=54,top=80;
   if(sx>m&&sx<VW-m&&sy>top&&sy<VH-m)return;
   const cx=Math.max(m,Math.min(VW-m,sx)),cy=Math.max(top,Math.min(VH-m,sy));
@@ -939,7 +970,7 @@ function drawProp(p){const sx=p.x*TILE-camX,sy=p.y*TILE-camY;
     ctx.fillStyle='#3f8f45';ctx.beginPath();ctx.arc(sx+14,sy+26,10,0,7);ctx.arc(sx+26,sy+26,11,0,7);ctx.arc(sx+20,sy+20,11,0,7);ctx.fill();
     ctx.fillStyle='#57b158';ctx.beginPath();ctx.arc(sx+17,sy+22,5,0,7);ctx.fill();
     ctx.fillStyle='#3f7bd6';for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(sx+12+i*6,sy+26+(i%2?3:-1),2.2,0,7);ctx.fill();}}
-  else if(p.kind==='house'){const w=p.w*TILE,h=p.h*TILE;
+  else if(p.kind==='house'||p.kind==='shopbld'){const w=p.w*TILE,h=p.h*TILE;
     ctx.fillStyle='rgba(30,20,10,.14)';ctx.beginPath();ctx.ellipse(sx+w/2,sy+h-4,w*.42,7,0,0,7);ctx.fill();
     ctx.fillStyle='#f7e7c4';ctx.fillRect(sx+8,sy+h*0.42,w-16,h*0.56);ctx.fillStyle='rgba(0,0,0,.06)';ctx.fillRect(sx+8,sy+h*0.42,w-16,6);
     ctx.fillStyle=p.roof||'#e57d5a';ctx.beginPath();ctx.moveTo(sx,sy+h*0.46);ctx.lineTo(sx+w/2,sy+4);ctx.lineTo(sx+w,sy+h*0.46);ctx.closePath();ctx.fill();
@@ -947,6 +978,10 @@ function drawProp(p){const sx=p.x*TILE-camX,sy=p.y*TILE-camY;
     ctx.fillStyle='#9a6a44';ctx.fillRect(sx+w/2-10,sy+h-30,20,30);ctx.fillStyle='#ffd23f';ctx.beginPath();ctx.arc(sx+w/2+5,sy+h-15,1.6,0,7);ctx.fill();
     ctx.fillStyle='#bfe6ff';ctx.fillRect(sx+16,sy+h*0.56,15,15);ctx.fillRect(sx+w-31,sy+h*0.56,15,15);
     ctx.strokeStyle='rgba(0,0,0,.15)';ctx.lineWidth=1.5;ctx.strokeRect(sx+16,sy+h*0.56,15,15);ctx.strokeRect(sx+w-31,sy+h*0.56,15,15);
+    if(p.kind==='shopbld'){const aw=Math.min(w-16,44),ax=sx+w/2-aw/2,ay=sy+h-34;
+      for(let i=0;i<aw;i+=10){ctx.fillStyle=(((i/10)|0)%2)?'#e0574f':'#fff8ee';ctx.fillRect(ax+i,ay,Math.min(10,aw-i),8);}
+      ctx.fillStyle='rgba(0,0,0,.12)';ctx.fillRect(ax,ay+8,aw,2);
+      ctx.fillStyle='rgba(255,220,120,.5)';ctx.beginPath();ctx.arc(sx+w/2,sy+h-13,3,0,7);ctx.fill();}
     if(p.name){ctx.fillStyle='#4a3826';ctx.font='700 11px '+FONT;ctx.textAlign='center';ctx.fillText(p.name,sx+w/2,sy+h*0.38);}}
   else if(p.kind==='well'){const w=p.w*TILE;const q=Q[S.quest],glow=q&&q.target==='well';
     ctx.fillStyle='rgba(30,20,10,.14)';ctx.beginPath();ctx.ellipse(sx+w/2,sy+w-2,w*.4,6,0,0,7);ctx.fill();
@@ -1014,7 +1049,7 @@ function drawItem(it){const sx=(it.x+.5)*TILE-camX,sy=(it.y+.5)*TILE-camY,bob=Ma
   ctx.fillStyle='rgba(30,20,10,.14)';ctx.beginPath();ctx.ellipse(sx,sy+9,8,3,0,0,7);ctx.fill();
   ctx.save();ctx.translate(sx,sy-2+bob);ctx.fillStyle='rgba(255,220,120,.35)';ctx.beginPath();ctx.arc(0,0,13,0,7);ctx.fill();
   ctx.font='22px '+FONT;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(it.em,0,0);ctx.textBaseline='alphabetic';ctx.restore();}
-function drawNPC(n){const sx=(n.x+.5)*TILE-camX,sy=(n.y+.5)*TILE-camY,bob=Math.sin(Date.now()/450+n.x)*2.5;
+function drawNPC(n){const sx=npx(n)-camX,sy=npy(n)-camY,bob=(n.mv?Math.abs(Math.sin(n.wk))*3:Math.sin(Date.now()/450+n.x)*2.5);
   ctx.fillStyle='rgba(30,20,10,.16)';ctx.beginPath();ctx.ellipse(sx,sy+13,13,4,0,0,7);ctx.fill();
   ctx.fillStyle=n.c;ctx.beginPath();ctx.arc(sx,sy+bob,14,0,7);ctx.fill();
   ctx.fillStyle='rgba(255,255,255,.25)';ctx.beginPath();ctx.arc(sx-4,sy-4+bob,5,0,7);ctx.fill();
