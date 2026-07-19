@@ -311,6 +311,8 @@ const npcs=[
   {id:'pip',name:'Pip',em:'🐦',x:36,y:25,c:'#6fb1e0'},
   {id:'rocco',name:'Rocco',em:'🦔',x:29,y:34,c:'#b07a4a'},
   {id:'aldo',name:'Aldo',em:'🦉',x:8,y:9,c:'#c9a26a'},
+  {id:'nina',name:'Nina',em:'🐰',x:15,y:20,c:'#e8b6c0'},
+  {id:'sasha',name:'Sasha',em:'🦊',x:37,y:14,c:'#e0894a'},
 ];
 
 /* ---------- ITEM DEFS ---------- */
@@ -319,11 +321,11 @@ const ITEMS={bone:{em:'🦴',name:'Osso'},flower:{em:'🌼',name:'Fiore'},stick:
   shard:{em:'🔶',name:"Frammento d'oro"},goldbone:{em:'🏆',name:"Osso d'oro"},
   fish_s:{em:'🐟',name:'Sardina'},fish_m:{em:'🐠',name:'Trota'},fish_l:{em:'🐡',name:'Pesce palla'},junk:{em:'🥾',name:'Stivale vecchio'},
   seed:{em:'🌱',name:'Semino'},carrot:{em:'🥕',name:'Carota'},fossil:{em:'🦴',name:'Fossile'},clover:{em:'🍀',name:'Quadrifoglio'},
-  butterfly:{em:'🦋',name:'Farfalla'},beetle:{em:'🪲',name:'Scarabeo'}};
+  butterfly:{em:'🦋',name:'Farfalla'},beetle:{em:'🪲',name:'Scarabeo'},trophy:{em:'🏵️',name:'Trofeo del Festival'}};
 const SELL={flower:2,berry:3,stick:2,fish_s:3,fish_m:6,fish_l:11,junk:1,carrot:5,fossil:14,clover:8,butterfly:6,beetle:9};
 
 /* ---------- CHAPTERS + QUESTS ---------- */
-const CHAPTERS=["Il Villaggio Addormentato","Le Voci nel Bosco","Il Segreto del Pozzo","L'Osso d'Oro"];
+const CHAPTERS=["Il Villaggio Addormentato","Le Voci nel Bosco","Il Segreto del Pozzo","L'Osso d'Oro","Il Grande Festival"];
 const Q=[
   // CH1
   {ch:0,npc:'mochi',text:'Parla con Mochi 🐱 vicino a casa sua',type:'talk',target:'mochi',
@@ -354,9 +356,18 @@ const Q=[
   // CH4 finale
   {ch:3,npc:'aldo',text:"Porta i 3 🔶 frammenti ad Aldo 🦉 per ricomporre l'Osso d'Oro",type:'collect',item:'shard',amount:3,giveBack:true,target:'aldo',
     intro:["Hai tutti e tre i frammenti? 🔶🔶🔶"],done:["Uniamoli... con delicatezza... ✨","...","È RINATO! L'OSSO D'ORO 🏆!","La leggenda dice che porti prosperità a chi risveglia un villaggio con il cuore.","Bucky, Loki... Coda è di nuovo VIVA. Grazie a voi. 🌟"],reward:{coins:100,item:'goldbone'}},
+  // CH5 — Il Grande Festival (usa orto, pesca, farfalle)
+  {ch:4,npc:'mochi',text:'Nuovo capitolo: parla con Mochi 🐱 del Grande Festival',type:'talk',target:'mochi',
+    intro:["Coda è rinata... ed è ora di FESTEGGIARE! 🎉","Organizziamo il Grande Festival! Servono cibo e decorazioni.","Nina la coniglietta 🐰 coltiva l'orto: vai da lei per le carote!"],done:["Evviva, si comincia! 🎊"]},
+  {ch:4,npc:'nina',text:"Coltiva e porta 4 🥕 carote a Nina 🐰",type:'collect',item:'carrot',amount:4,giveBack:true,target:'nina',
+    intro:["Ciao! Per il festival servono 4 🥕 carote.","Compra un semino 🌱 al 🛒 Negozio, piantalo su un prato e aspetta che cresca!"],done:["Perfette, croccantissime! 🥕","Ora Sasha la volpe 🦊 al laghetto prepara il fritto di pesce."],reward:{coins:30}},
+  {ch:4,npc:'sasha',text:'Pesca 3 🐟 sardine e portale a Sasha 🦊 (al laghetto)',type:'collect',item:'fish_s',amount:3,giveBack:true,target:'sasha',
+    intro:["Ehi! Per il banchetto servono 3 🐟 sardine.","Avvicinati all'acqua e usa la canna 🎣!"],done:["Che profumino, il banchetto è pronto 🍤","Manca la decorazione: Aldo 🦉 vuole delle farfalle."],reward:{coins:30}},
+  {ch:4,npc:'aldo',text:'Cattura 3 🦋 farfalle per le decorazioni di Aldo 🦉',type:'collect',item:'butterfly',amount:3,giveBack:true,target:'aldo',
+    intro:["Uhh! Per adornare la piazza servono 3 🦋 farfalle.","Catturale di giorno con la rete 🥅 (avvicinati e tocca il pulsante)!"],done:["Splendide! Coda non è mai stata così bella ✨","Il GRANDE FESTIVAL può cominciare! 🎊🎉","Ecco il Trofeo, campione: sei la leggenda di Coda! 🏵️"],reward:{coins:60,item:'trophy'}},
   // endless
-  {ch:3,npc:'mochi',text:'Aiuto libero: raccogli 5 🦴 ossa per il villaggio',type:'collect',item:'bone',amount:5,giveBack:false,repeat:true,
-    intro:["Coda cresce ogni giorno grazie a te 🌱"],done:["Sei l'eroe di Coda! Usa il 🛒 per arredare il villaggio, e torna domani ☀️"],reward:{coins:10}},
+  {ch:4,npc:'mochi',text:'Aiuto libero: raccogli 5 🦴 ossa per il villaggio',type:'collect',item:'bone',amount:5,giveBack:false,repeat:true,
+    intro:["Coda cresce ogni giorno grazie a te 🌱"],done:["Sei l'eroe di Coda! Pesca, coltiva, arreda e torna domani ☀️"],reward:{coins:10}},
 ];
 function shardCount(){return S.inv.shard||0;}
 function curChapter(){const q=Q[S.quest];return q?q.ch:CHAPTERS.length-1;}
@@ -506,7 +517,7 @@ function interactNPC(n){
   const q=Q[S.quest];
   if(!q){openDialogue(n.name+' '+n.em,["Grazie di tutto, eroe di Coda! ☀️"]);return;}
   const involved=q.npc===n.id||q.target===n.id;
-  if(!involved){const idle={mochi:["Buona giornata! 🐱"],pip:["Cip cip! 🐦"],rocco:["Che freddo... 🦔"],aldo:["Uhh-uhh... le stelle raccontano storie 🦉"]};
+  if(!involved){const idle={mochi:["Buona giornata! 🐱"],pip:["Cip cip! 🐦"],rocco:["Che freddo... 🦔"],aldo:["Uhh-uhh... le stelle raccontano storie 🦉"],nina:["L'orto ha bisogno d'acqua 🐰"],sasha:["I pesci abboccano meglio con la pioggia 🦊"]};
     openDialogue(n.name+' '+n.em,idle[n.id]||["Ciao! 🐾"]);return;}
   if(q.type==='talk')openDialogue(n.name+' '+n.em,q.intro,()=>{if(q.reward)grant(q);completeQuest();});
   else{const have=S.inv[q.item]||0;
