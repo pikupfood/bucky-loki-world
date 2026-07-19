@@ -257,6 +257,12 @@ const DECOR={
   sapling:{name:'Alberello',cost:22,solid:true,draw:'sapling'},
   fountain:{name:'Fontana',cost:45,solid:true,draw:'fountain'},
   statue:{name:'Statua',cost:70,solid:true,draw:'statue'},
+  mailbox:{name:'Cassetta',cost:12,solid:false,em:'📮'},
+  rock:{name:'Roccia',cost:5,solid:true,em:'🪨'},
+  pumpkin:{name:'Zucca',cost:8,solid:false,em:'🎃'},
+  torch:{name:'Torcia',cost:14,solid:false,em:'🔥',light:true},
+  balloon:{name:'Palloncino',cost:9,solid:false,em:'🎈'},
+  gnome:{name:'Gnomo',cost:16,solid:false,em:'🧙'},
 };
 
 /* ---------- COSMETICS (boutique) ---------- */
@@ -888,9 +894,20 @@ function draw(){
   // vignette
   const vg=ctx.createRadialGradient(VW/2,VH/2,Math.min(VW,VH)*.35,VW/2,VH/2,Math.max(VW,VH)*.75);
   vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(20,30,15,.22)');ctx.fillStyle=vg;ctx.fillRect(0,0,VW,VH);
+  if(mode==='play'&&!placeMode)drawQuestCompass();
 }
 const FONT='"Baloo 2",system-ui,sans-serif';
 function other(d){return d==='bucky'?'loki':'bucky';}
+function drawQuestCompass(){const q=Q[S.quest];if(!q)return;const id=q.target||q.npc;let wx,wy,em='📍';
+  if(id==='well'){const w=props.find(p=>p.kind==='well');if(!w)return;wx=(w.x+1)*TILE;wy=(w.y+1)*TILE;em='🪣';}
+  else{const n=npcs.find(x=>x.id===id);if(!n)return;wx=(n.x+.5)*TILE;wy=(n.y+.5)*TILE;em=n.em;}
+  const sx=wx-camX,sy=wy-camY,m=54,top=80;
+  if(sx>m&&sx<VW-m&&sy>top&&sy<VH-m)return;
+  const cx=Math.max(m,Math.min(VW-m,sx)),cy=Math.max(top,Math.min(VH-m,sy));
+  ctx.save();ctx.fillStyle='rgba(255,138,61,.9)';ctx.beginPath();ctx.arc(cx,cy,16,0,7);ctx.fill();
+  ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+  ctx.font='16px '+FONT;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.fillText(em,cx,cy);ctx.textBaseline='alphabetic';
+  const ang=Math.atan2(sy-cy,sx-cx);ctx.translate(cx+Math.cos(ang)*20,cy+Math.sin(ang)*20);ctx.rotate(ang);ctx.fillStyle='rgba(255,138,61,.9)';ctx.beginPath();ctx.moveTo(7,0);ctx.lineTo(-4,-5);ctx.lineTo(-4,5);ctx.closePath();ctx.fill();ctx.restore();}
 function drawWeather(){const w=S.weather;
   if(w==='pioggia'){ctx.fillStyle='rgba(60,90,130,.16)';ctx.fillRect(0,0,VW,VH);
     ctx.strokeStyle='rgba(210,225,255,.5)';ctx.lineWidth=1.5;const t=Date.now();
