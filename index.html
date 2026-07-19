@@ -375,8 +375,8 @@ function rr(g,x,y,w,h,r){r=Math.min(r,w/2,h/2);g.beginPath();g.moveTo(x+r,y);g.a
 let mode='title',camX=0,camY=0,targetCamX=0,targetCamY=0;
 let dialogue=null,nearNPC=null,nearItem=null,nearProp=null;
 let placeMode=null; // {t}
-let clock=0.34; // time of day 0..1 (runtime)
-const CYCLE=300;
+let clock=0.25; // time of day 0..1 (runtime)
+const CYCLE=600; // long, day-dominant cycle so it stays bright most of the time
 
 function startGame(fresh){
   if(fresh)S=defaultState();
@@ -555,7 +555,7 @@ function dist(a,b,c,d){return Math.hypot(a-c,b-d);}
 /* ---------- LIGHT ---------- */
 function getLight(){
   // keyframes: [t, dark, r,g,b]
-  const KF=[[0,.30,26,32,74],[.20,.10,255,168,110],[.30,0,255,255,255],[.68,0,255,255,255],[.80,.14,255,140,86],[.92,.30,26,32,74],[1,.30,26,32,74]];
+  const KF=[[0,.28,26,32,74],[.14,.08,255,178,120],[.24,0,255,255,255],[.72,0,255,255,255],[.82,.12,255,145,90],[.90,.28,26,32,74],[1,.28,26,32,74]];
   let a=KF[0],b=KF[KF.length-1];
   for(let i=0;i<KF.length-1;i++){if(clock>=KF[i][0]&&clock<=KF[i+1][0]){a=KF[i];b=KF[i+1];break;}}
   const f=(clock-a[0])/((b[0]-a[0])||1);
