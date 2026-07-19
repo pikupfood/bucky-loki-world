@@ -134,7 +134,12 @@ const ITEMS={
   carota:{em:'🥕',name:'Carota',sell:7}, gemma:{em:'💎',name:'Gemma',sell:22}
 };
 const HATS={cappello:{em:'🎩',name:'Cilindro',price:45},paglia:{em:'👒',name:'Paglia',price:30},
-  corona:{em:'👑',name:'Corona',price:90},party:{em:'🎉',name:'Festa',price:25}};
+  corona:{em:'👑',name:'Corona',price:90},party:{em:'🎉',name:'Festa',price:25},
+  berretto:{em:'🧢',name:'Berretto',price:22},cuffia:{em:'🧶',name:'Cuffia',price:20},
+  fiocco:{em:'🎀',name:'Fiocco',price:16},cowboy:{em:'🤠',name:'Cowboy',price:40},aureola:{em:'😇',name:'Aureola',price:70}};
+const CLOTHES={maglione:{em:'🧶',name:'Maglioncino',price:35},mantello:{em:'🦸',name:'Mantello',price:55},
+  bandanaR:{em:'🟥',name:'Bandana rossa',price:12},bandanaB:{em:'🟦',name:'Bandana blu',price:12},
+  giubbotto:{em:'🧥',name:'Giubbotto',price:48},pigiama:{em:'🌙',name:'Pigiama',price:32}};
 const NPCDEF={
   mochi:{name:'Mochi',em:'🐱',type:'cat',color:0xf2b8c6,pos:[-11,10]},
   pip:{name:'Pip',em:'🐦',type:'bird',color:0x7ec8f0,pos:[-14,-9]},
@@ -168,7 +173,7 @@ const QUESTS=[
 const SAVEKEY='bl3d';
 function defaultState(){return{coins:15,inv:{},seeds:2,quest:0,day:1,
   plots:[{x:1.5,z:8,stage:0,planted:-1},{x:3.4,z:8,stage:0,planted:-1},{x:5.3,z:8,stage:0,planted:-1}],
-  outfits:{bucky:{hat:null},loki:{hat:null}},dug:{},placed:[],active:'bucky'};}
+  outfits:{bucky:{hat:null,body:null},loki:{hat:null,body:null}},dug:{},placed:[],active:'bucky'};}
 let S;
 try{S=JSON.parse(localStorage.getItem(SAVEKEY))||defaultState();}catch(e){S=defaultState();}
 // backfill
@@ -394,13 +399,41 @@ function flowerPatch(){const g=new T.Group();const cols=[0xff6f91,0xffd23f,0xc77
   for(let k=0;k<5;k++){const a=k/5*6.28,fx=Math.cos(a)*0.35,fz=Math.sin(a)*0.35;
     const st=new T.Mesh(new T.CylinderGeometry(0.03,0.03,0.4,5),new T.MeshStandardMaterial({color:0x4c9a3a}));st.position.set(fx,0.2,fz);g.add(st);
     const fl=new T.Mesh(new T.SphereGeometry(0.13,8,8),new T.MeshStandardMaterial({color:cols[k%4],roughness:0.55}));fl.position.set(fx,0.44,fz);fl.castShadow=true;g.add(fl);}return g;}
+function makePlanter(){const g=new T.Group();const box=new T.Mesh(new T.BoxGeometry(1.3,0.4,0.5),new T.MeshStandardMaterial({color:0xb07a45,roughness:0.9}));box.position.y=0.2;box.castShadow=true;box.receiveShadow=true;g.add(box);
+  const soil=new T.Mesh(new T.BoxGeometry(1.15,0.1,0.38),new T.MeshStandardMaterial({color:0x5a3d24}));soil.position.y=0.4;g.add(soil);
+  const cols=[0xff6f91,0xffd23f,0xc77dff];for(let i=0;i<4;i++){const fl=new T.Mesh(new T.SphereGeometry(0.11,8,8),new T.MeshStandardMaterial({color:cols[i%3]}));fl.position.set(-0.45+i*0.3,0.56,0);fl.castShadow=true;g.add(fl);}return g;}
+function makeParasol(){const g=new T.Group();const pole=new T.Mesh(new T.CylinderGeometry(0.05,0.05,2.2,8),new T.MeshStandardMaterial({color:0x8a5f39}));pole.position.y=1.1;pole.castShadow=true;g.add(pole);
+  const top=new T.Mesh(new T.ConeGeometry(1.3,0.7,10),new T.MeshStandardMaterial({color:0xe0574f}));top.position.y=2.1;top.castShadow=true;g.add(top);
+  const top2=new T.Mesh(new T.ConeGeometry(1.32,0.12,10),new T.MeshStandardMaterial({color:0xfff2e2}));top2.position.y=1.9;g.add(top2);return g;}
+function makeTable(){const g=new T.Group();const wood=new T.MeshStandardMaterial({color:0xb07a45,roughness:0.9});
+  const top=new T.Mesh(new T.CylinderGeometry(0.55,0.55,0.1,16),wood);top.position.y=0.7;top.castShadow=true;g.add(top);
+  const leg=new T.Mesh(new T.CylinderGeometry(0.09,0.11,0.7,8),wood);leg.position.y=0.35;g.add(leg);
+  const foot=new T.Mesh(new T.CylinderGeometry(0.28,0.28,0.06,12),wood);foot.position.y=0.03;g.add(foot);return g;}
+function makeChair(){const g=new T.Group();const wood=new T.MeshStandardMaterial({color:0xc78a52,roughness:0.9});
+  const seat=new T.Mesh(new T.BoxGeometry(0.5,0.1,0.5),wood);seat.position.y=0.45;seat.castShadow=true;g.add(seat);
+  const back=new T.Mesh(new T.BoxGeometry(0.5,0.5,0.08),wood);back.position.set(0,0.7,-0.21);g.add(back);
+  for(const sx of[-1,1])for(const sz of[-1,1]){const lg=new T.Mesh(new T.BoxGeometry(0.07,0.45,0.07),wood);lg.position.set(sx*0.2,0.22,sz*0.2);g.add(lg);}return g;}
+function makeMailbox(){const g=new T.Group();const post=new T.Mesh(new T.CylinderGeometry(0.06,0.06,0.9,8),new T.MeshStandardMaterial({color:0x8a5f39}));post.position.y=0.45;post.castShadow=true;g.add(post);
+  const box=new T.Mesh(new T.BoxGeometry(0.4,0.3,0.5),new T.MeshStandardMaterial({color:0xe0574f}));box.position.y=1.0;box.castShadow=true;g.add(box);
+  const flag=new T.Mesh(new T.BoxGeometry(0.05,0.2,0.02),new T.MeshStandardMaterial({color:0xffd23f}));flag.position.set(0.22,1.1,0);g.add(flag);return g;}
+function makeStatue(){const g=new T.Group();const stone=new T.MeshStandardMaterial({color:0xc9c3b4,roughness:0.9});
+  const base=new T.Mesh(new T.BoxGeometry(0.7,0.4,0.7),stone);base.position.y=0.2;base.castShadow=true;base.receiveShadow=true;g.add(base);
+  const body=new T.Mesh(new T.CapsuleGeometry(0.22,0.4,6,10),stone);body.position.y=0.85;body.castShadow=true;g.add(body);
+  const head=new T.Mesh(new T.SphereGeometry(0.24,14,12),stone);head.position.y=1.35;head.castShadow=true;g.add(head);
+  for(const sx of[-1,1]){const ear=new T.Mesh(new T.ConeGeometry(0.1,0.24,8),stone);ear.position.set(sx*0.14,1.6,0);g.add(ear);}return g;}
 const BUILD={
   aiuola:{em:'🌷',name:'Aiuola',cost:5,yoff:0,make:flowerPatch},
+  fioriera:{em:'🪴',name:'Fioriera',cost:9,yoff:0,col:0.7,make:makePlanter},
   fungo:{em:'🍄',name:'Funghi',cost:5,yoff:0,make:makeMushroom},
   roccia:{em:'🪨',name:'Roccia',cost:6,yoff:0.15,col:0.9,make:()=>makeRock(0.7)},
   staccionata:{em:'🚧',name:'Staccionata',cost:4,yoff:0,make:makeFenceSeg},
   cespuglio:{em:'🌳',name:'Cespuglio',cost:8,yoff:0.6,col:0.9,make:()=>makeBush(0.9)},
   panchina:{em:'🪑',name:'Panchina',cost:12,yoff:0,col:1.2,make:makeBench},
+  tavolino:{em:'🪵',name:'Tavolino',cost:14,yoff:0,col:0.8,make:makeTable},
+  sedia:{em:'💺',name:'Sedia',cost:9,yoff:0,col:0.6,make:makeChair},
+  ombrellone:{em:'⛱️',name:'Ombrellone',cost:28,yoff:0,col:0.5,make:makeParasol},
+  cassetta:{em:'📮',name:'Cassetta',cost:15,yoff:0,col:0.5,make:makeMailbox},
+  statua:{em:'🗿',name:'Statua',cost:40,yoff:0,col:0.9,make:makeStatue},
   alberello:{em:'🌲',name:'Alberello',cost:16,yoff:0,col:1.1,make:()=>makeTree(0.7)},
   lampione:{em:'💡',name:'Lampione',cost:22,yoff:0,col:0.6,make:makeLamppost},
   fontana:{em:'⛲',name:'Fontana',cost:45,yoff:0,col:1.6,make:makeFountain}};
@@ -414,7 +447,27 @@ function makeHatMesh(type){const h=new T.Group();
     for(let i=0;i<7;i++){const sp=new T.Mesh(new T.ConeGeometry(0.06,0.16,6),new T.MeshStandardMaterial({color:0xf2c14e,metalness:0.5,roughness:0.3}));const a=i/7*6.28;sp.position.set(Math.cos(a)*0.34,0.8,Math.sin(a)*0.34);h.add(sp);}}
   else if(type==='party'){const cone=new T.Mesh(new T.ConeGeometry(0.28,0.7,16),new T.MeshStandardMaterial({color:0xff6f91}));cone.position.y=0.85;h.add(cone);
     const ball=new T.Mesh(new T.SphereGeometry(0.1,10,10),new T.MeshStandardMaterial({color:0x5ad1e6}));ball.position.y=1.24;h.add(ball);}
+  else if(type==='berretto'){const dome=new T.Mesh(new T.SphereGeometry(0.32,16,12,0,6.3,0,1.5),new T.MeshStandardMaterial({color:0x3d7bd6}));dome.position.y=0.5;h.add(dome);
+    const brim=new T.Mesh(new T.CylinderGeometry(0.34,0.34,0.05,16,1,false,0,Math.PI),new T.MeshStandardMaterial({color:0x2f63b0}));brim.position.set(0,0.48,0.26);brim.rotation.x=-0.15;h.add(brim);}
+  else if(type==='cuffia'){const dome=new T.Mesh(new T.SphereGeometry(0.34,16,12,0,6.3,0,1.7),new T.MeshStandardMaterial({color:0xe0574f,roughness:1}));dome.position.y=0.46;h.add(dome);
+    const fold=new T.Mesh(new T.TorusGeometry(0.32,0.06,10,18),new T.MeshStandardMaterial({color:0xc94a42}));fold.position.y=0.5;fold.rotation.x=Math.PI/2;h.add(fold);
+    const pom=new T.Mesh(new T.SphereGeometry(0.1,10,10),new T.MeshStandardMaterial({color:0xfff0e0}));pom.position.y=0.86;h.add(pom);}
+  else if(type==='fiocco'){for(const sx of[-1,1]){const w=new T.Mesh(new T.ConeGeometry(0.16,0.3,8),new T.MeshStandardMaterial({color:0xff6f91}));w.position.set(sx*0.18,0.56,0);w.rotation.z=sx*1.4;h.add(w);}
+    const k=new T.Mesh(new T.SphereGeometry(0.09,10,10),new T.MeshStandardMaterial({color:0xe0557a}));k.position.y=0.56;h.add(k);}
+  else if(type==='cowboy'){const brim=new T.Mesh(new T.CylinderGeometry(0.52,0.52,0.05,20),new T.MeshStandardMaterial({color:0xb07a45,roughness:1}));brim.position.y=0.5;brim.scale.set(1,1,0.82);h.add(brim);
+    const crown=new T.Mesh(new T.CylinderGeometry(0.26,0.3,0.42,14),new T.MeshStandardMaterial({color:0xc78a52,roughness:1}));crown.position.y=0.72;h.add(crown);}
+  else if(type==='aureola'){const ring=new T.Mesh(new T.TorusGeometry(0.28,0.05,12,24),new T.MeshStandardMaterial({color:0xffe07a,emissive:0xffcf4a,emissiveIntensity:0.8,metalness:0.4,roughness:0.3}));ring.position.y=0.95;ring.rotation.x=Math.PI/2;h.add(ring);}
   h.traverse(o=>{if(o.isMesh)o.castShadow=true;});h.position.y=0.42;h.scale.setScalar(1.05);return h;}
+function makeClothMesh(type){const g=new T.Group();
+  if(type==='maglione'||type==='giubbotto'||type==='pigiama'){const col=type==='maglione'?0xd76b8a:type==='giubbotto'?0x3a4657:0x9fb8e0;
+    const body=new T.Mesh(new T.CapsuleGeometry(0.6,0.6,8,14),new T.MeshStandardMaterial({color:col,roughness:0.92}));body.rotation.x=Math.PI/2;body.position.set(0,1.32,type==='pigiama'?-0.05:0);body.scale.set(1.05,1.05,type==='pigiama'?1.2:0.95);body.castShadow=true;g.add(body);
+    const collar=new T.Mesh(new T.TorusGeometry(0.42,0.09,10,18),new T.MeshStandardMaterial({color:new T.Color(col).multiplyScalar(0.78).getHex(),roughness:0.9}));collar.position.set(0,1.5,0.5);collar.rotation.x=1.2;g.add(collar);}
+  else if(type==='mantello'){const cape=new T.Mesh(new T.PlaneGeometry(1.1,1.3,1,1),new T.MeshStandardMaterial({color:0xc0392b,roughness:0.85,side:T.DoubleSide}));
+    cape.position.set(0,1.32,-0.5);cape.rotation.x=-0.22;cape.castShadow=true;g.add(cape);
+    const tie=new T.Mesh(new T.TorusGeometry(0.42,0.06,8,16),new T.MeshStandardMaterial({color:0x8a1e15}));tie.position.set(0,1.52,0.3);tie.rotation.x=1.2;g.add(tie);}
+  else if(type==='bandanaR'||type==='bandanaB'){const col=type==='bandanaR'?0xe6352f:0x2f6fe0;
+    const b=new T.Mesh(new T.ConeGeometry(0.42,0.42,3),new T.MeshStandardMaterial({color:col,roughness:0.6}));b.position.set(0,1.34,0.5);b.rotation.set(1.35,0,Math.PI);b.scale.set(1,1,0.4);g.add(b);}
+  return g;}
 
 /* ================= DOG MODEL ================= */
 function makeDog(bandanaColor){const g=new T.Group();
@@ -814,7 +867,10 @@ function dogOf(which){return which==='bucky'?dogBucky:dogLoki;}
 function refs(){return S.active==='bucky'?[dogBucky,dogLoki]:[dogLoki,dogBucky];}
 function equipHat(which,type){const d=dogOf(which);if(d.hat){d.head.remove(d.hat);d.hat=null;}
   if(type){d.hat=makeHatMesh(type);d.head.add(d.hat);}S.outfits[which].hat=type;}
+function equipCloth(which,type){const d=dogOf(which);if(d.cloth){d.group.remove(d.cloth);d.cloth=null;}
+  if(type){d.cloth=makeClothMesh(type);d.group.add(d.cloth);}S.outfits[which].body=type;}
 equipHat('bucky',S.outfits.bucky.hat);equipHat('loki',S.outfits.loki.hat);
+equipCloth('bucky',S.outfits.bucky.body);equipCloth('loki',S.outfits.loki.body);
 
 /* ================= INPUT ================= */
 const keys={};
@@ -920,7 +976,7 @@ let sheet=null;
 function closeSheet(){if(sheet){sheet.remove();sheet=null;}}
 function openSheet(tab){closeSheet();sheet=document.createElement('div');sheet.className='sheet';
   sheet.onclick=e=>{if(e.target===sheet)closeSheet();};document.body.appendChild(sheet);renderSheet(tab);}
-function renderSheet(tab){
+function renderSheet(tab){if(!sheet)return;
   const tabs=[['zaino','🎒','Zaino'],['mercato','💰','Mercato'],['negozio','🛒','Negozio'],['boutique','👕','Boutique'],['orto','🌱','Orto'],['missioni','🎯','Missioni']];
   let h=`<div class="panel"><h3>Menu <button class="x" onclick="__blClose()">✕</button></h3>
     <div class="tabbar">`+tabs.map(t=>`<button class="tabbtn ${t[0]===tab?'on':''}" onclick="__blTab('${t[0]}')">${t[1]}<span>${t[2]}</span></button>`).join('')+`</div>
@@ -931,12 +987,18 @@ function renderSheet(tab){
     h+='<div class="secttl">Vendi le tue risorse</div>'+(ks.length?ks.map(k=>`<div class="row"><span>${ITEMS[k].em} ${ITEMS[k].name} ×${have(k)}</span><span>🦴${ITEMS[k].sell} <button class="btn" onclick="__blSell('${k}')">Vendi</button> <button class="btn ghost" onclick="__blSellAll('${k}')">Tutto</button></span></div>`).join(''):'<div class="empty">Niente da vendere.</div>');}
   else if(tab==='negozio'){h+='<div class="secttl">Semi & extra</div>'+
     `<div class="row"><span>🌰 Semi di carota</span><span>🦴8 <button class="btn" ${S.coins<8?'disabled':''} onclick="__blBuySeed()">Compra</button></span></div>`+
-    '<div class="secttl">Cappellini (poi indossali in Boutique 👕)</div>'+
-    Object.keys(HATS).map(k=>`<div class="row"><span>${HATS[k].em} ${HATS[k].name}</span><span>${S['hat_'+k]?'✓ posseduto':'🦴'+HATS[k].price+' <button class="btn" '+(S.coins<HATS[k].price?'disabled':'')+' onclick="__blBuyHat(\''+k+'\')">Compra</button>'}</span></div>`).join('');}
-  else if(tab==='boutique'){h+=`<div class="secttl">Vesti ${S.active==='bucky'?'Bucky 🔴':'Loki 🔵'} (🔄 per l'altro)</div>`+
-    `<div class="row"><span>Nessun cappello</span><button class="btn ${!S.outfits[S.active].hat?'':'ghost'}" onclick="__blWear(null)">${!S.outfits[S.active].hat?'✓ Indossato':'Togli'}</button></div>`+
-    Object.keys(HATS).filter(k=>S['hat_'+k]).map(k=>`<div class="row"><span>${HATS[k].em} ${HATS[k].name}</span><button class="btn ${S.outfits[S.active].hat===k?'':'ghost'}" onclick="__blWear('${k}')">${S.outfits[S.active].hat===k?'✓ Indossato':'Indossa'}</button></div>`).join('')||
-    (Object.keys(HATS).some(k=>S['hat_'+k])?'':'<div class="empty">Compra cappellini al Negozio 🛒</div>');}
+    `<div class="row"><span>🍖 Crocchette (nutri il cane)</span><span>🦴6 <button class="btn" ${S.coins<6?'disabled':''} onclick="__blBuyFood()">Compra</button></span></div>`+
+    '<div class="secttl">Cappellini (indossali in Boutique 👕)</div>'+
+    Object.keys(HATS).map(k=>`<div class="row"><span>${HATS[k].em} ${HATS[k].name}</span><span>${S['hat_'+k]?'✓ posseduto':'🦴'+HATS[k].price+' <button class="btn" '+(S.coins<HATS[k].price?'disabled':'')+' onclick="__blBuyHat(\''+k+'\')">Compra</button>'}</span></div>`).join('')+
+    '<div class="secttl">Vestiti</div>'+
+    Object.keys(CLOTHES).map(k=>`<div class="row"><span>${CLOTHES[k].em} ${CLOTHES[k].name}</span><span>${S['cloth_'+k]?'✓ posseduto':'🦴'+CLOTHES[k].price+' <button class="btn" '+(S.coins<CLOTHES[k].price?'disabled':'')+' onclick="__blBuyCloth(\''+k+'\')">Compra</button>'}</span></div>`).join('');}
+  else if(tab==='boutique'){h+=`<div class="secttl">Vesti ${S.active==='bucky'?'Bucky 🔴':'Loki 🔵'} (🔄 per l'altro)</div><div class="secttl">Cappellini</div>`+
+    `<div class="row"><span>— nessuno —</span><button class="btn ${!S.outfits[S.active].hat?'':'ghost'}" onclick="__blWear(null)">${!S.outfits[S.active].hat?'✓':'Togli'}</button></div>`+
+    Object.keys(HATS).filter(k=>S['hat_'+k]).map(k=>`<div class="row"><span>${HATS[k].em} ${HATS[k].name}</span><button class="btn ${S.outfits[S.active].hat===k?'':'ghost'}" onclick="__blWear('${k}')">${S.outfits[S.active].hat===k?'✓':'Indossa'}</button></div>`).join('')+
+    '<div class="secttl">Vestiti</div>'+
+    `<div class="row"><span>— nessuno —</span><button class="btn ${!S.outfits[S.active].body?'':'ghost'}" onclick="__blWearC(null)">${!S.outfits[S.active].body?'✓':'Togli'}</button></div>`+
+    Object.keys(CLOTHES).filter(k=>S['cloth_'+k]).map(k=>`<div class="row"><span>${CLOTHES[k].em} ${CLOTHES[k].name}</span><button class="btn ${S.outfits[S.active].body===k?'':'ghost'}" onclick="__blWearC('${k}')">${S.outfits[S.active].body===k?'✓':'Indossa'}</button></div>`).join('')+
+    ((Object.keys(HATS).some(k=>S['hat_'+k])||Object.keys(CLOTHES).some(k=>S['cloth_'+k]))?'':'<div class="empty">Compra cappellini e vestiti al Negozio 🛒</div>');}
   else if(tab==='orto'){const ready=S.plots.filter(p=>(p.stage||0)>=3).length,grow=S.plots.filter(p=>(p.stage||0)>0&&p.stage<3).length;
     h+=`<div class="secttl">L'orto vicino alla cuccia</div><div class="row"><span>🌱 In crescita</span><b>${grow}</b></div><div class="row"><span>🥕 Pronte</span><b>${ready}</b></div><div class="row"><span>🌰 Semi</span><b>${S.seeds}</b></div><div class="empty">Vai all'orto e usa il pulsante 🌱/🌾. Le carote crescono col passare dei giorni (${S.day}° giorno).</div>`;}
   else if(tab==='missioni'){h+='<div class="secttl">Progresso</div>';QUESTS.forEach((q,i)=>{const st=i<S.quest?'✓':i===S.quest?'▶':'·';
@@ -947,7 +1009,10 @@ window.__blSell=k=>{if(have(k)>0){S.inv[k]--;S.coins+=ITEMS[k].sell;toast('+🦴
 window.__blSellAll=k=>{const n=have(k);if(n>0){S.coins+=n*ITEMS[k].sell;S.inv[k]=0;toast('+🦴'+n*ITEMS[k].sell);sfx('coin');updateHUD();save();renderSheet('mercato');}};
 window.__blBuySeed=()=>{if(S.coins>=8){S.coins-=8;S.seeds++;toast('🌰 +1 seme');sfx('coin');updateHUD();save();renderSheet('negozio');}};
 window.__blBuyHat=k=>{if(!S['hat_'+k]&&S.coins>=HATS[k].price){S.coins-=HATS[k].price;S['hat_'+k]=true;toast(HATS[k].em+' comprato!');sfx('coin');updateHUD();save();renderSheet('negozio');}};
+window.__blBuyCloth=k=>{if(!S['cloth_'+k]&&S.coins>=CLOTHES[k].price){S.coins-=CLOTHES[k].price;S['cloth_'+k]=true;toast(CLOTHES[k].em+' comprato!');sfx('coin');updateHUD();save();renderSheet('negozio');}};
+window.__blBuyFood=()=>{if(S.coins>=6){S.coins-=6;S.food=(S.food||0)+1;toast('🍖 +1 crocchette');sfx('coin');updateHUD();save();renderSheet('negozio');}};
 window.__blWear=k=>{equipHat(S.active,k);save();renderSheet('boutique');};
+window.__blWearC=k=>{equipCloth(S.active,k);save();renderSheet('boutique');};
 $('menuBtn').onclick=()=>openSheet('zaino');
 $('shopBtn').onclick=()=>openSheet('negozio');
 $('act').onclick=doAction;
