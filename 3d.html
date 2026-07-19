@@ -419,18 +419,24 @@ function makeDog(bandanaColor){const g=new T.Group();
   const eyeW=new T.MeshStandardMaterial({color:0xffffff,roughness:0.2});
   const tongueM=new T.MeshStandardMaterial({color:0xe07d8a,roughness:0.6});
   const bandM=new T.MeshStandardMaterial({color:bandanaColor,roughness:0.55});
-  // a downward-hanging fur tuft (the silky Yorkie coat)
-  function tuft(x,y,z,len,mat,tiltX,tiltZ,parent){const t=new T.Mesh(new T.ConeGeometry(len*0.42,len,5),mat);
-    t.position.set(x,y,z);t.rotation.set(Math.PI+(tiltX||0),Math.random()*0.4,tiltZ||0);t.scale.set(1,1,0.55);t.castShadow=true;(parent||g).add(t);return t;}
+  // a thin, downward-hanging lock of the silky Yorkie coat (sways when animated)
+  const fur=[];
+  function tuft(x,y,z,len,mat,tiltX,tiltZ,parent,noanim){const t=new T.Mesh(new T.ConeGeometry(len*0.3,len,5),mat);
+    t.position.set(x,y,z);const rz=tiltZ||0;t.rotation.set(Math.PI+(tiltX||0),Math.random()*0.5,rz);t.scale.set(1,1,0.45);t.castShadow=true;(parent||g).add(t);
+    if(!noanim){t.userData={bz:rz,ph:Math.random()*6.28};fur.push(t);}return t;}
   // torso
   const body=new T.Mesh(new T.CapsuleGeometry(0.52,0.62,6,12),gold);body.rotation.x=Math.PI/2;body.position.set(0,1.32,0);body.scale.set(1,1,1.08);body.castShadow=true;body.receiveShadow=true;g.add(body);
   // dark steel saddle draping over the back
   const saddle=new T.Mesh(new T.SphereGeometry(0.56,14,12),steel);saddle.position.set(0,1.46,-0.02);saddle.scale.set(1.02,0.82,1.4);saddle.castShadow=true;g.add(saddle);
   const saddleL=new T.Mesh(new T.SphereGeometry(0.5,12,10),steelL);saddleL.position.set(0,1.62,0.05);saddleL.scale.set(0.9,0.5,1.2);g.add(saddleL);
-  // silky side skirt + belly feathering
-  for(const side of[-1,1])for(let i=0;i<6;i++){const z=-0.55+i*0.24;tuft(side*0.52,1.02,z,0.62+Math.random()*0.15,i<3?steelL:goldL,0.15,side*0.18);}
-  // chest fluff
-  for(let i=0;i<3;i++)tuft((i-1)*0.18,1.2,0.62,0.42,goldL,-0.5,0);
+  // silky side skirt: two flowing layers that nearly reach the ground
+  for(const side of[-1,1]){
+    for(let i=0;i<8;i++){const z=-0.62+i*0.18;tuft(side*0.5,1.14,z,0.46+Math.random()*0.12,i<4?steelL:goldL,0.08,side*0.1);}
+    for(let i=0;i<7;i++){const z=-0.52+i*0.2;tuft(side*0.56,0.96,z,0.72+Math.random()*0.16,i<3?steel:goldL,0.12,side*0.2);}}
+  // ruff along the spine
+  for(let i=0;i<6;i++)tuft(0,1.74,-0.34+i*0.2,0.26+Math.random()*0.08,i%2?steel:steelL,-2.5,0);
+  // chest ruff
+  for(let i=0;i<5;i++)tuft((i-2)*0.13,1.24,0.6,0.42,goldL,-0.5,(i-2)*0.08);
   // head
   const head=new T.Group();head.position.set(0,1.8,0.72);g.add(head);
   const skull=new T.Mesh(new T.SphereGeometry(0.47,16,14),goldL);skull.scale.set(1,0.98,1);skull.castShadow=true;head.add(skull);
@@ -449,8 +455,9 @@ function makeDog(bandanaColor){const g=new T.Group();
     const ear=new T.Mesh(new T.ConeGeometry(0.15,0.5,4),steel);ear.position.set(0,0.1,0);ear.rotation.set(0.1,0.78,-sx*0.16);ear.castShadow=true;earG.add(ear);
     const earIn=new T.Mesh(new T.ConeGeometry(0.08,0.34,4),gold);earIn.position.set(0,0.07,0.04);earIn.rotation.set(0.1,0.78,-sx*0.16);earG.add(earIn);
     tuft(sx*0.4,0.34,-0.02,0.2,steelL,0,-sx*0.3,head);}
-  // cheek fur
-  for(const sx of[-1,1])tuft(sx*0.42,-0.02,0.2,0.34,goldL,0.2,sx*0.35,head);
+  // long face furnishings + beard/mustache
+  for(const sx of[-1,1]){tuft(sx*0.44,-0.04,0.18,0.42,goldL,0.25,sx*0.4,head);tuft(sx*0.38,-0.22,0.28,0.3,goldL,0.5,sx*0.3,head);}
+  for(let i=0;i<3;i++)tuft((i-1)*0.13,-0.34,0.5,0.28,goldL,0.6,0,head);
   // top-knot with a little bow
   const knot=new T.Mesh(new T.SphereGeometry(0.13,10,10),goldL);knot.position.set(0,0.46,0.12);head.add(knot);
   const bow=new T.Mesh(new T.TorusGeometry(0.08,0.045,8,12),bandM);bow.position.set(0,0.52,0.12);bow.rotation.y=Math.PI/2;head.add(bow);
@@ -461,16 +468,17 @@ function makeDog(bandanaColor){const g=new T.Group();
   const legs=[];const legGeo=new T.CylinderGeometry(0.16,0.13,1.0,8);
   for(const p of[[-0.32,0.42],[0.32,0.42],[-0.32,-0.42],[0.32,-0.42]]){const pivot=new T.Group();pivot.position.set(p[0],1.0,p[1]);
     const leg=new T.Mesh(legGeo,gold);leg.position.y=-0.5;leg.castShadow=true;
-    tuft(0,-0.15,0,0.34,goldL,0,0,leg);
+    tuft(0,-0.12,0.11,0.34,goldL,0.2,0,leg);tuft(0,-0.02,-0.09,0.38,goldL,-0.2,0,leg);tuft(0.1,-0.1,0,0.3,goldL,0,0.25,leg);
     const paw=new T.Mesh(new T.SphereGeometry(0.18,10,9),steel);paw.position.y=-0.52;paw.scale.set(1,0.66,1.25);leg.add(paw);
     pivot.add(leg);g.add(pivot);legs.push(pivot);}
   // plumed upright tail
   const tail=new T.Group();tail.position.set(0,1.5,-0.56);g.add(tail);
   const tailM=new T.Mesh(new T.CapsuleGeometry(0.12,0.42,6,10),steel);tailM.geometry.translate(0,0.32,0);tail.add(tailM);
-  tuft(0,0.6,0,0.34,steelL,0,0,tail);tuft(0.1,0.5,0,0.3,goldL,0,0.3,tail);tuft(-0.1,0.5,0,0.3,goldL,0,-0.3,tail);
+  tuft(0,0.62,0,0.34,steelL,0,0,tail);tuft(0.12,0.52,0,0.3,goldL,0,0.35,tail);tuft(-0.12,0.52,0,0.3,goldL,0,-0.35,tail);
+  tuft(0.06,0.68,-0.05,0.28,steel,0,0.15,tail);tuft(-0.06,0.68,-0.05,0.28,steel,0,-0.15,tail);tuft(0,0.42,0.05,0.34,goldL,0.3,0,tail);
   tail.rotation.x=0.5;
   g.scale.setScalar(0.85);
-  return {group:g,legs,tail,head,hat:null,tongue,ears:earArr,eyes:eyeArr,seed:Math.random()*6.28};}
+  return {group:g,legs,tail,head,hat:null,tongue,ears:earArr,eyes:eyeArr,fur,seed:Math.random()*6.28};}
 
 /* ================= NPCs (distinct species) ================= */
 const EYE=new T.MeshStandardMaterial({color:0x201a15,roughness:0.25});
@@ -659,6 +667,14 @@ function updateParticles(dt){for(let i=0;i<PPOOL.length;i++){const p=PPOOL[i];if
   p.vy-=7*dt;p.m.position.x+=p.vx*dt;p.m.position.y+=p.vy*dt;p.m.position.z+=p.vz*dt;
   if(p.m.position.y<0.06){p.m.position.y=0.06;p.vy*=-0.4;p.vx*=0.6;p.vz*=0.6;}
   p.m.material.opacity=Math.min(1,p.life*2.4);p.m.rotation.x+=dt*5;p.m.rotation.y+=dt*6;}}
+// ---- dynamic weather ----
+let weather='sereno';
+const GREY=new T.Color(0x9aa4ad);
+const rainGroup=new T.Group();scene.add(rainGroup);rainGroup.visible=false;
+const rainDrops=[];{const rmat=new T.MeshBasicMaterial({color:0xc0d8ee,transparent:true,opacity:0.5});const rgeo=new T.BoxGeometry(0.03,0.75,0.03);
+  for(let i=0;i<130;i++){const d=new T.Mesh(rgeo,rmat);d.position.set((Math.random()-0.5)*36,Math.random()*16,(Math.random()-0.5)*36);rainGroup.add(d);rainDrops.push(d);}}
+function pickWeather(){const r=Math.random();weather=r<0.56?'sereno':r<0.85?'nuvoloso':'pioggia';}
+pickWeather();
 // winding dirt paths
 const pathMat=new T.MeshStandardMaterial({map:sandTex.clone(),color:0xdcc38a,roughness:1});pathMat.map.repeat.set(4,1);
 function pathSeg(x1,z1,x2,z2,w){const dx=x2-x1,dz=z2-z1,len=Math.hypot(dx,dz);const s=new T.Mesh(new T.BoxGeometry(len,0.06,w||2.4),pathMat);
@@ -892,14 +908,17 @@ $('buildBtn').onclick=openBuild;$('pOk').onclick=confirmPlace;$('pNo').onclick=(
 /* ================= DAY / NIGHT ================= */
 let clock=0.28,prevClock=0.28;const CYCLE=150;
 function updateSky(dt){prevClock=clock;clock=(clock+dt/CYCLE)%1;
-  if(clock<prevClock){S.day++;growPlots();save();}
+  if(clock<prevClock){S.day++;growPlots();pickWeather();save();}
+  const wet=weather==='pioggia'?1:weather==='nuvoloso'?0.5:0;
   const ang=(clock-0.25)*6.283,elev=Math.sin(clock*Math.PI);
   const dayN=Math.max(0,Math.min(1,(clock>0.05&&clock<0.95)?Math.sin((clock-0.05)/0.9*Math.PI):0));
   sun.position.set(player.x+Math.cos(ang)*50,Math.max(6,elev*70+8),player.z+Math.sin(ang)*80);sun.target.position.set(player.x,0,player.z);
-  sun.intensity=0.25+dayN*2.4;hemi.intensity=0.4+dayN*0.9;
+  sun.intensity=(0.25+dayN*2.4)*(1-wet*0.55);hemi.intensity=(0.4+dayN*0.9)*(1-wet*0.18);
   const dawn=Math.max(0,1-Math.abs(clock-0.5)*3.2);sun.color.setRGB(1,0.9+dawn*0.02,0.76+dawn*0.12);
-  const sky=SKY_NIGHT.clone().lerp(SKY_DAY,dayN);if(dayN>0.02&&dayN<0.6)sky.lerp(new T.Color(0xffb27a),(0.6-dayN)*0.5);
-  scene.background.copy(sky);scene.fog.color.copy(sky);scene.fog.far=150-(1-dayN)*40;
+  const sky=SKY_NIGHT.clone().lerp(SKY_DAY,dayN);if(dayN>0.02&&dayN<0.6&&!wet)sky.lerp(new T.Color(0xffb27a),(0.6-dayN)*0.5);
+  if(wet)sky.lerp(GREY,wet*0.6);
+  scene.background.copy(sky);scene.fog.color.copy(sky);scene.fog.far=150-(1-dayN)*40-wet*45;
+  rainGroup.visible=(weather==='pioggia');
   const night=1-dayN;
   moon.intensity=night*0.55;moon.position.set(player.x-Math.cos(ang)*50,Math.max(4,-elev*60+40),player.z-Math.sin(ang)*70);
   moonMesh.position.set(player.x-Math.cos(ang)*120,60+(-elev)*40,player.z-140);moonMesh.visible=night>0.15;
@@ -907,7 +926,8 @@ function updateSky(dt){prevClock=clock;clock=(clock+dt/CYCLE)%1;
   for(const l of nightPointLights){l.light.intensity=night*2.2;l.bulb.material.emissiveIntensity=night*1.4;}
   for(const wm of windowMats)wm.emissiveIntensity=night*1.1;
   if(water.material.uniforms&&water.material.uniforms.color)water.material.uniforms.color.value.setRGB(0.62-night*0.4,0.75-night*0.45,0.81-night*0.4);
-  $('tod').textContent=dayN>0.55?'☀️ Giorno':dayN>0.15?'🌇 Tramonto':'🌙 Notte';}
+  const wem=weather==='pioggia'?' 🌧️':weather==='nuvoloso'?' ☁️':'';
+  $('tod').textContent=(dayN>0.55?'☀️ Giorno':dayN>0.15?'🌇 Tramonto':'🌙 Notte')+wem;}
 
 /* ================= ANIMATION ================= */
 function animateDog(d,a){d.group.position.set(a.x,a.y||0,a.z);d.group.rotation.y=a.dir;
@@ -917,7 +937,8 @@ function animateDog(d,a){d.group.position.set(a.x,a.y||0,a.z);d.group.rotation.y
   const now=performance.now(),s=d.seed||0;
   if(d.tongue){const p=Math.sin(now/150+s);d.tongue.position.y=-0.32+p*0.02;d.tongue.scale.set(1,0.5,1.2+Math.max(0,p)*0.55);}
   if(d.ears){const tw=Math.sin(now/850+s),t2=((now/1000+s)%4)<0.2?Math.sin(now/55)*0.22:0;d.ears[0].rotation.z=tw*0.05+t2;d.ears[1].rotation.z=-tw*0.05-t2;}
-  if(d.eyes){const b=((now+s*400)%3200)<110?0.14:1;d.eyes[0].scale.y=b;d.eyes[1].scale.y=b;}}
+  if(d.eyes){const b=((now+s*400)%3200)<110?0.14:1;d.eyes[0].scale.y=b;d.eyes[1].scale.y=b;}
+  if(d.fur){const amp=a.moving?0.17:0.06,sp=a.moving?a.walk*1.1:now/650+s;for(const f of d.fur){f.rotation.z=f.userData.bz+Math.sin(sp+f.userData.ph)*amp;}}}
 function blocked(x,z){if(Math.abs(x)>BOUND||Math.abs(z)>BOUND)return true;
   if(Math.hypot(x-LAKE.x,z-LAKE.z)<LAKE.r-1&&!onBridge(x,z))return true;
   for(const c of colliders)if(Math.hypot(x-c.x,z-c.z)<c.r)return true;return false;}
@@ -951,6 +972,8 @@ function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
   if(grassMat.userData.sh)grassMat.userData.sh.uniforms.uTime.value=now/1000;
   // drifting clouds
   for(const cl of clouds){cl.position.x+=cl.userData.spd*dt;if(cl.position.x>120)cl.position.x=-120;}
+  // rain
+  if(rainGroup.visible){rainGroup.position.set(player.x,0,player.z);for(const d of rainDrops){d.position.y-=22*dt;if(d.position.y<0){d.position.y=16;d.position.x=(Math.random()-0.5)*36;d.position.z=(Math.random()-0.5)*36;}}}
   // water skin glints
   skin.material.opacity=0.22+Math.sin(now/700)*0.05;
   // fireflies drift
@@ -974,6 +997,7 @@ function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
 requestAnimationFrame(frame);
 setInterval(save,8000);
 window.__game={get clock(){return clock;},set clock(v){clock=v;},get S(){return S;},scene,camera,player,comp,
-  get placed(){return placedObjs;},get removeMode(){return removeMode;},get near(){return near;},detectNear};
+  get placed(){return placedObjs;},get removeMode(){return removeMode;},get near(){return near;},detectNear,
+  get weather(){return weather;},set weather(v){weather=v;}};
 })();
 </script>
