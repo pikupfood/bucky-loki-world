@@ -368,12 +368,14 @@ function makeDog(bandanaColor){const g=new T.Group();
   const mouth=new T.Mesh(new T.BoxGeometry(0.16,0.03,0.12),noseM2);mouth.position.set(0,-0.28,0.55);head.add(mouth);
   const tongue=new T.Mesh(new T.SphereGeometry(0.07,8,8),tongueM);tongue.position.set(0,-0.32,0.6);tongue.scale.set(1,0.5,1.2);head.add(tongue);
   // eyes with highlight + gold brow tufts
-  for(const sx of[-1,1]){const eye=new T.Mesh(new T.SphereGeometry(0.1,12,12),eyeM);eye.position.set(sx*0.2,0.06,0.38);head.add(eye);
+  const earArr=[],eyeArr=[];
+  for(const sx of[-1,1]){const eye=new T.Mesh(new T.SphereGeometry(0.1,12,12),eyeM);eye.position.set(sx*0.2,0.06,0.38);head.add(eye);eyeArr.push(eye);
     const gl=new T.Mesh(new T.SphereGeometry(0.028,6,6),eyeW);gl.position.set(sx*0.17,0.11,0.47);head.add(gl);
     tuft(sx*0.2,0.24,0.34,0.16,goldL,-1.2,0,head);
     // erect V ears (steel outside, tan inner)
-    const ear=new T.Mesh(new T.ConeGeometry(0.15,0.5,4),steel);ear.position.set(sx*0.33,0.5,0.0);ear.rotation.set(0.1,0.78,-sx*0.16);ear.castShadow=true;head.add(ear);
-    const earIn=new T.Mesh(new T.ConeGeometry(0.08,0.34,4),gold);earIn.position.set(sx*0.32,0.47,0.04);earIn.rotation.set(0.1,0.78,-sx*0.16);head.add(earIn);
+    const earG=new T.Group();earG.position.set(sx*0.33,0.4,0.0);head.add(earG);earArr.push(earG);
+    const ear=new T.Mesh(new T.ConeGeometry(0.15,0.5,4),steel);ear.position.set(0,0.1,0);ear.rotation.set(0.1,0.78,-sx*0.16);ear.castShadow=true;earG.add(ear);
+    const earIn=new T.Mesh(new T.ConeGeometry(0.08,0.34,4),gold);earIn.position.set(0,0.07,0.04);earIn.rotation.set(0.1,0.78,-sx*0.16);earG.add(earIn);
     tuft(sx*0.4,0.34,-0.02,0.2,steelL,0,-sx*0.3,head);}
   // cheek fur
   for(const sx of[-1,1])tuft(sx*0.42,-0.02,0.2,0.34,goldL,0.2,sx*0.35,head);
@@ -396,7 +398,7 @@ function makeDog(bandanaColor){const g=new T.Group();
   tuft(0,0.6,0,0.34,steelL,0,0,tail);tuft(0.1,0.5,0,0.3,goldL,0,0.3,tail);tuft(-0.1,0.5,0,0.3,goldL,0,-0.3,tail);
   tail.rotation.x=0.5;
   g.scale.setScalar(0.85);
-  return {group:g,legs,tail,head,hat:null};}
+  return {group:g,legs,tail,head,hat:null,tongue,ears:earArr,eyes:eyeArr,seed:Math.random()*6.28};}
 
 /* ================= NPCs (distinct species) ================= */
 const EYE=new T.MeshStandardMaterial({color:0x201a15,roughness:0.25});
@@ -453,10 +455,13 @@ function nearNPCpos(x,z){for(const k in NPCDEF){const p=NPCDEF[k].pos;if(Math.hy
 /* ---- walkable multi-level terrain (Pokopia-style plateau + ramp) ---- */
 const PLAT={x0:22,x1:38,z0:10,z1:28,h:3.0};
 const RAMP={x0:27,x1:33,z0:3.5,z1:10.2,h0:0,h1:3.0};
+const BRIDGE={x:LAKE.x-5,hw:1.4,z0:LAKE.z-LAKE.r-2,z1:LAKE.z+LAKE.r+2,h:0.45};
+function onBridge(x,z){return x>BRIDGE.x-BRIDGE.hw&&x<BRIDGE.x+BRIDGE.hw&&z>BRIDGE.z0&&z<BRIDGE.z1;}
 function onRaised(x,z){return x>PLAT.x0-1&&x<PLAT.x1+1&&z>RAMP.z0-1&&z<PLAT.z1+1;}
 function groundHeight(x,z){let h=0;
   if(x>=RAMP.x0&&x<=RAMP.x1&&z>=RAMP.z0&&z<=RAMP.z1){const t=(z-RAMP.z0)/(RAMP.z1-RAMP.z0);h=Math.max(h,RAMP.h0+(RAMP.h1-RAMP.h0)*t);}
   if(x>=PLAT.x0&&x<=PLAT.x1&&z>=PLAT.z0&&z<=PLAT.z1)h=Math.max(h,PLAT.h);
+  if(onBridge(x,z))h=Math.max(h,BRIDGE.h);
   return h;}
 // plateau geometry: brick retaining block + grass cap
 {const pw=PLAT.x1-PLAT.x0,pd=PLAT.z1-PLAT.z0,pcx=(PLAT.x0+PLAT.x1)/2,pcz=(PLAT.z0+PLAT.z1)/2;
@@ -548,21 +553,45 @@ for(let row=0;row<2;row++){const rz=10.2+row*1.15;const soil=new T.Mesh(new T.Bo
     const bush=new T.Mesh(new T.IcosahedronGeometry(0.28,0),new T.MeshStandardMaterial({color:0x3f8f45,flatShading:true}));bush.position.set(px,0.42,rz);bush.castShadow=true;scene.add(bush);
     for(let t=0;t<3;t++){const tom=new T.Mesh(new T.SphereGeometry(0.09,8,8),new T.MeshStandardMaterial({color:0xe23c2f,roughness:0.5}));tom.position.set(px+(t-1)*0.15,0.4+rand(cc*7+t)*0.16,rz+0.12);scene.add(tom);}}}
 // wooden pier over the lake (south shore, by the fishing spot)
-const pier=makePier();pier.position.set(LAKE.x,0,LAKE.z+LAKE.r-1);scene.add(pier);
+const pier=makePier();pier.position.set(LAKE.x+7,0,LAKE.z+LAKE.r-1);scene.add(pier);
+// walkable wooden bridge across the lake
+{const bx=BRIDGE.x,by=BRIDGE.h;const railPost=new T.MeshStandardMaterial({color:0x7d5636,roughness:0.9}),railBar=new T.MeshStandardMaterial({color:0x8a5f39,roughness:0.9});
+  for(let z=BRIDGE.z0;z<BRIDGE.z1;z+=0.58){const pl=new T.Mesh(new T.BoxGeometry(BRIDGE.hw*2,0.12,0.5),plankMat);pl.position.set(bx,by,z+0.25);pl.castShadow=true;pl.receiveShadow=true;scene.add(pl);}
+  for(const sx of[-1,1]){const beam=new T.Mesh(new T.BoxGeometry(0.16,0.6,BRIDGE.z1-BRIDGE.z0),plankMat);beam.position.set(bx+sx*(BRIDGE.hw-0.2),by-0.34,(BRIDGE.z0+BRIDGE.z1)/2);scene.add(beam);
+    for(let z=BRIDGE.z0;z<=BRIDGE.z1;z+=1.7){const post=new T.Mesh(new T.CylinderGeometry(0.07,0.07,0.72,6),railPost);post.position.set(bx+sx*BRIDGE.hw,by+0.35,z);post.castShadow=true;scene.add(post);}
+    const rail=new T.Mesh(new T.BoxGeometry(0.1,0.1,BRIDGE.z1-BRIDGE.z0),railBar);rail.position.set(bx+sx*BRIDGE.hw,by+0.66,(BRIDGE.z0+BRIDGE.z1)/2);rail.castShadow=true;scene.add(rail);}}
 // lily pads
-for(let i=0;i<7;i++){const a=rand(i*8.3+1)*6.28,rr=2+rand(i*2.1)*(LAKE.r-4);const lx=LAKE.x+Math.cos(a)*rr,lz=LAKE.z+Math.sin(a)*rr;
+for(let i=0;i<7;i++){const a=rand(i*8.3+1)*6.28,rr=3+rand(i*2.1)*(LAKE.r-5);const lx=LAKE.x+Math.cos(a)*rr,lz=LAKE.z+Math.sin(a)*rr;
+  if(onBridge(lx,lz))continue;
   const pad=new T.Mesh(new T.CircleGeometry(0.5+rand(i)*0.3,12,0.5,5.6),new T.MeshStandardMaterial({color:0x3f9a4a,roughness:0.7,side:T.DoubleSide}));
   pad.rotation.x=-Math.PI/2;pad.rotation.z=rand(i*3)*6.28;pad.position.set(lx,0.14,lz);pad.receiveShadow=true;scene.add(pad);
   if(i%2===0){const fl=new T.Mesh(new T.SphereGeometry(0.12,8,8),new T.MeshStandardMaterial({color:0xff9ec4,roughness:0.5}));fl.position.set(lx,0.22,lz);fl.castShadow=true;scene.add(fl);}}
+// fluttering butterflies
+const butterflies=[],bflyCols=[0xff9ec4,0xffd23f,0x9fd0f0,0xc77dff,0xff9e3d];
+for(let i=0;i<8;i++){const bg=new T.Group();const mat=new T.MeshStandardMaterial({color:bflyCols[i%5],side:T.DoubleSide,roughness:0.5,emissive:new T.Color(bflyCols[i%5]).multiplyScalar(0.15)});
+  const pl=new T.Group(),pr=new T.Group();bg.add(pl);bg.add(pr);
+  const w1=new T.Mesh(new T.CircleGeometry(0.16,8),mat);w1.position.x=0.15;pr.add(w1);
+  const w2=new T.Mesh(new T.CircleGeometry(0.16,8),mat);w2.position.x=-0.15;pl.add(w2);
+  const cx=(rand(i*4.4+7)-0.5)*70,cz=(rand(i*2.7+3)-0.5)*70;
+  bg.position.set(cx,1.4,cz);scene.add(bg);butterflies.push({bg,pl,pr,cx,cz,r:2+rand(i)*3.5,ph:rand(i*9)*6.28,sp:0.5+rand(i)*0.6});}
 // winding dirt paths
 const pathMat=new T.MeshStandardMaterial({map:sandTex.clone(),color:0xdcc38a,roughness:1});pathMat.map.repeat.set(4,1);
 function pathSeg(x1,z1,x2,z2,w){const dx=x2-x1,dz=z2-z1,len=Math.hypot(dx,dz);const s=new T.Mesh(new T.BoxGeometry(len,0.06,w||2.4),pathMat);
   s.position.set((x1+x2)/2,0.05,(z1+z2)/2);s.rotation.y=-Math.atan2(dz,dx);s.receiveShadow=true;scene.add(s);}
 pathSeg(0,2,3,7,2.6);pathSeg(2,1,14,3,2.6);pathSeg(0,0,-14,-9,2.4);
 // NPCs
-const npcObjs={};
+const npcObjs={},npcAgents=[];
 for(const id in NPCDEF){const def=NPCDEF[id];const g=makeNPC(def);g.position.set(def.pos[0],0,def.pos[1]);scene.add(g);
-  colliders.push({x:def.pos[0],z:def.pos[1],r:1.0});npcObjs[id]=g;reg({type:'npc',x:def.pos[0],z:def.pos[1],r:2.6,id});}
+  npcObjs[id]=g;const inter={type:'npc',x:def.pos[0],z:def.pos[1],r:2.6,id};reg(inter);
+  npcAgents.push({id,g,hx:def.pos[0],hz:def.pos[1],x:def.pos[0],z:def.pos[1],tx:def.pos[0],tz:def.pos[1],dir:0,mv:false,wait:1+Math.random()*3,ph:Math.random()*6,inter});}
+function updateNPCs(dt){for(const n of npcAgents){
+  if(!n.mv){n.wait-=dt;if(n.wait<=0){const a=Math.random()*6.28,r=1.5+Math.random()*3;n.tx=n.hx+Math.cos(a)*r;n.tz=n.hz+Math.sin(a)*r;n.mv=true;}}
+  else{const dx=n.tx-n.x,dz=n.tz-n.z,d=Math.hypot(dx,dz);
+    if(d<0.25){n.mv=false;n.wait=2+Math.random()*4;}else{const sp=Math.min(1.5*dt,d);n.x+=dx/d*sp;n.z+=dz/d*sp;n.dir=Math.atan2(dx,dz);}}
+  n.ph+=dt*(n.mv?7:3);
+  n.g.position.set(n.x,Math.abs(Math.sin(n.ph))*(n.mv?0.07:0.025),n.z);
+  n.g.rotation.y+=(n.dir-n.g.rotation.y)*Math.min(1,dt*8);
+  n.inter.x=n.x;n.inter.z=n.z;}}
 
 /* ================= NIGHT: fireflies, moon, stars ================= */
 const starGeo=new T.BufferGeometry(),sc=[];
@@ -750,9 +779,13 @@ function updateSky(dt){prevClock=clock;clock=(clock+dt/CYCLE)%1;
 function animateDog(d,a){d.group.position.set(a.x,a.y||0,a.z);d.group.rotation.y=a.dir;
   const sw=a.moving?Math.sin(a.walk)*0.5:0;d.legs[0].rotation.x=sw;d.legs[3].rotation.x=sw;d.legs[1].rotation.x=-sw;d.legs[2].rotation.x=-sw;
   d.tail.rotation.y=Math.sin(a.moving?a.walk*1.5:performance.now()/300)*0.5;
-  d.group.position.y=(a.y||0)+(a.moving?Math.abs(Math.sin(a.walk))*0.08:Math.sin(performance.now()/650)*0.03);}
+  d.group.position.y=(a.y||0)+(a.moving?Math.abs(Math.sin(a.walk))*0.08:Math.sin(performance.now()/650)*0.03);
+  const now=performance.now(),s=d.seed||0;
+  if(d.tongue){const p=Math.sin(now/150+s);d.tongue.position.y=-0.32+p*0.02;d.tongue.scale.set(1,0.5,1.2+Math.max(0,p)*0.55);}
+  if(d.ears){const tw=Math.sin(now/850+s),t2=((now/1000+s)%4)<0.2?Math.sin(now/55)*0.22:0;d.ears[0].rotation.z=tw*0.05+t2;d.ears[1].rotation.z=-tw*0.05-t2;}
+  if(d.eyes){const b=((now+s*400)%3200)<110?0.14:1;d.eyes[0].scale.y=b;d.eyes[1].scale.y=b;}}
 function blocked(x,z){if(Math.abs(x)>BOUND||Math.abs(z)>BOUND)return true;
-  if(Math.hypot(x-LAKE.x,z-LAKE.z)<LAKE.r-1)return true;
+  if(Math.hypot(x-LAKE.x,z-LAKE.z)<LAKE.r-1&&!onBridge(x,z))return true;
   for(const c of colliders)if(Math.hypot(x-c.x,z-c.z)<c.r)return true;return false;}
 function moveActor(a,dx,dz){const h0=groundHeight(a.x,a.z);
   if(!blocked(a.x+dx,a.z)&&Math.abs(groundHeight(a.x+dx,a.z)-h0)<1.3)a.x+=dx;
@@ -776,7 +809,8 @@ function frame(now){const dt=Math.min((now-last)/1000,0.05);last=now;
   const[pd,cdog]=refs();animateDog(pd,player);animateDog(cdog,comp);
   // spin dig sparkles
   for(const o of interactables)if(o.type==='dig'&&o.spark){o.spark.rotation.y+=dt*2;o.spark.visible=!(S.dug[o.id]&&S.dug[o.id]>Date.now());}
-  // npc quest markers bob & toggle
+  // npcs wander + quest markers bob & toggle
+  updateNPCs(dt);
   for(const id in npcObjs){const m=npcObjs[id].userData.mark;const q=QUESTS[S.quest];
     m.visible=!!(q&&q.npc===id);m.position.y=2.1+Math.sin(now/300)*0.12;m.rotation.y+=dt*2;}
   // grass wind
@@ -787,6 +821,10 @@ function frame(now){const dt=Math.min((now-last)/1000,0.05);last=now;
   skin.material.opacity=0.22+Math.sin(now/700)*0.05;
   // fireflies drift
   const fp=fireflies.geometry.attributes.position;for(let i=0;i<ffN;i++){fp.array[i*3+1]=0.8+Math.sin(now/900+ffSeed[i])*0.5+1.0;}fp.needsUpdate=true;
+  // butterflies flutter
+  for(const b of butterflies){b.ph+=dt*b.sp;
+    b.bg.position.set(b.cx+Math.cos(b.ph)*b.r,1.2+Math.sin(b.ph*2.3)*0.45,b.cz+Math.sin(b.ph)*b.r);
+    b.bg.rotation.y=-b.ph+Math.PI/2;const flap=Math.sin(now/45+b.ph*3)*0.95;b.pl.rotation.y=flap;b.pr.rotation.y=-flap;}
   detectNear();
   camTarget.set(player.x,1.6+player.y,player.z);
   camera.position.lerp(new T.Vector3(player.x,13.5+player.y,player.z+19),1-Math.pow(0.001,dt));camera.lookAt(camTarget);
