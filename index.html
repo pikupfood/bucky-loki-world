@@ -276,6 +276,8 @@ const COSMETICS={
   hat_straw:{slot:'hat',name:'Cappello di paglia',cost:18,kind:'straw'},
   hat_party:{slot:'hat',name:'Cappellino festa',cost:12,kind:'party'},
   hat_top:{slot:'hat',name:'Cilindro',cost:30,kind:'top'},
+  hat_flower:{slot:'hat',name:'Corona di fiori',cost:20,kind:'flower'},
+  hat_beanie:{slot:'hat',name:'Berretto di lana',cost:16,kind:'beanie'},
   hat_crown:{slot:'hat',name:'Coroncina',cost:70,kind:'crown'},
   face_sun:{slot:'face',name:'Occhiali da sole',cost:22,kind:'sun'},
   face_round:{slot:'face',name:'Occhialini',cost:16,kind:'round'},
@@ -466,6 +468,8 @@ function drawDog(g,cx,cy,sc,dog,face,walk,moving,outfit){
     else if(h.kind==='straw'){g.fillStyle='#d9b06a';g.beginPath();g.ellipse(0,-8,12,3.4,0,0,7);g.fill();g.fillStyle='#e6c078';g.beginPath();g.arc(0,-9,6.5,Math.PI,0);g.fill();g.fillStyle='#b98a3f';g.fillRect(-6.5,-9.5,13,1.6);}
     else if(h.kind==='party'){g.fillStyle='#ff6f91';g.beginPath();g.moveTo(-6,-8);g.lineTo(6,-8);g.lineTo(0,-22);g.closePath();g.fill();g.fillStyle='#ffd23f';g.beginPath();g.moveTo(-3,-12);g.lineTo(3,-12);g.lineTo(1,-16);g.lineTo(-1,-16);g.closePath();g.fill();g.fillStyle='#5ad1e6';g.beginPath();g.arc(0,-22,2,0,7);g.fill();}
     else if(h.kind==='top'){g.fillStyle='#2a2730';g.fillRect(-6.5,-19,13,11);g.fillStyle='#141018';g.beginPath();g.ellipse(0,-8,10,2.6,0,0,7);g.fill();g.fillStyle='#8b1e2d';g.fillRect(-6.5,-11,13,2.2);}
+    else if(h.kind==='flower'){const cols=['#ff6f91','#ffd23f','#c77dff','#5ad1e6','#ff9e3d'];for(let i=0;i<5;i++){const fx=-7+i*3.5,fy=-10-Math.sin((i/4)*Math.PI)*2.4;g.fillStyle=cols[i];g.beginPath();g.arc(fx,fy,2.4,0,7);g.fill();g.fillStyle='rgba(255,255,255,.75)';g.beginPath();g.arc(fx,fy,.9,0,7);g.fill();}}
+    else if(h.kind==='beanie'){g.fillStyle='#4a7fd0';g.beginPath();g.arc(0,-9,7.6,Math.PI,0);g.fill();g.fillRect(-7.6,-9,15.2,2);g.fillStyle='#3a63a8';g.fillRect(-7.6,-8,15.2,2.4);g.fillStyle='#eef3ff';g.beginPath();g.arc(0,-17,2.6,0,7);g.fill();}
     else if(h.kind==='crown'){g.fillStyle='#f2c14e';g.beginPath();g.moveTo(-7,-8);g.lineTo(-7,-13);g.lineTo(-3.5,-10);g.lineTo(0,-15);g.lineTo(3.5,-10);g.lineTo(7,-13);g.lineTo(7,-8);g.closePath();g.fill();g.fillStyle='#e0342f';g.beginPath();g.arc(0,-10,1.3,0,7);g.fill();g.fillStyle='#3d8bff';g.beginPath();g.arc(-4.5,-10.5,1,0,7);g.arc(4.5,-10.5,1,0,7);g.fill();}}
   g.restore();g.restore();
 }
@@ -710,7 +714,7 @@ function tabNegozio(){const items=Object.keys(DECOR).map(k=>{const d=DECOR[k];co
     return `<div class="shopitem ${can?'':'cant'}" data-buy="${k}">${icon}<div class="nm">${d.name}</div><div class="pr">🦴 ${d.cost}</div></div>`;}).join('');
   const seed=`<div class="shopitem ${S.coins>=3?'':'cant'}" data-plant="1"><div class="em">🌱</div><div class="nm">Semino (orto)</div><div class="pr">🦴 3</div></div>`;
   return `<h3>🛒 Negozio ${bal()}</h3><p class="muted">Compra arredi da posizionare, o un semino da piantare nell'orto (cresce nei giorni → raccogli 🥕).</p><div class="shopgrid">${seed}${items}</div>`;}
-function tabBoutique(){const ICO={neck_red:'🟥',neck_blue:'🟦',neck_green:'🟩',neck_purple:'🟪',neck_gold:'🟨',hat_cap:'🧢',hat_straw:'👒',hat_party:'🥳',hat_top:'🎩',hat_crown:'👑',face_sun:'🕶️',face_round:'👓',body_sweater:'🧥',body_cape:'🦸',body_pack:'🎒'};
+function tabBoutique(){const ICO={neck_red:'🟥',neck_blue:'🟦',neck_green:'🟩',neck_purple:'🟪',neck_gold:'🟨',hat_cap:'🧢',hat_straw:'👒',hat_party:'🥳',hat_top:'🎩',hat_flower:'🌸',hat_beanie:'🧶',hat_crown:'👑',face_sun:'🕶️',face_round:'👓',body_sweater:'🧥',body_cape:'🦸',body_pack:'🎒'};
   const of=S.outfits[S.dog];const groups={neck:'Bandane',hat:'Cappelli',face:'Occhiali',body:'Vestiti'};
   let html=`<h3>👕 Boutique ${bal()}</h3><p class="muted">Vesti <b>${S.dog==='bucky'?'Bucky':'Loki'}</b>! Tocca per comprare o indossare.</p>`;
   for(const slot in groups){html+=`<div class="secttl">${groups[slot]}</div><div class="shopgrid">`;
