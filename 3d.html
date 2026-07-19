@@ -123,9 +123,9 @@ const ITEMS={
 const HATS={cappello:{em:'🎩',name:'Cilindro',price:45},paglia:{em:'👒',name:'Paglia',price:30},
   corona:{em:'👑',name:'Corona',price:90},party:{em:'🎉',name:'Festa',price:25}};
 const NPCDEF={
-  mochi:{name:'Mochi',em:'🐱',color:0xf2b8c6,pos:[-11,10]},
-  pip:{name:'Pip',em:'🐦',color:0x9fd0f0,pos:[-14,-9]},
-  rocco:{name:'Rocco',em:'🦔',color:0xc9a06a,pos:[13,12]}
+  mochi:{name:'Mochi',em:'🐱',type:'cat',color:0xf2b8c6,pos:[-11,10]},
+  pip:{name:'Pip',em:'🐦',type:'bird',color:0x7ec8f0,pos:[-14,-9]},
+  rocco:{name:'Rocco',em:'🦔',type:'hedgehog',color:0xb5895a,pos:[13,12]}
 };
 const QUESTS=[
   {npc:'mochi',type:'collect',item:'fiore',amount:3,reward:20,
@@ -337,49 +337,109 @@ function makeHatMesh(type){const h=new T.Group();
 
 /* ================= DOG MODEL ================= */
 function makeDog(bandanaColor){const g=new T.Group();
-  const tan=new T.MeshStandardMaterial({color:0xe0a866,roughness:0.75});
-  const tanL=new T.MeshStandardMaterial({color:0xecbb80,roughness:0.75});
-  const dark=new T.MeshStandardMaterial({color:0x3a4048,roughness:0.7});
-  const nose=new T.MeshStandardMaterial({color:0x201c18,roughness:0.5});
-  const eyeM=new T.MeshStandardMaterial({color:0x1a1712,roughness:0.3});
-  const bandM=new T.MeshStandardMaterial({color:bandanaColor,roughness:0.6});
-  const body=new T.Mesh(new T.CapsuleGeometry(0.55,0.55,8,14),tan);body.rotation.x=Math.PI/2;body.position.set(0,1.35,0);body.scale.set(1,1,1.05);body.castShadow=true;body.receiveShadow=true;g.add(body);
-  const chest=new T.Mesh(new T.SphereGeometry(0.5,14,12),tan);chest.position.set(0,1.35,0.5);chest.castShadow=true;g.add(chest);
-  const saddle=new T.Mesh(new T.SphereGeometry(0.58,16,12),dark);saddle.position.set(0,1.5,0);saddle.scale.set(1,0.8,1.35);saddle.castShadow=true;g.add(saddle);
-  const head=new T.Group();head.position.set(0,1.78,0.78);g.add(head);
-  const skull=new T.Mesh(new T.SphereGeometry(0.5,18,16),tanL);skull.castShadow=true;head.add(skull);
-  const snout=new T.Mesh(new T.SphereGeometry(0.3,12,10),tan);snout.position.set(0,-0.16,0.42);snout.scale.set(1,0.85,1.1);snout.castShadow=true;head.add(snout);
-  const noseM=new T.Mesh(new T.SphereGeometry(0.12,10,10),nose);noseM.position.set(0,-0.1,0.72);head.add(noseM);
-  const eyeW=new T.MeshStandardMaterial({color:0xffffff,roughness:0.3});
-  for(const sx of[-1,1]){const eye=new T.Mesh(new T.SphereGeometry(0.11,12,12),eyeM);eye.position.set(sx*0.22,0.08,0.4);head.add(eye);
-    const gl=new T.Mesh(new T.SphereGeometry(0.03,6,6),eyeW);gl.position.set(sx*0.19,0.13,0.5);head.add(gl);
-    const ear=new T.Mesh(new T.ConeGeometry(0.2,0.4,10),dark);ear.position.set(sx*0.38,0.5,0.02);ear.rotation.z=-sx*0.28;ear.castShadow=true;head.add(ear);}
-  const cap=new T.Mesh(new T.SphereGeometry(0.51,18,12,0,6.3,0,Math.PI*0.45),dark);cap.position.set(0,0.05,-0.03);cap.castShadow=true;head.add(cap);
-  const topknot=new T.Mesh(new T.SphereGeometry(0.14,10,10),bandM);topknot.position.set(0,0.5,0.02);head.add(topknot);
-  const band=new T.Mesh(new T.TorusGeometry(0.46,0.13,10,18),bandM);band.position.set(0,1.45,0.42);band.rotation.x=Math.PI/2.3;band.scale.set(1,1,0.7);band.castShadow=true;g.add(band);
-  const knot=new T.Mesh(new T.ConeGeometry(0.17,0.34,7),bandM);knot.position.set(0,1.2,0.62);knot.rotation.x=1.1;g.add(knot);
-  const legs=[];const legGeo=new T.CylinderGeometry(0.17,0.14,1.0,9);
-  for(const p of[[-0.34,0.42],[0.34,0.42],[-0.34,-0.42],[0.34,-0.42]]){const pivot=new T.Group();pivot.position.set(p[0],1.0,p[1]);
-    const leg=new T.Mesh(legGeo,tan);leg.position.y=-0.5;leg.castShadow=true;
-    const paw=new T.Mesh(new T.SphereGeometry(0.19,10,9),dark);paw.position.y=-0.52;paw.scale.set(1,0.7,1.2);leg.add(paw);
+  // Yorkshire-terrier palette: golden tan body & face, dark steel-blue saddle
+  const gold=new T.MeshStandardMaterial({color:0xcf9a56,roughness:0.85,flatShading:true});
+  const goldL=new T.MeshStandardMaterial({color:0xe3ba78,roughness:0.85,flatShading:true});
+  const steel=new T.MeshStandardMaterial({color:0x39424e,roughness:0.8,flatShading:true});
+  const steelL=new T.MeshStandardMaterial({color:0x4c5763,roughness:0.8,flatShading:true});
+  const noseM2=new T.MeshStandardMaterial({color:0x18130f,roughness:0.35});
+  const eyeM=new T.MeshStandardMaterial({color:0x120f0c,roughness:0.25});
+  const eyeW=new T.MeshStandardMaterial({color:0xffffff,roughness:0.2});
+  const tongueM=new T.MeshStandardMaterial({color:0xe07d8a,roughness:0.6});
+  const bandM=new T.MeshStandardMaterial({color:bandanaColor,roughness:0.55});
+  // a downward-hanging fur tuft (the silky Yorkie coat)
+  function tuft(x,y,z,len,mat,tiltX,tiltZ,parent){const t=new T.Mesh(new T.ConeGeometry(len*0.42,len,5),mat);
+    t.position.set(x,y,z);t.rotation.set(Math.PI+(tiltX||0),Math.random()*0.4,tiltZ||0);t.scale.set(1,1,0.55);t.castShadow=true;(parent||g).add(t);return t;}
+  // torso
+  const body=new T.Mesh(new T.CapsuleGeometry(0.52,0.62,6,12),gold);body.rotation.x=Math.PI/2;body.position.set(0,1.32,0);body.scale.set(1,1,1.08);body.castShadow=true;body.receiveShadow=true;g.add(body);
+  // dark steel saddle draping over the back
+  const saddle=new T.Mesh(new T.SphereGeometry(0.56,14,12),steel);saddle.position.set(0,1.46,-0.02);saddle.scale.set(1.02,0.82,1.4);saddle.castShadow=true;g.add(saddle);
+  const saddleL=new T.Mesh(new T.SphereGeometry(0.5,12,10),steelL);saddleL.position.set(0,1.62,0.05);saddleL.scale.set(0.9,0.5,1.2);g.add(saddleL);
+  // silky side skirt + belly feathering
+  for(const side of[-1,1])for(let i=0;i<6;i++){const z=-0.55+i*0.24;tuft(side*0.52,1.02,z,0.62+Math.random()*0.15,i<3?steelL:goldL,0.15,side*0.18);}
+  // chest fluff
+  for(let i=0;i<3;i++)tuft((i-1)*0.18,1.2,0.62,0.42,goldL,-0.5,0);
+  // head
+  const head=new T.Group();head.position.set(0,1.8,0.72);g.add(head);
+  const skull=new T.Mesh(new T.SphereGeometry(0.47,16,14),goldL);skull.scale.set(1,0.98,1);skull.castShadow=true;head.add(skull);
+  // muzzle
+  const muzzle=new T.Mesh(new T.SphereGeometry(0.27,12,10),gold);muzzle.position.set(0,-0.16,0.4);muzzle.scale.set(1,0.82,1.15);muzzle.castShadow=true;head.add(muzzle);
+  const noseM=new T.Mesh(new T.SphereGeometry(0.115,10,10),noseM2);noseM.position.set(0,-0.09,0.72);noseM.scale.set(1.2,0.9,1);head.add(noseM);
+  const mouth=new T.Mesh(new T.BoxGeometry(0.16,0.03,0.12),noseM2);mouth.position.set(0,-0.28,0.55);head.add(mouth);
+  const tongue=new T.Mesh(new T.SphereGeometry(0.07,8,8),tongueM);tongue.position.set(0,-0.32,0.6);tongue.scale.set(1,0.5,1.2);head.add(tongue);
+  // eyes with highlight + gold brow tufts
+  for(const sx of[-1,1]){const eye=new T.Mesh(new T.SphereGeometry(0.1,12,12),eyeM);eye.position.set(sx*0.2,0.06,0.38);head.add(eye);
+    const gl=new T.Mesh(new T.SphereGeometry(0.028,6,6),eyeW);gl.position.set(sx*0.17,0.11,0.47);head.add(gl);
+    tuft(sx*0.2,0.24,0.34,0.16,goldL,-1.2,0,head);
+    // erect V ears (steel outside, tan inner)
+    const ear=new T.Mesh(new T.ConeGeometry(0.15,0.5,4),steel);ear.position.set(sx*0.33,0.5,0.0);ear.rotation.set(0.1,0.78,-sx*0.16);ear.castShadow=true;head.add(ear);
+    const earIn=new T.Mesh(new T.ConeGeometry(0.08,0.34,4),gold);earIn.position.set(sx*0.32,0.47,0.04);earIn.rotation.set(0.1,0.78,-sx*0.16);head.add(earIn);
+    tuft(sx*0.4,0.34,-0.02,0.2,steelL,0,-sx*0.3,head);}
+  // cheek fur
+  for(const sx of[-1,1])tuft(sx*0.42,-0.02,0.2,0.34,goldL,0.2,sx*0.35,head);
+  // top-knot with a little bow
+  const knot=new T.Mesh(new T.SphereGeometry(0.13,10,10),goldL);knot.position.set(0,0.46,0.12);head.add(knot);
+  const bow=new T.Mesh(new T.TorusGeometry(0.08,0.045,8,12),bandM);bow.position.set(0,0.52,0.12);bow.rotation.y=Math.PI/2;head.add(bow);
+  // neck bandana
+  const band=new T.Mesh(new T.TorusGeometry(0.44,0.12,10,18),bandM);band.position.set(0,1.42,0.36);band.rotation.x=Math.PI/2.3;band.scale.set(1,1,0.7);band.castShadow=true;g.add(band);
+  const bknot=new T.Mesh(new T.ConeGeometry(0.15,0.3,7),bandM);bknot.position.set(0,1.2,0.56);bknot.rotation.x=1.1;g.add(bknot);
+  // legs with feathering + paws
+  const legs=[];const legGeo=new T.CylinderGeometry(0.16,0.13,1.0,8);
+  for(const p of[[-0.32,0.42],[0.32,0.42],[-0.32,-0.42],[0.32,-0.42]]){const pivot=new T.Group();pivot.position.set(p[0],1.0,p[1]);
+    const leg=new T.Mesh(legGeo,gold);leg.position.y=-0.5;leg.castShadow=true;
+    tuft(0,-0.15,0,0.34,goldL,0,0,leg);
+    const paw=new T.Mesh(new T.SphereGeometry(0.18,10,9),steel);paw.position.y=-0.52;paw.scale.set(1,0.66,1.25);leg.add(paw);
     pivot.add(leg);g.add(pivot);legs.push(pivot);}
-  const tail=new T.Group();tail.position.set(0,1.55,-0.55);g.add(tail);
-  const tailM=new T.Mesh(new T.CapsuleGeometry(0.13,0.5,6,10),dark);tailM.geometry.translate(0,0.35,0);tail.add(tailM);tail.rotation.x=0.5;
+  // plumed upright tail
+  const tail=new T.Group();tail.position.set(0,1.5,-0.56);g.add(tail);
+  const tailM=new T.Mesh(new T.CapsuleGeometry(0.12,0.42,6,10),steel);tailM.geometry.translate(0,0.32,0);tail.add(tailM);
+  tuft(0,0.6,0,0.34,steelL,0,0,tail);tuft(0.1,0.5,0,0.3,goldL,0,0.3,tail);tuft(-0.1,0.5,0,0.3,goldL,0,-0.3,tail);
+  tail.rotation.x=0.5;
   g.scale.setScalar(0.85);
   return {group:g,legs,tail,head,hat:null};}
 
-/* ================= NPCs ================= */
-function makeNPC(def){const g=new T.Group();
-  const body=new T.Mesh(new T.SphereGeometry(0.7,18,16),new T.MeshStandardMaterial({color:def.color,roughness:0.7}));
-  body.position.y=0.75;body.scale.set(1,1.1,1);body.castShadow=true;g.add(body);
-  const belly=new T.Mesh(new T.SphereGeometry(0.45,14,12),new T.MeshStandardMaterial({color:0xfff6ec,roughness:0.7}));
-  belly.position.set(0,0.62,0.4);belly.scale.set(1,1.1,0.6);g.add(belly);
-  for(const sx of[-1,1]){const ear=new T.Mesh(new T.ConeGeometry(0.22,0.4,10),new T.MeshStandardMaterial({color:def.color,roughness:0.7}));
-    ear.position.set(sx*0.4,1.35,0);ear.rotation.z=-sx*0.3;ear.castShadow=true;g.add(ear);
-    const eye=new T.Mesh(new T.SphereGeometry(0.09,10,10),new T.MeshStandardMaterial({color:0x241f1a}));eye.position.set(sx*0.22,0.95,0.6);g.add(eye);}
-  const nose=new T.Mesh(new T.SphereGeometry(0.08,8,8),new T.MeshStandardMaterial({color:0x241f1a}));nose.position.set(0,0.8,0.68);g.add(nose);
+/* ================= NPCs (distinct species) ================= */
+const EYE=new T.MeshStandardMaterial({color:0x201a15,roughness:0.25});
+const EYEW=new T.MeshStandardMaterial({color:0xffffff,roughness:0.2});
+function eyes(g,y,z,sp,r){for(const sx of[-1,1]){const e=new T.Mesh(new T.SphereGeometry(r||0.09,12,12),EYE);e.position.set(sx*sp,y,z);g.add(e);
+  const h=new T.Mesh(new T.SphereGeometry((r||0.09)*0.32,6,6),EYEW);h.position.set(sx*sp+0.02,y+0.04,z+0.06);g.add(h);}}
+function makeNPC(def){const g=new T.Group();const col=new T.Color(def.color);
+  const mat=new T.MeshStandardMaterial({color:def.color,roughness:0.75,flatShading:true});
+  const belly=new T.MeshStandardMaterial({color:col.clone().lerp(new T.Color(0xffffff),0.55).getHex(),roughness:0.8,flatShading:true});
+  const dark=new T.MeshStandardMaterial({color:col.clone().multiplyScalar(0.55).getHex(),roughness:0.8,flatShading:true});
+  if(def.type==='cat'){
+    const body=new T.Mesh(new T.CapsuleGeometry(0.42,0.4,6,12),mat);body.position.y=0.75;body.castShadow=true;g.add(body);
+    const bb=new T.Mesh(new T.SphereGeometry(0.3,12,10),belly);bb.position.set(0,0.66,0.28);bb.scale.set(1,1.1,0.6);g.add(bb);
+    const head=new T.Mesh(new T.SphereGeometry(0.42,16,14),mat);head.position.set(0,1.28,0.06);head.castShadow=true;g.add(head);
+    for(const sx of[-1,1]){const ear=new T.Mesh(new T.ConeGeometry(0.18,0.34,4),mat);ear.position.set(sx*0.26,1.62,0.02);ear.rotation.set(0,0.78,-sx*0.1);ear.castShadow=true;g.add(ear);
+      const ei=new T.Mesh(new T.ConeGeometry(0.09,0.2,4),belly);ei.position.set(sx*0.25,1.6,0.06);ei.rotation.set(0,0.78,-sx*0.1);g.add(ei);}
+    eyes(g,1.3,0.4,0.16,0.08);
+    const nose=new T.Mesh(new T.ConeGeometry(0.05,0.06,4),new T.MeshStandardMaterial({color:0xd06a7a}));nose.rotation.x=Math.PI/2;nose.position.set(0,1.2,0.44);g.add(nose);
+    const wm=new T.MeshStandardMaterial({color:0xffffff});for(const sx of[-1,1])for(let i=0;i<3;i++){const w=new T.Mesh(new T.CylinderGeometry(0.006,0.006,0.32,4),wm);w.position.set(sx*0.28,1.18+i*0.05,0.34);w.rotation.set(0,0,Math.PI/2+ (i-1)*0.2);g.add(w);}
+    const tail=new T.Mesh(new T.CapsuleGeometry(0.07,0.55,5,8),mat);tail.position.set(0.28,0.85,-0.4);tail.rotation.set(-0.6,0,-0.5);tail.castShadow=true;g.add(tail);
+  }else if(def.type==='bird'){
+    const body=new T.Mesh(new T.SphereGeometry(0.5,16,14),mat);body.position.y=0.7;body.scale.set(1,1.1,1);body.castShadow=true;g.add(body);
+    const bb=new T.Mesh(new T.SphereGeometry(0.32,12,10),belly);bb.position.set(0,0.62,0.3);bb.scale.set(1,1.1,0.5);g.add(bb);
+    const head=new T.Mesh(new T.SphereGeometry(0.34,14,12),mat);head.position.set(0,1.25,0.05);head.castShadow=true;g.add(head);
+    eyes(g,1.3,0.28,0.13,0.08);
+    const beak=new T.Mesh(new T.ConeGeometry(0.1,0.26,6),new T.MeshStandardMaterial({color:0xf2a03a}));beak.rotation.x=Math.PI/2;beak.position.set(0,1.22,0.36);g.add(beak);
+    for(const sx of[-1,1]){const wing=new T.Mesh(new T.SphereGeometry(0.22,10,8),dark);wing.position.set(sx*0.46,0.72,-0.02);wing.scale.set(0.4,1,0.7);wing.castShadow=true;g.add(wing);}
+    for(let i=0;i<3;i++){const tf=new T.Mesh(new T.ConeGeometry(0.08,0.4,4),dark);tf.position.set((i-1)*0.1,0.66,-0.5);tf.rotation.x=-1.4;g.add(tf);}
+    const crest=new T.Mesh(new T.ConeGeometry(0.05,0.22,4),dark);crest.position.set(0,1.6,0.02);g.add(crest);
+    for(const sx of[-1,1]){const foot=new T.Mesh(new T.CylinderGeometry(0.03,0.03,0.18,5),new T.MeshStandardMaterial({color:0xf2a03a}));foot.position.set(sx*0.14,0.24,0.12);g.add(foot);}
+  }else{ // hedgehog
+    const body=new T.Mesh(new T.SphereGeometry(0.55,16,14),new T.MeshStandardMaterial({color:0x8a6a44,roughness:0.85,flatShading:true}));body.position.y=0.7;body.scale.set(1,0.9,1.1);body.castShadow=true;g.add(body);
+    const face=new T.Mesh(new T.SphereGeometry(0.34,14,12),belly);face.position.set(0,0.66,0.42);face.scale.set(1,0.9,0.9);face.castShadow=true;g.add(face);
+    const spikeMat=new T.MeshStandardMaterial({color:0x5a4630,roughness:0.9,flatShading:true});
+    for(let i=0;i<34;i++){const a=Math.random()*6.28,b=Math.random()*1.1;const sp=new T.Mesh(new T.ConeGeometry(0.07,0.34,4),spikeMat);
+      const rx=Math.sin(b)*0.55,ry=Math.cos(b)*0.5;sp.position.set(Math.cos(a)*rx,0.7+ry,Math.sin(a)*rx-0.1);sp.lookAt(sp.position.x*2,sp.position.y+ry,sp.position.z*2-0.1);sp.rotateX(Math.PI/2);sp.castShadow=true;g.add(sp);}
+    eyes(g,0.75,0.68,0.14,0.07);
+    const snout=new T.Mesh(new T.SphereGeometry(0.1,10,8),belly);snout.position.set(0,0.58,0.72);g.add(snout);
+    const nose=new T.Mesh(new T.SphereGeometry(0.05,8,8),new T.MeshStandardMaterial({color:0x1a1512}));nose.position.set(0,0.6,0.8);g.add(nose);
+    for(const sx of[-1,1]){const ear=new T.Mesh(new T.SphereGeometry(0.09,8,8),belly);ear.position.set(sx*0.24,0.92,0.34);ear.scale.set(1,1,0.5);g.add(ear);}
+  }
   const mark=new T.Mesh(new T.ConeGeometry(0.16,0.4,4),new T.MeshStandardMaterial({color:0xffcf3f,emissive:0x6a4e00,emissiveIntensity:0.5}));
-  mark.rotation.x=Math.PI;mark.position.y=2.1;g.add(mark);
+  mark.rotation.x=Math.PI;mark.position.y=2.05;g.add(mark);
   g.userData.mark=mark;return g;}
 
 /* ================= WORLD POPULATION ================= */
@@ -389,6 +449,7 @@ const colliders=[],interactables=[];
 terrColliders.forEach(c=>colliders.push(c));
 function inLake(x,z){return Math.hypot(x-LAKE.x,z-LAKE.z)<LAKE.r+4;}
 function inGarden(x,z){return x>-2.5&&x<8.5&&z>4.5&&z<13.5;}
+function nearNPCpos(x,z){for(const k in NPCDEF){const p=NPCDEF[k].pos;if(Math.hypot(x-p[0],z-p[1])<4)return true;}return false;}
 /* ---- walkable multi-level terrain (Pokopia-style plateau + ramp) ---- */
 const PLAT={x0:22,x1:38,z0:10,z1:28,h:3.0};
 const RAMP={x0:27,x1:33,z0:3.5,z1:10.2,h0:0,h1:3.0};
@@ -421,7 +482,7 @@ function reg(o){interactables.push(o);}
 
 // trees (some give wood)
 for(let i=0;i<58;i++){const a=rand(i*1.7)*6.28,rad=8+rand(i*3.1)*44,x=Math.cos(a)*rad,z=Math.sin(a)*rad;
-  if(inLake(x,z)||inGarden(x,z)||onRaised(x,z)||Math.hypot(x,z)<7)continue;const t=makeTree(0.62+rand(i*5.9)*0.45);t.position.set(x,0,z);t.rotation.y=rand(i)*6.28;scene.add(t);
+  if(inLake(x,z)||inGarden(x,z)||onRaised(x,z)||nearNPCpos(x,z)||Math.hypot(x,z)<7)continue;const t=makeTree(0.62+rand(i*5.9)*0.45);t.position.set(x,0,z);t.rotation.y=rand(i)*6.28;scene.add(t);
   colliders.push({x,z,r:1.1});if(i%2===0)reg({type:'tree',x,z,r:2.4,mesh:t,cd:0});}
 // houses
 const houseDefs=[[10,-14,0xe57d5a],[18,4,0x6fae5a],[-8,17,0xc77dff],[22,-6,0x6fa8e0]];
@@ -430,7 +491,7 @@ houseDefs.forEach((h,i)=>{const H=makeHouse(5,5,3.4,h[2]);H.position.set(h[0],0,
 const dogHouse=makeHouse(3,3,1.8,0xe0342f,0xd9a066);dogHouse.position.set(4,0,3);scene.add(dogHouse);colliders.push({x:4,z:3,r:2.2});
 // bushes (some give berries)
 for(let i=0;i<44;i++){const a=rand(i*2.3+99)*6.28,rad=6+rand(i*4.4)*42,x=Math.cos(a)*rad,z=Math.sin(a)*rad;
-  if(inLake(x,z)||inGarden(x,z)||onRaised(x,z)||Math.hypot(x,z)<6)continue;const b=makeBush(0.8+rand(i)*0.4);b.position.set(x,0.6,z);scene.add(b);
+  if(inLake(x,z)||inGarden(x,z)||onRaised(x,z)||nearNPCpos(x,z)||Math.hypot(x,z)<6)continue;const b=makeBush(0.8+rand(i)*0.4);b.position.set(x,0.6,z);scene.add(b);
   if(i%3===0)reg({type:'bush',x,z,r:2.2,mesh:b,cd:0});}
 // pickable flowers
 const flowerCols=[0xff6f91,0xffd23f,0xc77dff,0x5ad1e6];
@@ -488,6 +549,11 @@ for(let row=0;row<2;row++){const rz=10.2+row*1.15;const soil=new T.Mesh(new T.Bo
     for(let t=0;t<3;t++){const tom=new T.Mesh(new T.SphereGeometry(0.09,8,8),new T.MeshStandardMaterial({color:0xe23c2f,roughness:0.5}));tom.position.set(px+(t-1)*0.15,0.4+rand(cc*7+t)*0.16,rz+0.12);scene.add(tom);}}}
 // wooden pier over the lake (south shore, by the fishing spot)
 const pier=makePier();pier.position.set(LAKE.x,0,LAKE.z+LAKE.r-1);scene.add(pier);
+// lily pads
+for(let i=0;i<7;i++){const a=rand(i*8.3+1)*6.28,rr=2+rand(i*2.1)*(LAKE.r-4);const lx=LAKE.x+Math.cos(a)*rr,lz=LAKE.z+Math.sin(a)*rr;
+  const pad=new T.Mesh(new T.CircleGeometry(0.5+rand(i)*0.3,12,0.5,5.6),new T.MeshStandardMaterial({color:0x3f9a4a,roughness:0.7,side:T.DoubleSide}));
+  pad.rotation.x=-Math.PI/2;pad.rotation.z=rand(i*3)*6.28;pad.position.set(lx,0.14,lz);pad.receiveShadow=true;scene.add(pad);
+  if(i%2===0){const fl=new T.Mesh(new T.SphereGeometry(0.12,8,8),new T.MeshStandardMaterial({color:0xff9ec4,roughness:0.5}));fl.position.set(lx,0.22,lz);fl.castShadow=true;scene.add(fl);}}
 // winding dirt paths
 const pathMat=new T.MeshStandardMaterial({map:sandTex.clone(),color:0xdcc38a,roughness:1});pathMat.map.repeat.set(4,1);
 function pathSeg(x1,z1,x2,z2,w){const dx=x2-x1,dz=z2-z1,len=Math.hypot(dx,dz);const s=new T.Mesh(new T.BoxGeometry(len,0.06,w||2.4),pathMat);
