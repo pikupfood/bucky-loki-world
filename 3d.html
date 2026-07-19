@@ -146,9 +146,18 @@ const QUESTS=[
   {npc:'rocco',type:'collect',item:'carota',amount:2,reward:35,
     intro:["Nell'orto vicino alla cuccia puoi coltivare 🥕","Pianta i semi, aspetta che crescano e portamene 2!"],
     done:["Carote perfette, che croccantezza! 🧡"]},
-  {npc:'mochi',type:'talk',reward:60,
+  {npc:'rocco',type:'collect',item:'legno',amount:4,reward:32,
+    intro:["Sto costruendo una nuova casetta 🔨","Mi raccogli 4 🪵 legna dagli alberi?"],
+    done:["Legna robusta, ottimo lavoro! 🪚"]},
+  {npc:'pip',type:'collect',item:'bacca',amount:3,reward:30,
+    intro:["Che voglia di bacche 🫐!","Me ne raccogli 3 dai cespugli?"],
+    done:["Dolcissime, cip cip! 🐦"]},
+  {npc:'mochi',type:'collect',item:'gemma',amount:1,reward:55,
+    intro:["Si dice che scavando i mucchi di terra ⛏️ si trovino gemme 💎","Trovamene una scintillante!"],
+    done:["Che gioiello! Grazie di cuore 💖"]},
+  {npc:'mochi',type:'talk',reward:80,
     intro:["Guarda com'è rinato il villaggio di Coda! ✨","Grazie a te e al tuo compagno 🐾","Ecco un grande premio d'oro 🦴"],
-    done:["Sei l'eroe di Coda! 🌟"]}
+    done:["Sei l'eroe di Coda! 🌟 Ora goditi il tuo villaggio."]}
 ];
 
 /* ================= STATE ================= */
@@ -737,6 +746,8 @@ function advanceDialogue(){if(!dialogue)return;dialogue.i++;if(dialogue.i>=dialo
 /* ================= INTERACTION ================= */
 let near=null;
 function detectNear(){near=null;let best=3.4;
+  if(removeMode){best=3;for(const o of placedObjs){const d=Math.hypot(player.x-o.p.x,player.z-o.p.z);if(d<best){best=d;near={type:'remove',obj:o};}}
+    const act=$('act');act.disabled=!near;act.textContent=near?'🗑️':'👀';return;}
   for(const o of interactables){const d=Math.hypot(player.x-o.x,player.z-o.z);if(d<best){best=d;near=o;}}
   // fishing near lake shore
   const dl=Math.hypot(player.x-LAKE.x,player.z-LAKE.z);
@@ -752,6 +763,7 @@ function doAction(){
   if(dialogue){advanceDialogue();return;}
   if(fishing){fishPull();return;}
   if(!near)return;
+  if(near.type==='remove'){removePlaced(near.obj);return;}
   if(near.type==='flower'){addInv('fiore',1);toast('+1 🌼 Fiore');burst(near.x,0.5,near.z,0xffd23f,14);sfx('pick');scene.remove(near.mesh);interactables.splice(interactables.indexOf(near),1);after();}
   else if(near.type==='bush'){if(near.cd>Date.now()){toast('🫐 Ancora acerbo…');return;}near.cd=Date.now()+12000;addInv('bacca',1);toast('+1 🫐 Bacca');burst(near.x,0.8,near.z,0x5aa9ff,12);sfx('pick');after();}
   else if(near.type==='tree'){if(near.cd>Date.now()){toast('🌿 Niente per ora…');return;}near.cd=Date.now()+12000;addInv('legno',1);toast('+1 🪵 Legna');burst(near.x,1.3,near.z,0x8fce6b,12);sfx('pick');after();}
@@ -834,17 +846,31 @@ $('sound').onclick=()=>{initAudio();musicOn=!musicOn;S.sound=musicOn;$('sound').
 addEventListener('keydown',e=>{if(e.key===' '||e.key.toLowerCase()==='e'){e.preventDefault();doAction();}});
 
 /* ================= BUILD MODE ================= */
+const placedObjs=[];
 function spawnPlaced(p){const def=BUILD[p.k];if(!def)return null;const m=def.make();
   m.position.set(p.x,groundHeight(p.x,p.z)+(def.yoff||0),p.z);m.rotation.y=p.rot||0;scene.add(m);
-  if(def.col)colliders.push({x:p.x,z:p.z,r:def.col});return m;}
+  let col=null;if(def.col){col={x:p.x,z:p.z,r:def.col};colliders.push(col);}
+  placedObjs.push({p,mesh:m,col});return m;}
 (S.placed||[]).forEach(spawnPlaced);
-let placeMode=null;
+let placeMode=null,removeMode=false,removeHi=null;
+function removePlaced(o){scene.remove(o.mesh);const i=placedObjs.indexOf(o);if(i>=0)placedObjs.splice(i,1);
+  const si=S.placed.indexOf(o.p);if(si>=0)S.placed.splice(si,1);
+  if(o.col){const ci=colliders.indexOf(o.col);if(ci>=0)colliders.splice(ci,1);}
+  const refund=Math.floor((BUILD[o.p.k].cost||0)*0.5);S.coins+=refund;
+  burst(o.p.x,0.4,o.p.z,0xe05555,12);sfx('dig');toast('🗑️ Rimosso (+🦴'+refund+')');updateHUD();save();}
+function toggleRemove(){closeSheet();cancelPlace();removeMode=!removeMode;
+  if(removeMode){if(!removeHi){removeHi=new T.Mesh(new T.RingGeometry(0.85,1.15,22),new T.MeshBasicMaterial({color:0xe05555,transparent:true,opacity:0.75,side:T.DoubleSide}));removeHi.rotation.x=-Math.PI/2;removeHi.visible=false;scene.add(removeHi);}
+    $('act').style.display='';$('placeBar').classList.add('on');$('pOk').style.display='none';$('pRot').style.display='none';$('pNo').textContent='✗ Esci';toast('🗑️ Avvicinati a un oggetto e tocca 🗑️');}
+  else{$('placeBar').classList.remove('on');$('pOk').style.display='';$('pRot').style.display='';$('pNo').textContent='✗';if(removeHi)removeHi.visible=false;}}
+window.__blRemoveMode=toggleRemove;
 function openBuild(){closeSheet();sheet=document.createElement('div');sheet.className='sheet';sheet.onclick=e=>{if(e.target===sheet)closeSheet();};document.body.appendChild(sheet);
-  let h=`<div class="panel"><h3>🔨 Costruisci <button class="x" onclick="__blClose()">✕</button></h3><div style="margin-bottom:10px"><span class="bal">🦴 ${S.coins}</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:11px">`;
+  let h=`<div class="panel"><h3>🔨 Costruisci <button class="x" onclick="__blClose()">✕</button></h3><div style="margin-bottom:10px"><span class="bal">🦴 ${S.coins}</span> <button class="btn ghost" onclick="__blRemoveMode()">🗑️ Rimuovi oggetti</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:11px">`;
   for(const k in BUILD){const d=BUILD[k],can=S.coins>=d.cost;h+=`<div class="slot" style="cursor:pointer;${can?'':'opacity:.45'}" onclick="__blBuild('${k}')"><div class="em">${d.em}</div><div class="nm">${d.name}</div><div class="ct">🦴${d.cost}</div></div>`;}
   h+='</div><div class="empty">Scegli un oggetto, poi muovi il cane per mirare e tocca ✓ per posizionare.</div></div>';sheet.innerHTML=h;}
 window.__blBuild=k=>{if(S.coins<BUILD[k].cost){toast('Servono più ossa 🦴');return;}closeSheet();startPlace(k);};
-function startPlace(k){cancelPlace();const def=BUILD[k];const ghost=def.make();
+function startPlace(k){cancelPlace();if(removeMode){removeMode=false;if(removeHi)removeHi.visible=false;}
+  $('pOk').style.display='';$('pRot').style.display='';$('pNo').textContent='✗';
+  const def=BUILD[k];const ghost=def.make();
   ghost.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.transparent=true;o.material.opacity=0.55;o.castShadow=false;}});
   const ring=new T.Mesh(new T.CircleGeometry((def.col||0.8)+0.3,22),new T.MeshBasicMaterial({color:0x4bbf5a,transparent:true,opacity:0.5,side:T.DoubleSide}));ring.rotation.x=-Math.PI/2;
   scene.add(ghost);scene.add(ring);placeMode={k,ghost,ring,rot:0,valid:false};
@@ -861,7 +887,7 @@ function confirmPlace(){if(!placeMode)return;if(!placeMode.valid){toast('Qui non
   burst(fx,0.4,fz,0x8ed86a,10);sfx('plant');toast(def.em+' posizionato!');updateHUD();save();
   const k=placeMode.k;cancelPlace();if(S.coins>=BUILD[k].cost)startPlace(k);}
 function cancelPlace(){if(!placeMode)return;scene.remove(placeMode.ghost);scene.remove(placeMode.ring);placeMode=null;$('placeBar').classList.remove('on');$('act').style.display='';}
-$('buildBtn').onclick=openBuild;$('pOk').onclick=confirmPlace;$('pNo').onclick=cancelPlace;$('pRot').onclick=()=>{if(placeMode)placeMode.rot+=Math.PI/4;};
+$('buildBtn').onclick=openBuild;$('pOk').onclick=confirmPlace;$('pNo').onclick=()=>{if(removeMode)toggleRemove();else cancelPlace();};$('pRot').onclick=()=>{if(placeMode)placeMode.rot+=Math.PI/4;};
 
 /* ================= DAY / NIGHT ================= */
 let clock=0.28,prevClock=0.28;const CYCLE=150;
@@ -904,7 +930,7 @@ const camTarget=new T.Vector3();let last=performance.now(),dustT=0;
 $('loading').style.display='none';updateHUD();$('dogName').textContent=S.active==='bucky'?'🐶 Bucky':'🐶 Loki';
 setTimeout(()=>{const h=$('hint');if(h)h.style.opacity='0';},7000);
 
-function frame(now){const dt=Math.min((now-last)/1000,0.05);last=now;
+function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
   let ix=0,iz=0;if(!dialogue&&!sheet){
     if(keys['w']||keys['arrowup'])iz-=1;if(keys['s']||keys['arrowdown'])iz+=1;if(keys['a']||keys['arrowleft'])ix-=1;if(keys['d']||keys['arrowright'])ix+=1;
     if(joy.active){ix+=joy.dx;iz+=joy.dy;}}
@@ -938,13 +964,16 @@ function frame(now){const dt=Math.min((now-last)/1000,0.05);last=now;
   if(player.moving){dustT+=dt;if(dustT>0.17){dustT=0;burst(player.x,0.05,player.z,0xd8c49a,2,0.5,0.8);}}
   detectNear();
   if(placeMode)updatePlace();
+  if(removeMode&&removeHi){if(near&&near.type==='remove'){removeHi.visible=true;removeHi.position.set(near.obj.p.x,groundHeight(near.obj.p.x,near.obj.p.z)+0.07,near.obj.p.z);}else removeHi.visible=false;}
   camTarget.set(player.x,1.6+player.y,player.z);
   camera.position.lerp(new T.Vector3(player.x,13.5+player.y,player.z+19),1-Math.pow(0.001,dt));camera.lookAt(camTarget);
   updateSky(dt);
   renderer.render(scene,camera);
+  }catch(e){console.error('FRAME-THROW:',e&&e.message,e&&e.stack);}
   requestAnimationFrame(frame);}
 requestAnimationFrame(frame);
 setInterval(save,8000);
-window.__game={get clock(){return clock;},set clock(v){clock=v;},get S(){return S;},scene,camera,player,comp};
+window.__game={get clock(){return clock;},set clock(v){clock=v;},get S(){return S;},scene,camera,player,comp,
+  get placed(){return placedObjs;},get removeMode(){return removeMode;},get near(){return near;},detectNear};
 })();
 </script>
