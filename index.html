@@ -207,11 +207,12 @@ addEventListener('resize',resize);resize();
 const SAVE_KEY='buckyloki_save_v3';
 let S=null;
 function defaultState(){return{dog:'bucky',px:0,py:0,day:1,coins:0,inv:{},quest:0,flags:{},placed:[],
-  wardrobe:{},outfits:{bucky:{},loki:{}},house:0,daily:null,dailyDay:0,plots:[],digs:[],caught:{},bells:0};}
+  wardrobe:{},outfits:{bucky:{},loki:{}},house:0,daily:null,dailyDay:0,plots:[],digs:[],caught:{},bells:0,storage:{}};}
 function migrate(){if(!S.placed)S.placed=[];if(!S.wardrobe)S.wardrobe={};if(!S.outfits)S.outfits={bucky:{},loki:{}};
   if(S.house==null)S.house=0;if(!S.outfits.bucky)S.outfits.bucky={};if(!S.outfits.loki)S.outfits.loki={};
   if(!S.plots)S.plots=[];if(!S.digs)S.digs=[];if(!S.caught)S.caught={};if(S.bells==null)S.bells=0;
-  if(!S.weather)S.weather='sole';if(!S.ach)S.ach={};if(!S.stats)S.stats={};if(!S.settings)S.settings={music:false,sfx:true};}
+  if(!S.weather)S.weather='sole';if(!S.ach)S.ach={};if(!S.stats)S.stats={};if(!S.settings)S.settings={music:false,sfx:true};
+  if(!S.storage)S.storage={};}
 const WEATHERS={sole:'☀️',nuvoloso:'⛅',pioggia:'🌧️'};
 function rollWeather(){S.weather=['sole','sole','sole','nuvoloso','pioggia'][Math.floor(Math.random()*5)];}
 function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}}
@@ -492,6 +493,7 @@ function rr(g,x,y,w,h,r){r=Math.min(r,w/2,h/2);g.beginPath();g.moveTo(x+r,y);g.a
 
 /* ---------- STATE ---------- */
 let mode='title',camX=0,camY=0,targetCamX=0,targetCamY=0;
+let scene='world',interior=null,retX=0,retY=0,nearObj=null;
 let dialogue=null,nearNPC=null,nearItem=null,nearProp=null,nearDig=null,nearCritter=null,nearPlot=null;
 let placeMode=null; // {t}
 let clock=0.25; // time of day 0..1 (runtime)
@@ -522,6 +524,7 @@ function showTutorial(){if(mode!=='play')return;openDialogue('👋 Benvenuto a C
 function doAction(){
   if(mode==='dialogue'){advanceDialogue();return;}
   if(mode!=='play')return;
+  if(scene!=='world'){interiorAction();return;}
   if(nearPlot)harvestPlot(nearPlot);
   else if(nearCritter)catchCritter(nearCritter);
   else if(nearDig)digSpot(nearDig);
@@ -536,15 +539,15 @@ function interactProp(p){
     if(p._cd&&p._cd>Date.now()){toast('Niente per ora... 🌿');return;}
     p._cd=Date.now()+9000;addInv(p.harvest,1);toast(`+1 ${ITEMS[p.harvest].em} ${ITEMS[p.harvest].name}`);sfx('pick');
     burst((p.x+.5)*TILE,(p.y+.4)*TILE,p.kind==='bush'?'#5aa9ff':'#8fce6b');updateHUD();save();}
-  else if(p.kind==='doghouse')sleep();
+  else if(p.kind==='doghouse')enterInterior('home');
   else if(p.kind==='sign')openDialogue('📌 Cartello',[p.text]);
   else if(p.kind==='well'){const q=Q[S.quest];
     if(q&&q.type==='talk'&&q.target==='well'){openDialogue('🪣 Pozzo',q.intro,()=>{if(q.reward)grant(q);completeQuest();});}
     else openDialogue('🪣 Vecchio pozzo',["Un'eco profonda risale dal buio...","Per ora è tranquillo. 👀"]);}
   else if(p.kind==='house')openDialogue('🏠 '+(p.name||'Casa'),["La porta è chiusa per ora. Bussa più avanti!"]);
-  else if(p.kind==='shopbld'){sfx('tap');
-    if(p.shop==='caffe'){S.coins+=2;updateHUD();save();openDialogue('☕ Caffè di Coda',["Benvenuto al Caffè! ☕","Offre la casa: +2 🦴 e tanta energia per l'avventura!"]);}
-    else openMenu(p.shop);}
+  else if(p.kind==='shopbld'){
+    if(p.shop==='caffe'){sfx('tap');S.coins+=2;updateHUD();save();openDialogue('☕ Caffè di Coda',["Benvenuto al Caffè! ☕","Offre la casa: +2 🦴 e tanta energia per l'avventura!"]);}
+    else enterInterior(p.shop);}
   else if(p.kind==='bigtree')openDialogue('🌳 Grande Quercia',["Un albero antico e maestoso.","Il gufo Aldo vive tra i suoi rami. 🦉"]);
   else if(p.kind==='dock')openDialogue('🪵 Pontile',["Il pontile scricchiola sull'acqua.","Bello sedersi qui al tramonto 🌇"]);
 }
@@ -621,6 +624,91 @@ function updateNPCs(dt){for(const n of npcs){
     if(!solidAt(Math.floor(nx/TILE),Math.floor((ny+6)/TILE))){n.wx=nx;n.wy=ny;n.face=dx>0?1:-1;n.mv=true;n.wk+=dt*9;}
     else{n.tx=n.wx;n.ty=n.wy;n.wait=0.3;}}
 }}
+
+/* ---------- INTERNI (entrare negli edifici) ---------- */
+const INTERIORS={
+  home:{name:'La tua casa 🏡',w:12,h:8,floor:'#ecd6b0',wall:'#a9764a',
+    obj:[{x:6,y:7,k:'exit'},{x:2,y:2,k:'bed'},{x:9,y:2,k:'chest'},{x:6,y:2,k:'expand'}]},
+  negozio:{name:'Bottega 🛒',w:12,h:8,floor:'#f0e2c4',wall:'#9a6a44',shop:'negozio',keeper:'🦝',keeperName:'Ratto',
+    obj:[{x:6,y:7,k:'exit'},{x:6,y:2,k:'counter'},{x:2,y:4,k:'shelf'},{x:9,y:4,k:'shelf'},{x:2,y:2,k:'shelf'},{x:9,y:2,k:'shelf'}]},
+  mercato:{name:'Emporio 💰',w:12,h:8,floor:'#e8dfc0',wall:'#8a6a44',shop:'mercato',keeper:'🐷',keeperName:'Gina',
+    obj:[{x:6,y:7,k:'exit'},{x:6,y:2,k:'counter'},{x:2,y:4,k:'crate'},{x:9,y:4,k:'crate'},{x:2,y:2,k:'crate'}]},
+  boutique:{name:'Boutique 👕',w:12,h:8,floor:'#f3e0ec',wall:'#b06a90',shop:'boutique',keeper:'🐩',keeperName:'Fifì',
+    obj:[{x:6,y:7,k:'exit'},{x:6,y:2,k:'counter'},{x:2,y:3,k:'rack'},{x:9,y:3,k:'rack'}]},
+};
+function enterInterior(id){const I=INTERIORS[id];if(!I)return;if(menuSheet){menuSheet.remove();menuSheet=null;}
+  retX=player.x;retY=player.y;scene=id;interior=I;const ex=I.obj.find(o=>o.k==='exit');
+  player.x=(ex.x+.5)*TILE;player.y=(ex.y-0.8)*TILE;player.moving=false;comp.x=player.x-24;comp.y=player.y+4;comp.trail=[];
+  camX=-(VW-I.w*TILE)/2;camY=-(VH-I.h*TILE)/2;sfx('tap');toast('Sei entrato: '+I.name);}
+function exitInterior(){scene='world';interior=null;player.x=retX;player.y=retY;player.moving=false;comp.x=retX-24;comp.y=retY;comp.trail=[];
+  camX=clampX(player.x-VW/2);camY=clampY(player.y-VH/2);sfx('tap');}
+function interiorSolid(tx,ty){const I=interior;if(!I)return true;if(tx<1||ty<1||tx>=I.w-1||ty>=I.h-1)return true;
+  for(const o of I.obj){if(o.x===tx&&o.y===ty&&['counter','shelf','crate','rack','bed','chest','expand'].includes(o.k))return true;}return false;}
+function intHit(x,y,r){for(const[a,b]of[[x-r,y-r+4],[x+r,y-r+4],[x-r,y+r],[x+r,y+r]])if(interiorSolid(Math.floor(a/TILE),Math.floor(b/TILE)))return true;return false;}
+function updateInterior(dt){
+  let ix=0,iy=0;
+  if(keys['arrowup']||keys['w'])iy--;if(keys['arrowdown']||keys['s'])iy++;
+  if(keys['arrowleft']||keys['a'])ix--;if(keys['arrowright']||keys['d'])ix++;
+  if(joy.active){ix+=joy.dx;iy+=joy.dy;}
+  let mag=Math.hypot(ix,iy);if(mag>1){ix/=mag;iy/=mag;}
+  player.moving=mag>0.06;
+  if(player.moving){if(Math.abs(ix)>.12)player.face=ix>0?1:-1;player.walk+=dt*13*Math.min(mag,1);
+    const sp=2.5*Math.min(mag,1)*(dt*60);
+    if(!intHit(player.x+ix*sp,player.y,9))player.x+=ix*sp;
+    if(!intHit(player.x,player.y+iy*sp,9))player.y+=iy*sp;}
+  comp.trail.push({x:player.x,y:player.y});if(comp.trail.length>16)comp.trail.shift();
+  const tg=comp.trail[0]||player,cx=tg.x-comp.x,cy=tg.y-comp.y,cd=Math.hypot(cx,cy);
+  comp.moving=cd>5;if(comp.moving){comp.x+=cx*.15;comp.y+=cy*.15;comp.walk+=dt*11;if(Math.abs(cx)>1)comp.face=cx>0?1:-1;}
+  particles=particles.filter(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.12;p.life-=dt*1.8;return p.life>0;});
+  floaters=floaters.filter(f=>{f.y-=30*dt;f.life-=dt*0.85;return f.life>0;});
+  detectNearInterior();
+}
+function detectNearInterior(){nearObj=null;let best=52;
+  for(const o of interior.obj){const d=dist(player.x,player.y,(o.x+.5)*TILE,(o.y+.6)*TILE);if(d<best){best=d;nearObj=o;}}
+  const act=document.getElementById('act');act.disabled=!nearObj;
+  act.textContent=nearObj?({exit:'🚪',counter:'💬',bed:'😴',chest:'📦',expand:'🔨'}[nearObj.k]||'👀'):'👀';}
+function interiorAction(){if(!nearObj)return;const o=nearObj;
+  if(o.k==='exit')exitInterior();
+  else if(o.k==='counter')openMenu(interior.shop);
+  else if(o.k==='bed')sleep();
+  else if(o.k==='chest')openStorage();
+  else if(o.k==='expand')openMenu('casa');
+  else sfx('tap');}
+function drawIntObj(o){const sx=o.x*TILE-camX,sy=o.y*TILE-camY,I=interior;
+  if(o.k==='exit'){ctx.fillStyle='#6b4a2c';ctx.fillRect(sx+4,sy+4,TILE-8,TILE-6);ctx.fillStyle='#8a6038';ctx.fillRect(sx+6,sy+6,TILE-12,TILE-10);ctx.fillStyle='#ffd23f';ctx.beginPath();ctx.arc(sx+TILE-9,sy+TILE/2,1.6,0,7);ctx.fill();ctx.fillStyle='#4a3826';ctx.font='700 8px '+FONT;ctx.textAlign='center';ctx.fillText('ESCI',sx+TILE/2,sy+TILE-2);}
+  else if(o.k==='counter'){ctx.fillStyle='#a9764a';ctx.fillRect(sx-8,sy+16,TILE+16,18);ctx.fillStyle='#8a5f39';ctx.fillRect(sx-8,sy+16,TILE+16,5);
+    ctx.font='26px '+FONT;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(I.keeper||'🧑',sx+TILE/2,sy+6);ctx.textBaseline='alphabetic';
+    const nm=I.keeperName||'';if(nm){ctx.font='700 10px '+FONT;const tw=ctx.measureText(nm).width+10;ctx.fillStyle='rgba(255,253,246,.92)';rr(ctx,sx+TILE/2-tw/2,sy-13,tw,13,6);ctx.fillStyle='#4a3826';ctx.textAlign='center';ctx.fillText(nm,sx+TILE/2,sy-3);}}
+  else if(o.k==='bed'){ctx.fillStyle='#8a5f39';ctx.fillRect(sx+2,sy+2,TILE-4,TILE);ctx.fillStyle='#e05b74';ctx.fillRect(sx+2,sy+9,TILE-4,TILE-9);ctx.fillStyle='#fff';ctx.fillRect(sx+4,sy+3,TILE-8,8);ctx.font='12px '+FONT;ctx.textAlign='center';ctx.fillText('💤',sx+TILE/2,sy-2);}
+  else if(o.k==='chest'){ctx.fillStyle='#9a6a3f';ctx.fillRect(sx+5,sy+12,TILE-10,TILE-14);ctx.fillStyle='#7a5230';ctx.fillRect(sx+5,sy+9,TILE-10,6);ctx.fillStyle='#ffd23f';ctx.fillRect(sx+TILE/2-2,sy+15,4,5);ctx.font='11px '+FONT;ctx.textAlign='center';ctx.fillText('📦',sx+TILE/2,sy+6);}
+  else if(o.k==='shelf'||o.k==='rack'){ctx.fillStyle='#a9764a';ctx.fillRect(sx+2,sy+2,TILE-4,TILE-4);ctx.fillStyle='#c99a6a';ctx.fillRect(sx+2,sy+11,TILE-4,3);ctx.fillRect(sx+2,sy+22,TILE-4,3);ctx.font='11px '+FONT;ctx.textAlign='center';ctx.fillText(o.k==='rack'?'👕':'🧺',sx+TILE/2,sy+10);ctx.fillText(o.k==='rack'?'🧥':'🍎',sx+TILE/2,sy+21);}
+  else if(o.k==='crate'){ctx.fillStyle='#b5814f';ctx.fillRect(sx+4,sy+8,TILE-8,TILE-10);ctx.strokeStyle='#8a5f39';ctx.lineWidth=2;ctx.strokeRect(sx+4,sy+8,TILE-8,TILE-10);ctx.font='13px '+FONT;ctx.textAlign='center';ctx.fillText('🥕',sx+TILE/2,sy+TILE/2+4);}
+  else if(o.k==='expand'){ctx.fillStyle='#d9b382';ctx.fillRect(sx+3,sy+5,TILE-6,TILE-9);ctx.strokeStyle='#8a5f39';ctx.lineWidth=1.5;ctx.strokeRect(sx+3,sy+5,TILE-6,TILE-9);ctx.font='15px '+FONT;ctx.textAlign='center';ctx.fillText('🔨',sx+TILE/2,sy+TILE/2+3);ctx.fillStyle='#4a3826';ctx.font='700 7px '+FONT;ctx.fillText('AMPLIA',sx+TILE/2,sy+TILE-3);}}
+function drawInterior(){const I=interior;ctx.fillStyle='#20222a';ctx.fillRect(0,0,VW,VH);
+  for(let ty=0;ty<I.h;ty++)for(let tx=0;tx<I.w;tx++){const sx=tx*TILE-camX,sy=ty*TILE-camY,wall=(tx===0||ty===0||tx===I.w-1||ty===I.h-1);
+    ctx.fillStyle=wall?I.wall:I.floor;ctx.fillRect(sx-1,sy-1,TILE+2,TILE+2);
+    if(!wall&&(tx+ty)%2){ctx.fillStyle='rgba(0,0,0,.05)';ctx.fillRect(sx,sy,TILE,TILE);}
+    if(ty===1&&!wall){ctx.fillStyle='rgba(0,0,0,.07)';ctx.fillRect(sx,sy-1,TILE+2,5);}}
+  const draws=[];for(const o of I.obj)draws.push({y:o.y*TILE+20,f:()=>drawIntObj(o)});
+  draws.push({y:comp.y+14,f:()=>drawDog(ctx,comp.x-camX,comp.y-camY,1.5,other(S.dog),comp.face,comp.walk,comp.moving,S.outfits[other(S.dog)])});
+  draws.push({y:player.y+16,f:()=>drawDog(ctx,player.x-camX,player.y-camY,1.7,S.dog,player.face,player.walk,player.moving,S.outfits[S.dog])});
+  draws.sort((a,b)=>a.y-b.y).forEach(d=>d.f());
+  if(nearObj){ctx.fillStyle='rgba(255,138,61,.95)';ctx.font='800 22px '+FONT;ctx.textAlign='center';ctx.fillText('▾',(nearObj.x+.5)*TILE-camX,nearObj.y*TILE-camY-4+Math.sin(Date.now()/220)*3);}
+  for(const f of floaters){ctx.globalAlpha=Math.max(0,Math.min(1,f.life*1.4));ctx.font='800 15px '+FONT;ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='rgba(0,0,0,.35)';ctx.strokeText(f.txt,f.x-camX,f.y-camY);ctx.fillStyle=f.color;ctx.fillText(f.txt,f.x-camX,f.y-camY);}ctx.globalAlpha=1;
+  // name banner
+  ctx.font='800 15px '+FONT;ctx.textAlign='center';const tw=ctx.measureText(I.name).width+24;
+  ctx.fillStyle='rgba(47,36,22,.9)';rr(ctx,VW/2-tw/2,14,tw,30,10);ctx.fillStyle='#fff';ctx.fillText(I.name,VW/2,34);}
+function openStorage(){if(mode!=='play')return;
+  const inv=Object.keys(S.inv),st=Object.keys(S.storage);
+  const invRows=inv.length?inv.map(k=>`<div class="sellrow"><span>${ITEMS[k]?ITEMS[k].em:'❔'} ${ITEMS[k]?ITEMS[k].name:k} <b style="opacity:.6">×${S.inv[k]}</b></span><button class="btn sm" data-dep="${k}">Deposita ▸</button></div>`).join(''):'<div class="empty">Zaino vuoto</div>';
+  const stRows=st.length?st.map(k=>`<div class="sellrow"><span>${ITEMS[k]?ITEMS[k].em:'❔'} ${ITEMS[k]?ITEMS[k].name:k} <b style="opacity:.6">×${S.storage[k]}</b></span><button class="btn ghost sm" data-wd="${k}">◂ Preleva</button></div>`).join(''):'<div class="empty">Baule vuoto</div>';
+  const sh=document.createElement('div');sh.className='sheet';
+  sh.innerHTML=`<div class="panel"><h3>📦 Baule di casa <button class="x">✕</button></h3><p class="muted">Conserva qui gli oggetti che non ti servono in giro.</p><div class="secttl">🎒 Zaino</div>${invRows}<div class="secttl">📦 Baule</div>${stRows}</div>`;
+  document.body.appendChild(sh);
+  sh.addEventListener('click',e=>{if(e.target===sh||e.target.classList.contains('x')){sh.remove();return;}
+    const dep=e.target.closest('[data-dep]'),wd=e.target.closest('[data-wd]');
+    if(dep){const k=dep.dataset.dep;S.storage[k]=(S.storage[k]||0)+(S.inv[k]||0);delete S.inv[k];sfx('tap');save();sh.remove();openStorage();}
+    else if(wd){const k=wd.dataset.wd;S.inv[k]=(S.inv[k]||0)+(S.storage[k]||0);delete S.storage[k];sfx('tap');save();updateHUD();sh.remove();openStorage();}});}
 
 /* ---------- FARMING (orto) ---------- */
 function startPlant(){mode='play';placeMode={plant:true};document.getElementById('placeBar').classList.remove('hidden');document.getElementById('placeHint').classList.remove('hidden');
@@ -813,6 +901,7 @@ let dustT=0;
 function update(dt){
   clock=(clock+dt/CYCLE)%1;
   if(mode!=='play')return;
+  if(scene!=='world'){updateInterior(dt);return;}
   let ix=0,iy=0;
   if(keys['arrowup']||keys['w'])iy--;if(keys['arrowdown']||keys['s'])iy++;
   if(keys['arrowleft']||keys['a'])ix--;if(keys['arrowright']||keys['d'])ix++;
@@ -871,6 +960,7 @@ function getLight(){
 /* ---------- RENDER ---------- */
 function draw(){
   ctx.clearRect(0,0,VW,VH);
+  if(scene!=='world'){drawInterior();return;}
   const x0=Math.floor(camX/TILE),y0=Math.floor(camY/TILE),x1=Math.ceil((camX+VW)/TILE),y1=Math.ceil((camY+VH)/TILE);
   for(let ty=y0;ty<=y1;ty++)for(let tx=x0;tx<=x1;tx++){
     const t=groundAt(tx,ty),sx=tx*TILE-camX,sy=ty*TILE-camY;
