@@ -1151,7 +1151,7 @@ function drawNPC(n){const sx=npx(n)-camX,sy=npy(n)-camY,bob=(n.mv?Math.abs(Math.
 
 /* ---------- LOOP ---------- */
 let last=performance.now();
-function loop(now){const dt=Math.min((now-last)/1000,0.05);last=now;update(dt);if(mode!=='title'&&mode!=='select')draw();requestAnimationFrame(loop);}
+function loop(now){const dt=Math.min((now-last)/1000,0.05);last=now;try{update(dt);if(mode!=='title'&&mode!=='select')draw();}catch(e){console.error('loop',e);}requestAnimationFrame(loop);}
 requestAnimationFrame(loop);
 
 /* ---------- SELECT PREVIEW ---------- */
