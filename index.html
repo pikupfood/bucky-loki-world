@@ -540,8 +540,10 @@ function interactNPC(n){
     else openDialogue(n.name+' '+n.em,q.intro.concat([`Ti servono ancora ${q.amount-have} ${ITEMS[q.item].em}.`]));}
 }
 function grant(q){if(!q.reward)return;if(q.reward.coins){S.coins+=q.reward.coins;toast(`+${q.reward.coins} 🦴`);floatText(player.x,player.y-18,`+${q.reward.coins} 🦴`,'#ffe08a');}if(q.reward.item){addInv(q.reward.item,1);toast(`Ottenuto ${ITEMS[q.reward.item].em} ${ITEMS[q.reward.item].name}!`);floatText(player.x,player.y-18,ITEMS[q.reward.item].em,'#fff');burst(player.x,player.y-10,'#ffcf4d');}}
-function completeQuest(){const q=Q[S.quest];if(!(q&&q.repeat))S.quest=Math.min(S.quest+1,Q.length-1);sfx('quest');updateHUD();maybeBanner(false);save();}
-function sleep(){openDialogue('😴 Cuccia',["Fai un bel pisolino con il tuo compagno...","☀️ È un nuovo giorno a Coda!"],()=>{S.day++;(S.plots||[]).forEach(p=>p.stage=Math.min(3,(p.stage||0)+1));spawnItems();props.forEach(p=>p._cd=0);clock=0.25;rollWeather();ensureDaily();toast(`${WEATHERS[S.weather]} Giorno ${S.day}`);updateHUD();save();});}
+function rerollEndless(q){const opts=[['bone','🦴',5],['flower','🌼',6],['berry','🫐',5],['fish_s','🐟',3],['carrot','🥕',4],['butterfly','🦋',3],['stick','🪵',6]];
+  const o=opts[Math.floor(Math.random()*opts.length)];q.item=o[0];q.amount=o[2];q.text=`Aiuto libero: porta ${o[2]} ${o[1]} ${ITEMS[o[0]].name} a Mochi`;q.reward={coins:8+Math.floor(Math.random()*10)};S.questProg=0;}
+function completeQuest(){const q=Q[S.quest];if(q&&q.repeat)rerollEndless(q);else S.quest=Math.min(S.quest+1,Q.length-1);sfx('quest');updateHUD();maybeBanner(false);save();}
+function sleep(){openDialogue('😴 Cuccia',["Fai un bel pisolino con il tuo compagno...","☀️ È un nuovo giorno a Coda!"],()=>{S.day++;(S.plots||[]).forEach(p=>p.stage=Math.min(3,(p.stage||0)+1));spawnItems();props.forEach(p=>p._cd=0);clock=0.25;rollWeather();ensureDaily();const gift=5+Math.floor(Math.random()*6);S.coins+=gift;toast(`${WEATHERS[S.weather]} Giorno ${S.day} · 🎁 +${gift} 🦴`);floatText(player.x,player.y-18,`🎁 +${gift} 🦴`,'#ffe08a');updateHUD();save();});}
 function addInv(t,n){S.inv[t]=(S.inv[t]||0)+n;if(S.inv[t]<=0)delete S.inv[t];}
 
 /* ---------- FISHING ---------- */
