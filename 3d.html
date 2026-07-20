@@ -1519,8 +1519,10 @@ function drawMap(){const cv=$('mapCv');if(!cv)return;const ctx=cv.getContext('2d
   ctx.font=`${Math.round(SC*5.2)}px serif`;
   ctx.fillText('🏠',X(4),Z(3));ctx.fillText('🎣',X(-26),Z(-22));ctx.fillText('⛲',X(46),Z(40));
   for(const s of[['🛒',8,20],['👕',-20,2],['💰',22,-16],['🛒',51,35]])ctx.fillText(s[0],X(s[1]),Z(s[2]));
-  // NPCs
-  ctx.font=`${Math.round(SC*4)}px serif`;for(const id in NPCDEF){const p=NPCDEF[id].pos;ctx.fillText(NPCDEF[id].em,X(p[0]),Z(p[1]));}
+  // bulletin boards
+  ctx.font=`${Math.round(SC*4.4)}px serif`;ctx.fillText('📋',X(12),Z(7));ctx.fillText('📋',X(43),Z(37.5));
+  // NPCs at their LIVE wandering positions
+  ctx.font=`${Math.round(SC*4)}px serif`;for(const id in NPCDEF){const o=npcObjs[id];const px=o?o.position.x:NPCDEF[id].pos[0],pz=o?o.position.z:NPCDEF[id].pos[1];ctx.fillText(NPCDEF[id].em,X(px),Z(pz));}
   // village name labels
   mlabel(ctx,'CODA',X(-4),Z(-8),Math.round(SC*3.2));mlabel(ctx,'BORGO',X(46),Z(56),Math.round(SC*3.2));
   // mission target ring (source when gathering, villager when delivering)
