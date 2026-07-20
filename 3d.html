@@ -62,6 +62,9 @@
   #needs .need.low b{background:#e0574f;}
   #needs .need.low span{animation:needblink 1.1s infinite;}
   @keyframes needblink{0%,100%{opacity:1}50%{opacity:.3}}
+  #lvlPill{gap:3px;}
+  #lvlPill .xpbar{display:inline-block;width:26px;height:4px;border-radius:2px;background:rgba(80,60,40,.18);overflow:hidden;margin-left:2px;}
+  #lvlPill .xpbar b{display:block;height:100%;background:linear-gradient(90deg,#ffcf6a,#ff9e3d);width:0;transition:width .3s;}
   #compass{position:fixed;top:calc(env(safe-area-inset-top) + 72px);left:50%;transform:translateX(-50%);z-index:11;pointer-events:none;
     display:none;flex-direction:column;align-items:center;gap:3px;}
   #compass.on{display:flex;}
@@ -132,6 +135,7 @@
   <div class="stats">
     <div style="display:flex;gap:6px;">
       <div class="pill" id="coins">🦴 0</div>
+      <div class="pill" id="lvlPill" title="Livello">⭐<b id="lvlNum">1</b><i class="xpbar"><b id="xpFill"></b></i></div>
       <div class="pill" id="sound" style="cursor:pointer">🔊</div>
       <a class="pill" href="index.html">2D ↩</a>
     </div>
@@ -255,7 +259,8 @@ const SAVEKEY='bl3d';
 function defaultState(){return{coins:15,inv:{},seeds:2,quest:0,day:1,
   plots:[{x:1.5,z:8,stage:0,planted:-1},{x:3.4,z:8,stage:0,planted:-1},{x:5.3,z:8,stage:0,planted:-1}],
   outfits:{bucky:{hat:null,body:null},loki:{hat:null,body:null}},dug:{},placed:[],active:'bucky',
-  food:0,needs:{hunger:80,energy:88,bladder:62},house:{level:1},discovered:{coda:1,casa:1,borgo:1}};}
+  food:0,needs:{hunger:80,energy:88,bladder:62},house:{level:1},discovered:{coda:1,casa:1,borgo:1},
+  xp:0,level:1,side:null,sideDay:0,sideDone:0};}
 let S;
 try{S=JSON.parse(localStorage.getItem(SAVEKEY))||defaultState();}catch(e){S=defaultState();}
 // backfill
@@ -466,6 +471,13 @@ function makeShop(sign,accent){const g=new T.Group();const w=6,d=5,h=3.6;
   const post=new T.Mesh(new T.CylinderGeometry(0.08,0.08,3.2,8),new T.MeshStandardMaterial({color:0x8a5f39}));post.position.set(w/2+0.6,1.6,d/2-0.6);post.castShadow=true;g.add(post);
   const board=new T.Mesh(new T.BoxGeometry(1.5,1.1,0.12),new T.MeshStandardMaterial({color:0xfff4e6,roughness:0.8}));board.position.set(w/2+0.6,2.9,d/2-0.6);board.castShadow=true;g.add(board);
   const bf=new T.Mesh(new T.PlaneGeometry(1.25,0.9),new T.MeshBasicMaterial({map:signTex(sign),transparent:true}));bf.position.set(w/2+0.6,2.9,d/2-0.6+0.07);g.add(bf);
+  return g;}
+function makeBoard(){const g=new T.Group();const wood=new T.MeshStandardMaterial({color:0x8a5f39,roughness:0.9});
+  for(const sx of[-1,1]){const post=new T.Mesh(new T.CylinderGeometry(0.08,0.08,1.8,7),wood);post.position.set(sx*0.7,0.9,0);post.castShadow=true;g.add(post);}
+  const panel=new T.Mesh(new T.BoxGeometry(1.9,1.15,0.1),new T.MeshStandardMaterial({color:0xcaa06a,roughness:0.85}));panel.position.set(0,1.5,0);panel.castShadow=true;g.add(panel);
+  const roof=new T.Mesh(new T.BoxGeometry(2.15,0.12,0.55),new T.MeshStandardMaterial({color:0xc45a45,roughness:0.85}));roof.position.set(0,2.16,0.02);roof.rotation.x=-0.25;roof.castShadow=true;g.add(roof);
+  const sign=new T.Mesh(new T.PlaneGeometry(0.7,0.7),new T.MeshBasicMaterial({map:signTex('📋'),transparent:true}));sign.position.set(0,1.5,0.06);g.add(sign);
+  for(let i=0;i<3;i++){const note=new T.Mesh(new T.PlaneGeometry(0.3,0.3),new T.MeshStandardMaterial({color:[0xfff2b0,0xd6ecff,0xffd6d6][i],roughness:1}));note.position.set(-0.55+i*0.55,1.28,0.055);note.rotation.z=(i-1)*0.12;g.add(note);}
   return g;}
 function makeBush(s){const b=new T.Mesh(new T.SphereGeometry(s,16,12),new T.MeshStandardMaterial({color:0x5aab52,roughness:0.95}));
   b.scale.set(1,0.85,1);b.castShadow=true;b.receiveShadow=true;return b;}
@@ -892,6 +904,9 @@ reg({type:'sleep',x:0.6,z:3,r:2.0});
 [['🛒',0xe0574f,'negozio',8,20],['👕',0x6fae5a,'boutique',-20,2],['💰',0x6fa8e0,'mercato',22,-16]].forEach(s=>{
   const sh=makeShop(s[0],s[1]);sh.position.set(s[3],0,s[4]);sh.rotation.y=Math.atan2(-s[3],-s[4])*0.3;scene.add(sh);
   colliders.push({x:s[3],z:s[4],r:3.6});reg({type:'shop',x:s[3],z:s[4]+3.4,r:2.6,tab:s[2],em:s[0]});claim(s[3],s[4]);});
+// bulletin boards for side quests (one per village)
+[[12,7],[43,37.5]].forEach(p=>{const bd=makeBoard();bd.position.set(p[0],0,p[1]);bd.rotation.y=Math.atan2(-p[0],-p[1])*0.2;scene.add(bd);
+  colliders.push({x:p[0],z:p[1],r:1.0});reg({type:'board',x:p[0],z:p[1]+1.4,r:2.3});claim(p[0],p[1]);});
 // ===== second village: Borgo di Coda (NE, spacious) =====
 const borgoHouses=[[40,45,0xe8a24a],[52,45,0x7f6fd0],[46,33,0x5fa8c0]];
 borgoHouses.forEach((h,i)=>{const H=makeHouse(5,5,3.4,h[2]);H.position.set(h[0],0,h[1]);H.rotation.y=Math.atan2(46-h[0],40-h[1])+rand(i*5)*0.3-0.15;scene.add(H);
@@ -1193,6 +1208,8 @@ $('dogSwap').onclick=()=>{S.active=S.active==='bucky'?'loki':'bucky';const px=pl
 function toast(msg){const t=$('toast'),d=document.createElement('div');d.textContent=msg;t.appendChild(d);
   setTimeout(()=>{d.style.transition='opacity .4s';d.style.opacity='0';setTimeout(()=>d.remove(),400);},1400);}
 function updateHUD(){$('coins').textContent='🦴 '+S.coins;
+  const ln=$('lvlNum');if(ln)ln.textContent=S.level||1;
+  const xf=$('xpFill');if(xf)xf.style.width=Math.min(100,Math.round((S.xp||0)/xpNeed(S.level||1)*100))+'%';
   const q=QUESTS[S.quest];if(!q){$('questTxt').textContent='Tutto fatto! 🌟 Esplora e rilassati.';return;}
   const npc=NPCDEF[q.npc];
   if(q.type==='collect')$('questTxt').textContent=`${npc.em} ${npc.name}: porta ${q.amount} ${ITEMS[q.item].em} (${Math.min(have(q.item),q.amount)}/${q.amount})`;
@@ -1222,7 +1239,7 @@ function detectNear(){near=null;let best=3.4;
   act.disabled=!near;
   act.textContent=!near?'👀':near.type==='npc'?'💬':near.type==='flower'?'✋':near.type==='fish'?'🎣':
     near.type==='bush'?'🫐':near.type==='tree'?'🪵':near.type==='dig'?'⛏️':
-    near.type==='bowl'?'🍖':near.type==='sleep'?'😴':near.type==='poop'?'💩':near.type==='clean'?'🧹':
+    near.type==='bowl'?'🍖':near.type==='sleep'?'😴':near.type==='poop'?'💩':near.type==='clean'?'🧹':near.type==='board'?'📋':
     near.type==='shop'?near.em:near.type==='door'?'🚪':near.type==='plot'?((S.plots[near.idx].stage||0)>=3?'🌾':'🌱'):'👀';}
 
 function doAction(){
@@ -1232,13 +1249,14 @@ function doAction(){
   if(near.type==='exit'){exitInterior();return;}
   if(near.type==='door'){enterInterior();return;}
   if(near.type==='remove'){removePlaced(near.obj);return;}
-  if(near.type==='flower'){addInv('fiore',1);toast('+1 🌼 Fiore');burst(near.x,0.5,near.z,0xffd23f,14);sfx('pick');scene.remove(near.mesh);interactables.splice(interactables.indexOf(near),1);after();}
-  else if(near.type==='bush'){if(near.cd>Date.now()){toast('🫐 Ancora acerbo…');return;}near.cd=Date.now()+12000;addInv('bacca',1);toast('+1 🫐 Bacca');burst(near.x,0.8,near.z,0x5aa9ff,12);sfx('pick');after();}
-  else if(near.type==='tree'){if(near.cd>Date.now()){toast('🌿 Niente per ora…');return;}near.cd=Date.now()+12000;addInv('legno',1);toast('+1 🪵 Legna');burst(near.x,1.3,near.z,0x8fce6b,12);sfx('pick');after();}
+  if(near.type==='flower'){addInv('fiore',1);toast('+1 🌼 Fiore');burst(near.x,0.5,near.z,0xffd23f,14);sfx('pick');scene.remove(near.mesh);interactables.splice(interactables.indexOf(near),1);gainXP(1);sideProgress('fiore');after();}
+  else if(near.type==='bush'){if(near.cd>Date.now()){toast('🫐 Ancora acerbo…');return;}near.cd=Date.now()+12000;addInv('bacca',1);toast('+1 🫐 Bacca');burst(near.x,0.8,near.z,0x5aa9ff,12);sfx('pick');gainXP(1);sideProgress('bacca');after();}
+  else if(near.type==='tree'){if(near.cd>Date.now()){toast('🌿 Niente per ora…');return;}near.cd=Date.now()+12000;addInv('legno',1);toast('+1 🪵 Legna');burst(near.x,1.3,near.z,0x8fce6b,12);sfx('pick');gainXP(1);sideProgress('legno');after();}
   else if(near.type==='dig'){if(S.dug[near.id]&&S.dug[near.id]>Date.now()){toast('⛏️ Già scavato qui');return;}S.dug[near.id]=Date.now()+60000;
-    const g=Math.random()<0.5;addInv(g?'gemma':'carota',1);toast('+1 '+(g?'💎 Gemma':'🥕 Carota'));burst(near.x,0.4,near.z,g?0x8fd0ff:0xff8a3d,16);sfx('dig');after();}
+    const g=Math.random()<0.5;addInv(g?'gemma':'carota',1);toast('+1 '+(g?'💎 Gemma':'🥕 Carota'));burst(near.x,0.4,near.z,g?0x8fd0ff:0xff8a3d,16);sfx('dig');gainXP(2);sideProgress(g?'gemma':'carota');after();}
   else if(near.type==='npc')talkNPC(near.id);
   else if(near.type==='shop')openSheet(near.tab);
+  else if(near.type==='board')openBoard();
   else if(near.type==='fish')startFishing();
   else if(near.type==='plot')usePlot(near.idx);
   else if(near.type==='bowl')feedDog();
@@ -1299,12 +1317,41 @@ function talkNPC(id){const q=QUESTS[S.quest];
     }else{openDialogue(npc.em+' '+npc.name,q.intro,()=>grant(q));}
     return;}
   const npc=NPCDEF[id];openDialogue(npc.em+' '+npc.name,["Ciao, campione! 🐾","Il villaggio è più bello con te qui."]);}
-function grant(q){S.coins+=q.reward;S.quest++;toast('🎉 Missione completata! +🦴 '+q.reward);sfx('quest');burst(player.x,1.5,player.z,0xffd23f,26,1.6,3);updateHUD();save();
+function grant(q){S.coins+=q.reward;S.quest++;toast('🎉 Missione completata! +🦴 '+q.reward);sfx('quest');burst(player.x,1.5,player.z,0xffd23f,26,1.6,3);gainXP(q.reward);updateHUD();save();
   setTimeout(()=>{const nq=QUESTS[S.quest];if(nq)toast('Nuova missione: parla con '+NPCDEF[nq.npc].em+' '+NPCDEF[nq.npc].name);},900);}
+/* ---- player level & experience ---- */
+function xpNeed(lv){return 60+lv*40;}
+function gainXP(n){if(!n)return;S.xp=(S.xp||0)+n;let up=0;
+  while(S.xp>=xpNeed(S.level||1)){S.xp-=xpNeed(S.level||1);S.level=(S.level||1)+1;up++;}
+  if(up){const bonus=(S.level)*10;S.coins+=bonus;
+    setTimeout(()=>{toast('⭐ Livello '+S.level+'! +🦴 '+bonus);sfx('quest');burst(player.x,2,player.z,0xffe07a,30,1.8,3.2);},400);}
+  updateHUD();}
+/* ---- side quests (bulletin board) ---- */
+const SIDE_ITEMS=['fiore','bacca','legno','pesce','carota'];
+function newSide(){const it=SIDE_ITEMS[(Math.random()*SIDE_ITEMS.length)|0],amt=2+((Math.random()*3)|0);
+  return{item:it,amount:amt,prog:0,reward:amt*ITEMS[it].sell+14};}
+function sideProgress(item){if(S.side&&S.side.item===item&&S.side.prog<S.side.amount){S.side.prog++;
+  if(S.side.prog>=S.side.amount){toast('📋 Incarico pronto! Torna alla bacheca');sfx('quest');}save();}}
+function openBoard(){closeSheet();closeMap&&closeMap();sheet=document.createElement('div');sheet.className='sheet';sheet.onclick=e=>{if(e.target===sheet)closeSheet();};document.body.appendChild(sheet);renderBoard();}
+function renderBoard(){if(!sheet)return;let h=`<div class="panel"><h3>📋 Bacheca incarichi <button class="x" onclick="__blClose()">✕</button></h3>
+    <div style="margin-bottom:10px"><span class="bal">⭐ Livello ${S.level||1}</span> <span class="bal">🏅 ${S.sideDone||0} svolti</span></div>`;
+  const s=S.side;
+  if(!s){const n=newSide();window.__pendSide=n;
+    h+=`<div class="secttl">Nuovo incarico disponibile</div><div class="row"><span>Raccogli <b>${n.amount} ${ITEMS[n.item].em} ${ITEMS[n.item].name}</b></span><span>🦴${n.reward} +⭐<br><button class="btn" onclick="__blSideAccept()">Accetta</button></span></div>
+    <div class="empty">Gli incarichi danno ossa ed esperienza extra. Ne trovi sempre di nuovi! 🐾</div>`;}
+  else if(s.prog>=s.amount){h+=`<div class="secttl">Incarico completato ✅</div><div class="row"><span>${s.amount} ${ITEMS[s.item].em} ${ITEMS[s.item].name}</span><span>🦴${s.reward} +⭐<br><button class="btn" onclick="__blSideClaim()">Riscuoti 🏅</button></span></div>`;}
+  else{h+=`<div class="secttl">Incarico in corso</div><div class="row"><span>Raccogli ${ITEMS[s.item].em} ${ITEMS[s.item].name}</span><b>${s.prog}/${s.amount}</b></div>
+    <div class="empty">Raccogline ancora ${s.amount-s.prog} e torna a riscuotere.</div>
+    <div class="row"><span>Non ti va? Cambia incarico</span><button class="btn ghost" onclick="__blSideSkip()">Cambia</button></div>`;}
+  h+='</div>';sheet.innerHTML=h;}
+window.__blSideAccept=()=>{S.side=window.__pendSide||newSide();toast('📋 Incarico accettato!');sfx('tap');save();renderBoard();};
+window.__blSideClaim=()=>{const s=S.side;if(!s||s.prog<s.amount)return;S.coins+=s.reward;S.sideDone=(S.sideDone||0)+1;gainXP(s.reward);S.side=null;
+  toast('🏅 Incarico riscosso! +🦴'+s.reward);sfx('quest');burst(player.x,1.6,player.z,0xffd23f,24,1.6,3);updateHUD();save();renderBoard();};
+window.__blSideSkip=()=>{S.side=null;renderBoard();};
 
 /* ---- Garden ---- */
 function usePlot(i){const pl=S.plots[i];
-  if((pl.stage||0)>=3){addInv('carota',1);pl.stage=0;pl.planted=-1;refreshPlot(plotMeshes[i]);toast('+1 🥕 Carota raccolta!');burst(pl.x,0.5,pl.z,0xff8a3d,14);sfx('pick');after();}
+  if((pl.stage||0)>=3){addInv('carota',1);pl.stage=0;pl.planted=-1;refreshPlot(plotMeshes[i]);toast('+1 🥕 Carota raccolta!');burst(pl.x,0.5,pl.z,0xff8a3d,14);sfx('pick');gainXP(2);sideProgress('carota');after();}
   else if((pl.stage||0)>0){
     if(have('concime')>0){S.inv.concime--;pl.planted--;const age=S.day-pl.planted;pl.stage=Math.min(3,1+age);refreshPlot(plotMeshes[i]);
       toast('💩 Concimato! La carota cresce più in fretta ('+pl.stage+'/3)');burst(pl.x,0.4,pl.z,0x8a6b3a,12);sfx('plant');after();}
@@ -1328,7 +1375,7 @@ function startFishing(){if(fishing)return;if(!bobber){bobber=makeBobber();scene.
     fishing.close=setTimeout(()=>{if(fishing&&fishing.bite)endFishing(false);},1300);},wait);}
 function fishPull(){if(!fishing)return;if(fishing.state==='bite')endFishing(true);else endFishing(false,true);}
 function endFishing(success,early){clearTimeout(fishing.timer);clearTimeout(fishing.close);const cx=fishing.cx,cz=fishing.cz;fishing=null;fishEl.style.display='none';fishEl.innerHTML='';if(bobber)bobber.visible=false;
-  if(success){const f=FISHES[(Math.random()*FISHES.length)|0];addInv('pesce',1);toast(f[0]+' Preso: '+f[1]+'! +1');burst(cx,0.5,cz,0x9fd0f0,18,1.4,2.8);sfx('fish');
+  if(success){const f=FISHES[(Math.random()*FISHES.length)|0];addInv('pesce',1);toast(f[0]+' Preso: '+f[1]+'! +1');burst(cx,0.5,cz,0x9fd0f0,18,1.4,2.8);sfx('fish');gainXP(4);sideProgress('pesce');
     if(Math.random()<0.13){addInv('gemma',1);setTimeout(()=>{toast('💎 Tesoro dal lago! +1 Gemma');burst(cx,0.7,cz,0x8fd0ff,22,1.6,3);sfx('quest');},700);}
     after();}
   else toast(early?'…troppo presto! 🎣':'Scappato! 🐟💨');}
@@ -1344,6 +1391,7 @@ function renderSheet(tab){if(!sheet)return;
     <div class="tabbar">`+tabs.map(t=>`<button class="tabbtn ${t[0]===tab?'on':''}" onclick="__blTab('${t[0]}')">${t[1]}<span>${t[2]}</span></button>`).join('')+`</div>
     <div style="margin-bottom:10px"><span class="bal">🦴 ${S.coins}</span> <span class="bal">🌰 semi ${S.seeds}</span></div>`;
   if(tab==='zaino'){const ks=Object.keys(ITEMS).filter(k=>have(k)>0);
+    h+=`<div class="row"><span>⭐ Livello <b>${S.level||1}</b></span><span style="flex:1;margin:0 10px"><span style="display:block;height:8px;border-radius:5px;background:rgba(80,60,40,.16);overflow:hidden"><span style="display:block;height:100%;width:${Math.min(100,Math.round((S.xp||0)/xpNeed(S.level||1)*100))}%;background:linear-gradient(90deg,#ffcf6a,#ff9e3d)"></span></span></span><b>${S.xp||0}/${xpNeed(S.level||1)} XP</b></div>`;
     h+='<div class="grid">'+(ks.length?ks.map(k=>`<div class="slot"><div class="em">${ITEMS[k].em}</div><div class="ct">×${have(k)}</div><div class="nm">${ITEMS[k].name}</div></div>`).join(''):'<div class="empty">Zaino vuoto — raccogli fiori, bacche, pesca e scava!</div>')+'</div>';
     h+='<div class="row"><span>❓ Come si gioca</span><button class="btn" onclick="__blTutorial()">Rivedi tutorial</button></div>';}
   else if(tab==='mercato'){const ks=Object.keys(ITEMS).filter(k=>have(k)>0);
