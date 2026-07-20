@@ -882,7 +882,7 @@ function makeNPC(def){const g=new T.Group();const col=new T.Color(def.color);
 /* ================= WORLD POPULATION ================= */
 const BOUND=64;
 function rand(seed){let s=Math.sin(seed*127.1)*43758.5453;return s-Math.floor(s);}
-const colliders=[],interactables=[];
+const colliders=[],interactables=[],swayTrees=[];
 terrColliders.forEach(c=>colliders.push(c));
 function inLake(x,z){return Math.hypot(x-LAKE.x,z-LAKE.z)<LAKE.r+4;}
 function inGarden(x,z){return x>-2.5&&x<8.5&&z>4.5&&z<13.5;}
@@ -1049,7 +1049,7 @@ borgoHouses.forEach((h,i)=>{const H=makeHouse(5,5,3.4,h[2]);H.position.set(h[0],
 [[38,38],[54,38],[46,48]].forEach(p=>{const lp=makeLamppost();lp.position.set(p[0],0,p[1]);scene.add(lp);colliders.push({x:p[0],z:p[1],r:0.6});
   const pl=new T.PointLight(0xffca7a,0,16,2);pl.position.set(p[0],3.3,p[1]);scene.add(pl);nightPointLights.push({light:pl,bulb:lp.userData.bulb});claim(p[0],p[1]);});
 // borgo square garden: trees, a bench and a flower ring around the well
-[[38,35],[55,37],[41,50],[52,50]].forEach((p,i)=>{const t=makeTree(0.75+((i*7)%4)/10);t.position.set(p[0],0,p[1]);t.rotation.y=i*1.7;scene.add(t);colliders.push({x:p[0],z:p[1],r:1.2});claim(p[0],p[1]);});
+[[38,35],[55,37],[41,50],[52,50]].forEach((p,i)=>{const t=makeTree(0.75+((i*7)%4)/10);t.position.set(p[0],0,p[1]);t.rotation.y=i*1.7;scene.add(t);swayTrees.push({m:t,ph:i*1.3,amp:0.014+((i*5)%3)*0.006});colliders.push({x:p[0],z:p[1],r:1.2});claim(p[0],p[1]);});
 {const bench=makeBench();bench.position.set(46,0,43.5);bench.rotation.y=Math.PI;scene.add(bench);colliders.push({x:46,z:43.5,r:0.9});claim(46,43.5);}
 for(let i=0;i<12;i++){const a=i/12*6.28,fx=46+Math.cos(a)*2.1,fz=40+Math.sin(a)*2.1;
   const fl=new T.Mesh(new T.SphereGeometry(0.14,8,8),new T.MeshStandardMaterial({color:[0xff6f91,0xffd23f,0xc77dff,0x5ad1e6][i%4],roughness:0.55}));fl.position.set(fx,0.16,fz);fl.castShadow=true;scene.add(fl);}
@@ -1063,6 +1063,7 @@ for(let i=0;i<12;i++){const a=i/12*6.28,fx=46+Math.cos(a)*2.1,fz=40+Math.sin(a)*
 for(let i=0,gu=0;i<38&&gu<600;gu++){const a=Math.random()*6.28,rad=12+Math.random()*50,x=Math.cos(a)*rad,z=Math.sin(a)*rad;
   if(inLake(x,z)||inGarden(x,z)||onRaised(x,z)||nearNPCpos(x,z)||inTerr(x,z)||Math.hypot(x,z)<11||!farEnough(x,z,9))continue;
   claim(x,z);const t=makeTree(0.85+Math.random()*0.4);t.position.set(x,0,z);t.rotation.y=Math.random()*6.28;scene.add(t);
+  swayTrees.push({m:t,ph:Math.random()*6.28,amp:0.014+Math.random()*0.012});
   colliders.push({x,z,r:1.2});if(i%2===0)reg({type:'tree',x,z,r:2.7,mesh:t,cd:0});i++;}
 // bushes — spaced
 for(let i=0,gu=0;i<24&&gu<400;gu++){const a=Math.random()*6.28,rad=9+Math.random()*50,x=Math.cos(a)*rad,z=Math.sin(a)*rad;
@@ -2000,6 +2001,8 @@ function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
     m.visible=!!(q&&q.npc===id);m.position.y=2.1+Math.sin(now/300)*0.12;m.rotation.y+=dt*2;}
   // grass wind
   if(grassMat.userData.sh)grassMat.userData.sh.uniforms.uTime.value=now/1000;
+  // gentle breeze — trees sway
+  for(const t of swayTrees){t.m.rotation.z=Math.sin(now/1200+t.ph)*t.amp;t.m.rotation.x=Math.cos(now/1600+t.ph)*t.amp*0.55;}
   // drifting clouds
   for(const cl of clouds){cl.position.x+=cl.userData.spd*dt;if(cl.position.x>120)cl.position.x=-120;}
   // rain
