@@ -165,7 +165,11 @@ const CLOTHES={maglione:{em:'🧶',name:'Maglioncino',price:35},mantello:{em:'�
 const NPCDEF={
   mochi:{name:'Mochi',em:'🐱',type:'cat',color:0xf2b8c6,pos:[-11,10]},
   pip:{name:'Pip',em:'🐦',type:'bird',color:0x7ec8f0,pos:[-14,-9]},
-  rocco:{name:'Rocco',em:'🦔',type:'hedgehog',color:0xb5895a,pos:[13,12]}
+  rocco:{name:'Rocco',em:'🦔',type:'hedgehog',color:0xb5895a,pos:[13,12]},
+  // second village — Borgo di Coda
+  nina:{name:'Nina',em:'🐱',type:'cat',color:0xd6b3f0,pos:[46,38]},
+  aldo:{name:'Aldo',em:'🦔',type:'hedgehog',color:0xc79a5a,pos:[42,43]},
+  sasha:{name:'Sasha',em:'🐦',type:'bird',color:0x8ce0a8,pos:[50,43]}
 };
 const QUESTS=[
   {npc:'mochi',type:'collect',item:'fiore',amount:3,reward:20,
@@ -198,9 +202,21 @@ const QUESTS=[
   {npc:'rocco',type:'collect',item:'legno',amount:6,reward:50,
     intro:["Aiutami ad ampliare il villaggio 🏗️","Servono 6 🪵 legna: raccoglile o comprale al Negozio!"],
     done:["Con questa legna costruiremo meraviglie! 🪚"]},
+  {npc:'nina',type:'talk',reward:24,
+    intro:["Benvenuto al Borgo di Coda! 🏘️","Io sono Nina. Siamo felici di nuovi amici qui!","Fai un giro tra le nostre casette."],
+    done:["A presto, torna quando vuoi! 🐾"]},
+  {npc:'aldo',type:'collect',item:'legno',amount:5,reward:46,
+    intro:["Il pozzo del Borgo va sistemato 🪵","Mi porti 5 legna per ripararlo?"],
+    done:["Ora il pozzo durerà cent'anni! 🛠️"]},
+  {npc:'sasha',type:'collect',item:'bacca',amount:4,reward:40,
+    intro:["Preparo una marmellata per il Borgo 🫐","Mi raccogli 4 bacche dai cespugli?"],
+    done:["Che delizia, grazie mille! 🎶"]},
+  {npc:'nina',type:'collect',item:'carota',amount:3,reward:44,
+    intro:["Facciamo una zuppa per tutto il Borgo 🥕","Mi porti 3 carote dall'orto?"],
+    done:["Profumatissima, sei un tesoro! 🧡"]},
   {npc:'mochi',type:'talk',reward:80,
-    intro:["Guarda com'è rinato il villaggio di Coda! ✨","Grazie a te e al tuo compagno 🐾","Ecco un grande premio d'oro 🦴"],
-    done:["Sei l'eroe di Coda! 🌟 Ora goditi il tuo villaggio."]}
+    intro:["Guarda come sono rinati i villaggi di Coda! ✨","Grazie a te e al tuo compagno 🐾","Ecco un grande premio d'oro 🦴"],
+    done:["Sei l'eroe di Coda! 🌟 Ora goditi i tuoi villaggi."]}
 ];
 
 /* ================= STATE ================= */
@@ -828,6 +844,22 @@ reg({type:'sleep',x:0.6,z:3,r:2.0});
 [['🛒',0xe0574f,'negozio',8,20],['👕',0x6fae5a,'boutique',-20,2],['💰',0x6fa8e0,'mercato',22,-16]].forEach(s=>{
   const sh=makeShop(s[0],s[1]);sh.position.set(s[3],0,s[4]);sh.rotation.y=Math.atan2(-s[3],-s[4])*0.3;scene.add(sh);
   colliders.push({x:s[3],z:s[4],r:3.6});reg({type:'shop',x:s[3],z:s[4]+3.4,r:2.6,tab:s[2],em:s[0]});claim(s[3],s[4]);});
+// ===== second village: Borgo di Coda (NE, spacious) =====
+const borgoHouses=[[40,45,0xe8a24a],[52,45,0x7f6fd0],[46,33,0x5fa8c0]];
+borgoHouses.forEach((h,i)=>{const H=makeHouse(5,5,3.4,h[2]);H.position.set(h[0],0,h[1]);H.rotation.y=Math.atan2(46-h[0],40-h[1])+rand(i*5)*0.3-0.15;scene.add(H);
+  colliders.push({x:h[0],z:h[1],r:3.6});reg({type:'door',x:h[0],z:h[1]+3.2,r:2.4});claim(h[0],h[1]);addChimney(h[0],h[1],5.1);});
+// village well as centerpiece
+{const well=new T.Group();const stone=new T.MeshStandardMaterial({color:0x9a938a,roughness:0.95});
+  const ring=new T.Mesh(new T.CylinderGeometry(0.9,0.95,0.9,16),stone);ring.position.y=0.45;ring.castShadow=true;well.add(ring);
+  const waterw=new T.Mesh(new T.CircleGeometry(0.72,16),new T.MeshStandardMaterial({color:0x3f7ea8,roughness:0.2,metalness:0.3}));waterw.rotation.x=-Math.PI/2;waterw.position.y=0.5;well.add(waterw);
+  for(const sx of[-1,1]){const post=new T.Mesh(new T.CylinderGeometry(0.07,0.07,1.5,7),new T.MeshStandardMaterial({color:0x6a4326}));post.position.set(sx*0.8,1.2,0);post.castShadow=true;well.add(post);}
+  const roof=new T.Mesh(new T.ConeGeometry(1.15,0.7,4),new T.MeshStandardMaterial({color:0xc45a45,roughness:0.85}));roof.position.y=2.15;roof.rotation.y=Math.PI/4;roof.castShadow=true;well.add(roof);
+  const bar=new T.Mesh(new T.CylinderGeometry(0.05,0.05,1.7,6),new T.MeshStandardMaterial({color:0x4a3220}));bar.rotation.z=Math.PI/2;bar.position.y=1.75;well.add(bar);
+  const bucket=new T.Mesh(new T.CylinderGeometry(0.16,0.13,0.24,10),new T.MeshStandardMaterial({color:0x6a4326}));bucket.position.set(0,1.35,0);well.add(bucket);
+  well.position.set(46,0,40);scene.add(well);colliders.push({x:46,z:40,r:1.3});claim(46,40);}
+// a couple of lampposts + trees to frame the borgo
+[[38,38],[54,38],[46,48]].forEach(p=>{const lp=makeLamppost();lp.position.set(p[0],0,p[1]);scene.add(lp);colliders.push({x:p[0],z:p[1],r:0.6});
+  const pl=new T.PointLight(0xffca7a,0,16,2);pl.position.set(p[0],3.3,p[1]);scene.add(pl);nightPointLights.push({light:pl,bulb:lp.userData.bulb});claim(p[0],p[1]);});
 // foreground grassy escarpments (Pokopia-style banks) framing the meadow, with stairs
 [[0,-48],[48,-8],[-48,-2],[8,52]].forEach((p,i)=>{const x=p[0],z=p[1],w=18+((i*7)%8),d=13+((i*5)%5);
   const tr=makeTerrace(w,d,2,2.6,4.5);tr.position.set(x,0,z);const ang=Math.atan2(z,x);tr.rotation.y=-ang+Math.PI/2;scene.add(tr);
@@ -1018,6 +1050,7 @@ layPath([[2,2],[-6,-3],[-16,-6],[-24,-7]],3.0);           // -> lake shore (SW)
 layPath([[-6,7],[-12,18],[-22,28],[-30,32]],2.8);         // -> far N house
 layPath([[18,4],[28,5],[40,6]],3.0);                      // -> E house
 layPath([[6,1],[12,-12],[16,-26]],2.8);                   // -> S house
+layPath([[28,3.2],[34,16],[41,28],[46,36]],3.2);          // east avenue -> Borgo di Coda
 // NPCs
 const npcObjs={},npcAgents=[];
 for(const id in NPCDEF){const def=NPCDEF[id];const g=makeNPC(def);g.position.set(def.pos[0],0,def.pos[1]);scene.add(g);
