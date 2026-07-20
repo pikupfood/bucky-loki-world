@@ -1168,7 +1168,10 @@ function makePoopMesh(){const g=new T.Group();const m=new T.MeshStandardMaterial
   const b=new T.Mesh(new T.SphereGeometry(0.12,8,7),m);b.scale.set(1,0.7,1);b.position.set(0.02,0.24,0.02);g.add(b);
   const c=new T.Mesh(new T.SphereGeometry(0.08,8,7),m);c.scale.set(1,0.7,1);c.position.set(0,0.36,0);g.add(c);
   g.traverse(o=>{if(o.isMesh)o.castShadow=true;});return g;}
-function spawnPoop(x,z){const g=makePoopMesh();g.position.set(x,groundHeight(x,z),z);scene.add(g);
+function spawnPoop(x,z){
+  // cap uncleaned poops so they never pile up (perf + tidiness)
+  while(poopObjs.length>=8){const old=poopObjs.shift();scene.remove(old.mesh);const oi=interactables.indexOf(old);if(oi>=0)interactables.splice(oi,1);}
+  const g=makePoopMesh();g.position.set(x,groundHeight(x,z),z);scene.add(g);
   const o={type:'clean',x,z,r:2,mesh:g};poopObjs.push(o);reg(o);}
 function cleanPoop(o){scene.remove(o.mesh);const i=interactables.indexOf(o);if(i>=0)interactables.splice(i,1);
   const j=poopObjs.indexOf(o);if(j>=0)poopObjs.splice(j,1);
