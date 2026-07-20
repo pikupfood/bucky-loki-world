@@ -40,9 +40,10 @@
     z-index:12;pointer-events:auto;box-shadow:0 2px 8px rgba(60,40,20,.16);font-family:var(--font);transition:transform .06s;}
   .sidebtn:active{transform:scale(.92);}
   #menuBtn{bottom:calc(env(safe-area-inset-bottom) + 128px);}
-  #shopBtn{bottom:calc(env(safe-area-inset-bottom) + 180px);}
-  #buildBtn{bottom:calc(env(safe-area-inset-bottom) + 232px);}
-  #dogSwap{bottom:calc(env(safe-area-inset-bottom) + 284px);}
+  #mapBtn{bottom:calc(env(safe-area-inset-bottom) + 180px);}
+  #shopBtn{bottom:calc(env(safe-area-inset-bottom) + 232px);}
+  #buildBtn{bottom:calc(env(safe-area-inset-bottom) + 284px);}
+  #dogSwap{bottom:calc(env(safe-area-inset-bottom) + 336px);}
   #placeBar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 30px);display:none;gap:12px;justify-content:center;z-index:16;pointer-events:none;}
   #placeBar.on{display:flex;}
   .pbtn{pointer-events:auto;border:none;border-radius:16px;padding:14px 20px;font-size:16px;font-weight:800;font-family:var(--font);color:#fff;
@@ -143,6 +144,7 @@
 <button id="act" disabled>👀</button>
 <button id="dogSwap" class="sidebtn" title="Cambia cane">🔄</button>
 <button id="menuBtn" class="sidebtn" title="Menu">🎒</button>
+<button id="mapBtn" class="sidebtn" title="Mappa">🗺️</button>
 <button id="shopBtn" class="sidebtn" title="Negozio">🛒</button>
 <button id="buildBtn" class="sidebtn" title="Costruisci">🔨</button>
 <button id="exitBtn">🚪 Esci</button>
@@ -1383,7 +1385,50 @@ window.__blWear=k=>{equipHat(S.active,k);save();renderSheet('boutique');};
 window.__blWearC=k=>{equipCloth(S.active,k);save();renderSheet('boutique');};
 $('menuBtn').onclick=()=>openSheet('zaino');
 $('shopBtn').onclick=()=>openSheet('negozio');
+$('mapBtn').onclick=()=>openMap();
 $('act').onclick=doAction;
+
+/* ================= MAP + FAST TRAVEL ================= */
+let mapEl=null;
+const TRAVEL=[['🏡 Coda',2,2],['🏠 Casa',4,7.5],['🎣 Lago',-14,-9],['🏘️ Borgo',46,37],['⛰️ Altopiano',29,16],['🌉 Ponte',-31,-14]];
+function closeMap(){if(mapEl){mapEl.remove();mapEl=null;}}
+window.__blCloseMap=closeMap;
+function openMap(){closeSheet();cancelPlace&&cancelPlace();closeMap();
+  mapEl=document.createElement('div');mapEl.className='sheet';mapEl.onclick=e=>{if(e.target===mapEl)closeMap();};
+  mapEl.innerHTML=`<div class="panel"><h3>🗺️ Mappa del Mondo di Coda <button class="x" onclick="__blCloseMap()">✕</button></h3>
+    <canvas id="mapCv" width="330" height="330" style="width:100%;max-width:340px;display:block;margin:2px auto 6px;border-radius:16px;box-shadow:inset 0 0 0 2px rgba(0,0,0,.06)"></canvas>
+    <div class="secttl">🧭 Viaggio rapido — tocca una meta</div>
+    <div id="mapTravel" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+    <div class="empty">Il triangolo arancione 🔺 sei tu. La bussola in alto punta all'obiettivo.</div></div>`;
+  document.body.appendChild(mapEl);
+  $('mapTravel').innerHTML=TRAVEL.map((t,i)=>`<button class="btn ghost" onclick="__blTravel(${i})">${t[0]}</button>`).join('');
+  drawMap();}
+window.__blTravel=i=>{const t=TRAVEL[i];if(!t)return;travelTo(t[1],t[2]);};
+function travelTo(x,z){if(inside){inside=false;$('exitBtn').classList.remove('on');}
+  player.x=x;player.z=z;player.y=groundHeight(x,z);player.moving=false;player.dir=0;
+  comp.x=x-1.4;comp.z=z-1.0;comp.y=groundHeight(comp.x,comp.z);trail.length=0;
+  closeMap();toast('🗺️ Arrivato!');sfx('tap');burst(x,0.6,z,0xffd23f,14,1,2);}
+function drawMap(){const cv=$('mapCv');if(!cv)return;const ctx=cv.getContext('2d'),W=cv.width,H=cv.height,B=64;
+  const X=x=>(x+B)/(2*B)*W,Z=z=>(z+B)/(2*B)*H;
+  ctx.fillStyle='#a6d685';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#cdbb8e';ctx.fillRect(X(22),Z(10),X(38)-X(22),Z(28)-Z(10));ctx.fillRect(X(22),Z(33),X(38)-X(22),Z(47)-Z(33));
+  // connecting paths
+  ctx.strokeStyle='rgba(214,193,150,.95)';ctx.lineWidth=6;ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.beginPath();ctx.moveTo(X(2),Z(2));ctx.lineTo(X(28),Z(4));ctx.lineTo(X(41),Z(28));ctx.lineTo(X(46),Z(36));ctx.stroke();
+  ctx.beginPath();ctx.moveTo(X(2),Z(2));ctx.lineTo(X(-14),Z(-6));ctx.lineTo(X(-24),Z(-10));ctx.stroke();
+  // lake
+  ctx.fillStyle='#63b1dc';ctx.beginPath();ctx.arc(X(-26),Z(-22),15/(2*B)*W,0,6.28);ctx.fill();
+  // houses
+  ctx.fillStyle='#c07a55';for(const h of[[-24,10],[16,-26],[-30,32],[40,6],[40,45],[52,45],[46,33]]){ctx.fillRect(X(h[0])-4,Z(h[1])-4,8,8);}
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='16px serif';
+  ctx.fillText('🏠',X(4),Z(3));ctx.fillText('🎣',X(-26),Z(-22));ctx.fillText('⛲',X(46),Z(40));
+  for(const s of[['🛒',8,20],['👕',-20,2],['💰',22,-16],['🛒',51,35]])ctx.fillText(s[0],X(s[1]),Z(s[2]));
+  ctx.font='12px serif';for(const id in NPCDEF){const p=NPCDEF[id].pos;ctx.fillText(NPCDEF[id].em,X(p[0]),Z(p[1]));}
+  ctx.fillStyle='rgba(74,58,40,.9)';ctx.font='bold 13px sans-serif';ctx.fillText('CODA',X(-2),Z(-4));ctx.fillText('BORGO',X(46),Z(53));
+  // player arrow
+  const ang=Math.atan2(Math.cos(player.dir),Math.sin(player.dir));
+  ctx.save();ctx.translate(X(player.x),Z(player.z));ctx.rotate(ang);ctx.fillStyle='#e0562b';ctx.strokeStyle='#fff';ctx.lineWidth=1.8;
+  ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,6.5);ctx.lineTo(-6,-6.5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();}
 
 /* ================= MINI TUTORIAL ================= */
 const TUTORIAL=[
@@ -1393,7 +1438,7 @@ const TUTORIAL=[
   {em:'🎣',t:'Pesca vera',x:'Vai al <b>laghetto</b>, premi 🎣 e aspetta l\'abboccata: quando vedi ❗ premi <b>TIRA!</b> al volo. A volte peschi un tesoro 💎.'},
   {em:'🏠',t:'Costruisci casa',x:'Nel menu 🎒 apri <b>Casa</b> per migliorarla (Cuccia → Villa, con piani e stanze). Con 🔨 <b>arredi</b> e posizioni oggetti dentro e fuori.'},
   {em:'🛒',t:'Negozi e missioni',x:'Ai <b>negozi</b> 🛒 compri decorazioni, vestiti e cappellini per i cani. Completa le <b>missioni</b> 🎯 degli abitanti per guadagnare ossa 🦴.'},
-  {em:'🗺️',t:'Due villaggi da esplorare',x:'Scopri <b>Coda</b> e il nuovo <b>Borgo di Coda</b> a nord-est, con 6 abitanti, cascatelle, orto e tanti segreti. Buon divertimento! 🐾'}
+  {em:'🗺️',t:'Mappa e viaggio rapido',x:'Col pulsante <b>🗺️</b> apri la <b>mappa dall\'alto</b> di tutto il mondo e con un tocco <b>viaggi subito</b> tra Coda, il Borgo, il lago e l\'altopiano. Buon divertimento! 🐾'}
 ];
 let tutI=0,tutOpen=false;
 function showTutorial(i){tutI=i||0;renderTut();$('tut').classList.add('on');tutOpen=true;}
