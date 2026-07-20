@@ -597,6 +597,36 @@ function makeIndoorBed(){const g=new T.Group();const wood=new T.MeshStandardMate
   const bed=new T.Mesh(new T.BoxGeometry(1.6,0.35,2.3),wood);bed.position.y=0.18;bed.castShadow=true;g.add(bed);
   const matt=new T.Mesh(new T.BoxGeometry(1.5,0.25,2.2),new T.MeshStandardMaterial({color:0xef9bb0,roughness:0.85}));matt.position.y=0.42;g.add(matt);
   const pil=new T.Mesh(new T.BoxGeometry(1.3,0.22,0.55),new T.MeshStandardMaterial({color:0xffffff,roughness:0.8}));pil.position.set(0,0.55,-0.8);g.add(pil);return g;}
+/* ---- premium bazar furniture ---- */
+function makePiano(){const g=new T.Group();const blk=new T.MeshStandardMaterial({color:0x1a1518,roughness:0.35,metalness:0.2});
+  const body=new T.Mesh(new T.BoxGeometry(1.5,1.05,0.6),blk);body.position.y=0.65;body.castShadow=true;g.add(body);
+  const top=new T.Mesh(new T.BoxGeometry(1.55,0.12,0.7),blk);top.position.y=1.2;g.add(top);
+  const keys=new T.Mesh(new T.BoxGeometry(1.3,0.12,0.28),new T.MeshStandardMaterial({color:0xfffdf6}));keys.position.set(0,0.72,0.34);g.add(keys);
+  for(let i=0;i<8;i++){const bk=new T.Mesh(new T.BoxGeometry(0.05,0.14,0.16),blk);bk.position.set(-0.56+i*0.16,0.8,0.3);g.add(bk);}
+  for(const sx of[-1,1]){const leg=new T.Mesh(new T.BoxGeometry(0.1,0.6,0.1),blk);leg.position.set(sx*0.6,0.3,0.2);g.add(leg);}
+  const bench=new T.Mesh(new T.BoxGeometry(0.7,0.1,0.35),new T.MeshStandardMaterial({color:0x6a4a2a}));bench.position.set(0,0.4,0.75);g.add(bench);return g;}
+function makeAquarium(){const g=new T.Group();const stand=new T.Mesh(new T.BoxGeometry(1.2,0.6,0.5),new T.MeshStandardMaterial({color:0x6a4a33,roughness:0.85}));stand.position.y=0.3;stand.castShadow=true;g.add(stand);
+  const water=new T.Mesh(new T.BoxGeometry(1.1,0.55,0.42),new T.MeshStandardMaterial({color:0x5fb0dd,transparent:true,opacity:0.6,roughness:0.1,metalness:0.2}));water.position.y=0.9;g.add(water);
+  const glass=new T.Mesh(new T.BoxGeometry(1.14,0.6,0.46),new T.MeshStandardMaterial({color:0xcfeffb,transparent:true,opacity:0.15,roughness:0.05}));glass.position.y=0.9;g.add(glass);
+  for(let i=0;i<3;i++){const f=new T.Mesh(new T.ConeGeometry(0.06,0.14,5),new T.MeshStandardMaterial({color:[0xe0873a,0xf2c14e,0xff6f91][i]}));f.rotation.z=Math.PI/2;f.position.set(-0.3+i*0.3,0.85+((i*13)%3)*0.1,0);g.add(f);}
+  const sand=new T.Mesh(new T.BoxGeometry(1.05,0.08,0.38),new T.MeshStandardMaterial({color:0xe6d29a}));sand.position.y=0.65;g.add(sand);return g;}
+function makeChandelier(){const g=new T.Group();const gold=new T.MeshStandardMaterial({color:0xf2c14e,metalness:0.6,roughness:0.3});
+  const rod=new T.Mesh(new T.CylinderGeometry(0.03,0.03,0.5,6),gold);rod.position.y=1.75;g.add(rod);
+  const ring=new T.Mesh(new T.TorusGeometry(0.35,0.04,8,20),gold);ring.position.y=1.5;ring.rotation.x=Math.PI/2;g.add(ring);
+  for(let i=0;i<6;i++){const a=i/6*6.28;const bulb=new T.Mesh(new T.SphereGeometry(0.09,10,10),new T.MeshStandardMaterial({color:0xffe08a,emissive:0xffcf6a,emissiveIntensity:0.9}));bulb.position.set(Math.cos(a)*0.35,1.42,Math.sin(a)*0.35);g.add(bulb);
+    const arm=new T.Mesh(new T.CylinderGeometry(0.02,0.02,0.18,5),gold);arm.position.set(Math.cos(a)*0.35,1.5,Math.sin(a)*0.35);g.add(arm);}
+  const c=new T.Mesh(new T.SphereGeometry(0.1,10,10),new T.MeshStandardMaterial({color:0xffe08a,emissive:0xffcf6a,emissiveIntensity:0.9}));c.position.y=1.45;g.add(c);return g;}
+function makeGrandClock(){const g=new T.Group();const wood=new T.MeshStandardMaterial({color:0x5a3a22,roughness:0.7});
+  const body=new T.Mesh(new T.BoxGeometry(0.6,2.2,0.4),wood);body.position.y=1.1;body.castShadow=true;g.add(body);
+  const face=new T.Mesh(new T.CylinderGeometry(0.22,0.22,0.06,20),new T.MeshStandardMaterial({color:0xfff4e0}));face.rotation.x=Math.PI/2;face.position.set(0,1.85,0.21);g.add(face);
+  for(const r of[[0,0.14,0.02,0.1],[0.1,0,0.08,0.02]]){const hand=new T.Mesh(new T.BoxGeometry(r[2],r[3],0.02),new T.MeshStandardMaterial({color:0x222}));hand.position.set(r[0],1.85+r[1],0.25);g.add(hand);}
+  const pend=new T.Mesh(new T.CylinderGeometry(0.09,0.09,0.03,16),new T.MeshStandardMaterial({color:0xf2c14e,metalness:0.6,roughness:0.3}));pend.rotation.x=Math.PI/2;pend.position.set(0,0.8,0.21);g.add(pend);
+  const top=new T.Mesh(new T.BoxGeometry(0.7,0.15,0.5),wood);top.position.y=2.25;g.add(top);return g;}
+function makeArmchair(){const g=new T.Group();const c=new T.MeshStandardMaterial({color:0x9c5a4a,roughness:0.9});
+  const seat=new T.Mesh(new T.BoxGeometry(0.9,0.35,0.85),c);seat.position.y=0.4;seat.castShadow=true;g.add(seat);
+  const back=new T.Mesh(new T.BoxGeometry(0.9,0.8,0.2),c);back.position.set(0,0.75,-0.32);g.add(back);
+  for(const sx of[-1,1]){const arm=new T.Mesh(new T.BoxGeometry(0.18,0.45,0.85),c);arm.position.set(sx*0.54,0.55,0);g.add(arm);}
+  const cush=new T.Mesh(new T.BoxGeometry(0.8,0.16,0.75),new T.MeshStandardMaterial({color:0xb0705f,roughness:0.9}));cush.position.set(0,0.6,0.03);g.add(cush);return g;}
 function makeHedge(){const g=new T.Group();const m=new T.MeshStandardMaterial({color:0x4f8a3f,roughness:1});
   const body=new T.Mesh(new T.BoxGeometry(1.6,0.8,0.6),m);body.position.y=0.4;body.castShadow=true;body.receiveShadow=true;g.add(body);
   for(let i=0;i<10;i++){const p=new T.Mesh(new T.SphereGeometry(0.24,8,7),new T.MeshStandardMaterial({color:i%2?0x57963f:0x4a8038,roughness:1}));p.position.set(-0.7+((i*7)%14)/14*1.4,0.75,-0.25+((i*5)%3)/3*0.5);g.add(p);}return g;}
@@ -632,7 +662,13 @@ const BUILD={
   siepe:{em:'🌿',name:'Siepe',cost:9,yoff:0,col:0.85,make:makeHedge},
   casetta:{em:'🐦',name:'Casetta uccelli',cost:18,yoff:0,col:0.3,make:makeBirdhouse},
   lanterna:{em:'🏮',name:'Lanterna',cost:20,yoff:0,col:0.4,unlock:'lanterna',make:makeLantern},
-  trofeo:{em:'🏆',name:'Trofeo',cost:30,yoff:0,col:0.3,unlock:'trofeo',make:makeTrophy}};
+  trofeo:{em:'🏆',name:'Trofeo',cost:30,yoff:0,col:0.3,unlock:'trofeo',make:makeTrophy},
+  piano:{em:'🎹',name:'Pianoforte',cost:120,yoff:0,col:1.0,unlock:'piano',bazar:1,make:makePiano},
+  acquario:{em:'🐠',name:'Acquario',cost:90,yoff:0,col:0.8,unlock:'acquario',bazar:1,make:makeAquarium},
+  lampadario:{em:'💡',name:'Lampadario',cost:80,yoff:0,col:0.3,unlock:'lampadario',bazar:1,make:makeChandelier},
+  orologio:{em:'🕰️',name:'Orologio a pendolo',cost:75,yoff:0,col:0.4,unlock:'orologio',bazar:1,make:makeGrandClock},
+  poltrona:{em:'🛋️',name:'Poltrona',cost:60,yoff:0,col:0.7,unlock:'poltrona',bazar:1,make:makeArmchair}};
+const BAZAR_KEYS=['piano','acquario','lampadario','orologio','poltrona'];
 function makeHatMesh(type){const h=new T.Group();
   if(type==='cappello'){const brim=new T.Mesh(new T.CylinderGeometry(0.42,0.42,0.06,16),new T.MeshStandardMaterial({color:0x222028}));brim.position.y=0.5;h.add(brim);
     const top=new T.Mesh(new T.CylinderGeometry(0.28,0.28,0.5,16),new T.MeshStandardMaterial({color:0x2a2730}));top.position.y=0.76;h.add(top);
@@ -1453,7 +1489,7 @@ function closeSheet(){if(sheet){sheet.remove();sheet=null;}}
 function openSheet(tab){closeSheet();sheet=document.createElement('div');sheet.className='sheet';
   sheet.onclick=e=>{if(e.target===sheet)closeSheet();};document.body.appendChild(sheet);renderSheet(tab);}
 function renderSheet(tab){if(!sheet)return;
-  const tabs=[['zaino','🎒','Zaino'],['casa','🏠','Casa'],['mercato','💰','Mercato'],['negozio','🛒','Negozio'],['boutique','👕','Boutique'],['orto','🌱','Orto'],['missioni','🎯','Missioni']];
+  const tabs=[['zaino','🎒','Zaino'],['casa','🏠','Casa'],['bazar','🛋️','Bazar'],['mercato','💰','Mercato'],['negozio','🛒','Negozio'],['boutique','👕','Boutique'],['orto','🌱','Orto'],['missioni','🎯','Missioni']];
   let h=`<div class="panel"><h3>Menu <button class="x" onclick="__blClose()">✕</button></h3>
     <div class="tabbar">`+tabs.map(t=>`<button class="tabbtn ${t[0]===tab?'on':''}" onclick="__blTab('${t[0]}')">${t[1]}<span>${t[2]}</span></button>`).join('')+`</div>
     <div style="margin-bottom:10px"><span class="bal">🦴 ${S.coins}</span> <span class="bal">🌰 semi ${S.seeds}</span></div>`;
@@ -1490,6 +1526,11 @@ function renderSheet(tab){if(!sheet)return;
     h+='<div class="secttl">🎨 Pavimento</div><div class="swatches">'+Object.keys(FLOORS).map(k=>`<button class="swatch ${(S.house.floor||'legno')===k?'on':''}" style="background:#${FLOORS[k].c.toString(16).padStart(6,'0')}" title="${FLOORS[k].n}" onclick="__blHouseFloor('${k}')"></button>`).join('')+'</div>';
     h+='<div class="secttl">🎨 Pareti</div><div class="swatches">'+Object.keys(WALLS).map(k=>`<button class="swatch ${(S.house.wall||'crema')===k?'on':''}" style="background:#${WALLS[k].c.toString(16).padStart(6,'0')}" title="${WALLS[k].n}" onclick="__blHouseWall('${k}')"></button>`).join('')+'</div>';
     h+='<div class="secttl">Arreda</div><div class="empty">Entra in casa dalla porta 🚪 e usa 🔨 per posizionare divani, letti, librerie, cucina, TV, quadri e altro. Il colore si applica subito!</div>';}
+  else if(tab==='bazar'){const day=S.day||1,offer=[0,1,2].map(k=>BAZAR_KEYS[(day+k)%BAZAR_KEYS.length]);
+    h+='<div class="secttl">🛋️ Arredi esclusivi — selezione del giorno ('+day+'°)</div>';
+    offer.forEach(k=>{const d=BUILD[k],owned=S['unlock_'+k];
+      h+=`<div class="row"><span>${d.em} ${d.name}</span><span>${owned?'✓ sbloccato (usa 🔨)':'🦴'+d.cost+' <button class="btn" '+(S.coins<d.cost?'disabled':'')+' onclick="__blBuyBazar(\''+k+'\')">Compra</button>'}</span></div>`;});
+    h+='<div class="empty">Arredi di lusso a rotazione: cambiano ogni giorno! Una volta comprati li costruisci con 🔨 quando vuoi. 🐾</div>';}
   else if(tab==='missioni'){h+='<div class="secttl">Progresso</div>';QUESTS.forEach((q,i)=>{const st=i<S.quest?'✓':i===S.quest?'▶':'·';
     h+=`<div class="row"><span>${st} ${NPCDEF[q.npc].em} ${NPCDEF[q.npc].name}: ${q.type==='collect'?'porta '+q.amount+' '+ITEMS[q.item].em:'parla'}</span><b>🦴${q.reward}</b></div>`;});}
   h+='</div>';sheet.innerHTML=h;}
@@ -1507,6 +1548,8 @@ window.__blUpgradeHouse=()=>{const lvl=S.house.level||1;if(lvl>=4)return;const c
   if(S.coins<c.coins||have('legno')<c.legno){toast('Servono 🦴'+c.coins+' e 🪵'+c.legno);return;}
   S.coins-=c.coins;S.inv.legno-=c.legno;S.house.level=lvl+1;buildHome();buildInterior();
   toast('🏗️ Casa migliorata al livello '+(lvl+1)+'!');sfx('quest');burst(HOME.x,2,HOME.z,0xffd23f,26,1.6,3);updateHUD();save();renderSheet('casa');};
+window.__blBuyBazar=k=>{const d=BUILD[k];if(!d||S['unlock_'+k]||S.coins<d.cost)return;S.coins-=d.cost;S['unlock_'+k]=true;
+  toast(d.em+' '+d.name+' sbloccato! Costruiscilo con 🔨');sfx('coin');burst(player.x,1.4,player.z,0xffd23f,16);updateHUD();save();renderSheet('bazar');};
 window.__blHouseFloor=k=>{if(!FLOORS[k])return;S.house.floor=k;buildInterior();sfx('tap');save();renderSheet('casa');};
 window.__blHouseWall=k=>{if(!WALLS[k])return;S.house.wall=k;buildInterior();sfx('tap');save();renderSheet('casa');};
 window.__blWear=k=>{equipHat(S.active,k);save();renderSheet('boutique');};
