@@ -120,6 +120,9 @@
   .btn:disabled{opacity:.4;}
   .empty{opacity:.55;font-weight:600;font-size:14px;padding:14px 0;text-align:center;}
   .secttl{font-size:12px;font-weight:800;opacity:.6;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px;}
+  .swatches{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px;}
+  .swatch{width:42px;height:42px;border-radius:12px;border:3px solid #fff;box-shadow:0 2px 6px rgba(60,40,20,.2);cursor:pointer;padding:0;}
+  .swatch.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 2px 6px rgba(60,40,20,.2);}
   #fish{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 120px);z-index:23;text-align:center;pointer-events:none;}
   #fish .box{display:inline-block;background:rgba(255,253,246,.94);border-radius:20px;padding:13px 20px;pointer-events:auto;box-shadow:0 4px 14px rgba(0,0,0,.2);}
   #fish .box.bite{background:#fff2f0;}
@@ -259,7 +262,7 @@ const SAVEKEY='bl3d';
 function defaultState(){return{coins:15,inv:{},seeds:2,quest:0,day:1,
   plots:[{x:1.5,z:8,stage:0,planted:-1},{x:3.4,z:8,stage:0,planted:-1},{x:5.3,z:8,stage:0,planted:-1}],
   outfits:{bucky:{hat:null,body:null},loki:{hat:null,body:null}},dug:{},placed:[],active:'bucky',
-  food:0,needs:{hunger:80,energy:88,bladder:62},house:{level:1},discovered:{coda:1,casa:1,borgo:1},
+  food:0,needs:{hunger:80,energy:88,bladder:62},house:{level:1,floor:'legno',wall:'crema'},discovered:{coda:1,casa:1,borgo:1},
   xp:0,level:1,side:null,sideDay:0,sideDone:0};}
 let S;
 try{S=JSON.parse(localStorage.getItem(SAVEKEY))||defaultState();}catch(e){S=defaultState();}
@@ -1420,7 +1423,9 @@ function renderSheet(tab){if(!sheet)return;
       h+=`<div class="row"><span>⬆️ Migliora → ${names[lvl]}<br><small style="opacity:.6">${unlocks[lvl]}</small></span><span>🦴${c.coins} · 🪵${c.legno}<br><button class="btn" ${canPay?'':'disabled'} onclick="__blUpgradeHouse()">Costruisci</button></span></div>`;
       if(!canPay)h+=`<div class="empty">Servono 🦴${c.coins} e 🪵${c.legno} legna (raccogli dagli alberi 🌳).</div>`;}
     else h+='<div class="empty">La tua villa è al massimo livello! 🌟</div>';
-    h+='<div class="secttl">Arreda</div><div class="empty">Entra in casa dalla porta 🚪 e usa 🔨 per posizionare divani, letti, librerie, cucina, TV, quadri e altro.</div>';}
+    h+='<div class="secttl">🎨 Pavimento</div><div class="swatches">'+Object.keys(FLOORS).map(k=>`<button class="swatch ${(S.house.floor||'legno')===k?'on':''}" style="background:#${FLOORS[k].c.toString(16).padStart(6,'0')}" title="${FLOORS[k].n}" onclick="__blHouseFloor('${k}')"></button>`).join('')+'</div>';
+    h+='<div class="secttl">🎨 Pareti</div><div class="swatches">'+Object.keys(WALLS).map(k=>`<button class="swatch ${(S.house.wall||'crema')===k?'on':''}" style="background:#${WALLS[k].c.toString(16).padStart(6,'0')}" title="${WALLS[k].n}" onclick="__blHouseWall('${k}')"></button>`).join('')+'</div>';
+    h+='<div class="secttl">Arreda</div><div class="empty">Entra in casa dalla porta 🚪 e usa 🔨 per posizionare divani, letti, librerie, cucina, TV, quadri e altro. Il colore si applica subito!</div>';}
   else if(tab==='missioni'){h+='<div class="secttl">Progresso</div>';QUESTS.forEach((q,i)=>{const st=i<S.quest?'✓':i===S.quest?'▶':'·';
     h+=`<div class="row"><span>${st} ${NPCDEF[q.npc].em} ${NPCDEF[q.npc].name}: ${q.type==='collect'?'porta '+q.amount+' '+ITEMS[q.item].em:'parla'}</span><b>🦴${q.reward}</b></div>`;});}
   h+='</div>';sheet.innerHTML=h;}
@@ -1438,6 +1443,8 @@ window.__blUpgradeHouse=()=>{const lvl=S.house.level||1;if(lvl>=4)return;const c
   if(S.coins<c.coins||have('legno')<c.legno){toast('Servono 🦴'+c.coins+' e 🪵'+c.legno);return;}
   S.coins-=c.coins;S.inv.legno-=c.legno;S.house.level=lvl+1;buildHome();buildInterior();
   toast('🏗️ Casa migliorata al livello '+(lvl+1)+'!');sfx('quest');burst(HOME.x,2,HOME.z,0xffd23f,26,1.6,3);updateHUD();save();renderSheet('casa');};
+window.__blHouseFloor=k=>{if(!FLOORS[k])return;S.house.floor=k;buildInterior();sfx('tap');save();renderSheet('casa');};
+window.__blHouseWall=k=>{if(!WALLS[k])return;S.house.wall=k;buildInterior();sfx('tap');save();renderSheet('casa');};
 window.__blWear=k=>{equipHat(S.active,k);save();renderSheet('boutique');};
 window.__blWearC=k=>{equipCloth(S.active,k);save();renderSheet('boutique');};
 $('menuBtn').onclick=()=>openSheet('zaino');
@@ -1616,6 +1623,8 @@ function cancelPlace(){if(!placeMode)return;scene.remove(placeMode.ghost);scene.
 $('buildBtn').onclick=openBuild;$('pOk').onclick=confirmPlace;$('pNo').onclick=()=>{if(removeMode)toggleRemove();else cancelPlace();};$('pRot').onclick=()=>{if(placeMode)placeMode.rot+=Math.PI/4;};
 
 /* ================= HOUSE INTERIOR ================= */
+const FLOORS={legno:{n:'Legno',c:0xb98f5e},chiaro:{n:'Chiaro',c:0xd8c29a},rosa:{n:'Rosa',c:0xd7a3a8},verde:{n:'Verde',c:0x9fb98a},grigio:{n:'Grigio',c:0xb6bcc2}};
+const WALLS={crema:{n:'Crema',c:0xf2e2c0},azzurro:{n:'Azzurro',c:0xbcd8ea},menta:{n:'Menta',c:0xbfe3cf},pesca:{n:'Pesca',c:0xf4cdb0},lilla:{n:'Lilla',c:0xd8c6ea}};
 const INT={x:200,z:200,hw:5.5};
 let inside=false,returnPos=null,intGroup=null,intLight=null;
 function buildInterior(){
@@ -1623,9 +1632,10 @@ function buildInterior(){
   if(intLight)scene.remove(intLight);
   const lvl=S.house.level||1;INT.hw=4.5+lvl;const hw=INT.hw;
   const g=new T.Group();scene.add(g);intGroup=g;
-  const floor=new T.Mesh(new T.PlaneGeometry(hw*2,hw*2),new T.MeshStandardMaterial({color:0xb98f5e,roughness:0.9}));floor.rotation.x=-Math.PI/2;floor.position.set(INT.x,0.01,INT.z);floor.receiveShadow=true;g.add(floor);
+  const floorC=(FLOORS[S.house.floor]||FLOORS.legno).c,wallC=(WALLS[S.house.wall]||WALLS.crema).c;
+  const floor=new T.Mesh(new T.PlaneGeometry(hw*2,hw*2),new T.MeshStandardMaterial({color:floorC,roughness:0.9}));floor.rotation.x=-Math.PI/2;floor.position.set(INT.x,0.01,INT.z);floor.receiveShadow=true;g.add(floor);
   const rug=new T.Mesh(new T.CircleGeometry(2.2,22),new T.MeshStandardMaterial({color:0xd06a7a,roughness:0.9}));rug.rotation.x=-Math.PI/2;rug.position.set(INT.x,0.02,INT.z+0.5);g.add(rug);
-  const wallMat=new T.MeshStandardMaterial({color:0xf2e2c0,roughness:0.9}),wh=3+(lvl-1)*0.5,wt=0.3;
+  const wallMat=new T.MeshStandardMaterial({color:wallC,roughness:0.9}),wh=3+(lvl-1)*0.5,wt=0.3;
   const wn=new T.Mesh(new T.BoxGeometry(hw*2+wt,wh,wt),wallMat);wn.position.set(INT.x,wh/2,INT.z-hw);wn.castShadow=true;wn.receiveShadow=true;g.add(wn);
   for(const sx of[-1,1]){const w=new T.Mesh(new T.BoxGeometry(wt,wh,hw*2),wallMat);w.position.set(INT.x+sx*hw,wh/2,INT.z);w.castShadow=true;w.receiveShadow=true;g.add(w);}
   for(const sx of[-1,1]){const w=new T.Mesh(new T.BoxGeometry(hw-0.9,wh,wt),wallMat);w.position.set(INT.x+sx*(hw/2+0.45),wh/2,INT.z+hw);g.add(w);}
