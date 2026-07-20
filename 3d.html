@@ -12,6 +12,7 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
   html,body{margin:0;height:100%;overflow:hidden;background:#0d1512;font-family:var(--font);color:var(--ink);touch-action:none;}
   #c{display:block;width:100%;height:100%;}
+  #vignette{position:fixed;inset:0;z-index:9;pointer-events:none;background:radial-gradient(125% 92% at 50% 42%,transparent 54%,rgba(18,26,16,.16) 82%,rgba(14,20,12,.33));}
   #loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:14px;background:linear-gradient(180deg,#bfe9ff,#d9f5c4);z-index:50;color:#3a4a2a;font-weight:800;}
   #start{position:fixed;inset:0;z-index:55;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;
@@ -170,6 +171,7 @@
   </div>
 </div>
 <canvas id="c"></canvas>
+<div id="vignette"></div>
 <div id="top" class="hud">
   <div id="quest"><div class="lbl">🎯 Missione</div><div class="txt" id="questTxt">—</div></div>
   <div class="stats">
@@ -341,7 +343,7 @@ const canvas=$('c');
 const renderer=new T.WebGLRenderer({canvas,antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
-renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;
+renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;
 
 const scene=new T.Scene();
 const SKY_DAY=new T.Color(0x88ccff),SKY_NIGHT=new T.Color(0x101a30);
