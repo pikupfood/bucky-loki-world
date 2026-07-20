@@ -54,6 +54,16 @@
   #hint{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 148px);text-align:center;z-index:11;pointer-events:none;
     transition:opacity .6s;font-weight:700;font-size:13px;}
   #hint span{background:rgba(30,25,18,.78);color:#fff;padding:8px 16px;border-radius:20px;}
+  #needs{position:fixed;top:calc(env(safe-area-inset-top) + 14px);left:50%;transform:translateX(-50%);
+    display:flex;gap:7px;z-index:11;pointer-events:none;background:rgba(255,253,246,.5);padding:4px 8px;border-radius:12px;box-shadow:0 2px 7px rgba(60,40,20,.1);}
+  #needs .need{display:flex;align-items:center;gap:4px;font-size:11px;line-height:1;}
+  #needs .need i{display:block;width:30px;height:5px;border-radius:3px;background:rgba(80,60,40,.16);overflow:hidden;}
+  #needs .need b{display:block;height:100%;width:100%;border-radius:3px;background:var(--good);transition:width .4s,background .4s;}
+  #needs .need.low b{background:#e0574f;}
+  #needs .need.low span{animation:needblink 1.1s infinite;}
+  @keyframes needblink{0%,100%{opacity:1}50%{opacity:.3}}
+  #fade{position:fixed;inset:0;background:#0a0d14;z-index:60;opacity:0;pointer-events:none;transition:opacity .5s;}
+  #fade.on{opacity:1;}
   #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 66px);transform:translateX(-50%);z-index:22;pointer-events:none;
     display:flex;flex-direction:column;gap:6px;align-items:center;}
   #toast div{background:rgba(47,36,22,.92);color:#fff;padding:8px 15px;border-radius:16px;font-weight:800;font-size:14px;animation:tin .3s;}
@@ -117,6 +127,12 @@
 <button id="buildBtn" class="sidebtn" title="Costruisci">🔨</button>
 <button id="exitBtn">🚪 Esci</button>
 <div id="placeBar"><button id="pRot" class="pbtn">↻</button><button id="pOk" class="pbtn ok">✓ Posiziona</button><button id="pNo" class="pbtn no">✗</button></div>
+<div id="needs" class="hud">
+  <div class="need" id="nHunger"><span>🍖</span><i><b></b></i></div>
+  <div class="need" id="nEnergy"><span>💤</span><i><b></b></i></div>
+  <div class="need" id="nBladder"><span>💧</span><i><b></b></i></div>
+</div>
+<div id="fade"></div>
 <div id="hint" class="hud"><span>Joystick 🕹️ / WASD · pulsante arancione per interagire · 🎒 menu · 🔄 cambia cane</span></div>
 <div id="toast" class="hud"></div>
 <div id="fish" class="hud hidden" style="display:none"></div>
@@ -134,7 +150,8 @@ const $=id=>document.getElementById(id);
 const ITEMS={
   fiore:{em:'🌼',name:'Fiore',sell:3}, bacca:{em:'🫐',name:'Bacca',sell:4},
   legno:{em:'🪵',name:'Legna',sell:5}, pesce:{em:'🐟',name:'Pesce',sell:9},
-  carota:{em:'🥕',name:'Carota',sell:7}, gemma:{em:'💎',name:'Gemma',sell:22}
+  carota:{em:'🥕',name:'Carota',sell:7}, gemma:{em:'💎',name:'Gemma',sell:22},
+  concime:{em:'💩',name:'Concime',sell:5}
 };
 const HATS={cappello:{em:'🎩',name:'Cilindro',price:45},paglia:{em:'👒',name:'Paglia',price:30},
   corona:{em:'👑',name:'Corona',price:90},party:{em:'🎉',name:'Festa',price:25},
@@ -176,7 +193,8 @@ const QUESTS=[
 const SAVEKEY='bl3d';
 function defaultState(){return{coins:15,inv:{},seeds:2,quest:0,day:1,
   plots:[{x:1.5,z:8,stage:0,planted:-1},{x:3.4,z:8,stage:0,planted:-1},{x:5.3,z:8,stage:0,planted:-1}],
-  outfits:{bucky:{hat:null,body:null},loki:{hat:null,body:null}},dug:{},placed:[],active:'bucky'};}
+  outfits:{bucky:{hat:null,body:null},loki:{hat:null,body:null}},dug:{},placed:[],active:'bucky',
+  food:0,needs:{hunger:80,energy:88,bladder:62}};}
 let S;
 try{S=JSON.parse(localStorage.getItem(SAVEKEY))||defaultState();}catch(e){S=defaultState();}
 // backfill
@@ -669,6 +687,14 @@ houseDefs.forEach((h,i)=>{const H=makeHouse(5,5,3.4,h[2]);H.position.set(h[0],0,
   colliders.push({x:h[0],z:h[1],r:3.6});reg({type:'door',x:h[0],z:h[1]+3.2,r:2.4});claim(h[0],h[1]);});
 // doghouse near spawn
 const dogHouse=makeHouse(3,3,1.8,0xe0342f,0xd9a066);dogHouse.position.set(4,0,3);scene.add(dogHouse);colliders.push({x:4,z:3,r:2.2});
+// food bowl beside the doghouse
+const bowl=new T.Group();
+{const bw=new T.Mesh(new T.CylinderGeometry(0.42,0.32,0.24,18),new T.MeshStandardMaterial({color:0x4a90d9,roughness:.6}));bw.position.y=0.12;bw.castShadow=true;bowl.add(bw);
+ const bin=new T.Mesh(new T.CylinderGeometry(0.33,0.26,0.14,18),new T.MeshStandardMaterial({color:0x2f3a2a,roughness:.9}));bin.position.y=0.2;bowl.add(bin);
+ for(let i=0;i<7;i++){const k=new T.Mesh(new T.SphereGeometry(0.07,7,6),new T.MeshStandardMaterial({color:0x8a5a2b,roughness:.8}));const a=i/7*6.28;k.position.set(Math.cos(a)*0.16,0.27,Math.sin(a)*0.16);bowl.add(k);}
+ bowl.position.set(6.6,0,4);scene.add(bowl);}
+reg({type:'bowl',x:6.6,z:4,r:2.2,mesh:bowl});
+reg({type:'sleep',x:4,z:5.2,r:2.2});
 // real shops with signs
 [['🛒',0xe0574f,'negozio',8,20],['👕',0x6fae5a,'boutique',-20,2],['💰',0x6fa8e0,'mercato',22,-16]].forEach(s=>{
   const sh=makeShop(s[0],s[1]);sh.position.set(s[3],0,s[4]);sh.rotation.y=Math.atan2(-s[3],-s[4])*0.3;scene.add(sh);
@@ -936,11 +962,14 @@ function detectNear(){near=null;let best=3.4;
   // fishing near lake shore
   const dl=Math.hypot(player.x-LAKE.x,player.z-LAKE.z);
   if(!near&&dl>LAKE.r-1&&dl<LAKE.r+4){near={type:'fish'};}
+  // needs to go: prompt to relieve on open grass when bladder is low
+  if(!near&&S.needs.bladder<26){near={type:'poop'};}
   const act=$('act');
   if(fishing){act.disabled=false;act.textContent='🎣';return;}
   act.disabled=!near;
   act.textContent=!near?'👀':near.type==='npc'?'💬':near.type==='flower'?'✋':near.type==='fish'?'🎣':
     near.type==='bush'?'🫐':near.type==='tree'?'🪵':near.type==='dig'?'⛏️':
+    near.type==='bowl'?'🍖':near.type==='sleep'?'😴':near.type==='poop'?'💩':near.type==='clean'?'🧹':
     near.type==='shop'?near.em:near.type==='door'?'🚪':near.type==='plot'?((S.plots[near.idx].stage||0)>=3?'🌾':'🌱'):'👀';}
 
 function doAction(){
@@ -959,8 +988,47 @@ function doAction(){
   else if(near.type==='shop')openSheet(near.tab);
   else if(near.type==='fish')startFishing();
   else if(near.type==='plot')usePlot(near.idx);
+  else if(near.type==='bowl')feedDog();
+  else if(near.type==='sleep')sleepDog();
+  else if(near.type==='poop')doPoop();
+  else if(near.type==='clean')cleanPoop(near);
 }
 function after(){updateHUD();save();}
+
+/* ---- Dog needs: eat / sleep / poop ---- */
+const NEEDMAX=100;let fading=false;const needToastT={hunger:0,energy:0,bladder:0};const poopObjs=[];
+function dogName(){return S.active==='bucky'?'Bucky':'Loki';}
+function updateNeeds(dt){const n=S.needs;const f=dt/CYCLE;
+  if(!fading){n.hunger=Math.max(0,n.hunger-42*f);n.energy=Math.max(0,n.energy-30*f);n.bladder=Math.max(0,n.bladder-52*f);}
+  const now=performance.now();
+  if(n.hunger<20&&now>needToastT.hunger){needToastT.hunger=now+22000;toast('🍖 '+dogName()+' ha fame — riempi la ciotola');}
+  if(n.energy<20&&now>needToastT.energy){needToastT.energy=now+22000;toast('💤 '+dogName()+' è stanco — dormi nella cuccia');}
+  if(n.bladder<20&&now>needToastT.bladder){needToastT.bladder=now+22000;toast('💧 '+dogName()+' deve fare i bisogni…');}
+  renderNeeds();}
+function renderNeeds(){setBar('nHunger',S.needs.hunger);setBar('nEnergy',S.needs.energy);setBar('nBladder',S.needs.bladder);}
+function setBar(id,v){const el=$(id);if(!el)return;el.querySelector('b').style.width=Math.round(v)+'%';el.classList.toggle('low',v<26);}
+function feedDog(){if(S.needs.hunger>=94){toast('😋 '+dogName()+' è già sazio');return;}
+  if((S.food||0)<=0){toast('🍖 Niente crocchette — comprale al 🛒 Negozio');return;}
+  S.food--;S.needs.hunger=NEEDMAX;S.needs.energy=Math.min(NEEDMAX,S.needs.energy+8);S.needs.bladder=Math.max(0,S.needs.bladder-10);
+  toast('🍖 Gnam! '+dogName()+' è sazio');burst(6.6,0.5,4,0xffcaa0,12,0.8,1.4);sfx('pick');renderNeeds();updateHUD();save();}
+function sleepDog(){if(fading)return;if(S.needs.energy>=94){toast('☀️ '+dogName()+' non ha sonno');return;}
+  fading=true;const fd=$('fade');if(fd)fd.classList.add('on');
+  setTimeout(()=>{S.needs.energy=NEEDMAX;S.needs.hunger=Math.max(0,S.needs.hunger-14);S.needs.bladder=Math.max(0,S.needs.bladder-18);
+    clock=0.26;renderNeeds();updateHUD();save();
+    setTimeout(()=>{if(fd)fd.classList.remove('on');fading=false;toast('😴 Che bella dormita!');},520);},640);}
+function doPoop(){S.needs.bladder=NEEDMAX;
+  const px=player.x-Math.sin(player.dir)*0.9,pz=player.z-Math.cos(player.dir)*0.9;
+  spawnPoop(px,pz);toast('💩 '+dogName()+' si sente meglio');sfx('tap');renderNeeds();save();}
+function makePoopMesh(){const g=new T.Group();const m=new T.MeshStandardMaterial({color:0x6b4a2b,roughness:.85});
+  const a=new T.Mesh(new T.SphereGeometry(0.16,8,7),m);a.scale.set(1,0.7,1);a.position.y=0.1;g.add(a);
+  const b=new T.Mesh(new T.SphereGeometry(0.12,8,7),m);b.scale.set(1,0.7,1);b.position.set(0.02,0.24,0.02);g.add(b);
+  const c=new T.Mesh(new T.SphereGeometry(0.08,8,7),m);c.scale.set(1,0.7,1);c.position.set(0,0.36,0);g.add(c);
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});return g;}
+function spawnPoop(x,z){const g=makePoopMesh();g.position.set(x,groundHeight(x,z),z);scene.add(g);
+  const o={type:'clean',x,z,r:2,mesh:g};poopObjs.push(o);reg(o);}
+function cleanPoop(o){scene.remove(o.mesh);const i=interactables.indexOf(o);if(i>=0)interactables.splice(i,1);
+  const j=poopObjs.indexOf(o);if(j>=0)poopObjs.splice(j,1);
+  addInv('concime',1);toast('🧹 Pulito! +1 💩 Concime');burst(o.x,0.3,o.z,0x8a6b3a,10);sfx('pick');after();}
 
 /* ---- NPC / quests ---- */
 function talkNPC(id){const q=QUESTS[S.quest];
@@ -1166,7 +1234,7 @@ function moveActor(a,dx,dz){const h0=groundHeight(a.x,a.z);
   a.y=groundHeight(a.x,a.z);}
 
 const camTarget=new T.Vector3();let last=performance.now(),dustT=0;
-$('loading').style.display='none';updateHUD();$('dogName').textContent=S.active==='bucky'?'🐶 Bucky':'🐶 Loki';
+$('loading').style.display='none';updateHUD();renderNeeds();$('dogName').textContent=S.active==='bucky'?'🐶 Bucky':'🐶 Loki';
 setTimeout(()=>{const h=$('hint');if(h)h.style.opacity='0';},7000);
 
 function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
@@ -1183,7 +1251,7 @@ function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
   // spin dig sparkles
   for(const o of interactables)if(o.type==='dig'&&o.spark){o.spark.rotation.y+=dt*2;o.spark.visible=!(S.dug[o.id]&&S.dug[o.id]>Date.now());}
   // npcs wander + quest markers bob & toggle
-  updateNPCs(dt);updateAnimals(dt);
+  updateNPCs(dt);updateAnimals(dt);updateNeeds(dt);
   for(const id in npcObjs){const m=npcObjs[id].userData.mark;const q=QUESTS[S.quest];
     m.visible=!!(q&&q.npc===id);m.position.y=2.1+Math.sin(now/300)*0.12;m.rotation.y+=dt*2;}
   // grass wind
@@ -1228,6 +1296,7 @@ setInterval(save,8000);
 window.__game={get clock(){return clock;},set clock(v){clock=v;},get S(){return S;},scene,camera,player,comp,
   get placed(){return placedObjs;},get removeMode(){return removeMode;},get near(){return near;},detectNear,
   startFishing,fishPull,get fishing(){return fishing;},
+  feedDog,sleepDog,doPoop,get needs(){return S.needs;},get poops(){return poopObjs;},
   get weather(){return weather;},set weather(v){weather=v;},set wetness(v){wetness=v;}};
 })();
 </script>
