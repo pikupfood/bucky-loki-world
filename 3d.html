@@ -1172,7 +1172,10 @@ function grant(q){S.coins+=q.reward;S.quest++;toast('🎉 Missione completata! +
 /* ---- Garden ---- */
 function usePlot(i){const pl=S.plots[i];
   if((pl.stage||0)>=3){addInv('carota',1);pl.stage=0;pl.planted=-1;refreshPlot(plotMeshes[i]);toast('+1 🥕 Carota raccolta!');burst(pl.x,0.5,pl.z,0xff8a3d,14);sfx('pick');after();}
-  else if((pl.stage||0)>0){toast('🌱 Sta ancora crescendo… ('+pl.stage+'/3)');}
+  else if((pl.stage||0)>0){
+    if(have('concime')>0){S.inv.concime--;pl.planted--;const age=S.day-pl.planted;pl.stage=Math.min(3,1+age);refreshPlot(plotMeshes[i]);
+      toast('💩 Concimato! La carota cresce più in fretta ('+pl.stage+'/3)');burst(pl.x,0.4,pl.z,0x8a6b3a,12);sfx('plant');after();}
+    else toast('🌱 Sta crescendo… ('+pl.stage+'/3) — concima con 💩 per accelerare');}
   else{if(S.seeds<=0){toast('Servono semi 🌰 (compra al 🛒)');return;}S.seeds--;pl.stage=1;pl.planted=S.day;refreshPlot(plotMeshes[i]);toast('🌱 Piantato! Cresce nei prossimi giorni');burst(pl.x,0.3,pl.z,0x8ed86a,8);sfx('plant');after();}}
 function growPlots(){S.plots.forEach((pl,i)=>{if((pl.stage||0)>0&&pl.stage<3&&pl.planted>=0){const age=S.day-pl.planted;const ns=Math.min(3,1+age);if(ns!==pl.stage){pl.stage=ns;refreshPlot(plotMeshes[i]);}}});}
 
@@ -1224,7 +1227,7 @@ function renderSheet(tab){if(!sheet)return;
     Object.keys(CLOTHES).filter(k=>S['cloth_'+k]).map(k=>`<div class="row"><span>${CLOTHES[k].em} ${CLOTHES[k].name}</span><button class="btn ${S.outfits[S.active].body===k?'':'ghost'}" onclick="__blWearC('${k}')">${S.outfits[S.active].body===k?'✓':'Indossa'}</button></div>`).join('')+
     ((Object.keys(HATS).some(k=>S['hat_'+k])||Object.keys(CLOTHES).some(k=>S['cloth_'+k]))?'':'<div class="empty">Compra cappellini e vestiti al Negozio 🛒</div>');}
   else if(tab==='orto'){const ready=S.plots.filter(p=>(p.stage||0)>=3).length,grow=S.plots.filter(p=>(p.stage||0)>0&&p.stage<3).length;
-    h+=`<div class="secttl">L'orto vicino alla cuccia</div><div class="row"><span>🌱 In crescita</span><b>${grow}</b></div><div class="row"><span>🥕 Pronte</span><b>${ready}</b></div><div class="row"><span>🌰 Semi</span><b>${S.seeds}</b></div><div class="empty">Vai all'orto e usa il pulsante 🌱/🌾. Le carote crescono col passare dei giorni (${S.day}° giorno).</div>`;}
+    h+=`<div class="secttl">L'orto vicino alla cuccia</div><div class="row"><span>🌱 In crescita</span><b>${grow}</b></div><div class="row"><span>🥕 Pronte</span><b>${ready}</b></div><div class="row"><span>🌰 Semi</span><b>${S.seeds}</b></div><div class="row"><span>💩 Concime</span><b>${have('concime')}</b></div><div class="empty">Vai all'orto e usa il pulsante 🌱/🌾. Le carote crescono coi giorni (${S.day}° giorno). Hai del 💩 concime? Usalo su una pianta in crescita per accelerarla!</div>`;}
   else if(tab==='casa'){const lvl=S.house.level||1,names=['Cuccia','Casetta','Casa','Villa'],nm=names[Math.min(lvl-1,3)];
     const unlocks=['','+ cucina e interni più ampi','+ un piano in più (soppalco e scala)','villa completa, massimo splendore'];
     h+=`<div class="secttl">La tua casa</div><div class="row"><span>🏠 Livello attuale</span><b>${nm} (${lvl}/4)</b></div>`;
@@ -1461,7 +1464,7 @@ window.__game={get clock(){return clock;},set clock(v){clock=v;},get S(){return 
   get placed(){return placedObjs;},get removeMode(){return removeMode;},get near(){return near;},detectNear,
   startFishing,fishPull,get fishing(){return fishing;},
   feedDog,sleepDog,doPoop,get needs(){return S.needs;},get poops(){return poopObjs;},
-  buildHome,buildInterior,enterInterior,exitInterior,get inside(){return inside;},INT,BUILD,
+  buildHome,buildInterior,enterInterior,exitInterior,get inside(){return inside;},INT,BUILD,usePlot,
   get weather(){return weather;},set weather(v){weather=v;},set wetness(v){wetness=v;}};
 })();
 </script>
