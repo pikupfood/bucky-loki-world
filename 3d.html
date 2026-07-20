@@ -867,6 +867,16 @@ for(let i=0;i<7;i++){const a=rand(i*8.3+1)*6.28,rr=3+rand(i*2.1)*(LAKE.r-5);cons
   const pad=new T.Mesh(new T.CircleGeometry(0.5+rand(i)*0.3,12,0.5,5.6),new T.MeshStandardMaterial({color:0x3f9a4a,roughness:0.7,side:T.DoubleSide}));
   pad.rotation.x=-Math.PI/2;pad.rotation.z=rand(i*3)*6.28;pad.position.set(lx,0.14,lz);pad.receiveShadow=true;scene.add(pad);
   if(i%2===0){const fl=new T.Mesh(new T.SphereGeometry(0.12,8,8),new T.MeshStandardMaterial({color:0xff9ec4,roughness:0.5}));fl.position.set(lx,0.22,lz);fl.castShadow=true;scene.add(fl);}}
+// reeds / cattails along the lake shore
+const reedStalk=new T.MeshStandardMaterial({color:0x5a8a3a,roughness:1}),catMat=new T.MeshStandardMaterial({color:0x6a4a2a,roughness:1});
+function makeReed(seed){const g=new T.Group();const n=3+((rand(seed)*3)|0);
+  for(let i=0;i<n;i++){const hh=0.8+rand(seed+i*1.7)*0.75,a=rand(seed+i*2.3)*6.28,rr=rand(seed+i*3.1)*0.28;
+    const s=new T.Mesh(new T.CylinderGeometry(0.02,0.04,hh,5),reedStalk);s.position.set(Math.cos(a)*rr,hh/2,Math.sin(a)*rr);s.rotation.z=(rand(seed+i*4.5)-0.5)*0.3;s.castShadow=true;g.add(s);
+    if(rand(seed+i*5.2)<0.6){const cat=new T.Mesh(new T.CylinderGeometry(0.05,0.05,0.22,6),catMat);cat.position.set(s.position.x,hh-0.06,s.position.z);cat.rotation.z=s.rotation.z;g.add(cat);}}
+  return g;}
+for(let i=0;i<26;i++){const a=(i/26)*6.28+rand(i)*0.2,rr=LAKE.r+0.4+rand(i*2.7)*1.6,rx=LAKE.x+Math.cos(a)*rr,rz=LAKE.z+Math.sin(a)*rr;
+  if(onBridge(rx,rz)||(Math.abs(rx-(LAKE.x+7))<2.5&&Math.abs(rz-(LAKE.z+LAKE.r-1))<2.5))continue;
+  const rd=makeReed(i*1.3+2);rd.position.set(rx,0.05,rz);scene.add(rd);}
 // fluttering butterflies
 const butterflies=[],bflyCols=[0xff9ec4,0xffd23f,0x9fd0f0,0xc77dff,0xff9e3d];
 for(let i=0;i<8;i++){const bg=new T.Group();const mat=new T.MeshStandardMaterial({color:bflyCols[i%5],side:T.DoubleSide,roughness:0.5,emissive:new T.Color(bflyCols[i%5]).multiplyScalar(0.15)});
@@ -986,6 +996,11 @@ const ffGeo=new T.BufferGeometry(),ffN=70,ffPos=new Float32Array(ffN*3),ffSeed=[
 for(let i=0;i<ffN;i++){ffPos[i*3]=(Math.random()-0.5)*80;ffPos[i*3+1]=0.6+Math.random()*2.2;ffPos[i*3+2]=(Math.random()-0.5)*80;ffSeed.push(Math.random()*6.28);}
 ffGeo.setAttribute('position',new T.Float32BufferAttribute(ffPos,3));
 const fireflies=new T.Points(ffGeo,new T.PointsMaterial({color:0xcaff8a,size:0.35,transparent:true,opacity:0,blending:T.AdditiveBlending,depthWrite:false}));scene.add(fireflies);
+// daytime floating pollen / dust motes for atmosphere
+const poGeo=new T.BufferGeometry(),poN=90,poPos=new Float32Array(poN*3),poSeed=[];
+for(let i=0;i<poN;i++){poPos[i*3]=(Math.random()-0.5)*54;poPos[i*3+1]=0.5+Math.random()*4.5;poPos[i*3+2]=(Math.random()-0.5)*54;poSeed.push(Math.random()*6.28);}
+poGeo.setAttribute('position',new T.Float32BufferAttribute(poPos,3));
+const pollen=new T.Points(poGeo,new T.PointsMaterial({color:0xfff2c8,size:0.12,transparent:true,opacity:0,blending:T.AdditiveBlending,depthWrite:false}));scene.add(pollen);
 
 /* ================= DOGS ================= */
 const dogBucky=makeDog(0xe6352f),dogLoki=makeDog(0x2f6fe0);
@@ -1320,6 +1335,7 @@ function updateSky(dt){prevClock=clock;clock=(clock+dt/CYCLE)%1;
   moon.intensity=night*0.55;moon.position.set(player.x-Math.cos(ang)*50,Math.max(4,-elev*60+40),player.z-Math.sin(ang)*70);
   moonMesh.position.set(player.x-Math.cos(ang)*120,60+(-elev)*40,player.z-140);moonMesh.visible=night>0.15;
   stars.material.opacity=Math.max(0,night*2-0.4);fireflies.material.opacity=Math.max(0,night*1.2-0.15);
+  pollen.material.opacity=dayN*0.42*(1-wet);
   for(const l of nightPointLights){l.light.intensity=night*2.2;l.bulb.material.emissiveIntensity=night*1.4;}
   for(const wm of windowMats)wm.emissiveIntensity=night*1.1;
   if(water.material.uniforms&&water.material.uniforms.color)water.material.uniforms.color.value.setRGB(0.62-night*0.4,0.75-night*0.45,0.81-night*0.4);
@@ -1390,6 +1406,10 @@ function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
   for(const wf of waterfalls){wf.tex.offset.y=(wf.tex.offset.y-dt*0.9)%1;const ph=(now/650)%1;wf.ring.scale.setScalar(0.5+ph*2.4);wf.ring.material.opacity=0.5*(1-ph);}
   // fireflies drift
   const fp=fireflies.geometry.attributes.position;for(let i=0;i<ffN;i++){fp.array[i*3+1]=0.8+Math.sin(now/900+ffSeed[i])*0.5+1.0;}fp.needsUpdate=true;
+  // pollen drifts gently and follows the camera area
+  if(pollen.material.opacity>0.01){pollen.position.set(player.x,0,player.z);const pp=pollen.geometry.attributes.position;
+    for(let i=0;i<poN;i++){pp.array[i*3]+=Math.sin(now/1600+poSeed[i])*dt*0.25;pp.array[i*3+1]+=Math.cos(now/2100+poSeed[i]*1.7)*dt*0.18;
+      if(pp.array[i*3]>27)pp.array[i*3]=-27;else if(pp.array[i*3]<-27)pp.array[i*3]=27;}pp.needsUpdate=true;}
   // butterflies flutter
   for(const b of butterflies){b.ph+=dt*b.sp;
     b.bg.position.set(b.cx+Math.cos(b.ph)*b.r,1.2+Math.sin(b.ph*2.3)*0.45,b.cz+Math.sin(b.ph)*b.r);
