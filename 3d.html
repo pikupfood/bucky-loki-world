@@ -255,7 +255,7 @@ const SAVEKEY='bl3d';
 function defaultState(){return{coins:15,inv:{},seeds:2,quest:0,day:1,
   plots:[{x:1.5,z:8,stage:0,planted:-1},{x:3.4,z:8,stage:0,planted:-1},{x:5.3,z:8,stage:0,planted:-1}],
   outfits:{bucky:{hat:null,body:null},loki:{hat:null,body:null}},dug:{},placed:[],active:'bucky',
-  food:0,needs:{hunger:80,energy:88,bladder:62},house:{level:1}};}
+  food:0,needs:{hunger:80,energy:88,bladder:62},house:{level:1},discovered:{coda:1}};}
 let S;
 try{S=JSON.parse(localStorage.getItem(SAVEKEY))||defaultState();}catch(e){S=defaultState();}
 // backfill
@@ -1397,7 +1397,17 @@ $('act').onclick=doAction;
 
 /* ================= MAP + FAST TRAVEL ================= */
 let mapEl=null;
-const TRAVEL=[['🏡 Coda',2,2],['🏠 Casa',4,7.5],['🎣 Lago',-14,-9],['🏘️ Borgo',46,37],['⛰️ Altopiano',29,16],['🌉 Ponte',-31,-14]];
+const TRAVEL=[
+  {id:'coda',lbl:'🏡 Coda',x:2,z:2},
+  {id:'casa',lbl:'🏠 Casa',x:4,z:7.5},
+  {id:'lago',lbl:'🎣 Lago',x:-14,z:-9},
+  {id:'borgo',lbl:'🏘️ Borgo',x:46,z:37},
+  {id:'altopiano',lbl:'⛰️ Altopiano',x:29,z:16},
+  {id:'ponte',lbl:'🌉 Ponte',x:-31,z:-14}
+];
+function checkDiscover(){if(!S.discovered)S.discovered={coda:1};let found=null;
+  for(const t of TRAVEL){if(!S.discovered[t.id]&&Math.hypot(player.x-t.x,player.z-t.z)<7){S.discovered[t.id]=1;found=t;}}
+  if(found){toast('🗺️ Nuova meta sbloccata: '+found.lbl+'!');sfx('quest');save();}}
 function closeMap(){if(mapEl){mapEl.remove();mapEl=null;}}
 window.__blCloseMap=closeMap;
 function openMap(){closeSheet();cancelPlace&&cancelPlace();closeMap();
@@ -1407,13 +1417,14 @@ function openMap(){closeSheet();cancelPlace&&cancelPlace();closeMap();
     <div id="mapQuest" class="row" style="justify-content:flex-start;gap:8px"></div>
     <div class="secttl">🧭 Viaggio rapido — tocca una meta</div>
     <div id="mapTravel" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
-    <div class="empty">🔺 tu · 🔵 il tuo compagno · 🎯 dove andare per la missione</div></div>`;
+    <div class="empty">🔺 tu · 🔵 compagno · 🎯 missione · 🔒 esplora il luogo per sbloccare il viaggio rapido</div></div>`;
   document.body.appendChild(mapEl);
   const q=QUESTS[S.quest];
   $('mapQuest').innerHTML=q&&NPCDEF[q.npc]?`<span>🎯 Missione: raggiungi ${NPCDEF[q.npc].em} <b>${NPCDEF[q.npc].name}</b>${q.type==='collect'?' con '+q.amount+' '+ITEMS[q.item].em:''}</span>`:'<span>🌟 Hai completato tutte le missioni!</span>';
-  $('mapTravel').innerHTML=TRAVEL.map((t,i)=>`<button class="btn ghost" onclick="__blTravel(${i})">${t[0]}</button>`).join('');
+  $('mapTravel').innerHTML=TRAVEL.map((t,i)=>{const unl=S.discovered&&S.discovered[t.id];
+    return `<button class="btn ${unl?'ghost':''}" ${unl?'':'disabled'} onclick="__blTravel(${i})">${unl?t.lbl:'🔒 ???'}</button>`;}).join('');
   drawMap();}
-window.__blTravel=i=>{const t=TRAVEL[i];if(!t)return;travelTo(t[1],t[2]);};
+window.__blTravel=i=>{const t=TRAVEL[i];if(!t||!(S.discovered&&S.discovered[t.id]))return;travelTo(t.x,t.z);};
 function travelTo(x,z){if(inside){inside=false;$('exitBtn').classList.remove('on');}
   player.x=x;player.z=z;player.y=groundHeight(x,z);player.moving=false;player.dir=0;
   comp.x=x-1.4;comp.z=z-1.0;comp.y=groundHeight(comp.x,comp.z);trail.length=0;
@@ -1712,6 +1723,7 @@ function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
   if(fishing&&bobber&&bobber.visible)bobber.position.y=0.18+(fishing.state==='bite'?Math.sin(now/70)*0.13-0.08:Math.sin(now/380)*0.05);
   detectNear();
   updateCompass();
+  if(!inside)checkDiscover();
   if(placeMode)updatePlace();
   if(removeMode&&removeHi){if(near&&near.type==='remove'){removeHi.visible=true;removeHi.position.set(near.obj.p.x,groundHeight(near.obj.p.x,near.obj.p.z)+0.07,near.obj.p.z);}else removeHi.visible=false;}
   camTarget.set(player.x,1.6+player.y,player.z);
