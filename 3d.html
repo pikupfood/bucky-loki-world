@@ -1104,8 +1104,10 @@ function updateNeeds(dt){const n=S.needs;const f=dt/CYCLE;
   if(n.energy<20&&now>needToastT.energy){needToastT.energy=now+22000;toast('💤 '+dogName()+' è stanco — dormi nella cuccia');}
   if(n.bladder<20&&now>needToastT.bladder){needToastT.bladder=now+22000;toast('💧 '+dogName()+' deve fare i bisogni…');}
   renderNeeds();}
-function renderNeeds(){setBar('nHunger',S.needs.hunger);setBar('nEnergy',S.needs.energy);setBar('nBladder',S.needs.bladder);}
-function setBar(id,v){const el=$(id);if(!el)return;el.querySelector('b').style.width=Math.round(v)+'%';el.classList.toggle('low',v<26);}
+function renderNeeds(){const n=S.needs;const any=setBar('nHunger',n.hunger)|setBar('nEnergy',n.energy)|setBar('nBladder',n.bladder);
+  const box=$('needs');if(box)box.style.display=any?'':'none';}
+function setBar(id,v){const el=$(id);if(!el)return 0;const show=v<60;el.style.display=show?'':'none';
+  if(show){el.querySelector('b').style.width=Math.round(v)+'%';el.classList.toggle('low',v<26);}return show?1:0;}
 function feedDog(){if(S.needs.hunger>=94){toast('😋 '+dogName()+' è già sazio');return;}
   if((S.food||0)<=0){toast('🍖 Niente crocchette — comprale al 🛒 Negozio');return;}
   S.food--;S.needs.hunger=NEEDMAX;S.needs.energy=Math.min(NEEDMAX,S.needs.energy+8);S.needs.bladder=Math.max(0,S.needs.bladder-10);
