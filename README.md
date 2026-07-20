@@ -25,15 +25,27 @@ Aggiungilo alla schermata Home del telefono per giocarci come un'app a schermo i
 - 🌦️ **Meteo dinamico** (sole/nuvoloso/pioggia) e **ciclo giorno/notte** con lampioni e lucciole
 - 🧭 **Bussola** verso l'obiettivo · 💾 **salvataggio automatico** · 🔊 musica e suoni
 
-## 🧊 Modalità 3D (nuova!)
-Una versione **3D vera** del mondo di Coda, con Bucky e Loki modellati in tre dimensioni,
-camera prospettica, **sole con ombre reali**, ciclo giorno/notte, alberi, case e un laghetto.
+## 🧊 Modalità 3D (la principale!)
+Una versione **3D vera** del mondo di Coda, con stile arrotondato e armonioso ispirato a Pokopia:
+Bucky e Loki modellati in tre dimensioni, camera prospettica, **sole con ombre morbide reali**,
+ciclo giorno/notte suggestivo (finestre illuminate, lampioni, lucciole, luna e stelle),
+prato tosato fitto, meteo dinamico, pollini che fluttuano di giorno e un laghetto con riflessi.
 👉 **https://pikupfood.github.io/bucky-loki-world/3d.html** (o il pulsante *🌍 Prova la versione 3D* nel menu iniziale).
-- Muoviti col joystick 🕹️ o **WASD/frecce** · 🔄 cambia cane · l'altro ti segue 🐾
+
+### ✨ Cosa puoi fare in 3D
+- 🐕 Muoviti col joystick 🕹️ o **WASD/frecce** · 🔄 cambia cane · l'altro ti segue 🐾
+- 🏗️ **Costruisci e potenzia la tua casa**: da Cuccia → Casetta → Casa → Villa (l'esterno guadagna piani, l'interno cresce con cucina e soppalco)
+- 🛋️ **Arreda gli interni** con oggetti reali: divano, letto, libreria, cucina, TV, quadri, lampade, tappeti…
+- 🐶 **Prenditi cura dei cani**: devono **mangiare** (ciotola + crocchette), **dormire** nella cuccia e **fare i bisogni** (raccogli la 💩 come concime!). Un indicatore leggero compare solo quando serve.
+- 🎣 **Pesca reale**: lancia la lenza, aspetta l'abboccata e premi **TIRA! 🎣** al momento giusto
+- 🛒 **Negozi veri con insegna** (Negozio, Boutique, Mercato) + 🔨 **modalità costruzione** con tante decorazioni
+- 👒 **Vesti i cani**: oltre 10 cappellini e vestiti (cilindro, corona, orecchie, girasole, sciarpa, tutù…)
+- 🌊 **Cascatelle** tra i terrazzamenti · 🌉 ponte sospeso · 🦆 anatre, 🦋 farfalle, abitanti che popolano il villaggio
+- 🌱 orto, ⛏️ scavo, 🎯 missioni — tutto in 3D
 - Costruita con [Three.js](https://threejs.org) (WebGL), incluso in locale in `vendor/`.
 
 ## 🗺️ Prossimo passo
-Portare i contenuti (negozi, missioni, pesca, orto) anche nella modalità 3D · pacchetto **app** installabile (Android / iOS) tramite Capacitor.
+Pacchetto **app** installabile (Android / iOS) tramite Capacitor · sempre più realismo e contenuti.
 
 ---
 In sviluppo continuo · fatto con ❤️ per Bucky & Loki
