@@ -17,6 +17,17 @@
   #photoExit{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 26px);left:50%;transform:translateX(-50%);z-index:60;display:none;
     border:none;border-radius:16px;padding:12px 22px;font-size:15px;font-weight:800;font-family:var(--font);color:#fff;background:var(--accent);box-shadow:0 4px 0 var(--accent-d);cursor:pointer;pointer-events:auto;}
   #photoExit.on{display:block;}
+  #minigame{position:fixed;inset:0;z-index:64;background:linear-gradient(180deg,#bfe6ff,#d9f5c4);font-family:var(--font);overflow:hidden;touch-action:none;}
+  #mgTop{position:absolute;top:calc(env(safe-area-inset-top) + 10px);left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;z-index:2;}
+  #mgTop span{background:rgba(255,253,246,.9);border-radius:13px;padding:7px 13px;font-weight:800;font-size:15px;box-shadow:0 2px 8px rgba(60,40,20,.16);}
+  #mgArea{position:absolute;inset:0;}
+  .mgItem{position:absolute;font-size:40px;cursor:pointer;user-select:none;will-change:transform;filter:drop-shadow(0 3px 4px rgba(0,0,0,.2));}
+  #mgOver{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:rgba(20,26,20,.55);z-index:3;}
+  #mgOver.on{display:flex;}
+  #mgOver .card{background:rgba(255,253,246,.97);border-radius:26px;padding:26px 24px;box-shadow:0 16px 40px rgba(0,0,0,.3);max-width:300px;}
+  #mgOver h3{margin:0 0 6px;font-size:24px;color:#e06f22;}
+  #mgOver p{margin:4px 0;font-weight:700;color:#5a4a38;}
+  #mgOver .btn{margin-top:12px;}
   #loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:14px;background:linear-gradient(180deg,#bfe9ff,#d9f5c4);z-index:50;color:#3a4a2a;font-weight:800;}
   #start{position:fixed;inset:0;z-index:55;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;
@@ -177,6 +188,11 @@
 <canvas id="c"></canvas>
 <div id="vignette"></div>
 <button id="photoExit" onclick="__blPhotoExit()">✕ Esci dalla modalità foto</button>
+<div id="minigame" style="display:none">
+  <div id="mgTop"><span id="mgScore">🍎 0</span><span id="mgTime">⏱️ 30</span><button class="x" id="mgClose">✕</button></div>
+  <div id="mgArea"></div>
+  <div id="mgOver"><div class="card"><h3 id="mgOverT">Fine!</h3><p id="mgOverS"></p><p id="mgOverR"></p><button class="btn" id="mgRetry">🔄 Riprova</button> <button class="btn ghost" id="mgExit">Esci</button></div></div>
+</div>
 <div id="top" class="hud">
   <div id="quest"><div class="lbl">🎯 Missione</div><div class="txt" id="questTxt">—</div></div>
   <div class="stats">
@@ -529,6 +545,13 @@ function makeBoard(){const g=new T.Group();const wood=new T.MeshStandardMaterial
   const roof=new T.Mesh(new T.BoxGeometry(2.15,0.12,0.55),new T.MeshStandardMaterial({color:0xc45a45,roughness:0.85}));roof.position.set(0,2.16,0.02);roof.rotation.x=-0.25;roof.castShadow=true;g.add(roof);
   const sign=new T.Mesh(new T.PlaneGeometry(0.7,0.7),new T.MeshBasicMaterial({map:signTex('📋'),transparent:true}));sign.position.set(0,1.5,0.06);g.add(sign);
   for(let i=0;i<3;i++){const note=new T.Mesh(new T.PlaneGeometry(0.3,0.3),new T.MeshStandardMaterial({color:[0xfff2b0,0xd6ecff,0xffd6d6][i],roughness:1}));note.position.set(-0.55+i*0.55,1.28,0.055);note.rotation.z=(i-1)*0.12;g.add(note);}
+  return g;}
+function makeStand(){const g=new T.Group();const wood=new T.MeshStandardMaterial({color:0x8a5f39,roughness:0.9});
+  for(const sx of[-1,1])for(const sz of[-1,1]){const post=new T.Mesh(new T.CylinderGeometry(0.07,0.07,2,7),wood);post.position.set(sx*1.1,1,sz*0.9);post.castShadow=true;g.add(post);}
+  const counter=new T.Mesh(new T.BoxGeometry(2.4,0.9,0.5),new T.MeshStandardMaterial({color:0xe0b070,roughness:0.85}));counter.position.set(0,0.55,0.9);counter.castShadow=true;g.add(counter);
+  // striped awning
+  for(let i=0;i<6;i++){const st=new T.Mesh(new T.BoxGeometry(0.42,0.1,1.9),new T.MeshStandardMaterial({color:i%2?0xe0574f:0xfff4e6,roughness:0.8}));st.position.set(-1.05+i*0.42,2.15,0);st.rotation.x=-0.32;st.castShadow=true;g.add(st);}
+  const sign=new T.Mesh(new T.PlaneGeometry(0.9,0.9),new T.MeshBasicMaterial({map:signTex('🎪'),transparent:true}));sign.position.set(0,2.55,0);g.add(sign);
   return g;}
 function makeBush(s){const b=new T.Mesh(new T.SphereGeometry(s,16,12),new T.MeshStandardMaterial({color:0x5aab52,roughness:0.95}));
   b.scale.set(1,0.85,1);b.castShadow=true;b.receiveShadow=true;return b;}
@@ -1024,6 +1047,9 @@ reg({type:'sleep',x:0.6,z:3,r:2.0});
 // bulletin boards for side quests (one per village)
 [[12,7],[43,37.5]].forEach(p=>{const bd=makeBoard();bd.position.set(p[0],0,p[1]);bd.rotation.y=Math.atan2(-p[0],-p[1])*0.2;scene.add(bd);
   colliders.push({x:p[0],z:p[1],r:1.0});reg({type:'board',x:p[0],z:p[1]+1.4,r:2.3});claim(p[0],p[1]);});
+// mini-game stand (fun fair booth)
+{const st=makeStand();st.position.set(-8,0,14);st.rotation.y=0.4;scene.add(st);
+  colliders.push({x:-8,z:14,r:1.5});reg({type:'minigame',x:-8,z:15.6,r:2.4});claim(-8,14);}
 // ===== second village: Borgo di Coda (NE, spacious) =====
 const borgoHouses=[[40,45,0xe8a24a],[52,45,0x7f6fd0],[46,33,0x5fa8c0]];
 const bStyles=[{owner:'Nina 🐱',npc:'nina',floor:0xd0c0e0,wall:0xf4cdb0,accent:0xd6b3f0},
@@ -1409,7 +1435,7 @@ function detectNear(){near=null;let best=3.4;
   act.disabled=!near;
   act.textContent=!near?'👀':near.type==='npc'?'💬':near.type==='flower'?'✋':near.type==='fish'?'🎣':
     near.type==='bush'?'🫐':near.type==='tree'?'🪵':near.type==='dig'?'⛏️':
-    near.type==='bowl'?'🍖':near.type==='sleep'?'😴':near.type==='poop'?'💩':near.type==='clean'?'🧹':near.type==='board'?'📋':
+    near.type==='bowl'?'🍖':near.type==='sleep'?'😴':near.type==='poop'?'💩':near.type==='clean'?'🧹':near.type==='board'?'📋':near.type==='minigame'?'🎪':
     near.type==='shop'?near.em:near.type==='door'?'🚪':near.type==='plot'?((S.plots[near.idx].stage||0)>=3?'🌾':'🌱'):'👀';}
 
 function doAction(){
@@ -1428,6 +1454,7 @@ function doAction(){
   else if(near.type==='npc')talkNPC(near.id);
   else if(near.type==='shop')openSheet(near.tab);
   else if(near.type==='board')openBoard();
+  else if(near.type==='minigame')openMiniGame();
   else if(near.type==='fish')startFishing();
   else if(near.type==='plot')usePlot(near.idx);
   else if(near.type==='bowl')feedDog();
@@ -1533,6 +1560,36 @@ window.__blSideClaim=()=>{const s=S.side;if(!s||s.prog<s.amount)return;
   S.coins+=s.reward;S.sideDone=(S.sideDone||0)+1;gainXP(s.reward);const timed=s.timed;S.side=null;
   toast((timed?'⏱️🏅 Sfida vinta! +🦴':'🏅 Incarico riscosso! +🦴')+s.reward);sfx('quest');burst(player.x,1.6,player.z,0xffd23f,24,1.6,3);updateHUD();save();renderBoard();};
 window.__blSideSkip=()=>{S.side=null;renderBoard();};
+/* ---- mini-game: Acchiappa la frutta ---- */
+let mg=null;const MG_GOOD=['🍎','🍒','🍓','🫐','🥕','🍑','🍐','🍊'],MG_BAD='💣';
+function openMiniGame(){closeSheet();if(mg&&mg.raf)cancelAnimationFrame(mg.raf);
+  const el=$('minigame');el.style.display='block';$('mgOver').classList.remove('on');$('mgArea').innerHTML='';
+  mg={score:0,time:30,items:[],spawn:0,last:performance.now(),over:false,raf:0};
+  $('mgScore').textContent='🍎 0';$('mgTime').textContent='⏱️ 30';mgTick();}
+function mgSpawn(){const area=$('mgArea');if(!area)return;const W=area.clientWidth;
+  const bad=Math.random()<0.16,em=bad?MG_BAD:MG_GOOD[(Math.random()*MG_GOOD.length)|0];
+  const d=document.createElement('div');d.className='mgItem';d.textContent=em;
+  const x=10+Math.random()*Math.max(20,W-70),it={el:d,x,y:-50,vy:130+Math.random()*130+mg.score*1.6,bad,dead:false};
+  d.style.left=x+'px';d.style.top='-50px';
+  d.onpointerdown=ev=>{ev.preventDefault();if(it.dead||mg.over)return;it.dead=true;
+    if(bad){mg.score=Math.max(0,mg.score-5);d.textContent='💥';}else{mg.score++;d.textContent='✨';}
+    sfx(bad?'tap':'pick');$('mgScore').textContent='🍎 '+mg.score;
+    setTimeout(()=>{if(d.parentNode)d.remove();},120);};
+  area.appendChild(d);mg.items.push(it);}
+function mgTick(){if(!mg||mg.over)return;const now=performance.now(),dt=Math.min((now-mg.last)/1000,0.05);mg.last=now;
+  mg.time-=dt;if(mg.time<=0){mg.time=0;mgEnd();return;}
+  $('mgTime').textContent='⏱️ '+Math.ceil(mg.time);
+  mg.spawn-=dt;if(mg.spawn<=0){mg.spawn=Math.max(0.35,0.85-mg.score*0.012);mgSpawn();}
+  const H=$('mgArea').clientHeight;
+  for(const it of mg.items){if(it.dead)continue;it.y+=it.vy*dt;it.el.style.top=it.y+'px';
+    if(it.y>H+40){it.dead=true;if(it.el.parentNode)it.el.remove();}}
+  mg.items=mg.items.filter(it=>!it.dead);
+  mg.raf=requestAnimationFrame(mgTick);}
+function mgEnd(){mg.over=true;const reward=mg.score*3;S.coins+=reward;gainXP(mg.score);
+  $('mgOverS').textContent='Punteggio: '+mg.score+' 🍎';$('mgOverR').textContent='Ricompensa: +🦴'+reward+' · +'+mg.score+' XP';
+  $('mgOver').classList.add('on');sfx('quest');updateHUD();save();}
+function closeMiniGame(){if(mg&&mg.raf)cancelAnimationFrame(mg.raf);mg=null;$('minigame').style.display='none';$('mgArea').innerHTML='';}
+$('mgClose').onclick=closeMiniGame;$('mgExit').onclick=closeMiniGame;$('mgRetry').onclick=openMiniGame;
 /* ---- achievements / objectives ---- */
 function bumpStat(k,n){if(!S.stats)S.stats={fish:0,build:0};S.stats[k]=(S.stats[k]||0)+(n||1);}
 function hatCount(){let n=0;for(const k in HATS)if(S['hat_'+k])n++;return n;}
@@ -2032,7 +2089,7 @@ $('playBtn').onclick=()=>{const st=$('start');st.classList.add('hide');initAudio
 setTimeout(()=>{const h=$('hint');if(h)h.style.opacity='0';},7000);
 
 function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
-  let ix=0,iz=0;if(!dialogue&&!sheet&&!tutOpen){
+  let ix=0,iz=0;if(!dialogue&&!sheet&&!tutOpen&&!mg){
     if(keys['w']||keys['arrowup'])iz-=1;if(keys['s']||keys['arrowdown'])iz+=1;if(keys['a']||keys['arrowleft'])ix-=1;if(keys['d']||keys['arrowright'])ix+=1;
     if(joy.active){ix+=joy.dx;iz+=joy.dy;}}
   let mag=Math.hypot(ix,iz);if(mag>1){ix/=mag;iz/=mag;}player.moving=mag>0.08;
