@@ -1225,6 +1225,7 @@ function renderSheet(tab){if(!sheet)return;
   else if(tab==='negozio'){h+='<div class="secttl">Semi & extra</div>'+
     `<div class="row"><span>🌰 Semi di carota</span><span>🦴8 <button class="btn" ${S.coins<8?'disabled':''} onclick="__blBuySeed()">Compra</button></span></div>`+
     `<div class="row"><span>🍖 Crocchette (nutri il cane)</span><span>🦴6 <button class="btn" ${S.coins<6?'disabled':''} onclick="__blBuyFood()">Compra</button></span></div>`+
+    `<div class="row"><span>🪵 Legna (per costruire casa)</span><span>🦴4 <button class="btn" ${S.coins<4?'disabled':''} onclick="__blBuyWood()">Compra</button></span></div>`+
     '<div class="secttl">Cappellini (indossali in Boutique 👕)</div>'+
     Object.keys(HATS).map(k=>`<div class="row"><span>${HATS[k].em} ${HATS[k].name}</span><span>${S['hat_'+k]?'✓ posseduto':'🦴'+HATS[k].price+' <button class="btn" '+(S.coins<HATS[k].price?'disabled':'')+' onclick="__blBuyHat(\''+k+'\')">Compra</button>'}</span></div>`).join('')+
     '<div class="secttl">Vestiti</div>'+
@@ -1256,6 +1257,7 @@ window.__blBuySeed=()=>{if(S.coins>=8){S.coins-=8;S.seeds++;toast('🌰 +1 seme'
 window.__blBuyHat=k=>{if(!S['hat_'+k]&&S.coins>=HATS[k].price){S.coins-=HATS[k].price;S['hat_'+k]=true;toast(HATS[k].em+' comprato!');sfx('coin');updateHUD();save();renderSheet('negozio');}};
 window.__blBuyCloth=k=>{if(!S['cloth_'+k]&&S.coins>=CLOTHES[k].price){S.coins-=CLOTHES[k].price;S['cloth_'+k]=true;toast(CLOTHES[k].em+' comprato!');sfx('coin');updateHUD();save();renderSheet('negozio');}};
 window.__blBuyFood=()=>{if(S.coins>=6){S.coins-=6;S.food=(S.food||0)+1;toast('🍖 +1 crocchette');sfx('coin');updateHUD();save();renderSheet('negozio');}};
+window.__blBuyWood=()=>{if(S.coins>=4){S.coins-=4;addInv('legno',1);toast('🪵 +1 legna');sfx('coin');updateHUD();save();renderSheet('negozio');}};
 const HOUSECOST={1:{coins:40,legno:8},2:{coins:90,legno:16},3:{coins:160,legno:28}};
 window.__blUpgradeHouse=()=>{const lvl=S.house.level||1;if(lvl>=4)return;const c=HOUSECOST[lvl];
   if(S.coins<c.coins||have('legno')<c.legno){toast('Servono 🦴'+c.coins+' e 🪵'+c.legno);return;}
