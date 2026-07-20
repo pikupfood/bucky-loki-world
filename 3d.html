@@ -1420,7 +1420,9 @@ function openMap(){closeSheet();cancelPlace&&cancelPlace();closeMap();
     <div class="empty">🔺 tu · 🔵 compagno · 🎯 missione · 🔒 esplora il luogo per sbloccare il viaggio rapido</div></div>`;
   document.body.appendChild(mapEl);
   const q=QUESTS[S.quest];
-  $('mapQuest').innerHTML=q&&NPCDEF[q.npc]?`<span>🎯 Missione: raggiungi ${NPCDEF[q.npc].em} <b>${NPCDEF[q.npc].name}</b>${q.type==='collect'?' con '+q.amount+' '+ITEMS[q.item].em:''}</span>`:'<span>🌟 Hai completato tutte le missioni!</span>';
+  if(q&&NPCDEF[q.npc]){const gathering=q.type==='collect'&&have(q.item)<q.amount;
+    $('mapQuest').innerHTML=gathering?`<span>🎯 Raccogli ${ITEMS[q.item].em} (${Math.min(have(q.item),q.amount)}/${q.amount}) → poi da ${NPCDEF[q.npc].em} <b>${NPCDEF[q.npc].name}</b></span>`:`<span>🎯 Vai da ${NPCDEF[q.npc].em} <b>${NPCDEF[q.npc].name}</b> per consegnare</span>`;}
+  else $('mapQuest').innerHTML='<span>🌟 Hai completato tutte le missioni!</span>';
   $('mapTravel').innerHTML=TRAVEL.map((t,i)=>{const unl=S.discovered&&S.discovered[t.id];
     return `<button class="btn ${unl?'ghost':''}" ${unl?'':'disabled'} onclick="__blTravel(${i})">${unl?t.lbl:'🔒 ???'}</button>`;}).join('');
   drawMap();}
@@ -1446,11 +1448,11 @@ function drawMap(){const cv=$('mapCv');if(!cv)return;const ctx=cv.getContext('2d
   for(const s of[['🛒',8,20],['👕',-20,2],['💰',22,-16],['🛒',51,35]])ctx.fillText(s[0],X(s[1]),Z(s[2]));
   ctx.font='12px serif';for(const id in NPCDEF){const p=NPCDEF[id].pos;ctx.fillText(NPCDEF[id].em,X(p[0]),Z(p[1]));}
   ctx.fillStyle='rgba(74,58,40,.9)';ctx.font='bold 13px sans-serif';ctx.fillText('CODA',X(-2),Z(-4));ctx.fillText('BORGO',X(46),Z(53));
-  // active mission target — ring + 🎯 over the NPC to visit
-  const q=QUESTS[S.quest];
-  if(q&&NPCDEF[q.npc]){const tp=NPCDEF[q.npc].pos;ctx.strokeStyle='#e0562b';ctx.lineWidth=2.6;
-    ctx.beginPath();ctx.arc(X(tp[0]),Z(tp[1]),13,0,6.28);ctx.stroke();
-    ctx.font='16px serif';ctx.fillText('🎯',X(tp[0]),Z(tp[1])-17);}
+  // active mission target — ring over where to go (source when gathering, villager when delivering)
+  const aim=questAim(QUESTS[S.quest]);
+  if(aim){ctx.strokeStyle='#e0562b';ctx.lineWidth=2.6;
+    ctx.beginPath();ctx.arc(X(aim.pos[0]),Z(aim.pos[1]),13,0,6.28);ctx.stroke();
+    ctx.font='16px serif';ctx.fillText('🎯',X(aim.pos[0]),Z(aim.pos[1])-17);}
   // companion dog dot
   ctx.fillStyle='#4a7fd0';ctx.strokeStyle='#fff';ctx.lineWidth=1.6;
   ctx.beginPath();ctx.arc(X(comp.x),Z(comp.z),4.5,0,6.28);ctx.fill();ctx.stroke();
@@ -1459,15 +1461,25 @@ function drawMap(){const cv=$('mapCv');if(!cv)return;const ctx=cv.getContext('2d
   ctx.save();ctx.translate(X(player.x),Z(player.z));ctx.rotate(ang);ctx.fillStyle='#e0562b';ctx.strokeStyle='#fff';ctx.lineWidth=1.8;
   ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,6.5);ctx.lineTo(-6,-6.5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();}
 
-// on-screen compass pointing to the active objective
+// smart compass: aim at the resource source when gathering, at the villager when delivering
+const ITEM_SRC={fiore:'flower',bacca:'bush',legno:'tree',gemma:'dig',carota:'plot'};
+function nearestOfType(type){let best=1e9,tp=null;for(const o of interactables){if(o.type===type){const d=Math.hypot(player.x-o.x,player.z-o.z);if(d<best){best=d;tp=[o.x,o.z];}}}return tp;}
+function questAim(q){if(!q||!NPCDEF[q.npc])return null;
+  const npc={pos:NPCDEF[q.npc].pos,em:NPCDEF[q.npc].em};
+  if(q.type==='collect'&&have(q.item)<q.amount){
+    const it=ITEMS[q.item]?ITEMS[q.item].em:'❓';
+    if(q.item==='pesce')return{pos:[LAKE.x+7,LAKE.z+LAKE.r-2],em:'🎣'};
+    const st=ITEM_SRC[q.item];if(st){const tp=nearestOfType(st);if(tp)return{pos:tp,em:it};}
+    return npc;}
+  return npc;}
 function updateCompass(){const cel=$('compass');if(!cel)return;
   if(inside||tutOpen){cel.classList.remove('on');return;}
-  const q=QUESTS[S.quest];if(!q||!NPCDEF[q.npc]){cel.classList.remove('on');return;}
-  const tp=NPCDEF[q.npc].pos,dx=tp[0]-player.x,dz=tp[1]-player.z,dist=Math.hypot(dx,dz);
+  const aim=questAim(QUESTS[S.quest]);if(!aim){cel.classList.remove('on');return;}
+  const dx=aim.pos[0]-player.x,dz=aim.pos[1]-player.z,dist=Math.hypot(dx,dz);
   cel.classList.add('on');
   if(dist<2.5){$('compTarget').textContent='✅';$('compArrow').style.opacity='0';$('compDist').textContent='qui!';return;}
   $('compArrow').style.opacity='1';$('compArrow').style.transform=`rotate(${Math.atan2(dx,-dz)*180/Math.PI}deg)`;
-  $('compTarget').textContent=NPCDEF[q.npc].em;$('compDist').textContent=Math.round(dist)+'m';}
+  $('compTarget').textContent=aim.em;$('compDist').textContent=Math.round(dist)+'m';}
 
 /* ================= MINI TUTORIAL ================= */
 const TUTORIAL=[
