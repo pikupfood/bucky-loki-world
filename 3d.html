@@ -1013,6 +1013,13 @@ for(let i=0;i<5;i++){const a=Math.random()*6.28,r=Math.random()*(LAKE.r-3.5),x=L
 for(let i=0,gu=0;i<6&&gu<40;gu++){const a=Math.random()*6.28,r=9+Math.random()*30,x=Math.cos(a)*r,z=Math.sin(a)*r;
   if(inLake(x,z)||onRaised(x,z)||inGarden(x,z))continue;const rb=makeRabbit();rb.position.set(x,0,z);scene.add(rb);
   animals.push({g:rb,type:'rabbit',hx:x,hz:z,x,z,dir:0,tx:x,tz:z,mv:false,wait:Math.random()*3,ph:Math.random()*6,rad:6});i++;}
+// fish darting near the lake surface
+const lakeFish=[];
+function makeFishSwim(){const g=new T.Group();const c=[0xe0873a,0xd0d3d8,0x6fa8c0,0xe8b84a][(Math.random()*4)|0];const fmat=new T.MeshStandardMaterial({color:c,roughness:0.45,metalness:0.15});
+  const body=new T.Mesh(new T.CapsuleGeometry(0.09,0.26,5,8),fmat);body.rotation.z=Math.PI/2;g.add(body);
+  const tail=new T.Mesh(new T.ConeGeometry(0.11,0.17,4),fmat);tail.rotation.z=-Math.PI/2;tail.position.x=-0.22;tail.scale.set(1,1,0.4);g.add(tail);
+  const fin=new T.Mesh(new T.ConeGeometry(0.06,0.12,4),fmat);fin.position.set(0.02,0.09,0);fin.scale.set(1,1,0.3);g.add(fin);return g;}
+for(let i=0;i<7;i++){const f=makeFishSwim();scene.add(f);lakeFish.push({g:f,r:2.5+Math.random()*(LAKE.r-5),ph:Math.random()*6.28,sp:0.22+Math.random()*0.3,cy:0.13+Math.random()*0.03});}
 function updateAnimals(dt){for(const n of animals){
   if(!n.mv){n.wait-=dt;if(n.wait<=0){const a=Math.random()*6.28,r=Math.random()*n.rad,tx=n.hx+Math.cos(a)*r,tz=n.hz+Math.sin(a)*r;
     if(n.type==='rabbit'&&inLake(tx,tz)){n.wait=0.5;}else{n.tx=tx;n.tz=tz;n.mv=true;}}}
@@ -1575,6 +1582,8 @@ function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
     bd.bg.position.set(bx,bd.h+Math.sin(bd.ph*1.5)*1.2,bz);bd.bg.rotation.y=-bd.ph;const bf=Math.sin(now/140+bd.ph*5)*0.7;bd.wl.rotation.x=bf;bd.wr.rotation.x=-bf;}
   // chimney smoke rising and fading
   for(const s of smokePuffs){s.ph=(s.ph+dt*0.13)%1;const t=s.ph;s.m.position.set(s.bx+Math.sin(t*6.28+s.by)*0.35,s.by+t*2.8,s.bz+Math.cos(t*5+s.by)*0.2);s.m.scale.setScalar(0.5+t*1.7);s.m.material.opacity=0.55*(1-t)*(1-t);}
+  // fish darting near the lake surface
+  for(const f of lakeFish){f.ph+=dt*f.sp;const fx=LAKE.x+Math.cos(f.ph)*f.r,fz=LAKE.z+Math.sin(f.ph)*f.r;f.g.position.set(fx,f.cy+Math.sin(f.ph*4)*0.02,fz);f.g.rotation.y=-f.ph+Math.PI/2;}
   // particles + footstep dust
   updateParticles(dt);
   if(player.moving){dustT+=dt;if(dustT>0.17){dustT=0;burst(player.x,0.05,player.z,0xd8c49a,2,0.5,0.8);}}
