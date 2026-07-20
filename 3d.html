@@ -88,8 +88,11 @@
   .empty{opacity:.55;font-weight:600;font-size:14px;padding:14px 0;text-align:center;}
   .secttl{font-size:12px;font-weight:800;opacity:.6;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px;}
   #fish{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 120px);z-index:23;text-align:center;pointer-events:none;}
-  #fish .box{display:inline-block;background:var(--panel);border-radius:20px;padding:14px 22px;pointer-events:auto;box-shadow:0 6px 0 var(--line),0 12px 24px rgba(0,0,0,.25);}
-  #fish .ft{font-weight:800;font-size:16px;margin-bottom:8px;}
+  #fish .box{display:inline-block;background:rgba(255,253,246,.94);border-radius:20px;padding:13px 20px;pointer-events:auto;box-shadow:0 4px 14px rgba(0,0,0,.2);}
+  #fish .box.bite{background:#fff2f0;}
+  #fish .ft{font-weight:800;font-size:15px;margin-bottom:8px;}
+  #fish .reel{background:var(--good);color:#fff;border:none;border-radius:16px;padding:13px 30px;font-size:20px;font-weight:800;font-family:var(--font);box-shadow:0 4px 0 #2ea04f;cursor:pointer;animation:reelp .5s infinite;}
+  @keyframes reelp{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 </style>
 
 <div id="loading"><div class="dot">🐶</div><div>Costruisco il mondo 3D…</div></div>
@@ -979,14 +982,22 @@ function usePlot(i){const pl=S.plots[i];
 function growPlots(){S.plots.forEach((pl,i)=>{if((pl.stage||0)>0&&pl.stage<3&&pl.planted>=0){const age=S.day-pl.planted;const ns=Math.min(3,1+age);if(ns!==pl.stage){pl.stage=ns;refreshPlot(plotMeshes[i]);}}});}
 
 /* ---- Fishing ---- */
-let fishing=null;const fishEl=$('fish');
-function startFishing(){if(fishing)return;fishing={state:'wait',bite:false};
-  fishEl.style.display='';fishEl.innerHTML='<div class="box"><div class="ft" id="ft">🎣 Lenza in acqua…</div><div style="font-size:34px">🎣</div></div>';
-  const wait=1200+Math.random()*2600;fishing.timer=setTimeout(()=>{if(!fishing)return;fishing.bite=true;fishing.state='bite';
-    $('ft').textContent='❗ Abbocca! Tocca 🎣 ora!';fishing.close=setTimeout(()=>{if(fishing&&fishing.bite){endFishing(false);}},1100);},wait);}
-function fishPull(){if(!fishing)return;if(fishing.state==='bite'){endFishing(true);}else{endFishing(false,true);}}
-function endFishing(success,early){clearTimeout(fishing.timer);clearTimeout(fishing.close);fishing=null;fishEl.style.display='none';fishEl.innerHTML='';
-  if(success){addInv('pesce',1);toast('🐟 Preso un pesce! +1');burst(player.x,0.6,player.z,0x9fd0f0,16,1.2,2.6);sfx('fish');after();}
+let fishing=null,bobber=null;const fishEl=$('fish');
+const FISHES=[['🐟','Pesce'],['🐠','Pesce tropicale'],['🐡','Palla'],['🦐','Gambero'],['🐢','Tartaruga'],['🦀','Granchio']];
+function makeBobber(){const g=new T.Group();const b=new T.Mesh(new T.SphereGeometry(0.17,12,10),new T.MeshStandardMaterial({color:0xe0392b}));b.position.y=0.14;g.add(b);
+  const t=new T.Mesh(new T.SphereGeometry(0.17,12,10,0,6.3,0,1.6),new T.MeshStandardMaterial({color:0xfff2e2}));t.position.y=0.14;t.scale.set(1,0.5,1);g.add(t);
+  const stick=new T.Mesh(new T.CylinderGeometry(0.02,0.02,0.32,5),new T.MeshStandardMaterial({color:0x333333}));stick.position.y=0.42;g.add(stick);return g;}
+function castPoint(){const dx=LAKE.x-player.x,dz=LAKE.z-player.z,dl=Math.hypot(dx,dz)||1;return{x:player.x+dx/dl*3.6,z:player.z+dz/dl*3.6};}
+function startFishing(){if(fishing)return;if(!bobber){bobber=makeBobber();scene.add(bobber);}
+  const cp=castPoint();bobber.position.set(cp.x,0.18,cp.z);bobber.visible=true;fishing={state:'wait',bite:false,cx:cp.x,cz:cp.z};
+  fishEl.style.display='';fishEl.innerHTML='<div class="box"><div class="ft">🎣 Lenza in acqua… aspetta l\'abboccata</div></div>';
+  const wait=1400+Math.random()*2800;fishing.timer=setTimeout(()=>{if(!fishing)return;fishing.bite=true;fishing.state='bite';
+    burst(fishing.cx,0.2,fishing.cz,0x9fd0f0,8,0.8,1.2);sfx('tap');
+    fishEl.innerHTML='<div class="box bite"><div class="ft">❗ ABBOCCA!</div><button class="reel" id="reelBtn">TIRA! 🎣</button></div>';const rb=$('reelBtn');if(rb)rb.onclick=fishPull;
+    fishing.close=setTimeout(()=>{if(fishing&&fishing.bite)endFishing(false);},1300);},wait);}
+function fishPull(){if(!fishing)return;if(fishing.state==='bite')endFishing(true);else endFishing(false,true);}
+function endFishing(success,early){clearTimeout(fishing.timer);clearTimeout(fishing.close);const cx=fishing.cx,cz=fishing.cz;fishing=null;fishEl.style.display='none';fishEl.innerHTML='';if(bobber)bobber.visible=false;
+  if(success){const f=FISHES[(Math.random()*FISHES.length)|0];addInv('pesce',1);toast(f[0]+' Preso: '+f[1]+'! +1');burst(cx,0.5,cz,0x9fd0f0,18,1.4,2.8);sfx('fish');after();}
   else toast(early?'…troppo presto! 🎣':'Scappato! 🐟💨');}
 
 /* ================= MENU / SHEETS ================= */
@@ -1202,6 +1213,7 @@ function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
   // particles + footstep dust
   updateParticles(dt);
   if(player.moving){dustT+=dt;if(dustT>0.17){dustT=0;burst(player.x,0.05,player.z,0xd8c49a,2,0.5,0.8);}}
+  if(fishing&&bobber&&bobber.visible)bobber.position.y=0.18+(fishing.state==='bite'?Math.sin(now/70)*0.13-0.08:Math.sin(now/380)*0.05);
   detectNear();
   if(placeMode)updatePlace();
   if(removeMode&&removeHi){if(near&&near.type==='remove'){removeHi.visible=true;removeHi.position.set(near.obj.p.x,groundHeight(near.obj.p.x,near.obj.p.z)+0.07,near.obj.p.z);}else removeHi.visible=false;}
@@ -1215,6 +1227,7 @@ requestAnimationFrame(frame);
 setInterval(save,8000);
 window.__game={get clock(){return clock;},set clock(v){clock=v;},get S(){return S;},scene,camera,player,comp,
   get placed(){return placedObjs;},get removeMode(){return removeMode;},get near(){return near;},detectNear,
+  startFishing,fishPull,get fishing(){return fishing;},
   get weather(){return weather;},set weather(v){weather=v;},set wetness(v){wetness=v;}};
 })();
 </script>
