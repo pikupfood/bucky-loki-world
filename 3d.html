@@ -675,6 +675,25 @@ function connect3(x0,y0,z0,x1,y1,z1,thick,mat){const dx=x1-x0,dy=y1-y0,dz=z1-z0,
       // vertical hangers
       if(i%2===0)connect3(px,ny,nz,px,by,nz,0.02,rope);px=bx+sx*hw;py=ny;pz=nz;}}}
 function reg(o){interactables.push(o);}
+// ---- waterfalls cascading down the plateau faces ----
+const waterfalls=[];
+function streakTex(){const c=document.createElement('canvas');c.width=32;c.height=128;const x=c.getContext('2d');
+  x.fillStyle='#bfe6f6';x.fillRect(0,0,32,128);
+  for(let i=0;i<28;i++){x.globalAlpha=0.12+((i*37)%50)/100;x.fillStyle=i%2?'#ffffff':'#7fc4e8';const w=1+((i*13)%3),px=((i*97)%32);x.fillRect(px,0,w,128);}
+  x.globalAlpha=1;const t=new T.CanvasTexture(c);t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(1,2.4);return t;}
+function makeWaterfall(x,z,rotY,w,h){const g=new T.Group();
+  const tex=streakTex();
+  const mat=new T.MeshStandardMaterial({map:tex,transparent:true,opacity:0.82,color:0xdff1fb,emissive:0x2b6a8a,emissiveIntensity:0.18,roughness:0.25,side:T.DoubleSide,depthWrite:false});
+  const sheet=new T.Mesh(new T.PlaneGeometry(w,h),mat);sheet.position.y=h/2-0.25;g.add(sheet);
+  const crest=new T.Mesh(new T.BoxGeometry(w,0.22,0.5),new T.MeshStandardMaterial({color:0xffffff,roughness:0.6,transparent:true,opacity:0.9}));crest.position.set(0,h-0.35,0.1);g.add(crest);
+  const pool=new T.Mesh(new T.CircleGeometry(w*0.6,22),new T.MeshStandardMaterial({color:0x6fb9dd,transparent:true,opacity:0.72,roughness:0.15,side:T.DoubleSide}));
+  pool.rotation.x=-Math.PI/2;pool.position.set(0,0.06,0.55);g.add(pool);
+  const ring=new T.Mesh(new T.RingGeometry(0.2,0.42,22),new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.5,side:T.DoubleSide}));
+  ring.rotation.x=-Math.PI/2;ring.position.set(0,0.09,0.55);g.add(ring);
+  g.position.set(x,0,z);g.rotation.y=rotY;scene.add(g);
+  waterfalls.push({mat,tex,ring});return g;}
+makeWaterfall(21.95,15,-Math.PI/2,4.4,3.35);
+makeWaterfall(21.95,40,-Math.PI/2,4.0,3.35);
 // tidy, well-spaced layout on a bigger map
 const spots=[],terrZones=[];
 function farEnough(x,z,md){for(const s of spots)if(Math.hypot(x-s.x,z-s.z)<md)return false;return true;}
@@ -1272,6 +1291,8 @@ function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
   for(const r of ripples){if(!r.visible)continue;r.userData.life-=dt;if(r.userData.life<=0){r.visible=false;continue;}const tt=1-r.userData.life/0.9;r.scale.setScalar(1+tt*4);r.material.opacity=(1-tt)*0.6;}
   // water skin glints
   skin.material.opacity=0.22+Math.sin(now/700)*0.05;
+  // waterfalls: scroll the sheet + pulse splash ring
+  for(const wf of waterfalls){wf.tex.offset.y=(wf.tex.offset.y-dt*0.9)%1;const ph=(now/650)%1;wf.ring.scale.setScalar(0.5+ph*2.4);wf.ring.material.opacity=0.5*(1-ph);}
   // fireflies drift
   const fp=fireflies.geometry.attributes.position;for(let i=0;i<ffN;i++){fp.array[i*3+1]=0.8+Math.sin(now/900+ffSeed[i])*0.5+1.0;}fp.needsUpdate=true;
   // butterflies flutter
