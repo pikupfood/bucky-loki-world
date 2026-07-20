@@ -894,8 +894,12 @@ function claim(x,z){spots.push({x,z});}
 claim(4,3);claim(3,9);   // doghouse + garden kept clear
 // houses — spread out and orderly
 const houseDefs=[[-24,10,0xe57d5a],[16,-26,0x6fae5a],[-30,32,0xc77dff],[40,6,0x6fa8e0]];
+const vStyles=[{owner:'Mochi 🐱',floor:0xd7a3a8,wall:0xf4cdb0,accent:0xff9ec4},
+  {owner:'Pip 🐦',floor:0xcbb894,wall:0xbcd8ea,accent:0x7ec8f0},
+  {owner:'Rocco 🦔',floor:0xb98f5e,wall:0xbfe3cf,accent:0xc79a5a},
+  {owner:'un amico 🐾',floor:0xc9b6d0,wall:0xd8c6ea,accent:0xc77dff}];
 houseDefs.forEach((h,i)=>{const H=makeHouse(5,5,3.4,h[2]);H.position.set(h[0],0,h[1]);H.rotation.y=rand(i*9)*0.5-0.25;scene.add(H);
-  colliders.push({x:h[0],z:h[1],r:3.6});reg({type:'door',x:h[0],z:h[1]+3.2,r:2.4});claim(h[0],h[1]);});
+  colliders.push({x:h[0],z:h[1],r:3.6});reg({type:'door',x:h[0],z:h[1]+3.2,r:2.4,style:vStyles[i]});claim(h[0],h[1]);});
 // cozy chimney smoke rising from the houses
 const smokePuffs=[];
 function addChimney(x,z,baseY){const ch=new T.Mesh(new T.BoxGeometry(0.5,0.8,0.5),new T.MeshStandardMaterial({color:0x9a6a4a,roughness:0.9}));ch.position.set(x+1.1,baseY-0.35,z+1.1);ch.castShadow=true;scene.add(ch);
@@ -945,8 +949,11 @@ reg({type:'sleep',x:0.6,z:3,r:2.0});
   colliders.push({x:p[0],z:p[1],r:1.0});reg({type:'board',x:p[0],z:p[1]+1.4,r:2.3});claim(p[0],p[1]);});
 // ===== second village: Borgo di Coda (NE, spacious) =====
 const borgoHouses=[[40,45,0xe8a24a],[52,45,0x7f6fd0],[46,33,0x5fa8c0]];
+const bStyles=[{owner:'Nina 🐱',floor:0xd0c0e0,wall:0xf4cdb0,accent:0xd6b3f0},
+  {owner:'Aldo 🦔',floor:0xc79a5a,wall:0xbfe3cf,accent:0xc79a5a},
+  {owner:'Sasha 🐦',floor:0xbcd0b0,wall:0xbcd8ea,accent:0x8ce0a8}];
 borgoHouses.forEach((h,i)=>{const H=makeHouse(5,5,3.4,h[2]);H.position.set(h[0],0,h[1]);H.rotation.y=Math.atan2(46-h[0],40-h[1])+rand(i*5)*0.3-0.15;scene.add(H);
-  colliders.push({x:h[0],z:h[1],r:3.6});reg({type:'door',x:h[0],z:h[1]+3.2,r:2.4});claim(h[0],h[1]);addChimney(h[0],h[1],5.1);});
+  colliders.push({x:h[0],z:h[1],r:3.6});reg({type:'door',x:h[0],z:h[1]+3.2,r:2.4,style:bStyles[i]});claim(h[0],h[1]);addChimney(h[0],h[1],5.1);});
 // village well as centerpiece
 {const well=new T.Group();const stone=new T.MeshStandardMaterial({color:0x9a938a,roughness:0.95});
   const ring=new T.Mesh(new T.CylinderGeometry(0.9,0.95,0.9,16),stone);ring.position.y=0.45;ring.castShadow=true;well.add(ring);
@@ -1283,7 +1290,7 @@ function doAction(){
   if(fishing){fishPull();return;}
   if(!near)return;
   if(near.type==='exit'){exitInterior();return;}
-  if(near.type==='door'){enterInterior();return;}
+  if(near.type==='door'){enterInterior(near);return;}
   if(near.type==='remove'){removePlaced(near.obj);return;}
   if(near.type==='flower'){addInv('fiore',1);toast('+1 🌼 Fiore');burst(near.x,0.5,near.z,0xffd23f,14);sfx('pick');scene.remove(near.mesh);interactables.splice(interactables.indexOf(near),1);gainXP(1);sideProgress('fiore');after();}
   else if(near.type==='bush'){if(near.cd>Date.now()){toast('🫐 Ancora acerbo…');return;}near.cd=Date.now()+12000;addInv('bacca',1);toast('+1 🫐 Bacca');burst(near.x,0.8,near.z,0x5aa9ff,12);sfx('pick');gainXP(1);sideProgress('bacca');after();}
@@ -1653,7 +1660,8 @@ function toggleRemove(){closeSheet();cancelPlace();removeMode=!removeMode;
     $('act').style.display='';$('placeBar').classList.add('on');$('pOk').style.display='none';$('pRot').style.display='none';$('pNo').textContent='✗ Esci';toast('🗑️ Avvicinati a un oggetto e tocca 🗑️');}
   else{$('placeBar').classList.remove('on');$('pOk').style.display='';$('pRot').style.display='';$('pNo').textContent='✗';if(removeHi)removeHi.visible=false;}}
 window.__blRemoveMode=toggleRemove;
-function openBuild(){closeSheet();sheet=document.createElement('div');sheet.className='sheet';sheet.onclick=e=>{if(e.target===sheet)closeSheet();};document.body.appendChild(sheet);
+function openBuild(){if(inside&&!homeInterior){toast('🚪 Non puoi arredare la casa di qualcun altro!');return;}
+  closeSheet();sheet=document.createElement('div');sheet.className='sheet';sheet.onclick=e=>{if(e.target===sheet)closeSheet();};document.body.appendChild(sheet);
   let h=`<div class="panel"><h3>🔨 Costruisci <button class="x" onclick="__blClose()">✕</button></h3><div style="margin-bottom:10px"><span class="bal">🦴 ${S.coins}</span> <button class="btn ghost" onclick="__blRemoveMode()">🗑️ Rimuovi oggetti</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:11px">`;
   for(const k in BUILD){const d=BUILD[k];if(d.unlock&&!S['unlock_'+d.unlock])continue;const can=S.coins>=d.cost;h+=`<div class="slot" style="cursor:pointer;${can?'':'opacity:.45'}" onclick="__blBuild('${k}')"><div class="em">${d.em}</div><div class="nm">${d.name}</div><div class="ct">🦴${d.cost}</div></div>`;}
   h+='</div><div class="empty">Scegli un oggetto, poi muovi il cane per mirare e tocca ✓ per posizionare.</div></div>';sheet.innerHTML=h;}
@@ -1745,10 +1753,38 @@ function buildInterior(){
   const lampb=new T.Mesh(new T.SphereGeometry(0.2,10,10),new T.MeshStandardMaterial({color:0xffe08a,emissive:0xffcf6a,emissiveIntensity:0.8}));lampb.position.set(INT.x,wh-0.1,INT.z);g.add(lampb);
   const pad=new T.Mesh(new T.CircleGeometry(0.9,18),new T.MeshBasicMaterial({color:0x8fd0ff,transparent:true,opacity:0.55}));pad.rotation.x=-Math.PI/2;pad.position.set(INT.x,0.03,INT.z+hw-0.7);g.add(pad);}
 buildInterior();
-function enterInterior(){returnPos={x:player.x,z:player.z};inside=true;cancelPlace();if(removeMode)toggleRemove();
+let homeInterior=true;
+function setInteriorFurniture(vis){for(const o of placedObjs)if(o.p.x>150)o.mesh.visible=vis;}
+function buildInteriorStyled(style){if(intGroup)scene.remove(intGroup);if(intLight)scene.remove(intLight);
+  INT.hw=5.0;const hw=INT.hw,g=new T.Group();scene.add(g);intGroup=g;
+  const floor=new T.Mesh(new T.PlaneGeometry(hw*2,hw*2),new T.MeshStandardMaterial({color:style.floor,roughness:0.9}));floor.rotation.x=-Math.PI/2;floor.position.set(INT.x,0.01,INT.z);floor.receiveShadow=true;g.add(floor);
+  const rug=new T.Mesh(new T.CircleGeometry(2,22),new T.MeshStandardMaterial({color:style.accent,roughness:0.9}));rug.rotation.x=-Math.PI/2;rug.position.set(INT.x,0.02,INT.z+0.5);g.add(rug);
+  const wallMat=new T.MeshStandardMaterial({color:style.wall,roughness:0.9}),wh=3.2,wt=0.3;
+  const wn=new T.Mesh(new T.BoxGeometry(hw*2+wt,wh,wt),wallMat);wn.position.set(INT.x,wh/2,INT.z-hw);wn.castShadow=true;wn.receiveShadow=true;g.add(wn);
+  for(const sx of[-1,1]){const w=new T.Mesh(new T.BoxGeometry(wt,wh,hw*2),wallMat);w.position.set(INT.x+sx*hw,wh/2,INT.z);w.castShadow=true;w.receiveShadow=true;g.add(w);}
+  for(const sx of[-1,1]){const w=new T.Mesh(new T.BoxGeometry(hw-0.9,wh,wt),wallMat);w.position.set(INT.x+sx*(hw/2+0.45),wh/2,INT.z+hw);g.add(w);}
+  const win=new T.Mesh(new T.BoxGeometry(1.6,1.2,0.12),new T.MeshStandardMaterial({color:0xbfe6ff,emissive:0x223344,roughness:0.2,metalness:0.3}));win.position.set(INT.x,1.8,INT.z-hw+0.06);g.add(win);
+  const bplank=new T.Mesh(new T.BoxGeometry(2.2,0.55,0.08),new T.MeshStandardMaterial({color:0x8a5f39}));bplank.position.set(INT.x,2.55,INT.z-hw+0.12);g.add(bplank);
+  const plate=new T.Mesh(new T.PlaneGeometry(2.0,0.48),new T.MeshBasicMaterial({map:labelTex('Casa di '+style.owner),transparent:true}));plate.position.set(INT.x,2.55,INT.z-hw+0.17);g.add(plate);
+  const wood=new T.MeshStandardMaterial({color:0x8a5f39,roughness:0.9});
+  const bed=new T.Mesh(new T.BoxGeometry(2,0.4,3),wood);bed.position.set(INT.x-hw+1.6,0.2,INT.z-hw+2);bed.castShadow=true;g.add(bed);
+  const matt=new T.Mesh(new T.BoxGeometry(1.9,0.25,2.9),new T.MeshStandardMaterial({color:style.accent,roughness:0.85}));matt.position.set(INT.x-hw+1.6,0.5,INT.z-hw+2);g.add(matt);
+  const ttop=new T.Mesh(new T.CylinderGeometry(0.7,0.7,0.15,16),wood);ttop.position.set(INT.x+hw-1.6,0.85,INT.z-hw+2);ttop.castShadow=true;g.add(ttop);
+  const tleg=new T.Mesh(new T.CylinderGeometry(0.12,0.12,0.85,8),wood);tleg.position.set(INT.x+hw-1.6,0.42,INT.z-hw+2);g.add(tleg);
+  const sofa=makeSofa();sofa.position.set(INT.x,0,INT.z+hw-2.4);sofa.rotation.y=Math.PI;sofa.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(sofa);
+  {const pot=new T.Mesh(new T.CylinderGeometry(0.26,0.2,0.4,12),new T.MeshStandardMaterial({color:0xc0603f}));pot.position.set(INT.x+hw-0.6,0.2,INT.z-hw+0.7);pot.castShadow=true;g.add(pot);
+   for(let i=0;i<5;i++){const lf=new T.Mesh(new T.SphereGeometry(0.22,8,7),new T.MeshStandardMaterial({color:i%2?0x4f9a3a:0x5fae46}));lf.scale.set(0.5,1.3,0.5);lf.position.set(INT.x+hw-0.6+Math.cos(i*1.3)*0.14,0.62+i*0.12,INT.z-hw+0.7+Math.sin(i*1.3)*0.14);g.add(lf);}}
+  intLight=new T.PointLight(0xffe0a8,0.7,20,2);intLight.position.set(INT.x,3.6,INT.z);scene.add(intLight);
+  const lampb=new T.Mesh(new T.SphereGeometry(0.2,10,10),new T.MeshStandardMaterial({color:0xffe08a,emissive:0xffcf6a,emissiveIntensity:0.8}));lampb.position.set(INT.x,3.1,INT.z);g.add(lampb);
+  const pad=new T.Mesh(new T.CircleGeometry(0.9,18),new T.MeshBasicMaterial({color:0x8fd0ff,transparent:true,opacity:0.55}));pad.rotation.x=-Math.PI/2;pad.position.set(INT.x,0.03,INT.z+hw-0.7);g.add(pad);}
+function enterInterior(door){returnPos={x:player.x,z:player.z};inside=true;cancelPlace();if(removeMode)toggleRemove();
+  if(door&&door.style){homeInterior=false;buildInteriorStyled(door.style);setInteriorFurniture(false);}
+  else{homeInterior=true;buildInterior();setInteriorFurniture(true);}
   player.x=INT.x;player.z=INT.z+INT.hw-1.6;player.y=0;player.dir=Math.PI;player.moving=false;
-  comp.x=INT.x+1.4;comp.z=INT.z+INT.hw-1.6;comp.y=0;trail.length=0;$('exitBtn').classList.add('on');toast('🏠 Sei entrato in casa — arreda con 🔨');}
+  comp.x=INT.x+1.4;comp.z=INT.z+INT.hw-1.6;comp.y=0;trail.length=0;$('exitBtn').classList.add('on');
+  toast(homeInterior?'🏠 Sei entrato in casa — arreda con 🔨':'🚪 Casa di '+door.style.owner);}
 function exitInterior(){inside=false;cancelPlace();if(removeMode)toggleRemove();if(returnPos){player.x=returnPos.x;player.z=returnPos.z;}
+  setInteriorFurniture(true);homeInterior=true;
   player.y=groundHeight(player.x,player.z);player.moving=false;comp.x=player.x-1;comp.z=player.z-1;trail.length=0;$('exitBtn').classList.remove('on');toast('👋 Sei uscito');}
 $('exitBtn').onclick=exitInterior;
 
