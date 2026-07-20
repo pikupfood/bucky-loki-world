@@ -270,7 +270,7 @@ function defaultState(){return{coins:15,inv:{},seeds:2,quest:0,day:1,
   plots:[{x:1.5,z:8,stage:0,planted:-1},{x:3.4,z:8,stage:0,planted:-1},{x:5.3,z:8,stage:0,planted:-1}],
   outfits:{bucky:{hat:null,body:null},loki:{hat:null,body:null}},dug:{},placed:[],active:'bucky',
   food:0,needs:{hunger:80,energy:88,bladder:62},house:{level:1,floor:'legno',wall:'crema'},discovered:{coda:1,casa:1,borgo:1},
-  xp:0,level:1,side:null,sideDay:0,sideDone:0};}
+  xp:0,level:1,side:null,sideDay:0,sideDone:0,stats:{fish:0,build:0},achv:{}};}
 let S;
 try{S=JSON.parse(localStorage.getItem(SAVEKEY))||defaultState();}catch(e){S=defaultState();}
 // backfill
@@ -1443,6 +1443,23 @@ window.__blSideClaim=()=>{const s=S.side;if(!s||s.prog<s.amount)return;
   S.coins+=s.reward;S.sideDone=(S.sideDone||0)+1;gainXP(s.reward);const timed=s.timed;S.side=null;
   toast((timed?'⏱️🏅 Sfida vinta! +🦴':'🏅 Incarico riscosso! +🦴')+s.reward);sfx('quest');burst(player.x,1.6,player.z,0xffd23f,24,1.6,3);updateHUD();save();renderBoard();};
 window.__blSideSkip=()=>{S.side=null;renderBoard();};
+/* ---- achievements / objectives ---- */
+function bumpStat(k,n){if(!S.stats)S.stats={fish:0,build:0};S.stats[k]=(S.stats[k]||0)+(n||1);}
+function hatCount(){let n=0;for(const k in HATS)if(S['hat_'+k])n++;return n;}
+function discCount(){return S.discovered?Object.keys(S.discovered).length:0;}
+const ACHIEVEMENTS=[
+  {id:'lv5',em:'⭐',name:'In crescita',desc:'Raggiungi il livello 5',cur:()=>S.level||1,target:5,reward:50},
+  {id:'story',em:'🦴',name:'Eroe di Coda',desc:'Completa la storia principale',cur:()=>S.quest||0,target:QUESTS.length,reward:120},
+  {id:'fish15',em:'🎣',name:'Pescatore esperto',desc:'Pesca 15 pesci',cur:()=>(S.stats&&S.stats.fish)||0,target:15,reward:50},
+  {id:'side8',em:'🏅',name:'Tuttofare',desc:'Svolgi 8 incarichi alla bacheca',cur:()=>S.sideDone||0,target:8,reward:60},
+  {id:'villa',em:'🏰',name:'Villa da sogno',desc:'Porta la casa fino a Villa',cur:()=>S.house.level||1,target:4,reward:80},
+  {id:'hats8',em:'👒',name:'Fashionista',desc:'Possiedi 8 cappellini',cur:hatCount,target:8,reward:60},
+  {id:'explore',em:'🗺️',name:'Esploratore',desc:'Sblocca tutte le mete di viaggio',cur:discCount,target:6,reward:50},
+  {id:'build10',em:'🔨',name:'Arredatore',desc:'Posiziona 10 oggetti costruiti',cur:()=>(S.stats&&S.stats.build)||0,target:10,reward:60},
+  {id:'lv10',em:'🌟',name:'Veterano di Coda',desc:'Raggiungi il livello 10',cur:()=>S.level||1,target:10,reward:120}];
+window.__blClaimAchv=id=>{const a=ACHIEVEMENTS.find(x=>x.id===id);if(!a||!S.achv)S.achv=S.achv||{};if(!a||S.achv[id])return;
+  if(a.cur()<a.target)return;S.achv[id]=true;S.coins+=a.reward;gainXP(a.reward);
+  toast('🏆 Obiettivo: '+a.name+'! +🦴'+a.reward);sfx('quest');burst(player.x,1.8,player.z,0xffd23f,26,1.6,3);updateHUD();save();renderSheet('obiettivi');};
 // timed challenge HUD countdown + expiry
 function updateChallenge(){const el=$('chal');if(!el)return;const s=S.side;
   if(!s||!s.timed||!s.deadline){el.classList.remove('on');return;}
@@ -1478,7 +1495,7 @@ function startFishing(){if(fishing)return;if(!bobber){bobber=makeBobber();scene.
     fishing.close=setTimeout(()=>{if(fishing&&fishing.bite)endFishing(false);},1300);},wait);}
 function fishPull(){if(!fishing)return;if(fishing.state==='bite')endFishing(true);else endFishing(false,true);}
 function endFishing(success,early){clearTimeout(fishing.timer);clearTimeout(fishing.close);const cx=fishing.cx,cz=fishing.cz;fishing=null;fishEl.style.display='none';fishEl.innerHTML='';if(bobber)bobber.visible=false;
-  if(success){const f=FISHES[(Math.random()*FISHES.length)|0];addInv('pesce',1);toast(f[0]+' Preso: '+f[1]+'! +1');burst(cx,0.5,cz,0x9fd0f0,18,1.4,2.8);sfx('fish');gainXP(4);sideProgress('pesce');
+  if(success){const f=FISHES[(Math.random()*FISHES.length)|0];addInv('pesce',1);toast(f[0]+' Preso: '+f[1]+'! +1');burst(cx,0.5,cz,0x9fd0f0,18,1.4,2.8);sfx('fish');gainXP(4);sideProgress('pesce');bumpStat('fish');
     if(Math.random()<0.13){addInv('gemma',1);setTimeout(()=>{toast('💎 Tesoro dal lago! +1 Gemma');burst(cx,0.7,cz,0x8fd0ff,22,1.6,3);sfx('quest');},700);}
     after();}
   else toast(early?'…troppo presto! 🎣':'Scappato! 🐟💨');}
@@ -1489,7 +1506,7 @@ function closeSheet(){if(sheet){sheet.remove();sheet=null;}}
 function openSheet(tab){closeSheet();sheet=document.createElement('div');sheet.className='sheet';
   sheet.onclick=e=>{if(e.target===sheet)closeSheet();};document.body.appendChild(sheet);renderSheet(tab);}
 function renderSheet(tab){if(!sheet)return;
-  const tabs=[['zaino','🎒','Zaino'],['casa','🏠','Casa'],['bazar','🛋️','Bazar'],['mercato','💰','Mercato'],['negozio','🛒','Negozio'],['boutique','👕','Boutique'],['orto','🌱','Orto'],['missioni','🎯','Missioni']];
+  const tabs=[['zaino','🎒','Zaino'],['casa','🏠','Casa'],['bazar','🛋️','Bazar'],['mercato','💰','Mercato'],['negozio','🛒','Negozio'],['boutique','👕','Boutique'],['orto','🌱','Orto'],['missioni','🎯','Missioni'],['obiettivi','🏆','Obiettivi']];
   let h=`<div class="panel"><h3>Menu <button class="x" onclick="__blClose()">✕</button></h3>
     <div class="tabbar">`+tabs.map(t=>`<button class="tabbtn ${t[0]===tab?'on':''}" onclick="__blTab('${t[0]}')">${t[1]}<span>${t[2]}</span></button>`).join('')+`</div>
     <div style="margin-bottom:10px"><span class="bal">🦴 ${S.coins}</span> <span class="bal">🌰 semi ${S.seeds}</span></div>`;
@@ -1533,6 +1550,10 @@ function renderSheet(tab){if(!sheet)return;
     h+='<div class="empty">Arredi di lusso a rotazione: cambiano ogni giorno! Una volta comprati li costruisci con 🔨 quando vuoi. 🐾</div>';}
   else if(tab==='missioni'){h+='<div class="secttl">Progresso</div>';QUESTS.forEach((q,i)=>{const st=i<S.quest?'✓':i===S.quest?'▶':'·';
     h+=`<div class="row"><span>${st} ${NPCDEF[q.npc].em} ${NPCDEF[q.npc].name}: ${q.type==='collect'?'porta '+q.amount+' '+ITEMS[q.item].em:'parla'}</span><b>🦴${q.reward}</b></div>`;});}
+  else if(tab==='obiettivi'){const tot=ACHIEVEMENTS.length,got=ACHIEVEMENTS.filter(a=>S.achv&&S.achv[a.id]).length;
+    h+=`<div class="secttl">🏆 Traguardi (${got}/${tot})</div>`;
+    ACHIEVEMENTS.forEach(a=>{const cur=Math.min(a.cur(),a.target),done=S.achv&&S.achv[a.id],ready=a.cur()>=a.target&&!done;
+      h+=`<div class="row"><span>${a.em} <b>${a.name}</b><br><small style="opacity:.6">${a.desc}</small><br><span style="display:inline-block;width:120px;height:7px;border-radius:4px;background:rgba(80,60,40,.16);overflow:hidden;vertical-align:middle;margin-top:3px"><span style="display:block;height:100%;width:${Math.round(cur/a.target*100)}%;background:linear-gradient(90deg,#ffcf6a,#ff9e3d)"></span></span> <small>${cur}/${a.target}</small></span><span>${done?'✓ 🏆':ready?'🦴'+a.reward+'<br><button class="btn" onclick="__blClaimAchv(\''+a.id+'\')">Riscuoti</button>':'🦴'+a.reward}</span></div>`;});}
   h+='</div>';sheet.innerHTML=h;}
 window.__blClose=closeSheet;window.__blTab=t=>renderSheet(t);
 window.__blTutorial=()=>{closeSheet();showTutorial(0);};
@@ -1726,7 +1747,7 @@ function updatePlace(){if(!placeMode)return;const def=BUILD[placeMode.k];
 function confirmPlace(){if(!placeMode)return;if(!placeMode.valid){toast('Qui non si può 🚫');return;}
   const def=BUILD[placeMode.k],fx=placeMode.ghost.position.x,fz=placeMode.ghost.position.z;
   if(S.coins<def.cost){toast('Servono più ossa 🦴');cancelPlace();return;}
-  S.coins-=def.cost;const p={k:placeMode.k,x:fx,z:fz,rot:placeMode.rot};S.placed.push(p);spawnPlaced(p);
+  S.coins-=def.cost;const p={k:placeMode.k,x:fx,z:fz,rot:placeMode.rot};S.placed.push(p);spawnPlaced(p);bumpStat('build');
   burst(fx,0.4,fz,0x8ed86a,10);sfx('plant');toast(def.em+' posizionato!');updateHUD();save();
   const k=placeMode.k;cancelPlace();if(S.coins>=BUILD[k].cost)startPlace(k);}
 function cancelPlace(){if(!placeMode)return;scene.remove(placeMode.ghost);scene.remove(placeMode.ring);placeMode=null;$('placeBar').classList.remove('on');$('act').style.display='';}
