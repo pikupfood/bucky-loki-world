@@ -40,7 +40,9 @@ prato tosato fitto, meteo dinamico, pollini che fluttuano di giorno e un laghett
 - 🎣 **Pesca reale**: lancia la lenza, aspetta l'abboccata e premi **TIRA! 🎣** al momento giusto
 - 🛒 **Negozi veri con insegna** (Negozio, Boutique, Mercato) + 🔨 **modalità costruzione** con tante decorazioni
 - 👒 **Vesti i cani**: oltre 10 cappellini e vestiti (cilindro, corona, orecchie, girasole, sciarpa, tutù…)
-- 🌊 **Cascatelle** tra i terrazzamenti · 🌉 ponte sospeso · 🦆 anatre, 🦋 farfalle, abitanti che popolano il villaggio
+- 🏘️ **Due villaggi**: Coda e il nuovo **Borgo di Coda** (a NE, con pozzo e casette) popolati da 6 abitanti (Mochi, Pip, Rocco, Nina, Aldo, Sasha) e **15 missioni**
+- 🛋️ **Interni accoglienti e ricchi**: camino, travi, mensole con libri, piante, quadri, tende…
+- 🌊 **Cascatelle** tra i terrazzamenti · 🌉 ponte sospeso · 🦆 anatre, 🦋 farfalle, 🕊️ uccelli, fumo dai comignoli
 - 🌱 orto, ⛏️ scavo, 🎯 missioni — tutto in 3D
 - Costruita con [Three.js](https://threejs.org) (WebGL), incluso in locale in `vendor/`.
 
