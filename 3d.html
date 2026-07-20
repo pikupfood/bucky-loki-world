@@ -1203,7 +1203,8 @@ function setBar(id,v){const el=$(id);if(!el)return 0;const show=v<60;el.style.di
 function feedDog(){if(S.needs.hunger>=94){toast('😋 '+dogName()+' è già sazio');return;}
   if((S.food||0)<=0){toast('🍖 Niente crocchette — comprale al 🛒 Negozio');return;}
   S.food--;S.needs.hunger=NEEDMAX;S.needs.energy=Math.min(NEEDMAX,S.needs.energy+8);S.needs.bladder=Math.max(0,S.needs.bladder-10);
-  toast('🍖 Gnam! '+dogName()+' è sazio');burst(6.6,0.5,4,0xffcaa0,12,0.8,1.4);sfx('pick');renderNeeds();updateHUD();save();}
+  dogOf(S.active).eat=performance.now()+2000;
+  toast('🍖 Gnam! '+dogName()+' è sazio');burst(7.2,0.5,4,0xffcaa0,12,0.8,1.4);sfx('pick');renderNeeds();updateHUD();save();}
 function sleepDog(){if(fading)return;if(S.needs.energy>=94){toast('☀️ '+dogName()+' non ha sonno');return;}
   fading=true;const fd=$('fade');if(fd)fd.classList.add('on');
   setTimeout(()=>{S.needs.energy=NEEDMAX;S.needs.hunger=Math.max(0,S.needs.hunger-14);S.needs.bladder=Math.max(0,S.needs.bladder-18);
@@ -1211,6 +1212,7 @@ function sleepDog(){if(fading)return;if(S.needs.energy>=94){toast('☀️ '+dogN
     setTimeout(()=>{if(fd)fd.classList.remove('on');fading=false;toast('😴 Che bella dormita!');},520);},640);}
 function doPoop(){S.needs.bladder=NEEDMAX;
   const px=player.x-Math.sin(player.dir)*0.9,pz=player.z-Math.cos(player.dir)*0.9;
+  dogOf(S.active).squat=performance.now()+900;
   spawnPoop(px,pz);toast('💩 '+dogName()+' si sente meglio');sfx('tap');renderNeeds();save();}
 function makePoopMesh(){const g=new T.Group();const m=new T.MeshStandardMaterial({color:0x6b4a2b,roughness:.85});
   const a=new T.Mesh(new T.SphereGeometry(0.16,8,7),m);a.scale.set(1,0.7,1);a.position.y=0.1;g.add(a);
@@ -1483,7 +1485,12 @@ function animateDog(d,a){d.group.position.set(a.x,a.y||0,a.z);d.group.rotation.y
   if(d.eyes){const b=((now+s*400)%3200)<110?0.14:1;d.eyes[0].scale.y=b;d.eyes[1].scale.y=b;}
   if(d.fur){const amp=a.moving?0.17:0.06,sp=a.moving?a.walk*1.1:now/650+s;for(const f of d.fur){f.rotation.z=f.userData.bz+Math.sin(sp+f.userData.ph)*amp;}}
   // gentle breathing when idle
-  if(d.body){const br=a.moving?0:Math.sin(now/900+s)*0.022;d.body.scale.set(1+br,1+br,1.08+br);}}
+  if(d.body){const br=a.moving?0:Math.sin(now/900+s)*0.022;d.body.scale.set(1+br,1+br,1.08+br);}
+  // eating pose: dip the muzzle to the bowl and wag happily
+  if(d.eat&&now<d.eat){d.head.rotation.x=0.55+Math.sin(now/85)*0.14;d.tail.rotation.y=Math.sin(now/70)*0.8;}
+  else d.head.rotation.x=0;
+  // squat pose while relieving itself
+  if(d.squat&&now<d.squat){d.group.position.y=(a.y||0)-0.14;}}
 function blocked(x,z){
   if(inside){if(Math.abs(x-INT.x)>INT.hw-0.4||Math.abs(z-INT.z)>INT.hw-0.4)return true;
     for(const c of colliders)if(Math.hypot(x-c.x,z-c.z)<c.r)return true;return false;}
