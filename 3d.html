@@ -190,6 +190,7 @@
       <div class="pill" id="tod">☀️ Giorno</div>
       <div class="pill" id="dogName">🐶 Bucky</div>
     </div>
+    <div class="pill" id="season" style="align-self:flex-end">🌸 Primavera</div>
     <div id="needs">
       <div class="need" id="nHunger"><span>🍖</span><i><b></b></i></div>
       <div class="need" id="nEnergy"><span>💤</span><i><b></b></i></div>
@@ -1324,6 +1325,20 @@ const poGeo=new T.BufferGeometry(),poN=90,poPos=new Float32Array(poN*3),poSeed=[
 for(let i=0;i<poN;i++){poPos[i*3]=(Math.random()-0.5)*54;poPos[i*3+1]=0.5+Math.random()*4.5;poPos[i*3+2]=(Math.random()-0.5)*54;poSeed.push(Math.random()*6.28);}
 poGeo.setAttribute('position',new T.Float32BufferAttribute(poPos,3));
 const pollen=new T.Points(poGeo,new T.PointsMaterial({color:0xfff2c8,size:0.12,transparent:true,opacity:0,blending:T.AdditiveBlending,depthWrite:false}));scene.add(pollen);
+// seasonal falling particles (petals / leaves / snow)
+const sfGeo=new T.BufferGeometry(),sfN=100,sfPos=new Float32Array(sfN*3),sfV=[];
+for(let i=0;i<sfN;i++){sfPos[i*3]=(Math.random()-0.5)*62;sfPos[i*3+1]=Math.random()*15;sfPos[i*3+2]=(Math.random()-0.5)*62;sfV.push(0.6+Math.random()*0.9);}
+sfGeo.setAttribute('position',new T.Float32BufferAttribute(sfPos,3));
+const seasonFall=new T.Points(sfGeo,new T.PointsMaterial({color:0xffffff,size:0.32,transparent:true,opacity:0.9,depthWrite:false}));seasonFall.visible=false;scene.add(seasonFall);
+let curSeason=-1;
+const SEASONS=[{n:'Primavera',em:'🌸',leaf:[0x7fc85a,0x8fd06a,0xef9bc0,0x74c866],fall:0xffb3d1,fallOn:true},
+  {n:'Estate',em:'☀️',leaf:[0x67bd5c,0x58ac50,0x74c866,0x4e9f48],fall:0,fallOn:false},
+  {n:'Autunno',em:'🍂',leaf:[0xe0873a,0xd0632f,0xe6a93a,0xc0503a],fall:0xe0873a,fallOn:true},
+  {n:'Inverno',em:'❄️',leaf:[0xbcd6c0,0xcfe0d4,0xd8e4dc,0xc4d6cc],fall:0xffffff,fallOn:true}];
+function applySeason(){const s=Math.floor(((S.day||1)-1)/3)%4;if(s===curSeason)return;curSeason=s;const S0=SEASONS[s];
+  for(let i=0;i<leafMats.length;i++)leafMats[i].color.setHex(S0.leaf[i%S0.leaf.length]);
+  seasonFall.visible=S0.fallOn;if(S0.fallOn)seasonFall.material.color.setHex(S0.fall);
+  const bd=document.getElementById('season');if(bd)bd.textContent=S0.em+' '+S0.n;}
 
 /* ================= DOGS ================= */
 const dogBucky=makeDog(0xe6352f),dogLoki=makeDog(0x2f6fe0);
@@ -1958,7 +1973,7 @@ $('exitBtn').onclick=exitInterior;
 /* ================= DAY / NIGHT ================= */
 let clock=0.28,prevClock=0.28;const CYCLE=150;
 function updateSky(dt){prevClock=clock;clock=(clock+dt/CYCLE)%1;
-  if(clock<prevClock){S.day++;growPlots();pickWeather();save();}
+  if(clock<prevClock){S.day++;growPlots();pickWeather();applySeason();save();}
   const wet=weather==='pioggia'?1:weather==='nuvoloso'?0.5:0;
   const ang=(clock-0.25)*6.283,elev=Math.sin(clock*Math.PI);
   const dayN=Math.max(0,Math.min(1,(clock>0.05&&clock<0.95)?Math.sin((clock-0.05)/0.9*Math.PI):0));
@@ -2010,7 +2025,7 @@ function moveActor(a,dx,dz){const h0=groundHeight(a.x,a.z);
 
 const camTarget=new T.Vector3();let last=performance.now(),dustT=0;
 $('loading').style.display='none';updateHUD();renderNeeds();$('dogName').textContent=S.active==='bucky'?'🐶 Bucky':'🐶 Loki';
-applyQuality();
+applyQuality();applySeason();
 $('start').classList.add('on');
 $('playBtn').onclick=()=>{const st=$('start');st.classList.add('hide');initAudio();if(musicOn&&master)master.gain.value=0.6;
   setTimeout(()=>{st.classList.remove('on');st.classList.remove('hide');if(!S.tut)showTutorial(0);},520);};
@@ -2061,6 +2076,10 @@ function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
   if(pollen.material.opacity>0.01){pollen.position.set(player.x,0,player.z);const pp=pollen.geometry.attributes.position;
     for(let i=0;i<poN;i++){pp.array[i*3]+=Math.sin(now/1600+poSeed[i])*dt*0.25;pp.array[i*3+1]+=Math.cos(now/2100+poSeed[i]*1.7)*dt*0.18;
       if(pp.array[i*3]>27)pp.array[i*3]=-27;else if(pp.array[i*3]<-27)pp.array[i*3]=27;}pp.needsUpdate=true;}
+  // seasonal falling petals/leaves/snow
+  if(seasonFall.visible){seasonFall.position.set(player.x,0,player.z);const fp=seasonFall.geometry.attributes.position;
+    for(let i=0;i<sfN;i++){fp.array[i*3+1]-=sfV[i]*dt*(curSeason===3?1.1:1.7);fp.array[i*3]+=Math.sin(now/700+i*1.3)*dt*(curSeason===3?0.35:0.7);
+      if(fp.array[i*3+1]<0.1){fp.array[i*3+1]=15;fp.array[i*3]=(i/sfN-0.5)*62;}}fp.needsUpdate=true;}
   // butterflies flutter
   for(const b of butterflies){b.ph+=dt*b.sp;
     b.bg.position.set(b.cx+Math.cos(b.ph)*b.r,1.2+Math.sin(b.ph*2.3)*0.45,b.cz+Math.sin(b.ph)*b.r);
