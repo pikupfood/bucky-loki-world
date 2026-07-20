@@ -602,11 +602,12 @@ function makeClothMesh(type){const g=new T.Group();
 /* ================= DOG MODEL ================= */
 function makeDog(bandanaColor){const g=new T.Group();
   // Yorkshire-terrier palette: golden tan body & face, dark steel-blue saddle
-  const gold=new T.MeshStandardMaterial({color:0xcf9a56,roughness:0.85,flatShading:false});
-  const goldL=new T.MeshStandardMaterial({color:0xe3ba78,roughness:0.85,flatShading:false});
-  const steel=new T.MeshStandardMaterial({color:0x39424e,roughness:0.8,flatShading:false});
-  const steelL=new T.MeshStandardMaterial({color:0x4c5763,roughness:0.8,flatShading:false});
-  const noseM2=new T.MeshStandardMaterial({color:0x18130f,roughness:0.35});
+  // silky Yorkie coat — softer sheen (lower roughness) for a glossy, realistic look
+  const gold=new T.MeshStandardMaterial({color:0xcf9a56,roughness:0.68,flatShading:false});
+  const goldL=new T.MeshStandardMaterial({color:0xe3ba78,roughness:0.64,flatShading:false});
+  const steel=new T.MeshStandardMaterial({color:0x39424e,roughness:0.62,flatShading:false});
+  const steelL=new T.MeshStandardMaterial({color:0x4c5763,roughness:0.6,flatShading:false});
+  const noseM2=new T.MeshStandardMaterial({color:0x18130f,roughness:0.25,metalness:0.1});
   const eyeM=new T.MeshStandardMaterial({color:0x120f0c,roughness:0.25});
   const eyeW=new T.MeshStandardMaterial({color:0xffffff,roughness:0.2});
   const tongueM=new T.MeshStandardMaterial({color:0xe07d8a,roughness:0.6});
@@ -629,6 +630,7 @@ function makeDog(bandanaColor){const g=new T.Group();
   // muzzle
   const muzzle=new T.Mesh(new T.SphereGeometry(0.27,12,10),gold);muzzle.position.set(0,-0.16,0.4);muzzle.scale.set(1,0.82,1.15);muzzle.castShadow=true;head.add(muzzle);
   const noseM=new T.Mesh(new T.SphereGeometry(0.115,10,10),noseM2);noseM.position.set(0,-0.09,0.72);noseM.scale.set(1.2,0.9,1);head.add(noseM);
+  const noseGl=new T.Mesh(new T.SphereGeometry(0.03,6,6),eyeW);noseGl.position.set(-0.04,-0.04,0.82);head.add(noseGl);
   const mouth=new T.Mesh(new T.BoxGeometry(0.16,0.03,0.12),noseM2);mouth.position.set(0,-0.28,0.55);head.add(mouth);
   const tongue=new T.Mesh(new T.SphereGeometry(0.07,8,8),tongueM);tongue.position.set(0,-0.32,0.6);tongue.scale.set(1,0.5,1.2);head.add(tongue);
   // eyes with highlight + gold brow tufts
@@ -653,6 +655,8 @@ function makeDog(bandanaColor){const g=new T.Group();
     const leg=new T.Mesh(legGeo,gold);leg.position.y=-0.5;leg.castShadow=true;
     tuft(0,-0.1,0.06,0.28,goldL,0.15,0,leg);
     const paw=new T.Mesh(new T.SphereGeometry(0.18,10,9),steel);paw.position.y=-0.52;paw.scale.set(1,0.66,1.25);leg.add(paw);
+    // little toe separations for a more realistic paw
+    for(const tx of[-0.08,0,0.08]){const toe=new T.Mesh(new T.SphereGeometry(0.05,7,6),steelL);toe.position.set(tx,-0.55,0.12);leg.add(toe);}
     pivot.add(leg);g.add(pivot);legs.push(pivot);}
   // plumed upright tail
   const tail=new T.Group();tail.position.set(0,1.5,-0.56);g.add(tail);
@@ -661,7 +665,7 @@ function makeDog(bandanaColor){const g=new T.Group();
   tuft(0.06,0.68,-0.05,0.28,steel,0,0.15,tail);tuft(-0.06,0.68,-0.05,0.28,steel,0,-0.15,tail);tuft(0,0.42,0.05,0.34,goldL,0.3,0,tail);
   tail.rotation.x=0.5;
   g.scale.setScalar(0.85);
-  return {group:g,legs,tail,head,hat:null,tongue,ears:earArr,eyes:eyeArr,fur,seed:Math.random()*6.28};}
+  return {group:g,legs,tail,head,body,hat:null,tongue,ears:earArr,eyes:eyeArr,fur,seed:Math.random()*6.28};}
 
 /* ================= NPCs (distinct species) ================= */
 const EYE=new T.MeshStandardMaterial({color:0x201a15,roughness:0.25});
@@ -1477,7 +1481,9 @@ function animateDog(d,a){d.group.position.set(a.x,a.y||0,a.z);d.group.rotation.y
   if(d.tongue){const p=Math.sin(now/150+s);d.tongue.position.y=-0.32+p*0.02;d.tongue.scale.set(1,0.5,1.2+Math.max(0,p)*0.55);}
   if(d.ears){const tw=Math.sin(now/850+s),t2=((now/1000+s)%4)<0.2?Math.sin(now/55)*0.22:0;d.ears[0].rotation.z=tw*0.05+t2;d.ears[1].rotation.z=-tw*0.05-t2;}
   if(d.eyes){const b=((now+s*400)%3200)<110?0.14:1;d.eyes[0].scale.y=b;d.eyes[1].scale.y=b;}
-  if(d.fur){const amp=a.moving?0.17:0.06,sp=a.moving?a.walk*1.1:now/650+s;for(const f of d.fur){f.rotation.z=f.userData.bz+Math.sin(sp+f.userData.ph)*amp;}}}
+  if(d.fur){const amp=a.moving?0.17:0.06,sp=a.moving?a.walk*1.1:now/650+s;for(const f of d.fur){f.rotation.z=f.userData.bz+Math.sin(sp+f.userData.ph)*amp;}}
+  // gentle breathing when idle
+  if(d.body){const br=a.moving?0:Math.sin(now/900+s)*0.022;d.body.scale.set(1+br,1+br,1.08+br);}}
 function blocked(x,z){
   if(inside){if(Math.abs(x-INT.x)>INT.hw-0.4||Math.abs(z-INT.z)>INT.hw-0.4)return true;
     for(const c of colliders)if(Math.hypot(x-c.x,z-c.z)<c.r)return true;return false;}
