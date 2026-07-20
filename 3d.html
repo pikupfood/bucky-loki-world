@@ -255,11 +255,13 @@ const SAVEKEY='bl3d';
 function defaultState(){return{coins:15,inv:{},seeds:2,quest:0,day:1,
   plots:[{x:1.5,z:8,stage:0,planted:-1},{x:3.4,z:8,stage:0,planted:-1},{x:5.3,z:8,stage:0,planted:-1}],
   outfits:{bucky:{hat:null,body:null},loki:{hat:null,body:null}},dug:{},placed:[],active:'bucky',
-  food:0,needs:{hunger:80,energy:88,bladder:62},house:{level:1},discovered:{coda:1}};}
+  food:0,needs:{hunger:80,energy:88,bladder:62},house:{level:1},discovered:{coda:1,casa:1,borgo:1}};}
 let S;
 try{S=JSON.parse(localStorage.getItem(SAVEKEY))||defaultState();}catch(e){S=defaultState();}
 // backfill
 const d0=defaultState();for(const k in d0)if(S[k]===undefined)S[k]=d0[k];
+// ensure the two villages + home are always reachable by fast travel
+if(!S.discovered)S.discovered={};['coda','casa','borgo'].forEach(k=>S.discovered[k]=1);
 function save(){try{localStorage.setItem(SAVEKEY,JSON.stringify(S));}catch(e){}}
 function addInv(t,n){S.inv[t]=(S.inv[t]||0)+n;}
 function have(t){return S.inv[t]||0;}
@@ -706,7 +708,7 @@ function makeDog(bandanaColor){const g=new T.Group();
   tuft(0,0.62,0,0.34,steelL,0,0,tail);tuft(0.12,0.52,0,0.3,goldL,0,0.35,tail);tuft(-0.12,0.52,0,0.3,goldL,0,-0.35,tail);
   tuft(0.06,0.68,-0.05,0.28,steel,0,0.15,tail);tuft(-0.06,0.68,-0.05,0.28,steel,0,-0.15,tail);tuft(0,0.42,0.05,0.34,goldL,0.3,0,tail);
   tail.rotation.x=0.5;
-  g.scale.setScalar(0.85);
+  g.scale.setScalar(0.64);
   return {group:g,legs,tail,head,body,hat:null,tongue,ears:earArr,eyes:eyeArr,fur,seed:Math.random()*6.28};}
 
 /* ================= NPCs (distinct species) ================= */
@@ -1413,7 +1415,7 @@ window.__blCloseMap=closeMap;
 function openMap(){closeSheet();cancelPlace&&cancelPlace();closeMap();
   mapEl=document.createElement('div');mapEl.className='sheet';mapEl.onclick=e=>{if(e.target===mapEl)closeMap();};
   mapEl.innerHTML=`<div class="panel"><h3>🗺️ Mappa del Mondo di Coda <button class="x" onclick="__blCloseMap()">✕</button></h3>
-    <canvas id="mapCv" width="330" height="330" style="width:100%;max-width:340px;display:block;margin:2px auto 6px;border-radius:16px;box-shadow:inset 0 0 0 2px rgba(0,0,0,.06)"></canvas>
+    <canvas id="mapCv" width="480" height="480" style="width:100%;display:block;margin:2px auto 8px;border-radius:18px;box-shadow:inset 0 0 0 2px rgba(0,0,0,.08),0 3px 10px rgba(0,0,0,.12)"></canvas>
     <div id="mapQuest" class="row" style="justify-content:flex-start;gap:8px"></div>
     <div class="secttl">🧭 Viaggio rapido — tocca una meta</div>
     <div id="mapTravel" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
@@ -1431,35 +1433,53 @@ function travelTo(x,z){if(inside){inside=false;$('exitBtn').classList.remove('on
   player.x=x;player.z=z;player.y=groundHeight(x,z);player.moving=false;player.dir=0;
   comp.x=x-1.4;comp.z=z-1.0;comp.y=groundHeight(comp.x,comp.z);trail.length=0;
   closeMap();toast('🗺️ Arrivato!');sfx('tap');burst(x,0.6,z,0xffd23f,14,1,2);}
-function drawMap(){const cv=$('mapCv');if(!cv)return;const ctx=cv.getContext('2d'),W=cv.width,H=cv.height,B=64;
-  const X=x=>(x+B)/(2*B)*W,Z=z=>(z+B)/(2*B)*H;
-  ctx.fillStyle='#a6d685';ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='#cdbb8e';ctx.fillRect(X(22),Z(10),X(38)-X(22),Z(28)-Z(10));ctx.fillRect(X(22),Z(33),X(38)-X(22),Z(47)-Z(33));
-  // connecting paths
-  ctx.strokeStyle='rgba(214,193,150,.95)';ctx.lineWidth=6;ctx.lineCap='round';ctx.lineJoin='round';
+function mrr(ctx,x,y,w,h,r){ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x,y,w,h,r);else ctx.rect(x,y,w,h);ctx.fill();}
+function mlabel(ctx,txt,x,y,fs){ctx.font=`bold ${fs}px sans-serif`;const w=ctx.measureText(txt).width+fs*0.7;
+  ctx.fillStyle='rgba(255,253,246,.9)';mrr(ctx,x-w/2,y-fs*0.72,w,fs*1.44,fs*0.5);
+  ctx.fillStyle='#4a3a28';ctx.fillText(txt,x,y);}
+function drawMap(){const cv=$('mapCv');if(!cv)return;const ctx=cv.getContext('2d'),W=cv.width,H=cv.height,HALF=60,SC=W/(2*HALF);
+  const X=x=>(x+HALF)*SC,Z=z=>(z+HALF)*SC;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  // meadow base
+  ctx.fillStyle='#a8d886';ctx.fillRect(0,0,W,H);
+  // escarpment banks (the "terrapieni") as clear rounded green hills with a label
+  ctx.fillStyle='#7fb95f';
+  for(const e of[[0,-48,20,15],[48,-8,22,16],[-48,-2,20,15],[8,52,22,16]]){ctx.beginPath();ctx.ellipse(X(e[0]),Z(e[1]),e[2]*SC*0.62,e[3]*SC*0.62,0,0,6.28);ctx.fill();}
+  ctx.font=`${Math.round(SC*4.2)}px serif`;for(const e of[[0,-48],[48,-8],[-48,-2],[8,52]])ctx.fillText('⛰️',X(e[0]),Z(e[1]));
+  // raised plateaus (clearly shaded + labelled)
+  ctx.fillStyle='#dcc99a';mrr(ctx,X(22),Z(10),(38-22)*SC,(28-10)*SC,SC*1.5);mrr(ctx,X(22),Z(33),(38-22)*SC,(47-33)*SC,SC*1.5);
+  ctx.strokeStyle='rgba(150,120,70,.45)';ctx.lineWidth=SC*0.4;ctx.strokeRect(X(22),Z(10),(38-22)*SC,(28-10)*SC);ctx.strokeRect(X(22),Z(33),(38-22)*SC,(47-33)*SC);
+  ctx.fillStyle='rgba(110,88,50,.6)';ctx.font=`bold ${Math.round(SC*2.4)}px sans-serif`;ctx.fillText('Altopiano',X(30),Z(19));ctx.fillText('Altopiano',X(30),Z(40));
+  // paths
+  ctx.strokeStyle='rgba(228,208,166,.95)';ctx.lineWidth=SC*1.7;ctx.lineCap='round';ctx.lineJoin='round';
   ctx.beginPath();ctx.moveTo(X(2),Z(2));ctx.lineTo(X(28),Z(4));ctx.lineTo(X(41),Z(28));ctx.lineTo(X(46),Z(36));ctx.stroke();
   ctx.beginPath();ctx.moveTo(X(2),Z(2));ctx.lineTo(X(-14),Z(-6));ctx.lineTo(X(-24),Z(-10));ctx.stroke();
+  ctx.beginPath();ctx.moveTo(X(2),Z(2));ctx.lineTo(X(-16),Z(10));ctx.lineTo(X(-24),Z(10));ctx.stroke();
   // lake
-  ctx.fillStyle='#63b1dc';ctx.beginPath();ctx.arc(X(-26),Z(-22),15/(2*B)*W,0,6.28);ctx.fill();
-  // houses
-  ctx.fillStyle='#c07a55';for(const h of[[-24,10],[16,-26],[-30,32],[40,6],[40,45],[52,45],[46,33]]){ctx.fillRect(X(h[0])-4,Z(h[1])-4,8,8);}
-  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='16px serif';
+  ctx.fillStyle='#5fb0dd';ctx.beginPath();ctx.arc(X(-26),Z(-22),15*SC,0,6.28);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=SC*0.4;ctx.stroke();
+  // houses as little roofs
+  ctx.fillStyle='#c97b4f';for(const h of[[-24,10],[16,-26],[-30,32],[40,6],[40,45],[52,45],[46,33]])mrr(ctx,X(h[0])-SC*1.5,Z(h[1])-SC*1.3,SC*3,SC*2.6,SC*0.4);
+  // landmark icons
+  ctx.font=`${Math.round(SC*5.2)}px serif`;
   ctx.fillText('🏠',X(4),Z(3));ctx.fillText('🎣',X(-26),Z(-22));ctx.fillText('⛲',X(46),Z(40));
   for(const s of[['🛒',8,20],['👕',-20,2],['💰',22,-16],['🛒',51,35]])ctx.fillText(s[0],X(s[1]),Z(s[2]));
-  ctx.font='12px serif';for(const id in NPCDEF){const p=NPCDEF[id].pos;ctx.fillText(NPCDEF[id].em,X(p[0]),Z(p[1]));}
-  ctx.fillStyle='rgba(74,58,40,.9)';ctx.font='bold 13px sans-serif';ctx.fillText('CODA',X(-2),Z(-4));ctx.fillText('BORGO',X(46),Z(53));
-  // active mission target — ring over where to go (source when gathering, villager when delivering)
+  // NPCs
+  ctx.font=`${Math.round(SC*4)}px serif`;for(const id in NPCDEF){const p=NPCDEF[id].pos;ctx.fillText(NPCDEF[id].em,X(p[0]),Z(p[1]));}
+  // village name labels
+  mlabel(ctx,'CODA',X(-4),Z(-8),Math.round(SC*3.2));mlabel(ctx,'BORGO',X(46),Z(56),Math.round(SC*3.2));
+  // mission target ring (source when gathering, villager when delivering)
   const aim=questAim(QUESTS[S.quest]);
-  if(aim){ctx.strokeStyle='#e0562b';ctx.lineWidth=2.6;
-    ctx.beginPath();ctx.arc(X(aim.pos[0]),Z(aim.pos[1]),13,0,6.28);ctx.stroke();
-    ctx.font='16px serif';ctx.fillText('🎯',X(aim.pos[0]),Z(aim.pos[1])-17);}
-  // companion dog dot
-  ctx.fillStyle='#4a7fd0';ctx.strokeStyle='#fff';ctx.lineWidth=1.6;
-  ctx.beginPath();ctx.arc(X(comp.x),Z(comp.z),4.5,0,6.28);ctx.fill();ctx.stroke();
+  if(aim){ctx.strokeStyle='#e0562b';ctx.lineWidth=SC*0.8;ctx.beginPath();ctx.arc(X(aim.pos[0]),Z(aim.pos[1]),SC*3.4,0,6.28);ctx.stroke();
+    ctx.font=`${Math.round(SC*4.4)}px serif`;ctx.fillText('🎯',X(aim.pos[0]),Z(aim.pos[1])-SC*4.6);}
+  // companion dot
+  ctx.fillStyle='#4a7fd0';ctx.strokeStyle='#fff';ctx.lineWidth=SC*0.5;ctx.beginPath();ctx.arc(X(comp.x),Z(comp.z),SC*1.5,0,6.28);ctx.fill();ctx.stroke();
   // player arrow
-  const ang=Math.atan2(Math.cos(player.dir),Math.sin(player.dir));
-  ctx.save();ctx.translate(X(player.x),Z(player.z));ctx.rotate(ang);ctx.fillStyle='#e0562b';ctx.strokeStyle='#fff';ctx.lineWidth=1.8;
-  ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,6.5);ctx.lineTo(-6,-6.5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();}
+  const ang=Math.atan2(Math.cos(player.dir),Math.sin(player.dir)),a=SC*3.4;
+  ctx.save();ctx.translate(X(player.x),Z(player.z));ctx.rotate(ang);ctx.fillStyle='#e0562b';ctx.strokeStyle='#fff';ctx.lineWidth=SC*0.6;
+  ctx.beginPath();ctx.moveTo(a,0);ctx.lineTo(-a*0.62,a*0.62);ctx.lineTo(-a*0.62,-a*0.62);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
+  // north indicator
+  ctx.fillStyle='rgba(60,45,30,.75)';ctx.font=`bold ${Math.round(SC*2.8)}px sans-serif`;ctx.textAlign='right';ctx.fillText('N ▲',W-SC*2,SC*4);ctx.textAlign='center';}
 
 // smart compass: aim at the resource source when gathering, at the villager when delivering
 const ITEM_SRC={fiore:'flower',bacca:'bush',legno:'tree',gemma:'dig',carota:'plot'};
