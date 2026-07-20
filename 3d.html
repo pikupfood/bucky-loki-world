@@ -195,11 +195,13 @@ const HATS={cappello:{em:'🎩',name:'Cilindro',price:45},paglia:{em:'👒',name
   corona:{em:'👑',name:'Corona',price:90},party:{em:'🎉',name:'Festa',price:25},
   berretto:{em:'🧢',name:'Berretto',price:22},cuffia:{em:'🧶',name:'Cuffia',price:20},
   fiocco:{em:'🎀',name:'Fiocco',price:16},cowboy:{em:'🤠',name:'Cowboy',price:40},aureola:{em:'😇',name:'Aureola',price:70},
-  orecchie:{em:'🐰',name:'Orecchie',price:28},girasole:{em:'🌻',name:'Girasole',price:24}};
+  orecchie:{em:'🐰',name:'Orecchie',price:28},girasole:{em:'🌻',name:'Girasole',price:24},
+  stellina:{em:'⭐',name:'Stellina',price:0,reward:2},coronaoro:{em:'👑',name:'Corona d\'oro',price:0,reward:4}};
 const CLOTHES={maglione:{em:'🧶',name:'Maglioncino',price:35},mantello:{em:'🦸',name:'Mantello',price:55},
   bandanaR:{em:'🟥',name:'Bandana rossa',price:12},bandanaB:{em:'🟦',name:'Bandana blu',price:12},
   giubbotto:{em:'🧥',name:'Giubbotto',price:48},pigiama:{em:'🌙',name:'Pigiama',price:32},
-  sciarpa:{em:'🧣',name:'Sciarpa',price:20},tutu:{em:'🩰',name:'Tutù',price:38}};
+  sciarpa:{em:'🧣',name:'Sciarpa',price:20},tutu:{em:'🩰',name:'Tutù',price:38},
+  mantelloro:{em:'✨',name:'Mantello dorato',price:0,reward:6}};
 const NPCDEF={
   mochi:{name:'Mochi',em:'🐱',type:'cat',color:0xf2b8c6,pos:[-11,10]},
   pip:{name:'Pip',em:'🐦',type:'bird',color:0x7ec8f0,pos:[-14,-9]},
@@ -484,6 +486,18 @@ function makeBoard(){const g=new T.Group();const wood=new T.MeshStandardMaterial
   return g;}
 function makeBush(s){const b=new T.Mesh(new T.SphereGeometry(s,16,12),new T.MeshStandardMaterial({color:0x5aab52,roughness:0.95}));
   b.scale.set(1,0.85,1);b.castShadow=true;b.receiveShadow=true;return b;}
+function makeLantern(){const g=new T.Group();const post=new T.Mesh(new T.CylinderGeometry(0.06,0.08,1.6,7),new T.MeshStandardMaterial({color:0x3a3330,roughness:0.7}));post.position.y=0.8;post.castShadow=true;g.add(post);
+  const arm=new T.Mesh(new T.CylinderGeometry(0.03,0.03,0.35,6),new T.MeshStandardMaterial({color:0x3a3330}));arm.rotation.z=Math.PI/2;arm.position.set(0.16,1.55,0);g.add(arm);
+  const lan=new T.Mesh(new T.CylinderGeometry(0.16,0.16,0.32,12),new T.MeshStandardMaterial({color:0xe0574f,emissive:0xff6a4a,emissiveIntensity:0.7,roughness:0.5}));lan.position.set(0.33,1.4,0);g.add(lan);
+  const cap=new T.Mesh(new T.ConeGeometry(0.2,0.12,12),new T.MeshStandardMaterial({color:0x3a3330}));cap.position.set(0.33,1.62,0);g.add(cap);
+  g.userData.glow=lan;return g;}
+function makeTrophy(){const g=new T.Group();const gold=new T.MeshStandardMaterial({color:0xf2c14e,metalness:0.7,roughness:0.22});
+  const base=new T.Mesh(new T.CylinderGeometry(0.26,0.3,0.16,16),new T.MeshStandardMaterial({color:0x6a4a2a,roughness:0.8}));base.position.y=0.08;base.castShadow=true;g.add(base);
+  const stem=new T.Mesh(new T.CylinderGeometry(0.06,0.06,0.24,10),gold);stem.position.y=0.28;g.add(stem);
+  const cup=new T.Mesh(new T.CylinderGeometry(0.26,0.12,0.34,16,1,true),gold);cup.position.y=0.55;cup.castShadow=true;g.add(cup);
+  const cupb=new T.Mesh(new T.SphereGeometry(0.24,14,10,0,6.3,0,1.7),gold);cupb.position.y=0.44;cupb.scale.set(1,-0.6,1);g.add(cupb);
+  for(const sx of[-1,1]){const handle=new T.Mesh(new T.TorusGeometry(0.11,0.03,8,14,3.14),gold);handle.position.set(sx*0.26,0.58,0);handle.rotation.z=sx*Math.PI/2;g.add(handle);}
+  const star=new T.Mesh(new T.SphereGeometry(0.07,8,8),new T.MeshStandardMaterial({color:0xfff2b0,emissive:0xffd23f,emissiveIntensity:0.6}));star.position.y=0.8;g.add(star);return g;}
 const rockMat=new T.MeshStandardMaterial({color:0x9aa0a6,roughness:1,flatShading:false});
 function makeRock(s){const r=new T.Mesh(new T.DodecahedronGeometry(s,0),rockMat);
   r.rotation.set(Math.random()*3,Math.random()*3,Math.random()*3);r.scale.set(1,0.7,1);r.castShadow=true;r.receiveShadow=true;return r;}
@@ -611,7 +625,9 @@ const BUILD={
   quadro:{em:'🖼️',name:'Quadro',cost:12,yoff:0,col:0.5,indoor:1,make:makePainting},
   tappetoc:{em:'🟥',name:'Tappeto',cost:10,yoff:0,make:makeRugMesh},
   siepe:{em:'🌿',name:'Siepe',cost:9,yoff:0,col:0.85,make:makeHedge},
-  casetta:{em:'🐦',name:'Casetta uccelli',cost:18,yoff:0,col:0.3,make:makeBirdhouse}};
+  casetta:{em:'🐦',name:'Casetta uccelli',cost:18,yoff:0,col:0.3,make:makeBirdhouse},
+  lanterna:{em:'🏮',name:'Lanterna',cost:20,yoff:0,col:0.4,unlock:'lanterna',make:makeLantern},
+  trofeo:{em:'🏆',name:'Trofeo',cost:30,yoff:0,col:0.3,unlock:'trofeo',make:makeTrophy}};
 function makeHatMesh(type){const h=new T.Group();
   if(type==='cappello'){const brim=new T.Mesh(new T.CylinderGeometry(0.42,0.42,0.06,16),new T.MeshStandardMaterial({color:0x222028}));brim.position.y=0.5;h.add(brim);
     const top=new T.Mesh(new T.CylinderGeometry(0.28,0.28,0.5,16),new T.MeshStandardMaterial({color:0x2a2730}));top.position.y=0.76;h.add(top);
@@ -638,6 +654,14 @@ function makeHatMesh(type){const h=new T.Group();
   else if(type==='girasole'){const stem=new T.Mesh(new T.CylinderGeometry(0.04,0.04,0.4,6),new T.MeshStandardMaterial({color:0x4f9a3a}));stem.position.y=0.66;h.add(stem);
     const center=new T.Mesh(new T.SphereGeometry(0.15,12,10),new T.MeshStandardMaterial({color:0x6a4a26,roughness:0.9}));center.position.y=0.9;center.scale.set(1,0.6,1);h.add(center);
     for(let i=0;i<12;i++){const pt=new T.Mesh(new T.ConeGeometry(0.06,0.2,5),new T.MeshStandardMaterial({color:0xf2c020,roughness:0.7}));const a=i/12*6.28;pt.position.set(Math.cos(a)*0.2,0.9,Math.sin(a)*0.2);pt.rotation.set(Math.PI/2,0,-a);h.add(pt);}}
+  else if(type==='stellina'){const starMat=new T.MeshStandardMaterial({color:0xffd23f,emissive:0xffb020,emissiveIntensity:0.6,metalness:0.3,roughness:0.3});
+    const stem=new T.Mesh(new T.CylinderGeometry(0.03,0.03,0.35,6),new T.MeshStandardMaterial({color:0x8a5f39}));stem.position.y=0.62;h.add(stem);
+    for(let i=0;i<5;i++){const a=i/5*6.28-Math.PI/2;const sp=new T.Mesh(new T.ConeGeometry(0.09,0.24,4),starMat);sp.position.set(Math.cos(a)*0.13,0.86+Math.sin(a)*0.13,0);sp.rotation.z=-a-Math.PI/2;h.add(sp);}
+    const core=new T.Mesh(new T.SphereGeometry(0.1,10,10),starMat);core.position.y=0.86;h.add(core);}
+  else if(type==='coronaoro'){const gold=new T.MeshStandardMaterial({color:0xffd23f,metalness:0.7,roughness:0.22});
+    const band=new T.Mesh(new T.CylinderGeometry(0.35,0.35,0.3,9,1,true),gold);band.position.y=0.62;h.add(band);
+    for(let i=0;i<9;i++){const a=i/9*6.28;const sp=new T.Mesh(new T.ConeGeometry(0.07,0.2,6),gold);sp.position.set(Math.cos(a)*0.35,0.82,Math.sin(a)*0.35);h.add(sp);
+      const gem=new T.Mesh(new T.SphereGeometry(0.045,8,8),new T.MeshStandardMaterial({color:[0xff5a7a,0x5ad1e6,0x9fd06a][i%3],emissive:0x222,metalness:0.4,roughness:0.2}));gem.position.set(Math.cos(a)*0.35,0.66,Math.sin(a)*0.35);h.add(gem);}}
   h.traverse(o=>{if(o.isMesh)o.castShadow=true;});h.position.y=0.42;h.scale.setScalar(1.05);return h;}
 function makeClothMesh(type){const g=new T.Group();
   if(type==='maglione'||type==='giubbotto'||type==='pigiama'){const col=type==='maglione'?0xd76b8a:type==='giubbotto'?0x3a4657:0x9fb8e0;
@@ -646,6 +670,10 @@ function makeClothMesh(type){const g=new T.Group();
   else if(type==='mantello'){const cape=new T.Mesh(new T.PlaneGeometry(1.1,1.3,1,1),new T.MeshStandardMaterial({color:0xc0392b,roughness:0.85,side:T.DoubleSide}));
     cape.position.set(0,1.32,-0.5);cape.rotation.x=-0.22;cape.castShadow=true;g.add(cape);
     const tie=new T.Mesh(new T.TorusGeometry(0.42,0.06,8,16),new T.MeshStandardMaterial({color:0x8a1e15}));tie.position.set(0,1.52,0.3);tie.rotation.x=1.2;g.add(tie);}
+  else if(type==='mantelloro'){const gm=new T.MeshStandardMaterial({color:0xf2c14e,metalness:0.55,roughness:0.3,side:T.DoubleSide,emissive:0x5a4010,emissiveIntensity:0.25});
+    const cape=new T.Mesh(new T.PlaneGeometry(1.15,1.4,1,1),gm);cape.position.set(0,1.34,-0.52);cape.rotation.x=-0.22;cape.castShadow=true;g.add(cape);
+    const tie=new T.Mesh(new T.TorusGeometry(0.42,0.06,8,16),new T.MeshStandardMaterial({color:0xc79a2a,metalness:0.6,roughness:0.3}));tie.position.set(0,1.52,0.3);tie.rotation.x=1.2;g.add(tie);
+    for(let i=0;i<3;i++){const st=new T.Mesh(new T.SphereGeometry(0.05,8,8),new T.MeshStandardMaterial({color:0xfff2b0,emissive:0xffd23f,emissiveIntensity:0.7}));st.position.set((i-1)*0.3,1.1+i*0.05,-0.55);g.add(st);}}
   else if(type==='bandanaR'||type==='bandanaB'){const col=type==='bandanaR'?0xe6352f:0x2f6fe0;
     const b=new T.Mesh(new T.ConeGeometry(0.42,0.42,3),new T.MeshStandardMaterial({color:col,roughness:0.6}));b.position.set(0,1.34,0.5);b.rotation.set(1.35,0,Math.PI);b.scale.set(1,1,0.4);g.add(b);}
   else if(type==='sciarpa'){const sc=new T.MeshStandardMaterial({color:0xd94f6a,roughness:0.9});
@@ -1327,8 +1355,15 @@ function xpNeed(lv){return 60+lv*40;}
 function gainXP(n){if(!n)return;S.xp=(S.xp||0)+n;let up=0;
   while(S.xp>=xpNeed(S.level||1)){S.xp-=xpNeed(S.level||1);S.level=(S.level||1)+1;up++;}
   if(up){const bonus=(S.level)*10;S.coins+=bonus;
-    setTimeout(()=>{toast('⭐ Livello '+S.level+'! +🦴 '+bonus);sfx('quest');burst(player.x,2,player.z,0xffe07a,30,1.8,3.2);},400);}
+    setTimeout(()=>{toast('⭐ Livello '+S.level+'! +🦴 '+bonus);sfx('quest');burst(player.x,2,player.z,0xffe07a,30,1.8,3.2);},400);
+    grantLevelRewards();}
   updateHUD();}
+const LEVEL_REWARDS={2:{kind:'hat',key:'stellina',name:'⭐ Stellina'},3:{kind:'build',key:'lanterna',name:'🏮 Lanterna'},
+  4:{kind:'hat',key:'coronaoro',name:'👑 Corona d\'oro'},5:{kind:'build',key:'trofeo',name:'🏆 Trofeo'},6:{kind:'cloth',key:'mantelloro',name:'✨ Mantello dorato'}};
+function grantLevelRewards(){for(const lv in LEVEL_REWARDS){if(S.level>=+lv){const r=LEVEL_REWARDS[lv];
+  const flag=r.kind==='hat'?'hat_'+r.key:r.kind==='cloth'?'cloth_'+r.key:'unlock_'+r.key;
+  if(!S[flag]){S[flag]=true;const where=r.kind==='build'?'costruiscilo con 🔨':'indossalo in Boutique 👕';
+    setTimeout(()=>toast('🎁 Ricompensa Livello '+lv+': '+r.name+' — '+where),1200);}}}}
 /* ---- side quests (bulletin board) ---- */
 const SIDE_ITEMS=['fiore','bacca','legno','pesce','carota'];
 function newSide(){const it=SIDE_ITEMS[(Math.random()*SIDE_ITEMS.length)|0],amt=2+((Math.random()*3)|0);
@@ -1404,9 +1439,9 @@ function renderSheet(tab){if(!sheet)return;
     `<div class="row"><span>🍖 Crocchette (nutri il cane)</span><span>🦴6 <button class="btn" ${S.coins<6?'disabled':''} onclick="__blBuyFood()">Compra</button></span></div>`+
     `<div class="row"><span>🪵 Legna (per costruire casa)</span><span>🦴4 <button class="btn" ${S.coins<4?'disabled':''} onclick="__blBuyWood()">Compra</button></span></div>`+
     '<div class="secttl">Cappellini (indossali in Boutique 👕)</div>'+
-    Object.keys(HATS).map(k=>`<div class="row"><span>${HATS[k].em} ${HATS[k].name}</span><span>${S['hat_'+k]?'✓ posseduto':'🦴'+HATS[k].price+' <button class="btn" '+(S.coins<HATS[k].price?'disabled':'')+' onclick="__blBuyHat(\''+k+'\')">Compra</button>'}</span></div>`).join('')+
+    Object.keys(HATS).filter(k=>!HATS[k].reward).map(k=>`<div class="row"><span>${HATS[k].em} ${HATS[k].name}</span><span>${S['hat_'+k]?'✓ posseduto':'🦴'+HATS[k].price+' <button class="btn" '+(S.coins<HATS[k].price?'disabled':'')+' onclick="__blBuyHat(\''+k+'\')">Compra</button>'}</span></div>`).join('')+
     '<div class="secttl">Vestiti</div>'+
-    Object.keys(CLOTHES).map(k=>`<div class="row"><span>${CLOTHES[k].em} ${CLOTHES[k].name}</span><span>${S['cloth_'+k]?'✓ posseduto':'🦴'+CLOTHES[k].price+' <button class="btn" '+(S.coins<CLOTHES[k].price?'disabled':'')+' onclick="__blBuyCloth(\''+k+'\')">Compra</button>'}</span></div>`).join('');}
+    Object.keys(CLOTHES).filter(k=>!CLOTHES[k].reward).map(k=>`<div class="row"><span>${CLOTHES[k].em} ${CLOTHES[k].name}</span><span>${S['cloth_'+k]?'✓ posseduto':'🦴'+CLOTHES[k].price+' <button class="btn" '+(S.coins<CLOTHES[k].price?'disabled':'')+' onclick="__blBuyCloth(\''+k+'\')">Compra</button>'}</span></div>`).join('');}
   else if(tab==='boutique'){h+=`<div class="secttl">Vesti ${S.active==='bucky'?'Bucky 🔴':'Loki 🔵'} (🔄 per l'altro)</div><div class="secttl">Cappellini</div>`+
     `<div class="row"><span>— nessuno —</span><button class="btn ${!S.outfits[S.active].hat?'':'ghost'}" onclick="__blWear(null)">${!S.outfits[S.active].hat?'✓':'Togli'}</button></div>`+
     Object.keys(HATS).filter(k=>S['hat_'+k]).map(k=>`<div class="row"><span>${HATS[k].em} ${HATS[k].name}</span><button class="btn ${S.outfits[S.active].hat===k?'':'ghost'}" onclick="__blWear('${k}')">${S.outfits[S.active].hat===k?'✓':'Indossa'}</button></div>`).join('')+
@@ -1600,7 +1635,7 @@ function toggleRemove(){closeSheet();cancelPlace();removeMode=!removeMode;
 window.__blRemoveMode=toggleRemove;
 function openBuild(){closeSheet();sheet=document.createElement('div');sheet.className='sheet';sheet.onclick=e=>{if(e.target===sheet)closeSheet();};document.body.appendChild(sheet);
   let h=`<div class="panel"><h3>🔨 Costruisci <button class="x" onclick="__blClose()">✕</button></h3><div style="margin-bottom:10px"><span class="bal">🦴 ${S.coins}</span> <button class="btn ghost" onclick="__blRemoveMode()">🗑️ Rimuovi oggetti</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:11px">`;
-  for(const k in BUILD){const d=BUILD[k],can=S.coins>=d.cost;h+=`<div class="slot" style="cursor:pointer;${can?'':'opacity:.45'}" onclick="__blBuild('${k}')"><div class="em">${d.em}</div><div class="nm">${d.name}</div><div class="ct">🦴${d.cost}</div></div>`;}
+  for(const k in BUILD){const d=BUILD[k];if(d.unlock&&!S['unlock_'+d.unlock])continue;const can=S.coins>=d.cost;h+=`<div class="slot" style="cursor:pointer;${can?'':'opacity:.45'}" onclick="__blBuild('${k}')"><div class="em">${d.em}</div><div class="nm">${d.name}</div><div class="ct">🦴${d.cost}</div></div>`;}
   h+='</div><div class="empty">Scegli un oggetto, poi muovi il cane per mirare e tocca ✓ per posizionare.</div></div>';sheet.innerHTML=h;}
 window.__blBuild=k=>{if(S.coins<BUILD[k].cost){toast('Servono più ossa 🦴');return;}closeSheet();startPlace(k);};
 function startPlace(k){cancelPlace();if(removeMode){removeMode=false;if(removeHi)removeHi.visible=false;}
