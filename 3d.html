@@ -62,6 +62,12 @@
   #needs .need.low b{background:#e0574f;}
   #needs .need.low span{animation:needblink 1.1s infinite;}
   @keyframes needblink{0%,100%{opacity:1}50%{opacity:.3}}
+  #compass{position:fixed;top:calc(env(safe-area-inset-top) + 72px);left:50%;transform:translateX(-50%);z-index:11;pointer-events:none;
+    display:none;flex-direction:column;align-items:center;gap:3px;}
+  #compass.on{display:flex;}
+  #compDisc{width:46px;height:46px;border-radius:50%;background:rgba(255,253,246,.85);box-shadow:0 2px 9px rgba(60,40,20,.18);position:relative;display:flex;align-items:center;justify-content:center;font-size:19px;}
+  #compArrow{position:absolute;top:2px;left:50%;margin-left:-6px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:15px solid var(--accent);transform-origin:50% 21px;}
+  #compDist{font-size:10px;font-weight:800;color:#5a4a38;background:rgba(255,253,246,.85);padding:1px 8px;border-radius:8px;box-shadow:0 2px 6px rgba(60,40,20,.14);}
   #tut{position:fixed;inset:0;z-index:70;background:rgba(20,26,20,.62);display:none;align-items:center;justify-content:center;padding:24px;pointer-events:auto;backdrop-filter:blur(2px);}
   #tut.on{display:flex;}
   #tutCard{background:rgba(255,253,246,.98);border-radius:24px;max-width:340px;width:100%;padding:26px 22px 18px;text-align:center;box-shadow:0 16px 44px rgba(0,0,0,.34);font-family:var(--font);}
@@ -149,6 +155,7 @@
 <button id="buildBtn" class="sidebtn" title="Costruisci">🔨</button>
 <button id="exitBtn">🚪 Esci</button>
 <div id="placeBar"><button id="pRot" class="pbtn">↻</button><button id="pOk" class="pbtn ok">✓ Posiziona</button><button id="pNo" class="pbtn no">✗</button></div>
+<div id="compass" class="hud"><div id="compDisc"><div id="compArrow"></div><span id="compTarget">🎯</span></div><div id="compDist"></div></div>
 <div id="fade"></div>
 <div id="tut"><div id="tutCard">
   <div class="em" id="tutEm">🐶</div>
@@ -1441,6 +1448,16 @@ function drawMap(){const cv=$('mapCv');if(!cv)return;const ctx=cv.getContext('2d
   ctx.save();ctx.translate(X(player.x),Z(player.z));ctx.rotate(ang);ctx.fillStyle='#e0562b';ctx.strokeStyle='#fff';ctx.lineWidth=1.8;
   ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,6.5);ctx.lineTo(-6,-6.5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();}
 
+// on-screen compass pointing to the active objective
+function updateCompass(){const cel=$('compass');if(!cel)return;
+  if(inside||tutOpen){cel.classList.remove('on');return;}
+  const q=QUESTS[S.quest];if(!q||!NPCDEF[q.npc]){cel.classList.remove('on');return;}
+  const tp=NPCDEF[q.npc].pos,dx=tp[0]-player.x,dz=tp[1]-player.z,dist=Math.hypot(dx,dz);
+  cel.classList.add('on');
+  if(dist<2.5){$('compTarget').textContent='✅';$('compArrow').style.opacity='0';$('compDist').textContent='qui!';return;}
+  $('compArrow').style.opacity='1';$('compArrow').style.transform=`rotate(${Math.atan2(dx,-dz)*180/Math.PI}deg)`;
+  $('compTarget').textContent=NPCDEF[q.npc].em;$('compDist').textContent=Math.round(dist)+'m';}
+
 /* ================= MINI TUTORIAL ================= */
 const TUTORIAL=[
   {em:'🐶',t:'Benvenuto a Coda!',x:'Guida <b>Bucky</b> e <b>Loki</b> col joystick 🕹️ in basso a sinistra. L\'altro cane ti segue sempre! Con 🔄 cambi cane.'},
@@ -1694,6 +1711,7 @@ function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
   if(player.moving){dustT+=dt;if(dustT>0.17){dustT=0;burst(player.x,0.05,player.z,0xd8c49a,2,0.5,0.8);}}
   if(fishing&&bobber&&bobber.visible)bobber.position.y=0.18+(fishing.state==='bite'?Math.sin(now/70)*0.13-0.08:Math.sin(now/380)*0.05);
   detectNear();
+  updateCompass();
   if(placeMode)updatePlace();
   if(removeMode&&removeHi){if(near&&near.type==='remove'){removeHi.visible=true;removeHi.position.set(near.obj.p.x,groundHeight(near.obj.p.x,near.obj.p.z)+0.07,near.obj.p.z);}else removeHi.visible=false;}
   camTarget.set(player.x,1.6+player.y,player.z);
