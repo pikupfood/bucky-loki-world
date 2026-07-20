@@ -1215,7 +1215,9 @@ function startFishing(){if(fishing)return;if(!bobber){bobber=makeBobber();scene.
     fishing.close=setTimeout(()=>{if(fishing&&fishing.bite)endFishing(false);},1300);},wait);}
 function fishPull(){if(!fishing)return;if(fishing.state==='bite')endFishing(true);else endFishing(false,true);}
 function endFishing(success,early){clearTimeout(fishing.timer);clearTimeout(fishing.close);const cx=fishing.cx,cz=fishing.cz;fishing=null;fishEl.style.display='none';fishEl.innerHTML='';if(bobber)bobber.visible=false;
-  if(success){const f=FISHES[(Math.random()*FISHES.length)|0];addInv('pesce',1);toast(f[0]+' Preso: '+f[1]+'! +1');burst(cx,0.5,cz,0x9fd0f0,18,1.4,2.8);sfx('fish');after();}
+  if(success){const f=FISHES[(Math.random()*FISHES.length)|0];addInv('pesce',1);toast(f[0]+' Preso: '+f[1]+'! +1');burst(cx,0.5,cz,0x9fd0f0,18,1.4,2.8);sfx('fish');
+    if(Math.random()<0.13){addInv('gemma',1);setTimeout(()=>{toast('💎 Tesoro dal lago! +1 Gemma');burst(cx,0.7,cz,0x8fd0ff,22,1.6,3);sfx('quest');},700);}
+    after();}
   else toast(early?'…troppo presto! 🎣':'Scappato! 🐟💨');}
 
 /* ================= MENU / SHEETS ================= */
