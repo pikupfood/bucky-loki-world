@@ -1397,10 +1397,13 @@ function openMap(){closeSheet();cancelPlace&&cancelPlace();closeMap();
   mapEl=document.createElement('div');mapEl.className='sheet';mapEl.onclick=e=>{if(e.target===mapEl)closeMap();};
   mapEl.innerHTML=`<div class="panel"><h3>🗺️ Mappa del Mondo di Coda <button class="x" onclick="__blCloseMap()">✕</button></h3>
     <canvas id="mapCv" width="330" height="330" style="width:100%;max-width:340px;display:block;margin:2px auto 6px;border-radius:16px;box-shadow:inset 0 0 0 2px rgba(0,0,0,.06)"></canvas>
+    <div id="mapQuest" class="row" style="justify-content:flex-start;gap:8px"></div>
     <div class="secttl">🧭 Viaggio rapido — tocca una meta</div>
     <div id="mapTravel" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
-    <div class="empty">Il triangolo arancione 🔺 sei tu. La bussola in alto punta all'obiettivo.</div></div>`;
+    <div class="empty">🔺 tu · 🔵 il tuo compagno · 🎯 dove andare per la missione</div></div>`;
   document.body.appendChild(mapEl);
+  const q=QUESTS[S.quest];
+  $('mapQuest').innerHTML=q&&NPCDEF[q.npc]?`<span>🎯 Missione: raggiungi ${NPCDEF[q.npc].em} <b>${NPCDEF[q.npc].name}</b>${q.type==='collect'?' con '+q.amount+' '+ITEMS[q.item].em:''}</span>`:'<span>🌟 Hai completato tutte le missioni!</span>';
   $('mapTravel').innerHTML=TRAVEL.map((t,i)=>`<button class="btn ghost" onclick="__blTravel(${i})">${t[0]}</button>`).join('');
   drawMap();}
 window.__blTravel=i=>{const t=TRAVEL[i];if(!t)return;travelTo(t[1],t[2]);};
@@ -1425,6 +1428,14 @@ function drawMap(){const cv=$('mapCv');if(!cv)return;const ctx=cv.getContext('2d
   for(const s of[['🛒',8,20],['👕',-20,2],['💰',22,-16],['🛒',51,35]])ctx.fillText(s[0],X(s[1]),Z(s[2]));
   ctx.font='12px serif';for(const id in NPCDEF){const p=NPCDEF[id].pos;ctx.fillText(NPCDEF[id].em,X(p[0]),Z(p[1]));}
   ctx.fillStyle='rgba(74,58,40,.9)';ctx.font='bold 13px sans-serif';ctx.fillText('CODA',X(-2),Z(-4));ctx.fillText('BORGO',X(46),Z(53));
+  // active mission target — ring + 🎯 over the NPC to visit
+  const q=QUESTS[S.quest];
+  if(q&&NPCDEF[q.npc]){const tp=NPCDEF[q.npc].pos;ctx.strokeStyle='#e0562b';ctx.lineWidth=2.6;
+    ctx.beginPath();ctx.arc(X(tp[0]),Z(tp[1]),13,0,6.28);ctx.stroke();
+    ctx.font='16px serif';ctx.fillText('🎯',X(tp[0]),Z(tp[1])-17);}
+  // companion dog dot
+  ctx.fillStyle='#4a7fd0';ctx.strokeStyle='#fff';ctx.lineWidth=1.6;
+  ctx.beginPath();ctx.arc(X(comp.x),Z(comp.z),4.5,0,6.28);ctx.fill();ctx.stroke();
   // player arrow
   const ang=Math.atan2(Math.cos(player.dir),Math.sin(player.dir));
   ctx.save();ctx.translate(X(player.x),Z(player.z));ctx.rotate(ang);ctx.fillStyle='#e0562b';ctx.strokeStyle='#fff';ctx.lineWidth=1.8;
