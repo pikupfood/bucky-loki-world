@@ -71,6 +71,10 @@
   #compDisc{width:46px;height:46px;border-radius:50%;background:rgba(255,253,246,.85);box-shadow:0 2px 9px rgba(60,40,20,.18);position:relative;display:flex;align-items:center;justify-content:center;font-size:19px;}
   #compArrow{position:absolute;top:2px;left:50%;margin-left:-6px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:15px solid var(--accent);transform-origin:50% 21px;}
   #compDist{font-size:10px;font-weight:800;color:#5a4a38;background:rgba(255,253,246,.85);padding:1px 8px;border-radius:8px;box-shadow:0 2px 6px rgba(60,40,20,.14);}
+  #chal{position:fixed;top:calc(env(safe-area-inset-top) + 130px);left:50%;transform:translateX(-50%);z-index:11;pointer-events:none;display:none;}
+  #chal.on{display:block;}
+  #chalTxt{background:rgba(255,247,235,.92);color:#7a4a20;font-weight:800;font-size:12px;padding:5px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(60,40,20,.18);white-space:nowrap;}
+  #chal.urgent #chalTxt{background:#ffe0d6;color:#c0392b;animation:needblink .8s infinite;}
   #tut{position:fixed;inset:0;z-index:70;background:rgba(20,26,20,.62);display:none;align-items:center;justify-content:center;padding:24px;pointer-events:auto;backdrop-filter:blur(2px);}
   #tut.on{display:flex;}
   #tutCard{background:rgba(255,253,246,.98);border-radius:24px;max-width:340px;width:100%;padding:26px 22px 18px;text-align:center;box-shadow:0 16px 44px rgba(0,0,0,.34);font-family:var(--font);}
@@ -163,6 +167,7 @@
 <button id="exitBtn">🚪 Esci</button>
 <div id="placeBar"><button id="pRot" class="pbtn">↻</button><button id="pOk" class="pbtn ok">✓ Posiziona</button><button id="pNo" class="pbtn no">✗</button></div>
 <div id="compass" class="hud"><div id="compDisc"><div id="compArrow"></div><span id="compTarget">🎯</span></div><div id="compDist"></div></div>
+<div id="chal" class="hud"><span id="chalTxt"></span></div>
 <div id="fade"></div>
 <div id="tut"><div id="tutCard">
   <div class="em" id="tutEm">🐶</div>
@@ -1368,24 +1373,39 @@ function grantLevelRewards(){for(const lv in LEVEL_REWARDS){if(S.level>=+lv){con
 const SIDE_ITEMS=['fiore','bacca','legno','pesce','carota'];
 function newSide(){const it=SIDE_ITEMS[(Math.random()*SIDE_ITEMS.length)|0],amt=2+((Math.random()*3)|0);
   return{item:it,amount:amt,prog:0,reward:amt*ITEMS[it].sell+14};}
+function newSideTimed(){const it=SIDE_ITEMS[(Math.random()*SIDE_ITEMS.length)|0],amt=2+((Math.random()*3)|0);
+  return{item:it,amount:amt,prog:0,reward:(amt*ITEMS[it].sell+14)*2,timed:true,dur:(amt*45+75)*1000};}
+function fmtTime(ms){const s=Math.max(0,Math.ceil(ms/1000));return Math.floor(s/60)+':'+('0'+(s%60)).slice(-2);}
 function sideProgress(item){if(S.side&&S.side.item===item&&S.side.prog<S.side.amount){S.side.prog++;
   if(S.side.prog>=S.side.amount){toast('📋 Incarico pronto! Torna alla bacheca');sfx('quest');}save();}}
 function openBoard(){closeSheet();closeMap&&closeMap();sheet=document.createElement('div');sheet.className='sheet';sheet.onclick=e=>{if(e.target===sheet)closeSheet();};document.body.appendChild(sheet);renderBoard();}
 function renderBoard(){if(!sheet)return;let h=`<div class="panel"><h3>📋 Bacheca incarichi <button class="x" onclick="__blClose()">✕</button></h3>
     <div style="margin-bottom:10px"><span class="bal">⭐ Livello ${S.level||1}</span> <span class="bal">🏅 ${S.sideDone||0} svolti</span></div>`;
   const s=S.side;
-  if(!s){const n=newSide();window.__pendSide=n;
-    h+=`<div class="secttl">Nuovo incarico disponibile</div><div class="row"><span>Raccogli <b>${n.amount} ${ITEMS[n.item].em} ${ITEMS[n.item].name}</b></span><span>🦴${n.reward} +⭐<br><button class="btn" onclick="__blSideAccept()">Accetta</button></span></div>
+  if(!s){const n=newSide(),t=newSideTimed();window.__pendSide=n;window.__pendTimed=t;
+    h+=`<div class="secttl">Incarico normale</div><div class="row"><span>Raccogli <b>${n.amount} ${ITEMS[n.item].em} ${ITEMS[n.item].name}</b></span><span>🦴${n.reward} +⭐<br><button class="btn" onclick="__blSideAccept()">Accetta</button></span></div>`;
+    h+=`<div class="secttl">⏱️ Sfida veloce — ricompensa doppia!</div><div class="row"><span>Raccogli <b>${t.amount} ${ITEMS[t.item].em} ${ITEMS[t.item].name}</b><br><small style="opacity:.6">entro ${fmtTime(t.dur)}</small></span><span>🦴${t.reward} +⭐<br><button class="btn" onclick="__blSideAcceptTimed()">Accetta ⏱️</button></span></div>
     <div class="empty">Gli incarichi danno ossa ed esperienza extra. Ne trovi sempre di nuovi! 🐾</div>`;}
-  else if(s.prog>=s.amount){h+=`<div class="secttl">Incarico completato ✅</div><div class="row"><span>${s.amount} ${ITEMS[s.item].em} ${ITEMS[s.item].name}</span><span>🦴${s.reward} +⭐<br><button class="btn" onclick="__blSideClaim()">Riscuoti 🏅</button></span></div>`;}
-  else{h+=`<div class="secttl">Incarico in corso</div><div class="row"><span>Raccogli ${ITEMS[s.item].em} ${ITEMS[s.item].name}</span><b>${s.prog}/${s.amount}</b></div>
+  else if(s.prog>=s.amount){h+=`<div class="secttl">${s.timed?'⏱️ Sfida':'Incarico'} completata ✅</div><div class="row"><span>${s.amount} ${ITEMS[s.item].em} ${ITEMS[s.item].name}${s.timed?'<br><small style="opacity:.6">'+fmtTime(s.deadline-Date.now())+' rimasti</small>':''}</span><span>🦴${s.reward} +⭐<br><button class="btn" onclick="__blSideClaim()">Riscuoti 🏅</button></span></div>`;}
+  else{h+=`<div class="secttl">${s.timed?'⏱️ Sfida in corso':'Incarico in corso'}</div><div class="row"><span>Raccogli ${ITEMS[s.item].em} ${ITEMS[s.item].name}${s.timed?'<br><small style="opacity:.6">⏱️ '+fmtTime(s.deadline-Date.now())+' rimasti</small>':''}</span><b>${s.prog}/${s.amount}</b></div>
     <div class="empty">Raccogline ancora ${s.amount-s.prog} e torna a riscuotere.</div>
     <div class="row"><span>Non ti va? Cambia incarico</span><button class="btn ghost" onclick="__blSideSkip()">Cambia</button></div>`;}
   h+='</div>';sheet.innerHTML=h;}
 window.__blSideAccept=()=>{S.side=window.__pendSide||newSide();toast('📋 Incarico accettato!');sfx('tap');save();renderBoard();};
-window.__blSideClaim=()=>{const s=S.side;if(!s||s.prog<s.amount)return;S.coins+=s.reward;S.sideDone=(S.sideDone||0)+1;gainXP(s.reward);S.side=null;
-  toast('🏅 Incarico riscosso! +🦴'+s.reward);sfx('quest');burst(player.x,1.6,player.z,0xffd23f,24,1.6,3);updateHUD();save();renderBoard();};
+window.__blSideAcceptTimed=()=>{const t=window.__pendTimed||newSideTimed();t.deadline=Date.now()+t.dur;S.side=t;toast('⏱️ Sfida veloce iniziata! Corri!');sfx('quest');save();renderBoard();};
+window.__blSideClaim=()=>{const s=S.side;if(!s||s.prog<s.amount)return;
+  if(s.timed&&Date.now()>s.deadline){S.side=null;toast('⏱️ Tempo scaduto! Sfida fallita 😢');sfx('tap');save();renderBoard();return;}
+  S.coins+=s.reward;S.sideDone=(S.sideDone||0)+1;gainXP(s.reward);const timed=s.timed;S.side=null;
+  toast((timed?'⏱️🏅 Sfida vinta! +🦴':'🏅 Incarico riscosso! +🦴')+s.reward);sfx('quest');burst(player.x,1.6,player.z,0xffd23f,24,1.6,3);updateHUD();save();renderBoard();};
 window.__blSideSkip=()=>{S.side=null;renderBoard();};
+// timed challenge HUD countdown + expiry
+function updateChallenge(){const el=$('chal');if(!el)return;const s=S.side;
+  if(!s||!s.timed||!s.deadline){el.classList.remove('on');return;}
+  const rem=s.deadline-Date.now();
+  if(rem<=0&&s.prog<s.amount){S.side=null;el.classList.remove('on');toast('⏱️ Tempo scaduto! Sfida fallita 😢');save();return;}
+  el.classList.add('on');
+  $('chalTxt').innerHTML=s.prog>=s.amount?`⏱️ ${fmtTime(rem)} · ✅ vai alla bacheca 📋`:`⏱️ ${fmtTime(rem)} · ${ITEMS[s.item].em} ${s.prog}/${s.amount}`;
+  el.classList.toggle('urgent',rem<20000);}
 
 /* ---- Garden ---- */
 function usePlot(i){const pl=S.plots[i];
@@ -1849,7 +1869,7 @@ function frame(now){try{const dt=Math.min((now-last)/1000,0.05);last=now;
   if(player.moving){dustT+=dt;if(dustT>0.17){dustT=0;burst(player.x,0.05,player.z,0xd8c49a,2,0.5,0.8);}}
   if(fishing&&bobber&&bobber.visible)bobber.position.y=0.18+(fishing.state==='bite'?Math.sin(now/70)*0.13-0.08:Math.sin(now/380)*0.05);
   detectNear();
-  updateCompass();
+  updateCompass();updateChallenge();
   if(!inside)checkDiscover();
   if(placeMode)updatePlace();
   if(removeMode&&removeHi){if(near&&near.type==='remove'){removeHi.visible=true;removeHi.position.set(near.obj.p.x,groundHeight(near.obj.p.x,near.obj.p.z)+0.07,near.obj.p.z);}else removeHi.visible=false;}
