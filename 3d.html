@@ -1193,13 +1193,47 @@ function makeFishSwim(){const g=new T.Group();const c=[0xe0873a,0xd0d3d8,0x6fa8c
   const tail=new T.Mesh(new T.ConeGeometry(0.11,0.17,4),fmat);tail.rotation.z=-Math.PI/2;tail.position.x=-0.22;tail.scale.set(1,1,0.4);g.add(tail);
   const fin=new T.Mesh(new T.ConeGeometry(0.06,0.12,4),fmat);fin.position.set(0.02,0.09,0);fin.scale.set(1,1,0.3);g.add(fin);return g;}
 for(let i=0;i<7;i++){const f=makeFishSwim();scene.add(f);lakeFish.push({g:f,r:2.5+Math.random()*(LAKE.r-5),ph:Math.random()*6.28,sp:0.22+Math.random()*0.3,cy:0.13+Math.random()*0.03});}
+// ---- more wildlife: squirrels, frogs, deer ----
+function makeSquirrel(){const g=new T.Group();const o=new T.MeshStandardMaterial({color:0xc06a35,roughness:0.85}),lt=new T.MeshStandardMaterial({color:0xf0d0a8,roughness:0.85});
+  const body=new T.Mesh(new T.SphereGeometry(0.2,12,10),o);body.scale.set(1,1.1,1.3);body.position.y=0.24;body.castShadow=true;g.add(body);
+  const head=new T.Mesh(new T.SphereGeometry(0.15,10,9),o);head.position.set(0,0.42,0.18);head.castShadow=true;g.add(head);
+  for(const sx of[-1,1]){const ear=new T.Mesh(new T.ConeGeometry(0.06,0.1,5),o);ear.position.set(sx*0.08,0.56,0.16);g.add(ear);
+    const eye=new T.Mesh(new T.SphereGeometry(0.025,6,6),new T.MeshStandardMaterial({color:0x201a15}));eye.position.set(sx*0.07,0.44,0.31);g.add(eye);}
+  const belly=new T.Mesh(new T.SphereGeometry(0.13,10,8),lt);belly.position.set(0,0.28,0.22);belly.scale.set(1,1.1,0.6);g.add(belly);
+  const tail=new T.Mesh(new T.SphereGeometry(0.18,10,10),o);tail.scale.set(0.7,1.4,0.7);tail.position.set(0,0.44,-0.28);tail.castShadow=true;g.add(tail);return g;}
+function makeFrog(){const g=new T.Group();const gm=new T.MeshStandardMaterial({color:0x5aad4a,roughness:0.6}),belly=new T.MeshStandardMaterial({color:0xd8e8a0,roughness:0.6});
+  const body=new T.Mesh(new T.SphereGeometry(0.18,12,10),gm);body.scale.set(1.1,0.8,1);body.position.y=0.15;body.castShadow=true;g.add(body);
+  const bb=new T.Mesh(new T.SphereGeometry(0.13,10,8),belly);bb.position.set(0,0.1,0.1);bb.scale.set(1,0.7,0.8);g.add(bb);
+  for(const sx of[-1,1]){const eye=new T.Mesh(new T.SphereGeometry(0.06,8,8),gm);eye.position.set(sx*0.09,0.28,0.06);g.add(eye);
+    const p=new T.Mesh(new T.SphereGeometry(0.03,6,6),new T.MeshStandardMaterial({color:0x1a1a1a}));p.position.set(sx*0.1,0.29,0.11);g.add(p);}
+  for(const sx of[-1,1]){const leg=new T.Mesh(new T.SphereGeometry(0.07,7,6),gm);leg.scale.set(1,0.5,1.5);leg.position.set(sx*0.16,0.06,-0.02);g.add(leg);}return g;}
+function makeDeer(){const g=new T.Group();const t=new T.MeshStandardMaterial({color:0xb07a4a,roughness:0.85}),lt=new T.MeshStandardMaterial({color:0xe8cfa8}),dk=new T.MeshStandardMaterial({color:0x6a4a2a});
+  const body=new T.Mesh(new T.CapsuleGeometry(0.34,0.6,6,10),t);body.rotation.z=Math.PI/2;body.position.set(0,1.0,0);body.castShadow=true;g.add(body);
+  const neck=new T.Mesh(new T.CylinderGeometry(0.14,0.18,0.6,8),t);neck.position.set(0,1.35,0.5);neck.rotation.x=0.6;neck.castShadow=true;g.add(neck);
+  const head=new T.Mesh(new T.SphereGeometry(0.2,12,10),t);head.scale.set(1,1,1.3);head.position.set(0,1.65,0.72);head.castShadow=true;g.add(head);
+  for(const sx of[-1,1]){const ear=new T.Mesh(new T.ConeGeometry(0.08,0.2,6),t);ear.position.set(sx*0.16,1.78,0.66);ear.rotation.z=sx*0.5;g.add(ear);
+    const eye=new T.Mesh(new T.SphereGeometry(0.03,6,6),new T.MeshStandardMaterial({color:0x201a15}));eye.position.set(sx*0.1,1.66,0.86);g.add(eye);
+    const an=new T.Mesh(new T.CylinderGeometry(0.02,0.03,0.3,5),dk);an.position.set(sx*0.09,1.92,0.68);an.rotation.z=sx*0.3;an.castShadow=true;g.add(an);
+    const an2=new T.Mesh(new T.CylinderGeometry(0.015,0.02,0.16,5),dk);an2.position.set(sx*0.16,2.05,0.68);an2.rotation.z=sx*0.8;g.add(an2);}
+  const nose=new T.Mesh(new T.SphereGeometry(0.06,8,8),dk);nose.position.set(0,1.6,0.9);g.add(nose);
+  for(const p of[[-0.22,0.36],[0.22,0.36],[-0.22,-0.36],[0.22,-0.36]]){const leg=new T.Mesh(new T.CylinderGeometry(0.06,0.05,1.0,6),t);leg.position.set(p[0],0.5,p[1]);leg.castShadow=true;g.add(leg);}
+  const tail=new T.Mesh(new T.SphereGeometry(0.1,8,8),lt);tail.position.set(0,1.05,-0.55);g.add(tail);return g;}
+for(let i=0,gu=0;i<5&&gu<40;gu++){const a=Math.random()*6.28,r=10+Math.random()*32,x=Math.cos(a)*r,z=Math.sin(a)*r;
+  if(inLake(x,z)||onRaised(x,z)||inGarden(x,z))continue;const sq=makeSquirrel();sq.position.set(x,0,z);scene.add(sq);
+  animals.push({g:sq,type:'squirrel',hx:x,hz:z,x,z,dir:0,tx:x,tz:z,mv:false,wait:Math.random()*3,ph:Math.random()*6,rad:5});i++;}
+for(let i=0;i<4;i++){const a=Math.random()*6.28,r=LAKE.r+1.4+Math.random()*2,x=LAKE.x+Math.cos(a)*r,z=LAKE.z+Math.sin(a)*r;
+  const fr=makeFrog();fr.position.set(x,0,z);scene.add(fr);
+  animals.push({g:fr,type:'frog',hx:x,hz:z,x,z,dir:0,tx:x,tz:z,mv:false,wait:Math.random()*3,ph:Math.random()*6,rad:2.5});}
+[[30,-32],[-18,-38]].forEach(p=>{const de=makeDeer();de.position.set(p[0],0,p[1]);scene.add(de);
+  animals.push({g:de,type:'deer',hx:p[0],hz:p[1],x:p[0],z:p[1],dir:0,tx:p[0],tz:p[1],mv:false,wait:Math.random()*4,ph:Math.random()*6,rad:9});});
 function updateAnimals(dt){for(const n of animals){
   if(!n.mv){n.wait-=dt;if(n.wait<=0){const a=Math.random()*6.28,r=Math.random()*n.rad,tx=n.hx+Math.cos(a)*r,tz=n.hz+Math.sin(a)*r;
-    if(n.type==='rabbit'&&inLake(tx,tz)){n.wait=0.5;}else{n.tx=tx;n.tz=tz;n.mv=true;}}}
+    if(n.type!=='duck'&&inLake(tx,tz)){n.wait=0.5;}else{n.tx=tx;n.tz=tz;n.mv=true;}}}
   else{const dx=n.tx-n.x,dz=n.tz-n.z,d=Math.hypot(dx,dz);if(d<0.25){n.mv=false;n.wait=1+Math.random()*3;}
-    else{const sp=Math.min((n.type==='duck'?0.9:2.4)*dt,d);n.x+=dx/d*sp;n.z+=dz/d*sp;n.dir=Math.atan2(dx,dz);}}
-  n.ph+=dt*(n.type==='rabbit'?10:3);
-  const y=n.type==='duck'?0.18+Math.sin(n.ph)*0.03:(n.mv?Math.abs(Math.sin(n.ph))*0.22:0);
+    else{const SP={duck:0.9,rabbit:2.4,squirrel:2.9,frog:1.5,deer:1.9},sp=Math.min((SP[n.type]||2.2)*dt,d);n.x+=dx/d*sp;n.z+=dz/d*sp;n.dir=Math.atan2(dx,dz);}}
+  const hop=n.type==='rabbit'||n.type==='squirrel'||n.type==='frog';
+  n.ph+=dt*(hop?10:n.type==='deer'?6:3);
+  const y=n.type==='duck'?0.18+Math.sin(n.ph)*0.03:(n.mv?Math.abs(Math.sin(n.ph))*(n.type==='deer'?0.09:n.type==='frog'?0.3:0.22):0);
   n.g.position.set(n.x,y,n.z);n.g.rotation.y+=(n.dir-n.g.rotation.y)*Math.min(1,dt*8);}}
 // ---- particle bursts ----
 const PPOOL=[],pfree=[];{const geo=new T.IcosahedronGeometry(0.09,0);for(let i=0;i<90;i++){
