@@ -47,11 +47,15 @@ bld('tower_A',7,1,0);bld('home_A',7,-3,0.3);bld('well',-1.4,1.6,0);bld('mine',-7
 load(B+'buildings/red/building_castle_red.gltf',15,-7,1,0.3,-SEAT);load(B+'buildings/red/building_home_A_red.gltf',17.5,-6,1,0.5,-SEAT);load(B+'buildings/red/building_barracks_red.gltf',14.5,-10,1,-0.3,-SEAT);load(B+'buildings/red/building_tower_A_red.gltf',18,-9.5,1,0,-SEAT);
 // rocce (senza base)
 load(B+'decoration/nature/rock_single_A.gltf',-9,6,1.4,0);load(B+'decoration/nature/rock_single_C.gltf',9,-8,1.4,1);load(B+'decoration/nature/rock_single_B.gltf',10,7,1.3,2);
-// personaggi = popoli con abilità
-load(AD+'Knight.glb',1.6,1.2,0.6,2.4);load(AD+'Mage.glb',-1.4,0.6,0.6,1.6);load(AD+'Barbarian.glb',1.8,-1.2,0.6,-2.2);load(AD+'Rogue.glb',-0.7,-1.6,0.6,0.4);
+// personaggi = popoli con abilità (piccoli rispetto agli edifici, scala umana reale)
+const PS=0.32; // un personaggio arriva circa alla porta: ci può entrare
+load(AD+'Knight.glb',2.3,-1.1,PS,3.14);  // davanti alla porta di una casa
+load(AD+'Mage.glb',-2.1,-1.2,PS,0.0);
+load(AD+'Barbarian.glb',1.0,0.1,PS,-1.0);
+load(AD+'Rogue.glb',-1.0,1.0,PS,2.0);
 // nemici Ombra (scheletri)
-load(SK+'Skeleton_Warrior.glb',-6,8,0.6,3.0);load(SK+'Skeleton_Rogue.glb',-4.5,8.6,0.6,3.0);load(SK+'Skeleton_Minion.glb',-7,8.8,0.55,2.8);
+load(SK+'Skeleton_Warrior.glb',-6,8,PS,3.0);load(SK+'Skeleton_Rogue.glb',-4.5,8.6,PS,3.0);load(SK+'Skeleton_Minion.glb',-7,8.8,0.3,2.8);
 let a=0.7;
-function tick(){requestAnimationFrame(tick);a+=0.0014;const r=17,h=12;camera.position.set(Math.sin(a)*r,h,Math.cos(a)*r+2);camera.lookAt(0,0.8,0);renderer.render(scene,camera);}
+function tick(){requestAnimationFrame(tick);a+=0.0013;const r=10.5,h=5.6;camera.position.set(Math.sin(a)*r,h,Math.cos(a)*r+2);camera.lookAt(0,1.3,0);renderer.render(scene,camera);}
 tick();
 </script>
