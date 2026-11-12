@@ -125,6 +125,7 @@
   <div class="subtitle">Un solo Tuzu in un mondo addormentato. Raccogli, costruisci, fai nascere un popolo e scopri perché il mondo si era fermato. ✨</div>
   <button class="btn" id="startBtn">Comincia ▶</button>
   <button class="btn ghost hidden" id="continueBtn">Continua 💾</button>
+  <a class="btn ghost" href="3d.html" style="text-decoration:none;">🌍 Prova la versione 3D</a>
 </div>
 
 <div id="pick" class="overlay hidden">
@@ -515,6 +516,36 @@ function detectNear(){near=null;let best=50;
   const act=document.getElementById('act');if(placeMode){act.disabled=true;return;}
   act.disabled=!near;
   act.textContent=!near?'👋':near.kind==='saggio'?'💬':near.kind==='node'?'✋':near.kind==='tuzu'?'🫧':'👀';
+}
+
+/* ---------- 2.5D DEPTH: sun, shadows, volume ---------- */
+// Sun position derived from the day/night clock. Drives shadow length,
+// direction and softness so the world reads as three-dimensional.
+function sunInfo(){
+  const elev=Math.max(0,Math.sin(((clock-0.12)/0.72)*Math.PI)); // 0 at dawn/dusk, 1 at noon
+  const ox=(clock-0.5)*2.4;    // horizontal shadow skew: sun sweeps east→west
+  const len=(1-elev)*10;       // shadows stretch when the sun is low
+  return{elev,ox,len};
+}
+// Soft, directional, blurred ground shadow (screen-space coords).
+function groundShadow(cx,by,rw,strength){
+  const s=sunInfo(),L=getLight();
+  const a=(strength||0.22)*(0.5+s.elev*0.5)*(1-L.dark*0.55);
+  if(a<=0.01)return;
+  const rx=rw*(1.05+(1-s.elev)*0.55), ex=cx+s.ox*rw*0.5+s.len*0.4, ey=by+1.5;
+  ctx.save();ctx.translate(ex,ey);ctx.scale(1,Math.max(0.24,rw*0.34)/rx);
+  const g=ctx.createRadialGradient(0,0,rx*0.15,0,0,rx);
+  g.addColorStop(0,`rgba(18,24,12,${a})`);g.addColorStop(0.6,`rgba(18,24,12,${a*0.5})`);g.addColorStop(1,'rgba(18,24,12,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,rx,0,7);ctx.fill();ctx.restore();
+}
+// Radial "volume" shade: top-left sun highlight fading into a bottom core shadow.
+// Draws roughly within a silhouette to make flat shapes look rounded.
+function volume(g,cx,cy,r,hi,lo){
+  const vg=g.createRadialGradient(cx-r*0.4,cy-r*0.45,r*0.1,cx,cy,r*1.05);
+  vg.addColorStop(0,`rgba(255,252,238,${hi==null?0.18:hi})`);
+  vg.addColorStop(0.55,'rgba(255,252,238,0)');
+  vg.addColorStop(1,`rgba(24,18,10,${lo==null?0.22:lo})`);
+  g.fillStyle=vg;g.beginPath();g.arc(cx,cy,r,0,7);g.fill();
 }
 
 /* ---------- RENDER ---------- */
