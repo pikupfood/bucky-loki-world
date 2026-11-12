@@ -34,9 +34,9 @@ const B='https://cdn.jsdelivr.net/gh/KayKit-Game-Assets/KayKit-Medieval-Hexagon-
 const AD='https://cdn.jsdelivr.net/gh/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0@main/addons/kaykit_character_pack_adventures/Characters/gltf/';
 const SK='https://cdn.jsdelivr.net/gh/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0@main/addons/kaykit_character_pack_skeletons/Characters/gltf/';
 const L=new THREE.GLTFLoader();
-const SINK=0.42; // affonda la base esagonale sotto l'erba
-function load(url,x,z,s,ry,yy){L.load(url,g=>{const o=g.scene;o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});o.position.set(x,(yy!=null?yy:0),z);o.scale.setScalar(s||1);o.rotation.y=ry||0;scene.add(o);},undefined,e=>{});}
-function bld(name,x,z,ry){load(B+'buildings/neutral/building_'+name+'_neutral.gltf',x,z,1,ry||0,-SINK);}
+const SEAT=0.18; // posa l'edificio sull'erba dopo aver tolto l'esagono
+function load(url,x,z,s,ry,yy){L.load(url,g=>{const o=g.scene;o.traverse(m=>{if(m.isMesh){if(m.name&&m.name.toLowerCase().indexOf('hexagon')>=0){m.visible=false;return;}m.castShadow=true;m.receiveShadow=true;}});o.position.set(x,(yy!=null?yy:0),z);o.scale.setScalar(s||1);o.rotation.y=ry||0;scene.add(o);},undefined,e=>{});}
+function bld(name,x,z,ry){load(B+'buildings/blue/building_'+name+'_blue.gltf',x,z,1,ry||0,-SEAT);}
 // città medievale su terreno continuo (niente esagoni a vista)
 bld('castle',0,0,0.4);
 bld('church',-4.2,-1,0.2);bld('barracks',4.2,-1,-0.2);bld('market',-1,-4.2,0.1);bld('tavern',1,4.2,0.3);
@@ -44,7 +44,7 @@ bld('blacksmith',-4.4,-4.4,0.5);bld('lumbermill',4.4,-4.4,-0.4);bld('watermill',
 bld('home_A',-2.2,-2.3,0.2);bld('home_B',2.3,-2.2,-0.3);bld('home_A',-2.3,2.3,0.5);bld('home_B',2.2,2.4,0.1);
 bld('tower_A',7,1,0);bld('home_A',7,-3,0.3);bld('well',-1.4,1.6,0);bld('mine',-7,-2,0.4);bld('home_B',-7,2,-0.2);
 // un secondo popolo poco distante (variante rossa) = altre terre/altri popoli
-load(B+'buildings/red/building_tower_A_red.gltf',14,-6,1,0,-SINK);load(B+'buildings/red/building_home_A_red.gltf',16,-5,1,0.5,-SINK);load(B+'buildings/red/building_barracks_red.gltf',14,-9,1,-0.3,-SINK);
+load(B+'buildings/red/building_castle_red.gltf',15,-7,1,0.3,-SEAT);load(B+'buildings/red/building_home_A_red.gltf',17.5,-6,1,0.5,-SEAT);load(B+'buildings/red/building_barracks_red.gltf',14.5,-10,1,-0.3,-SEAT);load(B+'buildings/red/building_tower_A_red.gltf',18,-9.5,1,0,-SEAT);
 // rocce (senza base)
 load(B+'decoration/nature/rock_single_A.gltf',-9,6,1.4,0);load(B+'decoration/nature/rock_single_C.gltf',9,-8,1.4,1);load(B+'decoration/nature/rock_single_B.gltf',10,7,1.3,2);
 // personaggi = popoli con abilità
