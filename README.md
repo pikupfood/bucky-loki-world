@@ -1,32 +1,28 @@
-# 🐶 Bucky & Loki — Il Mondo di Coda
+# 🌍 La Terra dei Tuzu
 
-Un cozy game per telefono (stile Animal Crossing / Pokopia) con protagonisti **Bucky** e **Loki**, due piccoli Yorkshire.
-Esplora il villaggio di Coda, aiuta gli abitanti, raccogli, pesca, coltiva, arreda, vesti i cani e svela il mistero dell'**osso d'oro** ✨.
+Un gestionale cozy con storia: un solo **Tuzu** in un mondo addormentato. Raccogli, costruisci, fai nascere un **popolo** e scopri perché il mondo si era fermato.
+Protagonista: i **Tuzu** (i 5 colori: lavanda, menta, pesca, cielo, notte) + altre creature (il Saggio 🦉, poi mercanti e vicini).
 
-## ▶ Gioca ora
-Apri il link dal telefono o dal browser:
+> Prototipo web — sostituisce il vecchio gioco dei cani, stesso repo e stesso link. In seguito verrà portato in app.
+
+## ▶ Gioca
 👉 **https://pikupfood.github.io/bucky-loki-world/**
 
-Aggiungilo alla schermata Home del telefono per giocarci come un'app a schermo intero.
-
 ## 🎮 Comandi
-- **Telefono**: joystick 🕹️ in basso a sinistra · pulsante arancione a destra per interagire · 🎒 per il menu
+- **Telefono**: joystick 🕹️ per muovere il tuo Tuzu · pulsante viola per interagire · 🔨 Costruisci · 🫧 Popolo
 - **PC**: frecce / WASD per muoverti · **Spazio** o **E** per interagire
 
-## ✨ Cosa c'è nel gioco
-- 🐕 **Selezione personaggio** (Bucky bandana rossa / Loki bandana blu) — l'altro ti segue come compagno
-- 👕 **Boutique**: vesti i cani con cappelli, occhiali, maglioncini, mantelli e bandane colorate
-- 🏡 **Costruisci la casa**: migliora la cuccia fino a diventare una villa
-- 🛒 **Negozio + Modalità costruzione**: compra oltre 15 arredi e posizionali nel villaggio
-- 💰 **Mercato + economia**: vendi le risorse per ottenere ossa 🦴
-- 🎣 **Pesca** al laghetto · ⛏️ **scava** per trovare tesori e fossili · 🦋 **cattura** farfalle e scarabei · 🌱 **coltiva** l'orto (semina → cresce nei giorni → raccogli)
-- 📜 **Storia a 5 capitoli** con l'osso d'oro + Grande Festival, 6 abitanti (Mochi, Pip, Rocco, Aldo, Nina, Sasha)
-- 📅 **Sfide giornaliere** con difficoltà crescente · 🏅 **10 obiettivi**
-- 🌦️ **Meteo dinamico** (sole/nuvoloso/pioggia) e **ciclo giorno/notte** con lampioni e lucciole
-- 🧭 **Bussola** verso l'obiettivo · 💾 **salvataggio automatico** · 🔊 musica e suoni
+## ✨ Slice 1 (primo pezzo giocabile)
+- Scegli colore e nome del tuo primo Tuzu ("X Tuzu")
+- Mondo esplorabile con alberi 🌳, cespugli 🫐, rocce 🪨, laghetto e totem
+- **Raccogli** risorse (🍎 cibo, 🪵 legna, 🪨 pietra)
+- **Costruisci** (Capanna, Orto, Falò, Deposito, Totem): la Capanna fa **nascere un nuovo Tuzu**
+- **Gestisci il popolo**: assegna ogni Tuzu a una raccolta, lavora da solo (economia passiva)
+- **Storia a capitoli** con obiettivi guidati (Il Risveglio → Il Primo Popolo → …)
+- Salvataggio automatico · niente sensi di colpa (il mondo rallenta, non crolla mai)
 
-## 🗺️ Prossimo passo
-Pacchetto **app** installabile (Android / iOS) tramite Capacitor.
+## 🗺️ Prossimi strati
+Più edifici e catene produttive · nuove zone/ere che si sbloccano · altre creature (mercanti, vicini) · eventi e stagioni · più capitoli di storia · poi il porting in app.
 
 ---
-In sviluppo continuo · fatto con ❤️ per Bucky & Loki
+In sviluppo · fatto con ❤️ per Tuzu
