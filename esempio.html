@@ -1,53 +1,57 @@
 <!doctype html><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Esempio medievale — Opzione 1</title>
+<title>Esempio medievale realistico — Opzione 1</title>
 <style>*{margin:0}html,body{height:100%;overflow:hidden;background:#111}#c{display:block;width:100%;height:100%}
 #t{position:fixed;top:10px;left:10px;background:rgba(20,16,30,.72);color:#fff;font:700 13px system-ui;padding:7px 12px;border-radius:10px;z-index:2}</style>
 <canvas id="c"></canvas>
-<div id="t">Esempio MEDIEVALE · asset reali KayKit (CC0) — stile Forge of Empires</div>
+<div id="t">Esempio · medievale, meno esagoni + più reale (asset reali CC0)</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/RGBELoader.js"></script>
 <script>
 const canvas=document.getElementById('c');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;
-const scene=new THREE.Scene();const SKY=0x9fc6e8;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,22,60);
-const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,0.1,300);
-scene.add(new THREE.HemisphereLight(0xdcecff,0x55503c,0.75));
-const sun=new THREE.DirectionalLight(0xfff0d8,2.2);sun.position.set(-12,22,10);sun.castShadow=true;
-sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.near=1;sun.shadow.camera.far=80;sun.shadow.camera.left=-20;sun.shadow.camera.right=20;sun.shadow.camera.top=20;sun.shadow.camera.bottom=-20;sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;
+renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
+const scene=new THREE.Scene();const SKY=0x93bcdc;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,30,80);
+const camera=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,0.1,300);
+scene.add(new THREE.HemisphereLight(0xdceeff,0x5a5240,0.5));
+const sun=new THREE.DirectionalLight(0xfff1dc,2.0);sun.position.set(-14,24,12);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.near=1;sun.shadow.camera.far=90;sun.shadow.camera.left=-24;sun.shadow.camera.right=24;sun.shadow.camera.top=24;sun.shadow.camera.bottom=-24;sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;
 scene.add(sun);
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-const gm=new THREE.Mesh(new THREE.CircleGeometry(30,48),new THREE.MeshStandardMaterial({color:0x6fa24e,roughness:1}));gm.rotation.x=-Math.PI/2;gm.position.y=-0.15;gm.receiveShadow=true;scene.add(gm);
+// HDR per luce realistica
+try{new THREE.RGBELoader().load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/equirectangular/royal_esplanade_1k.hdr',t=>{const p=new THREE.PMREMGenerator(renderer);p.compileEquirectangularShader();scene.environment=p.fromEquirectangular(t).texture;t.dispose();p.dispose();});}catch(e){}
+// terreno continuo (erba texturizzata)
+const tl=new THREE.TextureLoader();const grass=tl.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/terrain/grasslight-big.jpg');
+grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(26,26);grass.encoding=THREE.sRGBEncoding;grass.anisotropy=4;
+const ground=new THREE.Mesh(new THREE.CircleGeometry(40,56),new THREE.MeshStandardMaterial({map:grass,color:0x9cbf7e,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+// strade sterrate
+function road(w,h,x,z,ry){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({color:0xc2a878,roughness:1}));m.rotation.x=-Math.PI/2;m.rotation.z=ry||0;m.position.set(x,0.03,z);m.receiveShadow=true;scene.add(m);}
+road(4,34,0,0);road(30,4,0,0);
 const B='https://cdn.jsdelivr.net/gh/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0@main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/';
 const AD='https://cdn.jsdelivr.net/gh/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0@main/addons/kaykit_character_pack_adventures/Characters/gltf/';
 const SK='https://cdn.jsdelivr.net/gh/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0@main/addons/kaykit_character_pack_skeletons/Characters/gltf/';
 const L=new THREE.GLTFLoader();
-const SZ=1.0;
-function hex(q,r){return[SZ*Math.sqrt(3)*(q+r/2), SZ*1.5*r];}
-function load(url,x,z,s,ry,yy){L.load(url,g=>{const o=g.scene;o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});o.position.set(x,yy||0,z);o.scale.setScalar(s||1);o.rotation.y=ry||0;scene.add(o);},undefined,e=>{});}
-function bld(name,q,r,col){const[x,z]=hex(q,r);load(B+'buildings/'+(col||'blue')+'/building_'+name+'_'+(col||'blue')+'.gltf',x,z,1,0);}
-// città medievale (variante blu = il tuo popolo)
-bld('castle',0,0);
-bld('church',1,0);bld('barracks',0,1);bld('blacksmith',-1,1);bld('market',-1,0);bld('tavern',0,-1);bld('windmill',1,-1);
-bld('home_A',2,-1);bld('home_B',2,0);bld('watermill',1,1);bld('lumbermill',-2,1);bld('well',-1,2);bld('tower_A',-2,2);bld('mine',2,-2);bld('home_A',0,2);bld('home_B',-2,0);
-// un secondo popolo (variante rossa) poco distante
-bld('tower_A',4,0,'red');bld('home_A',5,0,'red');bld('barracks',4,1,'red');
-// natura ai bordi
-load(B+'decoration/nature/hills_A_trees.gltf',-6,-5,1,0);load(B+'decoration/nature/mountain_A_grass_trees.gltf',7,-5,1,0.5);load(B+'decoration/nature/hills_B_trees.gltf',-7,3,1,2);load(B+'decoration/nature/rock_single_A.gltf',5,4,1,0);
-load(B+'decoration/nature/cloud_big.gltf',-3,-8,1,0,7);load(B+'decoration/nature/cloud_small.gltf',6,-7,1,0,8);
-// personaggi = popoli con abilità diverse
-const[cx,cz]=hex(0,0);
-load(AD+'Knight.glb',cx+1.2,cz+1,0.55,2.4);
-load(AD+'Mage.glb',cx-1.2,cz+0.5,0.55,1.6);
-load(AD+'Barbarian.glb',cx+1.5,cz-1,0.55,-2.2);
-load(AD+'Rogue.glb',cx-0.5,cz-1.3,0.55,0.4);
-// nemici Ombra (scheletri) in un angolo
-load(SK+'Skeleton_Warrior.glb',-4,6,0.55,3.1);load(SK+'Skeleton_Rogue.glb',-3,6.5,0.55,3.0);load(SK+'Skeleton_Minion.glb',-4.8,6.6,0.5,2.8);
-// camera orbitante
-let a=0.6;
-function tick(){requestAnimationFrame(tick);a+=0.0015;const r=15,h=11;camera.position.set(Math.sin(a)*r,h,Math.cos(a)*r+2);camera.lookAt(0,1,0);renderer.render(scene,camera);}
+const SINK=0.42; // affonda la base esagonale sotto l'erba
+function load(url,x,z,s,ry,yy){L.load(url,g=>{const o=g.scene;o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});o.position.set(x,(yy!=null?yy:0),z);o.scale.setScalar(s||1);o.rotation.y=ry||0;scene.add(o);},undefined,e=>{});}
+function bld(name,x,z,ry){load(B+'buildings/neutral/building_'+name+'_neutral.gltf',x,z,1,ry||0,-SINK);}
+// città medievale su terreno continuo (niente esagoni a vista)
+bld('castle',0,0,0.4);
+bld('church',-4.2,-1,0.2);bld('barracks',4.2,-1,-0.2);bld('market',-1,-4.2,0.1);bld('tavern',1,4.2,0.3);
+bld('blacksmith',-4.4,-4.4,0.5);bld('lumbermill',4.4,-4.4,-0.4);bld('watermill',-4.4,4.4,0.2);bld('windmill',4.4,4.4,-0.1);
+bld('home_A',-2.2,-2.3,0.2);bld('home_B',2.3,-2.2,-0.3);bld('home_A',-2.3,2.3,0.5);bld('home_B',2.2,2.4,0.1);
+bld('tower_A',7,1,0);bld('home_A',7,-3,0.3);bld('well',-1.4,1.6,0);bld('mine',-7,-2,0.4);bld('home_B',-7,2,-0.2);
+// un secondo popolo poco distante (variante rossa) = altre terre/altri popoli
+load(B+'buildings/red/building_tower_A_red.gltf',14,-6,1,0,-SINK);load(B+'buildings/red/building_home_A_red.gltf',16,-5,1,0.5,-SINK);load(B+'buildings/red/building_barracks_red.gltf',14,-9,1,-0.3,-SINK);
+// rocce (senza base)
+load(B+'decoration/nature/rock_single_A.gltf',-9,6,1.4,0);load(B+'decoration/nature/rock_single_C.gltf',9,-8,1.4,1);load(B+'decoration/nature/rock_single_B.gltf',10,7,1.3,2);
+// personaggi = popoli con abilità
+load(AD+'Knight.glb',1.6,1.2,0.6,2.4);load(AD+'Mage.glb',-1.4,0.6,0.6,1.6);load(AD+'Barbarian.glb',1.8,-1.2,0.6,-2.2);load(AD+'Rogue.glb',-0.7,-1.6,0.6,0.4);
+// nemici Ombra (scheletri)
+load(SK+'Skeleton_Warrior.glb',-6,8,0.6,3.0);load(SK+'Skeleton_Rogue.glb',-4.5,8.6,0.6,3.0);load(SK+'Skeleton_Minion.glb',-7,8.8,0.55,2.8);
+let a=0.7;
+function tick(){requestAnimationFrame(tick);a+=0.0014;const r=17,h=12;camera.position.set(Math.sin(a)*r,h,Math.cos(a)*r+2);camera.lookAt(0,0.8,0);renderer.render(scene,camera);}
 tick();
 </script>
