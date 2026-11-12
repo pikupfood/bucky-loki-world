@@ -1,28 +1,25 @@
-# 🌍 La Terra dei Tuzu
+# ⚔️ La Terra dei Tuzu — L'Ombra (3D)
 
-Un gestionale cozy con storia: un solo **Tuzu** in un mondo addormentato. Raccogli, costruisci, fai nascere un **popolo** e scopri perché il mondo si era fermato.
-Protagonista: i **Tuzu** (i 5 colori: lavanda, menta, pesca, cielo, notte) + altre creature (il Saggio 🦉, poi mercanti e vicini).
+Action-adventure **3D** (three.js): un male antico, l'**Ombra**, divora la terra. Guidi il tuo **Tuzu** (eroe cucciolo in un mondo realistico), esplori, affronti missioni e **combatti** per salvare il mondo. Ispirazione *Signore degli Anelli*: popoli da unire, un male che avanza.
 
-> Prototipo web — sostituisce il vecchio gioco dei cani, stesso repo e stesso link. In seguito verrà portato in app.
+> Sostituisce il vecchio gioco. Prototipo web — poi verrà portato in app.
 
 ## ▶ Gioca
 👉 **https://pikupfood.github.io/bucky-loki-world/**
 
 ## 🎮 Comandi
-- **Telefono**: joystick 🕹️ per muovere il tuo Tuzu · pulsante viola per interagire · 🔨 Costruisci · 🫧 Popolo
-- **PC**: frecce / WASD per muoverti · **Spazio** o **E** per interagire
+- **Telefono**: joystick 🕹️ per muoverti · pulsante ⚔️ per attaccare
+- **PC**: WASD / frecce per muoverti · **Spazio** per attaccare
 
-## ✨ Slice 1 (primo pezzo giocabile)
-- Scegli colore e nome del tuo primo Tuzu ("X Tuzu")
-- Mondo esplorabile con alberi 🌳, cespugli 🫐, rocce 🪨, laghetto e totem
-- **Raccogli** risorse (🍎 cibo, 🪵 legna, 🪨 pietra)
-- **Costruisci** (Capanna, Orto, Falò, Deposito, Totem): la Capanna fa **nascere un nuovo Tuzu**
-- **Gestisci il popolo**: assegna ogni Tuzu a una raccolta, lavora da solo (economia passiva)
-- **Storia a capitoli** con obiettivi guidati (Il Risveglio → Il Primo Popolo → …)
-- Salvataggio automatico · niente sensi di colpa (il mondo rallenta, non crolla mai)
+## ✨ Slice 1 (3D)
+- Scegli il **colore** del tuo Tuzu
+- **Mondo 3D** con luci, ombre, nebbia e atmosfera (prato collinoso, alberi, rocce, chiazze di corruzione)
+- **Combattimento**: colpisci le **Ombre** (nemici che ti inseguono), con barra vita, respinta e morte
+- **Missioni** a obiettivi (libera la radura sconfiggendo le Ombre)
+- Il Saggio 🦉 apre la storia · niente sensi di colpa (ti riprendi, il mondo non ti abbandona)
 
 ## 🗺️ Prossimi strati
-Più edifici e catene produttive · nuove zone/ere che si sbloccano · altre creature (mercanti, vicini) · eventi e stagioni · più capitoli di storia · poi il porting in app.
+Più nemici e un **boss** · **regioni/mappa** da esplorare e liberare · **popoli alleati** da unire · abilità e potenziamenti · più capitoli della storia dell'Ombra · poi il porting in app.
 
 ---
-In sviluppo · fatto con ❤️ per Tuzu
+In sviluppo · 3D con three.js
