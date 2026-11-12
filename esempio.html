@@ -48,14 +48,14 @@ load(B+'buildings/red/building_castle_red.gltf',15,-7,1,0.3,-SEAT);load(B+'build
 // rocce (senza base)
 load(B+'decoration/nature/rock_single_A.gltf',-9,6,1.4,0);load(B+'decoration/nature/rock_single_C.gltf',9,-8,1.4,1);load(B+'decoration/nature/rock_single_B.gltf',10,7,1.3,2);
 // personaggi = popoli con abilità (piccoli rispetto agli edifici, scala umana reale)
-const PS=0.32; // un personaggio arriva circa alla porta: ci può entrare
+const PS=0.16; // persona reale ~1/3 di una casa: entra dalla porta
 load(AD+'Knight.glb',2.3,-1.1,PS,3.14);  // davanti alla porta di una casa
 load(AD+'Mage.glb',-2.1,-1.2,PS,0.0);
 load(AD+'Barbarian.glb',1.0,0.1,PS,-1.0);
 load(AD+'Rogue.glb',-1.0,1.0,PS,2.0);
 // nemici Ombra (scheletri)
-load(SK+'Skeleton_Warrior.glb',-6,8,PS,3.0);load(SK+'Skeleton_Rogue.glb',-4.5,8.6,PS,3.0);load(SK+'Skeleton_Minion.glb',-7,8.8,0.3,2.8);
+load(SK+'Skeleton_Warrior.glb',-4,6,PS,3.0);load(SK+'Skeleton_Rogue.glb',-3,6.4,PS,3.0);load(SK+'Skeleton_Minion.glb',-4.6,6.6,0.15,2.8);
 let a=0.7;
-function tick(){requestAnimationFrame(tick);a+=0.0013;const r=10.5,h=5.6;camera.position.set(Math.sin(a)*r,h,Math.cos(a)*r+2);camera.lookAt(0,1.3,0);renderer.render(scene,camera);}
+function tick(){requestAnimationFrame(tick);a+=0.0013;const r=8.4,h=4.2;camera.position.set(Math.sin(a)*r,h,Math.cos(a)*r+1.5);camera.lookAt(0,1.1,0);renderer.render(scene,camera);}
 tick();
 </script>
