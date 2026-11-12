@@ -1,0 +1,55 @@
+<!doctype html><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Esempio — Opzione 1</title>
+<style>*{margin:0}html,body{height:100%;overflow:hidden;background:#111}#c{display:block;width:100%;height:100%}
+#t{position:fixed;top:10px;left:10px;background:rgba(20,16,30,.7);color:#fff;font:700 13px system-ui;padding:7px 12px;border-radius:10px;z-index:2}</style>
+<canvas id="c"></canvas>
+<div id="t">Esempio · asset reali KayKit (CC0) — qualità Opzione 1</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+const canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
+const scene=new THREE.Scene();const SKY=0x9fc6e8;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,28,70);
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,0.1,300);
+scene.add(new THREE.HemisphereLight(0xdcecff,0x55503c,0.75));
+const sun=new THREE.DirectionalLight(0xfff0d8,2.1);sun.position.set(-16,26,14);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.near=1;sun.shadow.camera.far=90;sun.shadow.camera.left=-26;sun.shadow.camera.right=26;sun.shadow.camera.top=26;sun.shadow.camera.bottom=-26;sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;
+scene.add(sun);
+function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
+addEventListener('resize',resize);resize();
+// terreno
+const gm=new THREE.Mesh(new THREE.CircleGeometry(40,48),new THREE.MeshStandardMaterial({color:0x7fae58,roughness:1}));gm.rotation.x=-Math.PI/2;gm.receiveShadow=true;scene.add(gm);
+// strada
+const road=new THREE.Mesh(new THREE.PlaneGeometry(5,34),new THREE.MeshStandardMaterial({color:0xcbb88e,roughness:1}));road.rotation.x=-Math.PI/2;road.position.y=0.02;scene.add(road);
+const road2=new THREE.Mesh(new THREE.PlaneGeometry(26,5),new THREE.MeshStandardMaterial({color:0xcbb88e,roughness:1}));road2.rotation.x=-Math.PI/2;road2.position.set(0,0.02,-2);scene.add(road2);
+const CB='https://cdn.jsdelivr.net/gh/KayKit-Game-Assets/KayKit-City-Builder-Bits-1.0@main/addons/kaykit_city_builder_bits/Assets/gltf/';
+const AD='https://cdn.jsdelivr.net/gh/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0@main/addons/kaykit_character_pack_adventures/Characters/gltf/';
+const SK='https://cdn.jsdelivr.net/gh/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0@main/addons/kaykit_character_pack_skeletons/Characters/gltf/';
+const L=new THREE.GLTFLoader();
+function load(url,x,z,s,ry){L.load(url,g=>{const o=g.scene;o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});o.position.set(x,0,z);o.scale.setScalar(s||1);o.rotation.y=ry||0;scene.add(o);},undefined,e=>{});}
+// edifici città (varietà)
+load(CB+'building_A.gltf',-7,4,2.6,0.3);
+load(CB+'building_B.gltf',-2,5,2.6,-0.2);
+load(CB+'building_D.gltf',4,4.5,2.6,0.1);
+load(CB+'building_F.gltf',8,2,2.6,-0.4);
+load(CB+'building_C.gltf',-7,-3,2.6,0.6);
+load(CB+'building_E.gltf',6,-4,2.6,0.2);
+load(CB+'building_G.gltf',0,-6,2.6,0);
+// alberi/decori del pacchetto città
+load(CB+'tree_A.gltf',-11,1,2.6,0);load(CB+'tree_B.gltf',11,-1,2.6,0);load(CB+'tree_A.gltf',10,6,2.6,1);
+// personaggi = popoli
+load(AD+'Knight.glb',1,1,1.5,2.5);
+load(AD+'Mage.glb',-3,0,1.5,1.8);
+load(AD+'Barbarian.glb',3,-1,1.5,-2.2);
+load(AD+'Rogue.glb',-1,-2,1.5,0.5);
+// nemici Ombra
+load(SK+'Skeleton_Warrior.glb',2,-8,1.5,3.1);
+load(SK+'Skeleton_Rogue.glb',-2,-9,1.5,3.1);
+// camera orbitante lenta
+let a=0.5;
+function tick(){requestAnimationFrame(tick);a+=0.0016;const r=26,h=18;camera.position.set(Math.sin(a)*r,h,Math.cos(a)*r);camera.lookAt(0,1.5,-1);renderer.render(scene,camera);}
+tick();
+</script>
