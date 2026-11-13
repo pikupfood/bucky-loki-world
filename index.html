@@ -133,6 +133,8 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
   <div class="sbtn" id="btnMiss"><span>📜</span><b>Missioni</b><span class="badge" id="missBadge">0</span></div>
   <div class="sbtn" id="btnHero"><span>🦸</span><b>Eroi</b></div>
   <div class="sbtn" id="btnChat"><span>💬</span><b>Tuzu</b></div>
+  <div class="sbtn" id="btnLib"><span>📚</span><b>Ricerche</b></div>
+  <div class="sbtn" id="btnShop"><span>🛒</span><b>Negozio</b></div>
 </div>
 <div id="zoom"><div class="zb" id="zrot" title="Ruota">↻</div><div class="zb" id="zin">+</div><div class="zb" id="zout">−</div></div>
 
@@ -364,15 +366,19 @@ const HEROES={
  esploratore:{nome:'Esploratore',em:'🧭',desc:'Alleanze più economiche, doni più grandi',base:{oro:75}}
 };
 let heroes={};
+let research={};
+function hasRes(id){return !!research[id];}
 function heroLvl(k){return heroes[k]||0;}
 function heroCost(k){const b=HEROES[k].base,l=heroLvl(k)+1;const c={};for(const r in b)c[r]=b[r]*l;return c;}
-function prodBonus(r){if(r==='cibo'||r==='pane')return 1+heroLvl('contadina')*0.25;if(r==='pietra'||r==='ferro')return 1+heroLvl('minatore')*0.25;return 1;}
+function prodBonus(r){if(r==='cibo'||r==='pane')return 1+heroLvl('contadina')*0.25+(hasRes('agricoltura')?0.3:0);if(r==='pietra'||r==='ferro')return 1+heroLvl('minatore')*0.25+(hasRes('estrazione')?0.3:0);return 1;}
 function allyCostMul(){return 1-Math.min(0.45,heroLvl('esploratore')*0.15);}
 function caravanBonus(){return 1+heroLvl('esploratore')*0.2;}
-function buildSpeedBonus(){return 1-Math.min(0.5,heroLvl('costruttore')*0.16);}
-function cropBonus(){return 1+heroLvl('contadina')*0.3;}
-function soldierDmgBonus(){return (1+heroLvl('capitano')*0.4)*(R.armi>0?1.4:1);}
-function towerDmgBonus(){return 1+heroLvl('guardiano')*0.5;}
+function buildSpeedBonus(){return 1-Math.min(0.6,heroLvl('costruttore')*0.16+(hasRes('edilizia')?0.15:0));}
+function cropBonus(){return 1+heroLvl('contadina')*0.3+(hasRes('agricoltura')?0.3:0);}
+function soldierDmgBonus(){return (1+heroLvl('capitano')*0.4+(hasRes('tattica')?0.25:0)+(hasRes('fabbri')?0.2:0))*(R.armi>0?1.4:1);}
+function towerDmgBonus(){return 1+heroLvl('guardiano')*0.5+(hasRes('fortificazioni')?0.3:0);}
+function wallHpMul(){return hasRes('fortificazioni')?1.5:1;}
+function tradeBonus(){return hasRes('commercio')?1.5:1;}
 // ===== livelli degli edifici (potenziamento) =====
 function buildLvl(b){return b.lvl||1;}
 function lvlMul(b){return 1+0.5*(buildLvl(b)-1);}
@@ -578,7 +584,7 @@ function openMarketScene(b){closeDyn();const d=document.createElement('div');d.c
     const list=mode==='sell'?[['legna',6],['cibo',6],['pietra',7],['pane',16],['armi',22]]:[['cibo',9],['pietra',9],['ferro',12]];
     let h='';list.forEach(([r,p])=>{h+=`<div class="srow"><span class="nm">${RES[r]} ${mode==='sell'?'Vendi':'Compra'} 10</span><button class="${mode==='buy'?'buy':''}" data-r="${r}" data-p="${p}">${mode==='sell'?'+ 🪙'+p:'− 🪙'+p}</button></div>`;});
     h+=`<div class="mktfoot"><button class="woodbtn sm" id="mkback">↩ Indietro</button></div>`;sc.innerHTML=h;
-    sc.querySelectorAll('[data-r]').forEach(x=>x.onclick=()=>{const r=x.dataset.r,p=+x.dataset.p;if(mode==='sell'){if(R[r]>=10){R[r]-=10;R.oro+=p;drawTop();save();sp.textContent='Affare fatto! Grazie, viandante.';}else sp.textContent='Non hai abbastanza '+r+', mi spiace.';}else{if(R.oro>=p){R.oro-=p;R[r]+=10;drawTop();save();sp.textContent='Ecco a te. Torna presto!';}else sp.textContent='Ti manca l’oro, viandante…';}});
+    sc.querySelectorAll('[data-r]').forEach(x=>x.onclick=()=>{const r=x.dataset.r,p=+x.dataset.p;if(mode==='sell'){if(R[r]>=10){R[r]-=10;R.oro+=Math.round(p*tradeBonus());drawTop();save();sp.textContent='Affare fatto! Grazie, viandante.';}else sp.textContent='Non hai abbastanza '+r+', mi spiace.';}else{if(R.oro>=p){R.oro-=p;R[r]+=10;drawTop();save();sp.textContent='Ecco a te. Torna presto!';}else sp.textContent='Ti manca l’oro, viandante…';}});
     d.querySelector('#mkback').onclick=()=>{sc.style.display='none';ch.style.display='flex';sp.innerHTML='Allora, <b>vendere</b> o <b>comprare</b>?';};
   }
   ch.querySelectorAll('[data-m]').forEach(x=>x.onclick=()=>render(x.dataset.m));
@@ -612,7 +618,7 @@ function openBuilding(b){
     `<div class="row">${canMove?'<button class="btn alt" id="pmove">✋ Sposta</button><button class="btn red" id="pdem">🗑 Demolisci</button>':''}</div>`+
     `<button class="btn alt" id="pclose">Chiudi</button>`);
   const d2=document.getElementById('dyn');const up=d2.querySelector('#pup');if(up)up.onclick=()=>upgradeBuilding(b);
-  d2.querySelectorAll('[data-sell]').forEach(x=>x.onclick=()=>{const r=x.dataset.sell;if(R[r]>=10){R[r]-=10;R.oro+=6;drawTop();save();toast('Venduto +🪙6');}else toast('Non abbastanza '+RES[r]);});
+  d2.querySelectorAll('[data-sell]').forEach(x=>x.onclick=()=>{const r=x.dataset.sell;if(R[r]>=10){R[r]-=10;const g=Math.round(6*tradeBonus());R.oro+=g;drawTop();save();toast('Venduto +🪙'+g);}else toast('Non abbastanza '+RES[r]);});
   d2.querySelectorAll('[data-buy]').forEach(x=>x.onclick=()=>{const r=x.dataset.buy;if(R.oro>=9){R.oro-=9;R[r]+=10;drawTop();save();toast('Comprato '+RES[r]+'10');}else toast('Serve 🪙9');});
   const bt=d2.querySelector('#btrain');if(bt)bt.onclick=()=>{trainSoldier();closeDyn();};
   const mv=d2.querySelector('#pmove');if(mv)mv.onclick=()=>{moveTarget={entry:grid[key(b.cx,b.cy)]};closeDyn();toast('Tocca dove spostarlo ✋');};
@@ -649,7 +655,7 @@ function rebuildBarrierArea(cx,cy){rebuildBarrier(cx,cy);rebuildBarrier(cx-1,cy)
 function placeDef(ax,ay,w,h,k,rot){const d=DEF[k];const [wx,wz]=fpCenter(ax,ay,w,h);const manual=(rot!==undefined&&rot!==null);const type=d.gate?'gate':d.fence?'fence':d.wall?'wall':'tower';let o;
   if(type==='wall'||type==='fence'){o=new THREE.Group();o.position.set(wx,0,wz);cityGroup.add(o);}
   else{o=inst(d.file);if(d.gate)o.scale.copy(wallScaleVec());o.position.set(wx,0,wz);cityGroup.add(o);autoSeat(o);}
-  const e={type,key:k,def:d,obj:o,ax,ay,w,h,cx:ax,cy:ay,manual,rot:rot||0};if(type==='wall'||type==='gate'||type==='fence'){e.maxhp=(type==='gate'?26:34);e.hp=e.maxhp;}occupy(ax,ay,w,h,e);defenses.push({k,cx:ax,cy:ay,rot:e.rot,manual});
+  const e={type,key:k,def:d,obj:o,ax,ay,w,h,cx:ax,cy:ay,manual,rot:rot||0};if(type==='wall'||type==='gate'||type==='fence'){e.maxhp=Math.round((type==='gate'?26:34)*wallHpMul());e.hp=e.maxhp;}occupy(ax,ay,w,h,e);defenses.push({k,cx:ax,cy:ay,rot:e.rot,manual});
   if(type==='wall'||type==='fence'){rebuildBarrierArea(ax,ay);}
   else if(type==='gate'){if(manual)o.rotation.y=(WALL_ALONG==='x'?0:HALFPI)+e.rot;else o.rotation.y=gateRot(ax,ay);rebuildBarrierArea(ax,ay);}
   else{o.rotation.y=e.rot;rebuildBarrierArea(ax,ay);}
@@ -1009,8 +1015,8 @@ document.getElementById('zin').onclick=()=>setZoom(VZ*0.8);document.getElementBy
 document.getElementById('zrot').onclick=()=>{placeRot=(placeRot+1)%4;toast('↻ Rotazione: '+(placeRot*90)+'° (per muri, cancelli, torri, decori)',2600);};
 
 // ===== salvataggio =====
-function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,g:Math.round(c.t)})),he:heroes,sr:soldierRank}));}catch(e){}}
-function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});(s.lc||[]).forEach(c=>addLake(c.cx,c.cy,c.r));(s.wl||[]).forEach(w=>wildTree(w.cx,w.cy));(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);if(!(s.lc&&s.lc.length))placeLakes();if(!(s.wl&&s.wl.length))placeWildVegetation();placeRivers();placeScatterForests();
+function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,g:Math.round(c.t)})),he:heroes,sr:soldierRank,rs:research}));}catch(e){}}
+function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});(s.lc||[]).forEach(c=>addLake(c.cx,c.cy,c.r));(s.wl||[]).forEach(w=>wildTree(w.cx,w.cy));(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);if(!(s.lc&&s.lc.length))placeLakes();if(!(s.wl&&s.wl.length))placeWildVegetation();placeRivers();placeScatterForests();
   (s.b||[]).forEach(it=>{const d=BUILD[it.k];if(!d)return;const [w,h]=fpSize(d);const ax=it.cx,ay=it.cy;const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(d.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:it.k,def:d,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true,lvl:it.lv||1};if(b.lvl>1)o.scale.multiplyScalar(Math.pow(1.07,b.lvl-1));buildings.push(b);const e={type:'building',key:it.k,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);});
   (s.d||[]).forEach(it=>{if(DECO[it.k])placeDeco(it.cx,it.cy,it.k);});
   (s.df||[]).forEach(it=>{const d=DEF[it.k];if(!d)return;const [w,h]=fpSize(d);const [ax,ay]=fpAnchor(it.cx,it.cy,w,h);if(canPlace(ax,ay,w,h))placeDef(ax,ay,w,h,it.k,it.manual?it.rot:undefined);});
@@ -1089,6 +1095,47 @@ function openChat(){closeDyn();const d=document.createElement('div');d.className
  d.querySelector('#chatguide').onclick=()=>openGuide(0);
  d.querySelector('#chatclose').onclick=closeDyn;}
 document.getElementById('btnChat').onclick=()=>openChat();
+// ===== Biblioteca: ricerche (bonus permanenti, albero tecnologico) =====
+const RESEARCH=[
+ {id:'agricoltura',  nome:'Agricoltura',   em:'🌾', desc:'+30% cibo e pane, colture più veloci',          cost:{oro:60,legna:30},        req:null},
+ {id:'estrazione',   nome:'Estrazione',    em:'⛏️', desc:'+30% pietra e ferro dalle miniere',               cost:{oro:60,pietra:30},       req:null},
+ {id:'tattica',      nome:'Tattica militare',em:'⚔️',desc:'+25% danno dei soldati',                          cost:{oro:70,ferro:15},        req:null},
+ {id:'edilizia',     nome:'Edilizia',      em:'🧱', desc:'Costruzioni più veloci',                          cost:{oro:90,legna:50,pietra:30},req:'estrazione'},
+ {id:'fabbri',       nome:'Fabbri esperti',em:'🔥', desc:'+20% danno (armi migliori)',                      cost:{oro:120,ferro:40},       req:'estrazione'},
+ {id:'fortificazioni',nome:'Fortificazioni',em:'🏰',desc:'Mura +50% resistenza, torri +30%',                cost:{oro:120,pietra:60},      req:'tattica'},
+ {id:'commercio',    nome:'Commercio',     em:'🪙', desc:'+50% oro dalle vendite al mercato',               cost:{oro:100,pane:20},        req:'agricoltura'}
+];
+function openResearch(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';
+ let h='';RESEARCH.forEach(t=>{const done=hasRes(t.id);const locked=t.req&&!hasRes(t.req);const co=Object.entries(t.cost).map(([r,v])=>RES[r]+v).join(' ');
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;padding:8px 6px;border-bottom:1px solid rgba(0,0,0,.08)">
+    <div><div style="font-weight:700;font-size:13.5px">${t.em} ${t.nome} ${done?'✅':''}</div><div style="font-size:11.5px;opacity:.8">${t.desc}</div>${locked?`<div style="font-size:11px;color:#9a5a28">🔒 Richiede ${RESEARCH.find(x=>x.id===t.req).nome}</div>`:''}</div>
+    ${done?'<span style="font-size:12px;color:#1f8a56;font-weight:700">Fatta</span>':`<button class="btn" data-res="${t.id}" ${locked?'disabled style="opacity:.5;width:auto;margin:0;padding:8px 10px"':'style="width:auto;margin:0;padding:8px 10px"'}>${co}</button>`}</div>`;});
+ d.innerHTML=`<div class="card" style="max-width:460px;max-height:86vh;overflow:auto"><div class="em">📚</div><h2>Biblioteca</h2><p>Studia ricerche per bonus <b>permanenti</b> al regno.</p>${h}<button class="btn alt" id="rclose" style="margin-top:10px">Chiudi</button></div>`;
+ document.body.appendChild(d);armPanel(d);
+ d.querySelectorAll('[data-res]').forEach(b=>b.onclick=()=>{const t=RESEARCH.find(x=>x.id===b.dataset.res);if(t.req&&!hasRes(t.req)){toast('Prima studia '+RESEARCH.find(x=>x.id===t.req).nome);return;}if(!afford(t.cost)){toast('Serve '+Object.entries(t.cost).map(([r,v])=>RES[r]+v).join(' '));return;}pay(t.cost);research[t.id]=1;recompute&&recompute();drawTop();save();toast('📚 Ricerca completata: '+t.nome+'! '+t.desc,4200);setBubble('Nuova ricerca: '+t.nome+' '+t.em+'. '+t.desc);openResearch();});
+ d.querySelector('#rclose').onclick=closeDyn;}
+// ===== Negozio: pacchetti di monete (ANTEPRIMA — pagamenti reali da collegare allo store) =====
+const SHOP=[
+ {id:'sacchetto',em:'💰',nome:'Sacchetto d’oro',give:{oro:400},  price:'€0,99',bonus:''},
+ {id:'forziere', em:'🧰',nome:'Forziere',       give:{oro:1200}, price:'€2,99',bonus:'+10% in regalo'},
+ {id:'baule',    em:'🎁',nome:'Grande baule',   give:{oro:3500}, price:'€6,99',bonus:'+20% in regalo'},
+ {id:'tesoro',   em:'💎',nome:'Tesoro reale',   give:{oro:9000}, price:'€14,99',bonus:'+30% in regalo'},
+ {id:'starter',  em:'🚀',nome:'Pacchetto Partenza',give:{oro:500,legna:300,pietra:200,ferro:60},price:'€3,99',bonus:'Tutto per partire forte'}
+];
+function grantPack(p){for(const r in p.give)R[r]=(R[r]||0)+p.give[r];drawTop();save();}
+function openShop(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';
+ let h='';SHOP.forEach(p=>{const give=Object.entries(p.give).map(([r,v])=>RES[r]+v).join(' ');
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;padding:9px 6px;border-bottom:1px solid rgba(0,0,0,.08)">
+    <div><div style="font-weight:700;font-size:13.5px">${p.em} ${p.nome}</div><div style="font-size:12px;opacity:.85">${give}</div>${p.bonus?`<div style="font-size:11px;color:#1f8a56;font-weight:700">${p.bonus}</div>`:''}</div>
+    <button class="btn" data-pack="${p.id}" style="width:auto;margin:0;padding:8px 12px;background:#b8860b">${p.price}</button></div>`;});
+ d.innerHTML=`<div class="card" style="max-width:460px;max-height:86vh;overflow:auto"><div class="em">🛒</div><h2>Negozio</h2><p>Pacchetti di monete 🪙 per crescere più in fretta.</p>${h}<div style="font-size:11px;opacity:.7;margin-top:8px;text-align:left">ℹ️ Anteprima: i pagamenti reali verranno collegati a Google Play / App Store. Qui puoi provarli gratis.</div><button class="btn alt" id="shclose" style="margin-top:8px">Chiudi</button></div>`;
+ document.body.appendChild(d);armPanel(d);
+ d.querySelectorAll('[data-pack]').forEach(b=>b.onclick=()=>{const p=SHOP.find(x=>x.id===b.dataset.pack);const give=Object.entries(p.give).map(([r,v])=>RES[r]+'+'+v).join(' ');
+   dialog(p.em,p.nome,'',`<p>Prezzo: <b>${p.price}</b></p><p style="font-size:12.5px">Ricevi: ${give}</p><div style="font-size:11.5px;opacity:.75;background:rgba(0,0,0,.05);padding:8px;border-radius:10px">⚠️ I pagamenti reali non sono ancora attivi (il gioco è una pagina web). Puoi ricevere il pacchetto <b>gratis in anteprima</b> per provare.</div><div class="row"><button class="btn" id="pkyes" style="background:#1f8a56">🎁 Ricevi gratis (demo)</button><button class="btn alt" id="pkno">Annulla</button></div>`);
+   const dd=document.getElementById('dyn');dd.querySelector('#pkyes').onclick=()=>{grantPack(p);toast('🎁 (Demo) Pacchetto ricevuto: '+give,4200);closeDyn();openShop();};dd.querySelector('#pkno').onclick=()=>openShop();});
+ d.querySelector('#shclose').onclick=closeDyn;}
+document.getElementById('btnLib').onclick=()=>{if(mode==='city')openResearch();};
+document.getElementById('btnShop').onclick=()=>{if(mode==='city')openShop();};
 function openWorld(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let lh='';POPOLI.forEach(p=>{const own=p.own,lib=liberated[p.k],vis=COLORMAP[p.k];const st=own?'<span class="st" style="background:#1f6e56">Il tuo regno</span>':lib?'<span class="st" style="background:#2b6cb0">Alleata</span>':'<span class="st" style="background:#7a2b2b">Occupata</span>';let btn=own?'':lib?'<button style="background:rgba(255,255,255,.12)" disabled>Liberata ✓</button>':`<button style="background:#e24b4a" data-lib="${p.k}">⚔️ Libera</button>`;
     const nb=neighbors.find(n=>n.k===p.k);
     if(nb&&!own){if(nb.reached)btn+=`<button style="background:#1f8a56;margin-top:5px" data-enter="${p.k}">${allied[p.k]?'🤝 Alleata — commercia':'🤝 Entra: commercia o allèati'}</button><button style="background:#1f6e56;margin-top:5px" data-walk="${p.k}">🚶 Torna a piedi</button>`;else if(neighborReachable(nb))btn+=`<button style="background:#1f8a56;margin-top:5px" data-walk="${p.k}">🚶 Cammina fin là (strada aperta!)</button>`;else btn+=`<div style="margin-top:5px;font-size:11px;opacity:.85">🌳 Taglia la vegetazione verso il cartello colorato per aprire la strada</div>`;}
