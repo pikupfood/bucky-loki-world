@@ -182,7 +182,7 @@ const cityGroup=new THREE.Group();scene.add(cityGroup);
 let lockMesh={};const lockMat=new THREE.MeshBasicMaterial({color:0x101018,transparent:true,opacity:0.4});
 const hl=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.98,CELL*0.98),new THREE.MeshBasicMaterial({color:0x7fffb0,transparent:true,opacity:0.42}));hl.rotation.x=-Math.PI/2;hl.position.y=0.05;hl.visible=false;cityGroup.add(hl);
 // griglia fine visibile (quadratini)
-const fineGrid=new THREE.GridHelper(GRID*CELL,GRID,0xffffff,0xffffff);fineGrid.position.y=0.028;fineGrid.material.transparent=true;fineGrid.material.opacity=0.13;fineGrid.material.depthWrite=false;cityGroup.add(fineGrid);
+const fineGrid=new THREE.GridHelper(GRID*CELL,GRID,0xffffff,0xffffff);fineGrid.position.y=0.028;fineGrid.material.transparent=true;fineGrid.material.opacity=0.28;fineGrid.material.depthWrite=false;cityGroup.add(fineGrid);
 // sentiero di terra vero (texture marrone con granuli)
 function makeDirt(base){const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle=base;g.fillRect(0,0,64,64);for(let i=0;i<800;i++){const x=Math.random()*64,y=Math.random()*64,r=Math.random()*1.8+0.3;g.fillStyle=Math.random()<0.5?'rgba(80,58,28,0.3)':'rgba(240,224,184,0.3)';g.beginPath();g.arc(x,y,r,0,6.283);g.fill();}const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,2);t.anisotropy=4;t.encoding=THREE.sRGBEncoding;return t;}
 const roadEdge=new THREE.MeshBasicMaterial({map:makeDirt('#9c7a4c')});
