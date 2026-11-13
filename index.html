@@ -874,7 +874,7 @@ function produce(dt){const mul=moraleMul();buildings.forEach(b=>{if(!b.active)re
 });}
 // la popolazione consuma cibo: se manca cala il morale (campi/animali/pesca lo rimettono)
 let foodT=0,hungry=false,hungerWarnT=0;
-function feedPop(dt){hungerWarnT-=dt;foodT+=dt;if(foodT<6)return;foodT=0;let need=Math.max(1,Math.round(operai*0.7));
+function feedPop(dt){hungerWarnT-=dt;foodT+=dt;if(foodT<6)return;foodT=0;let need=Math.max(1,Math.round(operai*0.45));
   if(R.cibo>=need){R.cibo-=need;need=0;}else{need-=R.cibo;R.cibo=0;}
   while(need>0&&R.pane>0){R.pane--;need-=3;}
   if(need<=0){hungry=false;if(morale<100)morale=Math.min(100,morale+0.4);}
@@ -1011,6 +1011,6 @@ requestAnimationFrame(tick);
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
   checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());document.getElementById('load').style.display='none';
 })();
-document.getElementById('startBtn').onclick=()=>{document.getElementById('intro').style.display='none';started=true;last=performance.now();toast('Trascina per spostarti · 🔨 costruisci · tocca un Tuzu per dargli un ordine (taglia legna, sorveglia) · 🛡️ mura e torri',5200);};
+document.getElementById('startBtn').onclick=()=>{document.getElementById('intro').style.display='none';started=true;last=performance.now();toast('Trascina per spostarti · 🔨 Costruisci · tocca un Tuzu per un ordine',4200);};
 </script>
 </html>
