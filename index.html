@@ -648,7 +648,7 @@ function rebuildBarrierArea(cx,cy){rebuildBarrier(cx,cy);rebuildBarrier(cx-1,cy)
 function placeDef(ax,ay,w,h,k,rot){const d=DEF[k];const [wx,wz]=fpCenter(ax,ay,w,h);const manual=(rot!==undefined&&rot!==null);const type=d.gate?'gate':d.fence?'fence':d.wall?'wall':'tower';let o;
   if(type==='wall'||type==='fence'){o=new THREE.Group();o.position.set(wx,0,wz);cityGroup.add(o);}
   else{o=inst(d.file);if(d.gate)o.scale.copy(wallScaleVec());o.position.set(wx,0,wz);cityGroup.add(o);autoSeat(o);}
-  const e={type,key:k,def:d,obj:o,ax,ay,w,h,cx:ax,cy:ay,manual,rot:rot||0};occupy(ax,ay,w,h,e);defenses.push({k,cx:ax,cy:ay,rot:e.rot,manual});
+  const e={type,key:k,def:d,obj:o,ax,ay,w,h,cx:ax,cy:ay,manual,rot:rot||0};if(type==='wall'||type==='gate'||type==='fence'){e.maxhp=(type==='gate'?26:34);e.hp=e.maxhp;}occupy(ax,ay,w,h,e);defenses.push({k,cx:ax,cy:ay,rot:e.rot,manual});
   if(type==='wall'||type==='fence'){rebuildBarrierArea(ax,ay);}
   else if(type==='gate'){if(manual)o.rotation.y=(WALL_ALONG==='x'?0:HALFPI)+e.rot;else o.rotation.y=gateRot(ax,ay);rebuildBarrierArea(ax,ay);}
   else{o.rotation.y=e.rot;rebuildBarrierArea(ax,ay);}
@@ -896,6 +896,10 @@ function fireArrow(x,y,z,target){const m=mkArrow();m.position.set(x,y,z);cityGro
 function updArrows(dt){for(let i=arrows.length-1;i>=0;i--){const a=arrows[i],o=a.obj;a.life-=dt;let tx=a.tx,tz=a.tz,ty=0.45;const live=a.target&&a.target.hp>0&&raiders.indexOf(a.target)>=0;if(live){tx=a.target.obj.position.x;tz=a.target.obj.position.z;ty=a.target.boss?1.0:0.45;a.tx=tx;a.tz=tz;}const dx=tx-o.position.x,dy=ty-o.position.y,dz=tz-o.position.z,d=Math.hypot(dx,dy,dz)||1;if(d<0.35||a.life<=0){if(live)a.target.hp-=2.6*towerDmgBonus();cityGroup.remove(o);arrows.splice(i,1);continue;}const sp=Math.min(9*dt,d);o.position.x+=dx/d*sp;o.position.y+=dy/d*sp;o.position.z+=dz/d*sp;o.lookAt(tx,ty,tz);o.rotateX(Math.PI/2);}}
 function soldierFight(o,dt,dmg,st){let best=null,bd=1e9;raiders.forEach(r=>{const d=Math.hypot(r.obj.position.x-o.position.x,r.obj.position.z-o.position.z);if(d<bd){bd=d;best=r;}});if(!best)return;const dx=best.obj.position.x-o.position.x,dz=best.obj.position.z-o.position.z,d=Math.hypot(dx,dz)||1;if(d>0.7){const sp=1.05*dt;o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;st.bob=(st.bob||0)+dt*6;o.position.y=Math.abs(Math.sin(st.bob))*.03;}else{best.hp-=dt*dmg;o.position.y=0;}o.rotation.y=Math.atan2(dx,dz);}
 function maybeRaid(dt){if(raidActive||builtCount<6)return;raidTimer-=dt;if(raidTimer<=0){raidTimer=160+Math.random()*120;startRaid();}}
+// mura d'assedio danneggiabili: i raider le colpiscono, si rompono e poi si rigenerano in pace
+function wallBar(ge){const [wx,wz]=cw(ge.ax,ge.ay);if(!ge.bar){ge.bar=mkBar3();ge.bar.fg.material.color.set(0x7bc47f);ge.bar.g.scale.setScalar(0.3);cityGroup.add(ge.bar.g);}const f=Math.max(0,ge.hp/ge.maxhp);ge.bar.fg.scale.x=f;ge.bar.fg.position.x=-.52*(1-f);ge.bar.fg.material.color.set(f>0.5?0x7bc47f:(f>0.25?0xe7b33a:0xe24b4a));ge.bar.g.position.set(wx,1.3,wz);ge.bar.g.lookAt(camera.position.x,1.3,camera.position.z);}
+function destroyWall(ge){const [wx,wz]=cw(ge.ax,ge.ay);floatText(wx,wz,'💥');if(ge.bar){cityGroup.remove(ge.bar.g);ge.bar=null;}cityGroup.remove(ge.obj);freeOf(ge);const fi=defenses.findIndex(x=>x.cx===ge.ax&&x.cy===ge.ay);if(fi>=0)defenses.splice(fi,1);cellsOf(ge).forEach(c=>{rebuildRoadArea(c[0],c[1]);rebuildBarrierArea(c[0],c[1]);});}
+function updWallRegen(dt){if(raidActive)return;defenses.forEach(df=>{if(df.k!=='muro'&&df.k!=='cancello')return;const ge=grid[key(df.cx,df.cy)];if(ge&&ge.hp!==undefined&&ge.hp<ge.maxhp){ge.hp=Math.min(ge.maxhp,ge.hp+dt*4);if(ge.hp>=ge.maxhp){if(ge.bar){cityGroup.remove(ge.bar.g);ge.bar=null;}}else wallBar(ge);}});}
 const RAIDERS={
  minion: {file:'Skeleton_Minion.glb', hp:9,  speed:0.55, sc:0.2,  rew:4},
  warrior:{file:'Skeleton_Warrior.glb',hp:22, speed:0.36, sc:0.24, rew:7},
@@ -919,6 +923,9 @@ function updRaid(dt){updArrows(dt);maybeRaid(dt);if(!raiders.length){if(raidActi
     if(r.bar){const f=Math.max(0,r.hp/r.maxhp);r.bar.fg.scale.x=f;r.bar.fg.position.x=-.52*(1-f);r.bar.g.position.set(o.position.x,r.boss?2.1:1.25,o.position.z);r.bar.g.lookAt(camera.position.x,r.bar.g.position.y,camera.position.z);}
     if(r.hp<=0){floatText(o.position.x,o.position.z,r.boss?'☠️':'💀');cityGroup.remove(o);if(r.bar)cityGroup.remove(r.bar.g);raiders.splice(i,1);R.oro+=r.rew||5;morale=Math.min(100,morale+(r.boss?5:1));if(R.armi>0)R.armi=Math.max(0,R.armi-1);if(r.boss){toast('☠️ Boss dell’Èrebo sconfitto! +🪙'+r.rew,4000);spawnChest(o.position.x,o.position.z,{oro:40+builtCount*3,ferro:10+builtCount,legna:25});setBubble('Il boss ha lasciato un forziere 🎁! Toccalo per il bottino.');}drawTop();continue;}
     const d=Math.hypot(o.position.x,o.position.z)||1;if(d<2.3){cityGroup.remove(o);if(r.bar)cityGroup.remove(r.bar.g);raiders.splice(i,1);const sack=r.boss?2:1;morale=Math.max(10,morale-6*sack);R.oro=Math.max(0,R.oro-8*sack);R.cibo=Math.max(0,R.cibo-10*sack);drawTop();floatText(0,1,'💥 saccheggio');toast('💥 L’Èrebo ha saccheggiato! −😊 −🪙 −🌾',3500);continue;}
+    // c'è un muro/cancello appena davanti? Il raider lo attacca invece di passare
+    const ax2=o.position.x-o.position.x/d*0.42, az2=o.position.z-o.position.z/d*0.42;const cc=cellOfWorld(ax2,az2);const ge=grid[key(cc[0],cc[1])];
+    if(ge&&(ge.type==='wall'||ge.type==='gate')&&ge.hp>0){ge.hp-=dt*7*(r.boss?2.2:1);wallBar(ge);o.rotation.y=Math.atan2(-o.position.x,-o.position.z);r.bob+=dt*4;o.position.y=Math.abs(Math.sin(r.bob))*.03;if(ge.hp<=0)destroyWall(ge);continue;}
     const sp=r.speed*dt;o.position.x-=o.position.x/d*sp;o.position.z-=o.position.z/d*sp;o.rotation.y=Math.atan2(-o.position.x,-o.position.z);r.bob+=dt*5;o.position.y=Math.abs(Math.sin(r.bob))*.03;}}
 function nbBuy(k){const t=NB_TRADE[k];if(!t)return;const price=Math.round(t.sells.gold*(allied[k]?0.8:1));if(R.oro<price){toast('Serve 🪙'+price);return;}R.oro-=price;R[t.sells.r]+=t.sells.qty;drawTop();save();toast('Comprato '+RES[t.sells.r]+t.sells.qty+' per 🪙'+price);openNeighbor(k,true);}
 function nbSell(k){const t=NB_TRADE[k];if(!t)return;if(R[t.buys.r]<t.buys.qty){toast('Ti serve '+RES[t.buys.r]+t.buys.qty);return;}const gain=Math.round(t.buys.gold*(allied[k]?1.2:1));R[t.buys.r]-=t.buys.qty;R.oro+=gain;drawTop();save();toast('Venduto '+RES[t.buys.r]+t.buys.qty+' per 🪙'+gain);openNeighbor(k,true);}
@@ -1071,7 +1078,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updDayNight(dt);
   if(started)updWeather(dt);
   if(started)updSeason(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updFloaters(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
 requestAnimationFrame(tick);
