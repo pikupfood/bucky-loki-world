@@ -918,6 +918,13 @@ const EVENTS=[
  ()=>{const a=4+Math.floor(builtCount/3);R.ferro+=a;return '⚙️ Giacimento di ferro! +⚙️'+a;}
 ];
 function updEvents(dt){if(builtCount<4)return;eventTimer-=dt;if(eventTimer<=0){eventTimer=95+Math.random()*80;const msg=EVENTS[Math.floor(Math.random()*EVENTS.length)]();drawTop();save();toast(msg,4200);setBubble('Nel regno: '+msg);}}
+// ===== crescita della popolazione (se il regno è felice e ben nutrito, arrivano nuovi Tuzu) =====
+let immigT=55+Math.random()*25;
+function popCap(){return 8+builtCount*2+buildings.filter(b=>b.key==='casa').length*2;}
+function updImmigration(dt){if(builtCount<3)return;immigT-=dt;if(immigT>0)return;immigT=50+Math.random()*30;
+  if(hungry||morale<74||R.cibo<operai*2||operai>=popCap())return;
+  operai++;spawnAgent('abitante');recompute();drawTop();save();floatText(0,1.2,'🙋');
+  toast('🙋 Un nuovo Tuzu si è unito al regno! Ora siete in '+operai,3200);setBubble('Il regno è felice: nuovi Tuzu arrivano a vivere qui. Costruisci Case 🏠 per farne spazio ad altri.');}
 let training=0;
 function trainSoldier(){if(!buildings.some(b=>b.key==='caserma')){toast('Serve una Caserma ⚔️');return;}if(training>0){toast('Addestramento in corso…');return;}const c={cibo:20,ferro:8};if(!afford(c)){toast('Servono 🌾20 ⚙️8');return;}pay(c);drawTop();training=6;toast('Addestro un soldato…');}
 function tickTrain(dt){if(training>0){training-=dt;if(training<=0){training=0;soldiers++;spawnAgent('milite');drawTop();save();toast('Soldato pronto! ⚔️ ('+soldiers+')');}}}
@@ -1018,7 +1025,7 @@ let last=performance.now(),saveT=0,missT=0,started=false;
 function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000,.1);last=now;
   if(started)updDayNight(dt);
   if(started)updWeather(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updFloaters(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updFloaters(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
 requestAnimationFrame(tick);
