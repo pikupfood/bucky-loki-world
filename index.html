@@ -132,6 +132,7 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
   <div class="sbtn" id="btnWorld"><span>🌍</span><b>Mondo</b><span class="badge" id="worldBadge">0</span></div>
   <div class="sbtn" id="btnMiss"><span>📜</span><b>Missioni</b><span class="badge" id="missBadge">0</span></div>
   <div class="sbtn" id="btnHero"><span>🦸</span><b>Eroi</b></div>
+  <div class="sbtn" id="btnChat"><span>💬</span><b>Tuzu</b></div>
 </div>
 <div id="zoom"><div class="zb" id="zrot" title="Ruota">↻</div><div class="zb" id="zin">+</div><div class="zb" id="zout">−</div></div>
 
@@ -461,7 +462,7 @@ function tip(){
   return 'Ottimo lavoro! Espandi il territorio toccando i bordi scuri 🔓.';
 }
 function setBubble(t){document.getElementById('bubble').textContent=t;}
-document.getElementById('tuzu').onclick=()=>{setBubble(tip());openMiss();};
+document.getElementById('tuzu').onclick=()=>{if(typeof openChat==='function')openChat();else setBubble(tip());};
 function openMiss(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let h='';missions.forEach(m=>{const ok=m.got;const rw=Object.entries(m.rew).map(([r,v])=>RES[r]+v).join(' ');h+=`<div class="miss${ok?' ok':''}"><span>${ok?'✅':'⬜'} ${m.txt}</span><span style="font-size:11px;opacity:.85">${rw}</span></div>`;});d.innerHTML=`<div class="card"><div class="em">📜</div><h2>Missioni</h2><p>Completa gli obiettivi per avere materiali.</p>${h}<button class="btn alt" id="mc">Chiudi</button></div>`;document.body.appendChild(d);armPanel(d);d.querySelector('#mc').onclick=()=>d.remove();}
 function openHeroes(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let h='';
   for(const k in HEROES){const HD=HEROES[k];const lv=heroLvl(k);const cost=heroCost(k);const costS=Object.entries(cost).map(([r,v])=>RES[r]+v).join(' ');const can=lv<3;
@@ -1021,6 +1022,73 @@ function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if
 document.getElementById('btnWorld').onclick=()=>{if(mode==='city')openWorld();};
 document.getElementById('btnMiss').onclick=()=>openMiss();
 document.getElementById('btnHero').onclick=()=>{if(mode==='city')openHeroes();};
+// ===== mini-guida iniziale =====
+const GUIDE=[
+ {em:'🏰',t:'Benvenuto nel tuo regno',x:'Guidi i <b>Chlòri</b>, un popolo di piccoli Tuzu 🟢. Fai crescere il villaggio, difendilo dall’<b>Èrebo</b> (l’Ombra) e portalo a diventare una grande <b>Metropoli</b>.'},
+ {em:'🔨',t:'Costruisci',x:'Tocca <b>🔨 Costruisci</b> in basso, scegli un edificio e tocca un <b>quadratino libero</b>. Inizia con <b>Segheria</b> 🪵, <b>Fattoria</b> 🌾 e <b>Case</b> 🏠.'},
+ {em:'👷',t:'I Tuzu lavorano da soli',x:'Gli abitanti raccolgono e costruiscono da soli. Più <b>Case</b> = più lavoratori 👷. Tocca un abitante per dargli un ordine: tagliare legna 🪓, pescare 🎣 o raccogliere 🧺.'},
+ {em:'🌾',t:'Nutri il popolo',x:'I Tuzu mangiano 🌾 cibo. Se manca, il morale 😊 cala. Fai <b>Fattorie</b>, semina nei <b>Campi</b> 🌱, alleva nei <b>Recinti</b> 🐑 o manda a pescare.'},
+ {em:'⚔️',t:'Difenditi dall’Èrebo',x:'Ogni tanto l’Èrebo attacca con scheletri e <b>boss</b> ☠️. Addestra <b>Soldati</b> (Caserma ⚔️), costruisci <b>Torri</b> 🏹 e <b>Mura</b> 🧱 sul lato da cui arriva.'},
+ {em:'🌍',t:'Esplora e alleati',x:'Apri <b>🌍 Mondo</b>: allèati coi vicini (ti mandano doni 🐫 e rinforzi) o <b>libera le terre</b> dall’Èrebo con una battaglia a turni.'},
+ {em:'🦸',t:'Eroi, ere e stagioni',x:'Recluta <b>🦸 Eroi</b> per bonus permanenti. Costruendo sali di era: <b>Villaggio→Borgo→Città→Metropoli</b>. Le <b>stagioni</b> cambiano la crescita delle colture.'},
+ {em:'🎯',t:'Il tuo obiettivo',x:'Completa le <b>📜 Missioni</b>, fai prosperare il regno, respingi l’Èrebo e portalo a <b>Metropoli</b>. Se ti serve aiuto, tocca <b>💬 Tuzu</b> e chiedimi un consiglio. Buon divertimento! 🎉'}
+];
+function openGuide(i){i=i||0;const p=GUIDE[i];const last=i>=GUIDE.length-1;dialog(p.em,p.t,'',`<div style="text-align:left;font-size:13.5px;line-height:1.55">${p.x}</div><div style="margin-top:8px;font-size:11px;opacity:.6">${i+1} / ${GUIDE.length}</div><div class="row">${i>0?'<button class="btn alt" id="gprev">◀ Indietro</button>':''}<button class="btn" id="gnext">${last?'Inizia! 🎉':'Avanti ▶'}</button></div><button class="btn alt" id="gskip" style="margin-top:4px">${last?'':'Salta'}</button>`);const d=document.getElementById('dyn');const pv=d.querySelector('#gprev');if(pv)pv.onclick=()=>openGuide(i-1);d.querySelector('#gnext').onclick=()=>{if(last){closeDyn();try{localStorage.setItem('tuzu_guide_seen','1');}catch(e){}}else openGuide(i+1);};const sk=d.querySelector('#gskip');if(sk)sk.onclick=()=>{closeDyn();try{localStorage.setItem('tuzu_guide_seen','1');}catch(e){}};}
+// ===== Tuzu AI: chat di consigli (locale, conosce il gioco) =====
+const TUZU_KB=[
+ {k:['fame','cibo','mangia','affama','sfama','nutr'],a:'Il popolo mangia 🌾 cibo di continuo. Costruisci <b>Fattorie</b>, semina nei <b>Campi</b> 🌱, alleva animali 🐑 nei Recinti o manda un abitante a <b>pescare</b> 🎣. Il <b>Mulino</b> trasforma il grano in 🍞 pane, che sfama ancora meglio.'},
+ {k:['soldat','difes','esercito','guerr','addestr','militar'],a:'Costruisci una <b>Caserma</b> ⚔️, poi entraci e addestra <b>Soldati</b> (🌾20 ⚙️8). Difendono dalle incursioni e combattono per liberare le terre. Il <b>Capitano</b> 🦸 li rende più forti.'},
+ {k:['mura','muro','cancello','cinta','protegg'],a:'Nel menu <b>🛡️ Difesa</b> metti <b>Mura</b> 🧱 sul lato da cui arriva l’Èrebo: gli scheletri le attaccano e perdono tempo mentre soldati e torri li colpiscono. Le mura danneggiate si riparano da sole in pace.'},
+ {k:['torr','arcier','freccia','freccie'],a:'Le <b>Torri</b> 🏹 (menu Difesa) sparano frecce ai nemici vicini durante le incursioni. Mettile lungo il percorso dei nemici. Il <b>Guardiano</b> 🦸 le potenzia.'},
+ {k:['incursion','attacc','erebo','ombra','boss','scheletr','raid','nemic'],a:'Ogni tanto l’<b>Èrebo</b> attacca con scheletri e a volte un <b>boss</b> ☠️. Difenditi con soldati ⚔️, torri 🏹 e mura 🧱. Un boss sconfitto lascia un <b>forziere</b> 🎁: toccalo per il bottino. Allèati coi vicini per avere rinforzi 🤝.'},
+ {k:['eroe','eroi','recluta'],a:'Apri <b>🦸 Eroi</b>: ognuno dà un bonus permanente — Contadina (+cibo), Mastro d’opera (costruisci +veloce), Mercante (+oro), Capitano (+soldati), Guardiano (+torri), Minatore (+pietra/ferro), Sacerdote (+morale), Esploratore (alleanze e carovane).'},
+ {k:['oro','soldi','moneta','ricc','guadagn'],a:'Guadagni 🪙 oro vendendo al <b>Mercato</b>, con la <b>Taverna</b>, dai doni degli alleati 🐫, dai forzieri dei boss 🎁 e dalle missioni 📜. Il <b>Mercante</b> 🦸 dà oro extra nel tempo.'},
+ {k:['legna','legno','albero','segheria','taglia','bosco'],a:'La <b>Segheria</b> produce 🪵 legna. Puoi anche toccare un abitante e poi un <b>albero</b> 🌳 per farlo tagliare: dà legna e libera terreno.'},
+ {k:['pietra','cava','sasso'],a:'La <b>Cava</b> produce 🪨 pietra (serve per mura, torri e costruzioni). Il <b>Minatore</b> 🦸 aumenta pietra e ferro.'},
+ {k:['ferro','fonderia','miniera','metallo','armi','arma'],a:'La <b>Fonderia</b> dà ⚙️ ferro, per soldati e costruzioni avanzate. L’<b>Armeria</b> trasforma il ferro in 🗡️ armi, che rendono i soldati più forti.'},
+ {k:['casa','case','popolazione','abitant','operai','gente','lavorator'],a:'Costruisci <b>Case</b> 🏠 per avere più lavoratori 👷. Se il regno è felice e ben nutrito, arrivano nuovi Tuzu da soli (più Case = più spazio).'},
+ {k:['campo','campi','coltiv','semin','grano','raccol'],a:'Nel menu <b>🌱 Campi</b> semini su un quadratino. Crescono col tempo (più in fretta se piove 🌧️ o in Primavera 🌸), poi tocca un abitante e il campo pronto 🧺 per raccogliere cibo.'},
+ {k:['animal','recinto','pecora','alleva','gallina','cavallo'],a:'Nel menu <b>🐑 Recinti</b> costruisci un recinto e compra animali: danno 🌾 cibo nel tempo. Tocca il recinto per gestirlo o demolirlo.'},
+ {k:['pesca','pesce','acqua','lago','fiume'],a:'Tocca un abitante 🧍 e poi l’<b>acqua</b> 💧 (laghi/fiumi) per mandarlo a pescare: porta 🌾 cibo. Serve un passaggio libero fino all’acqua.'},
+ {k:['mercato','vendi','vender','compra','comprar','commerci'],a:'Il <b>Mercato</b> vende risorse per oro o compra ciò che ti manca. Anche i villaggi vicini 🌍 commerciano (più conveniente se alleati 🤝).'},
+ {k:['alleanz','alleat','vicino','vicini','amici','carovan'],a:'Apri <b>🌍 Mondo</b> e visita un vicino per allearti (serve oro e cibo). Gli alleati mandano <b>doni</b> con le carovane 🐫 e <b>rinforzi</b> nelle incursioni. L’Esploratore 🦸 rende le alleanze più economiche.'},
+ {k:['era','ere','stadio','villaggio','borgo','citta','metropoli','avanz','crescere'],a:'Costruendo edifici sali di <b>stadio</b>: Villaggio 🏕️ → Borgo 🏘️ → Città 🏙️ → Metropoli 🏛️. Ogni salto porta una festa con ricompense e strade nuove. Lo vedi nel badge in alto.'},
+ {k:['mission','obiettiv','obbiettiv','scopo','devo fare','cosa fare','come inizi','iniziare','da dove','comincio'],a:'Apri <b>📜 Missioni</b> per gli obiettivi passo-passo (danno materiali). In breve: fai crescere il regno, tienilo nutrito e felice 😊, difenditi dall’Èrebo e <b>libera le terre</b> 🌍 fino a diventare Metropoli. Un buon inizio: Segheria → Fattoria → 2 Case → Caserma.'},
+ {k:['libera','battaglia','turni','terra','terre'],a:'In <b>🌍 Mondo</b> scegli una terra occupata e premi <b>⚔️ Libera</b>: parte una battaglia a <b>turni</b> su griglia (muovi i soldati e colpisci gli scheletri). Vincere libera la terra, dà premi e <b>alza il grado</b> dell’esercito.'},
+ {k:['forzier','tesoro','regalo','baule'],a:'Quando sconfiggi un <b>boss</b> ☠️ in un’incursione, lascia un <b>forziere</b> 🎁 in città: toccalo per raccogliere oro, ferro e legna (o si apre da solo dopo un po’).'},
+ {k:['stagion','inverno','neve','primavera','estate','autunno','meteo','pioggia','piove'],a:'Le <b>stagioni</b> cambiano da sole: in <b>Primavera</b> 🌸 le colture crescono in fretta, in <b>Inverno</b> ❄️ nevica, rallentano e serve più cibo. Anche la <b>pioggia</b> 🌧️ accelera le colture. Vedi la stagione nel badge in alto.'},
+ {k:['sposta','spostare','demolisc','demolir','togli','rimuov','elimina','cancell'],a:'Tocca un edificio o un muro e usa <b>✋ Sposta</b> oppure <b>🗑 Demolisci</b> (ti chiede conferma). Per deselezionare un abitante, toccalo di nuovo.'},
+ {k:['morale','felic','contento'],a:'Il <b>morale</b> 😊 sale con Chiesa ⛪, Taverna 🍺, feste e cibo abbondante; cala con la fame e i saccheggi. Morale alto = produzione migliore. Il Sacerdote 🦸 lo alza nel tempo.'},
+ {k:['come costru','costruire','costru','edifici','building'],a:'Tocca <b>🔨 Costruisci</b> in basso, scegli una categoria (Edifici, Decora, Campi, Recinti, Difesa, Monumenti), scegli cosa e tocca un <b>quadratino libero</b>. Il costo è scritto su ogni scelta.'}
+];
+function stripAcc(s){return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
+function tuzuReply(q){const s=stripAcc(q);let best=null,bs=0;for(const e of TUZU_KB){let sc=0;for(const k of e.k){if(s.includes(stripAcc(k)))sc++;}if(sc>bs){bs=sc;best=e;}}
+ let tip='';
+ if(typeof hungry!=='undefined'&&hungry)tip='<br><br>⚠️ <i>Occhio: il popolo ha fame adesso — pensa subito al cibo 🌾!</i>';
+ else if(typeof soldiers!=='undefined'&&soldiers<1)tip='<br><br>💡 <i>Non hai soldati: una Caserma ⚔️ ti aiuta a difenderti.</i>';
+ if(best&&bs>0)return best.a+tip;
+ return 'Posso aiutarti su: 🌾 cibo · ⚔️ soldati e difesa · 🧱 mura · 🏹 torri · 🦸 eroi · 🪙 oro · 🏠 case · 🌱 campi · 🐑 animali · 🌍 alleanze · 🏛️ ere · 📜 obiettivi · ⚔️ liberare le terre. Scrivimi «come faccio a…» e ti spiego!'+tip;}
+function openChat(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';
+ const chips=['Da dove inizio?','Come trovo cibo?','Come mi difendo?','A cosa servono le mura?','Come salgo di era?'];
+ d.innerHTML=`<div class="card" style="max-width:470px;display:flex;flex-direction:column;max-height:86vh">
+   <div style="display:flex;align-items:center;gap:9px;margin-bottom:6px"><div style="font-size:30px">🟢</div><div style="text-align:left"><h2 style="margin:0;font-size:18px">Tuzu</h2><div style="font-size:11.5px;opacity:.75">Chiedimi consigli sul gioco</div></div></div>
+   <div id="chatmsg" style="flex:1;overflow:auto;text-align:left;padding:4px 2px;min-height:150px"></div>
+   <div id="chatchips" style="display:flex;flex-wrap:wrap;gap:5px;margin:6px 0"></div>
+   <div style="display:flex;gap:6px"><input id="chatin" autocomplete="off" placeholder="Scrivi una domanda…" style="flex:1;padding:10px;border-radius:12px;border:1.5px solid rgba(0,0,0,.25);font-size:14px;color:#2a1a0a;background:#fff;user-select:text"><button class="btn" id="chatsend" style="width:auto;margin:0;padding:10px 15px">Invia</button></div>
+   <div class="row" style="margin-top:8px"><button class="btn alt" id="chatguide">📖 Come si gioca</button><button class="btn alt" id="chatclose">Chiudi</button></div>
+ </div>`;
+ document.body.appendChild(d);armPanel(d);
+ const msg=d.querySelector('#chatmsg');
+ function say(who,txt){const b=document.createElement('div');b.style.cssText='margin:5px 0;display:flex;'+(who==='me'?'justify-content:flex-end':'justify-content:flex-start');b.innerHTML=`<div style="max-width:85%;padding:8px 11px;border-radius:14px;font-size:13px;line-height:1.5;${who==='me'?'background:#3a6ea5;color:#fff;border-bottom-right-radius:4px':'background:rgba(0,0,0,.09);color:#3a2a12;border-bottom-left-radius:4px'}">${who==='me'?'':'🟢 '}${txt}</div>`;msg.appendChild(b);msg.scrollTop=msg.scrollHeight;}
+ function ask(q){q=(q||'').trim();if(!q)return;say('me',q);setTimeout(()=>say('tuzu',tuzuReply(q)),160);}
+ say('tuzu','Ciao! Sono Tuzu 🟢. Chiedimi come si gioca, cosa costruire o come difenderti. Tocca una domanda qui sotto o scrivimi!');
+ const chipc=d.querySelector('#chatchips');chips.forEach(c=>{const b=document.createElement('button');b.textContent=c;b.style.cssText='font-size:11.5px;padding:5px 10px;border-radius:20px;border:1px solid rgba(0,0,0,.2);background:rgba(0,0,0,.05);color:#3a2a12;cursor:pointer';b.onclick=()=>ask(c);chipc.appendChild(b);});
+ const input=d.querySelector('#chatin');
+ d.querySelector('#chatsend').onclick=()=>{ask(input.value);input.value='';input.focus();};
+ input.addEventListener('keydown',e=>{if(e.key==='Enter'){ask(input.value);input.value='';}});
+ d.querySelector('#chatguide').onclick=()=>openGuide(0);
+ d.querySelector('#chatclose').onclick=closeDyn;}
+document.getElementById('btnChat').onclick=()=>openChat();
 function openWorld(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let lh='';POPOLI.forEach(p=>{const own=p.own,lib=liberated[p.k],vis=COLORMAP[p.k];const st=own?'<span class="st" style="background:#1f6e56">Il tuo regno</span>':lib?'<span class="st" style="background:#2b6cb0">Alleata</span>':'<span class="st" style="background:#7a2b2b">Occupata</span>';let btn=own?'':lib?'<button style="background:rgba(255,255,255,.12)" disabled>Liberata ✓</button>':`<button style="background:#e24b4a" data-lib="${p.k}">⚔️ Libera</button>`;
     const nb=neighbors.find(n=>n.k===p.k);
     if(nb&&!own){if(nb.reached)btn+=`<button style="background:#1f8a56;margin-top:5px" data-enter="${p.k}">${allied[p.k]?'🤝 Alleata — commercia':'🤝 Entra: commercia o allèati'}</button><button style="background:#1f6e56;margin-top:5px" data-walk="${p.k}">🚶 Torna a piedi</button>`;else if(neighborReachable(nb))btn+=`<button style="background:#1f8a56;margin-top:5px" data-walk="${p.k}">🚶 Cammina fin là (strada aperta!)</button>`;else btn+=`<div style="margin-top:5px;font-size:11px;opacity:.85">🌳 Taglia la vegetazione verso il cartello colorato per aprire la strada</div>`;}
@@ -1109,6 +1177,6 @@ requestAnimationFrame(tick);
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
   checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());document.getElementById('load').style.display='none';
 })();
-document.getElementById('startBtn').onclick=()=>{document.getElementById('intro').style.display='none';started=true;last=performance.now();toast('Trascina per spostarti · 🔨 Costruisci · tocca un Tuzu per un ordine',4200);};
+document.getElementById('startBtn').onclick=()=>{document.getElementById('intro').style.display='none';started=true;last=performance.now();let seen=false;try{seen=!!localStorage.getItem('tuzu_guide_seen');}catch(e){}if(!seen)setTimeout(()=>{if(typeof openGuide==='function')openGuide(0);},500);else toast('Trascina per spostarti · 🔨 Costruisci · tocca un Tuzu per un ordine',4200);};
 </script>
 </html>
