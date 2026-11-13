@@ -135,6 +135,7 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
   <div class="sbtn" id="btnChat"><span>💬</span><b>Tuzu</b></div>
   <div class="sbtn" id="btnLib"><span>📚</span><b>Ricerche</b></div>
   <div class="sbtn" id="btnShop"><span>🛒</span><b>Negozio</b></div>
+  <div class="sbtn" id="btnAccount"><span>👤</span><b>Account</b></div>
 </div>
 <div id="zoom"><div class="zb" id="zrot" title="Ruota">↻</div><div class="zb" id="zin">+</div><div class="zb" id="zout">−</div></div>
 
@@ -157,6 +158,7 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
   <div class="em">🌿</div><h2>I Regni di Tuzu</h2>
   <p>Un male antico, l'<b>Èrebo</b>, divora le terre. Guidi i <b>Chlòri</b> delle Valli di Dèndora. Hai già un piccolo villaggio: fallo crescere, abbellisci, addestra soldati e respingi l'Ombra. Il piccolo Tuzu 🟢 ti guiderà.</p>
   <button class="btn" id="startBtn">Entra nel regno</button>
+  <div id="introAcc" style="margin-top:10px;font-size:12.5px;opacity:.9"></div>
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1015,7 +1017,7 @@ document.getElementById('zin').onclick=()=>setZoom(VZ*0.8);document.getElementBy
 document.getElementById('zrot').onclick=()=>{placeRot=(placeRot+1)%4;toast('↻ Rotazione: '+(placeRot*90)+'° (per muri, cancelli, torri, decori)',2600);};
 
 // ===== salvataggio =====
-function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,g:Math.round(c.t)})),he:heroes,sr:soldierRank,rs:research}));}catch(e){}}
+function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,g:Math.round(c.t)})),he:heroes,sr:soldierRank,rs:research}));if(window.TuzuCloud)window.TuzuCloud.scheduleSync();}catch(e){}}
 function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});(s.lc||[]).forEach(c=>addLake(c.cx,c.cy,c.r));(s.wl||[]).forEach(w=>wildTree(w.cx,w.cy));(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);if(!(s.lc&&s.lc.length))placeLakes();if(!(s.wl&&s.wl.length))placeWildVegetation();placeRivers();placeScatterForests();
   (s.b||[]).forEach(it=>{const d=BUILD[it.k];if(!d)return;const [w,h]=fpSize(d);const ax=it.cx,ay=it.cy;const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(d.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:it.k,def:d,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true,lvl:it.lv||1};if(b.lvl>1)o.scale.multiplyScalar(Math.pow(1.07,b.lvl-1));buildings.push(b);const e={type:'building',key:it.k,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);});
   (s.d||[]).forEach(it=>{if(DECO[it.k])placeDeco(it.cx,it.cy,it.k);});
@@ -1224,6 +1226,64 @@ requestAnimationFrame(tick);
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
   checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());document.getElementById('load').style.display='none';
 })();
+// ===== Account (login + salvataggio cloud, stesso account dell'app Tuzu) =====
+let cloudUser=null;
+function refreshAccountUI(){
+  const ia=document.getElementById('introAcc');
+  if(ia){ if(cloudUser){ia.innerHTML='☁️ Connesso: <b>'+(cloudUser.email||'account')+'</b> · <span id="introLogout" style="text-decoration:underline;cursor:pointer">esci</span>';const lo=document.getElementById('introLogout');if(lo)lo.onclick=async()=>{if(window.TuzuCloud)await window.TuzuCloud.signOut();cloudUser=null;refreshAccountUI();};}
+    else{ia.innerHTML='<button class="btn alt" id="introLogin" style="margin:6px auto 0;max-width:280px">👤 Accedi / Registrati (salva in cloud)</button>';const il=document.getElementById('introLogin');if(il)il.onclick=openAccount;} }
+  const b=document.getElementById('btnAccount');if(b){const lab=b.querySelector('b');if(lab)lab.textContent=cloudUser?'Account ✓':'Account';}
+}
+function openAccount(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';const u=cloudUser;const inp='width:100%;padding:10px;margin:4px 0;border-radius:10px;border:1.5px solid rgba(0,0,0,.25);font-size:14px;color:#2a1a0a;background:#fff;user-select:text';
+ let body;
+ if(u){body=`<p>Connesso come <b>${u.email||'utente'}</b>.</p><p style="font-size:12.5px;opacity:.85">I progressi si salvano in cloud: li ritrovi su telefono e computer con lo stesso account.</p><div class="row"><button class="btn" id="acsync">☁️ Salva ora</button><button class="btn red" id="acout">Esci</button></div><button class="btn alt" id="acclose">Chiudi</button>`;}
+ else{body=`<p style="font-size:13px">Accedi per salvare i progressi in <b>cloud</b> e giocare da telefono e PC con lo stesso account (lo stesso dell'app Tuzu).</p>
+   <input id="acmail" type="email" autocomplete="email" placeholder="Email" style="${inp}">
+   <input id="acpass" type="password" autocomplete="current-password" placeholder="Password" style="${inp}">
+   <div class="row"><button class="btn" id="aclogin">Accedi</button><button class="btn alt" id="acreg">Registrati</button></div>
+   <button class="btn" id="acgoogle" style="background:#fff;color:#333;border:1px solid #bbb">Accedi con Google</button>
+   <div id="acmsg" style="font-size:12px;min-height:16px;margin-top:6px;color:#9a5a28"></div>
+   <button class="btn alt" id="acguest">Gioca come ospite</button>`;}
+ d.innerHTML=`<div class="card" style="max-width:420px"><div class="em">👤</div><h2>Account</h2>${body}</div>`;
+ document.body.appendChild(d);armPanel(d);const q=s=>d.querySelector(s);const msg=t=>{const m=q('#acmsg');if(m)m.textContent=t;};
+ if(u){q('#acsync').onclick=async()=>{if(window.TuzuCloud){await window.TuzuCloud.push();toast('☁️ Salvato in cloud');}};
+   q('#acout').onclick=async()=>{if(window.TuzuCloud)await window.TuzuCloud.signOut();cloudUser=null;refreshAccountUI();closeDyn();toast('Uscito dall’account');};
+   q('#acclose').onclick=closeDyn;}
+ else{if(!window.TuzuCloud)msg('Connessione in corso… riprova tra un attimo.');
+   q('#aclogin').onclick=async()=>{if(!window.TuzuCloud){msg('Connessione non pronta');return;}const e=q('#acmail').value.trim(),p=q('#acpass').value;if(!e||!p){msg('Inserisci email e password');return;}msg('Accesso…');const r=await window.TuzuCloud.signInEmail(e,p);if(r.error)msg('Errore: '+r.error);else msg('Accesso riuscito! Sincronizzo…');};
+   q('#acreg').onclick=async()=>{if(!window.TuzuCloud){msg('Connessione non pronta');return;}const e=q('#acmail').value.trim(),p=q('#acpass').value;if(!e||p.length<6){msg('Email valida e password (almeno 6 caratteri)');return;}msg('Registrazione…');const r=await window.TuzuCloud.signUpEmail(e,p);if(r.error)msg('Errore: '+r.error);else msg(r.needConfirm?'Ti ho inviato una email di conferma: confermala, poi accedi.':'Registrato! Sei dentro.');};
+   q('#acgoogle').onclick=async()=>{if(!window.TuzuCloud){msg('Connessione non pronta');return;}msg('Apro Google…');try{await window.TuzuCloud.signInGoogle();}catch(x){msg('Google non disponibile ora.');}};
+   q('#acguest').onclick=closeDyn;}
+}
+window.tuzuCloudReady=function(user){cloudUser=user||null;refreshAccountUI();if(cloudUser){const dyn=document.getElementById('dyn');if(dyn&&/>Account<\/h2>/.test(dyn.innerHTML))openAccount();}};
+document.getElementById('btnAccount').onclick=()=>openAccount();
+refreshAccountUI();
 document.getElementById('startBtn').onclick=()=>{document.getElementById('intro').style.display='none';started=true;last=performance.now();let seen=false;try{seen=!!localStorage.getItem('tuzu_guide_seen');}catch(e){}if(!seen)setTimeout(()=>{if(typeof openGuide==='function')openGuide(0);},500);else toast('Trascina per spostarti · 🔨 Costruisci · tocca un Tuzu per un ordine',4200);};
+</script>
+<script type="module">
+// ===== Tuzu Cloud: account + salvataggio cloud (progetto Supabase "tuzu", stesso account dell'app) =====
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
+const SUPA_URL='https://bpipowfznqcnfxhezaez.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwaXBvd2Z6bnFjbmZ4aGV6YWV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM2NTM3ODQsImV4cCI6MjEwOTIyOTc4NH0.Zm5SMxenj1YOfAjWfpSXxjmc6VWQ8PS-ho7lExRe2nI';
+const SAVEKEY='tuzu_rpg5', MARK='tuzu_cloud_at';
+let supa=null;
+try{ supa=createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}); }catch(e){ console.warn('Supabase init',e); }
+async function currentUser(){ if(!supa) return null; try{ const {data}=await supa.auth.getUser(); return data&&data.user; }catch(e){ return null; } }
+async function push(){ try{ const u=await currentUser(); if(!u) return; const local=localStorage.getItem(SAVEKEY); if(!local) return; const {data,error}=await supa.from('game_saves').upsert({user_id:u.id,data:JSON.parse(local)}).select('updated_at').maybeSingle(); if(!error&&data) localStorage.setItem(MARK,data.updated_at); }catch(e){ console.warn('push',e); } }
+async function pull(){ try{ const u=await currentUser(); if(!u) return; const {data,error}=await supa.from('game_saves').select('data,updated_at').eq('user_id',u.id).maybeSingle(); if(error){ console.warn('pull',error); return; } if(data){ if(localStorage.getItem(MARK)!==data.updated_at){ localStorage.setItem(SAVEKEY,JSON.stringify(data.data)); localStorage.setItem(MARK,data.updated_at); location.reload(); } } else { const local=localStorage.getItem(SAVEKEY); if(local){ const {data:up}=await supa.from('game_saves').upsert({user_id:u.id,data:JSON.parse(local)}).select('updated_at').maybeSingle(); if(up) localStorage.setItem(MARK,up.updated_at); } } }catch(e){ console.warn('pull',e); } }
+let syncTimer=null;
+window.TuzuCloud={
+  ready:true,
+  scheduleSync(){ clearTimeout(syncTimer); syncTimer=setTimeout(push,12000); },
+  push,
+  async signInEmail(email,pass){ if(!supa) return {error:'offline'}; const {error}=await supa.auth.signInWithPassword({email,password:pass}); return error?{error:error.message}:{ok:true}; },
+  async signUpEmail(email,pass){ if(!supa) return {error:'offline'}; const {data,error}=await supa.auth.signUp({email,password:pass}); return error?{error:error.message}:{ok:true,needConfirm:!data.session}; },
+  async signInGoogle(){ if(!supa) throw new Error('offline'); await supa.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}}); },
+  async signOut(){ if(supa) await supa.auth.signOut(); localStorage.removeItem(MARK); }
+};
+function notify(u){ if(typeof window.tuzuCloudReady==='function'){ try{ window.tuzuCloudReady(u); }catch(e){} } }
+if(supa){ supa.auth.onAuthStateChange(async (ev,session)=>{ const u=session&&session.user; notify(u||null); if(u) await pull(); });
+  (async()=>{ const u=await currentUser(); notify(u||null); if(u) await pull(); })(); }
+else notify(null);
 </script>
 </html>
