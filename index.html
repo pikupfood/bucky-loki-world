@@ -292,6 +292,7 @@ const DECO={
   siepe:   {nome:'Siepe',   em:'🌿', build:'makeHedge', mor:1},
   lampione:{nome:'Lampione',em:'🏮', build:'makeLamp',  mor:1},
   casse:   {nome:'Casse',   em:'📦', build:'makeCrates',mor:0},
+  porticciolo:{nome:'Porticciolo',em:'⚓', build:'makeHarbor', mor:3, cost:{legna:30,pietra:10}},
   strada:  {nome:'Strada',  em:'🟫', road:true, mor:0},
   bandiera:{nome:'Bandiera',em:'🚩', files:['flag_'+col], mor:1}
 };
@@ -586,7 +587,7 @@ function tryPlace(cx,cy){
   const [w,h]=fpSize(def);const [ax,ay]=fpAnchor(cx,cy,w,h);
   if(cat==='monumenti'&&!monUnlocked()){toast('Monumenti bloccati');return;}
   if(!canPlace(ax,ay,w,h)){toast('Spazio occupato o non sbloccato');return;}
-  if(cat==='decora'){placeDeco(ax,ay);save();return;}
+  if(cat==='decora'){const dd=DECO[selKey];if(dd.cost){if(!afford(dd.cost)){toast('Risorse insufficienti');return;}pay(dd.cost);}placeDeco(ax,ay);drawTop();save();if(selKey==='porticciolo')toast('⚓ Porticciolo costruito! Porta commercio via mare: 🪙 in arrivo ogni tanto',4200);return;}
   startBuildAt(ax,ay,w,h,cat==='edifici'?BUILD:MON);save();
 }
 
@@ -778,6 +779,11 @@ const waterMid=new THREE.MeshBasicMaterial({color:0x4296da,side:THREE.DoubleSide
 const shoreMat=new THREE.MeshBasicMaterial({color:0xc2d8ac,side:THREE.DoubleSide});
 function markWater(cx,cy){if(!inB(cx,cy)||grid[key(cx,cy)])return;grid[key(cx,cy)]={type:'water',ax:cx,ay:cy,w:1,h:1,cx,cy};lakes.push({cx,cy});}
 function disc(mat,R,y,rot){const m=new THREE.Mesh(new THREE.CircleGeometry(R,24),mat);m.rotation.x=-Math.PI/2;m.rotation.z=rot||0;m.position.y=y;m.renderOrder=28;return m;}
+// ===== barche, navi e porticcioli =====
+const _woodD=new THREE.MeshStandardMaterial({color:0x7a4a22,roughness:1}),_woodDk=new THREE.MeshStandardMaterial({color:0x5a3c20,roughness:1}),_sailM=new THREE.MeshStandardMaterial({color:0xf0e4c8,roughness:1,side:THREE.DoubleSide});
+function makeBoat(s){const g=new THREE.Group();const hull=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.22,0.42),_woodD);hull.position.y=0.14;g.add(hull);const tip=new THREE.Mesh(new THREE.ConeGeometry(0.22,0.5,4),_woodD);tip.rotation.z=-Math.PI/2;tip.rotation.y=Math.PI/4;tip.position.set(0.6,0.14,0);g.add(tip);const mast=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.72,6),_woodDk);mast.position.set(0,0.5,0);g.add(mast);const sail=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.5),_sailM);sail.position.set(0.02,0.52,0);sail.rotation.y=Math.PI/2;g.add(sail);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.scale.setScalar(s||1);return g;}
+function makeShip(s){const g=new THREE.Group();const hullM=new THREE.MeshStandardMaterial({color:0x6b4226,roughness:1});const hull=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.4,0.6),hullM);hull.position.y=0.26;g.add(hull);const prow=new THREE.Mesh(new THREE.ConeGeometry(0.3,0.72,4),hullM);prow.rotation.z=-Math.PI/2;prow.rotation.y=Math.PI/4;prow.position.set(1.05,0.26,0);g.add(prow);const deck=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.12,0.5),new THREE.MeshStandardMaterial({color:0x8a5a30,roughness:1}));deck.position.y=0.52;g.add(deck);[-0.3,0.4].forEach(mx=>{const mast=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.05,1.3,6),_woodDk);mast.position.set(mx,1.1,0);g.add(mast);const sail=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.82),_sailM);sail.position.set(mx,1.16,0);sail.rotation.y=Math.PI/2;g.add(sail);});g.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.scale.setScalar(s||1);return g;}
+function makeHarbor(){const g=new THREE.Group();const plank=new THREE.MeshStandardMaterial({color:0x7a5530,roughness:1});const deck=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.08,1.4),plank);deck.position.set(0,0.2,0.2);g.add(deck);[-0.18,0.18].forEach(px=>[-0.3,0.3,0.7].forEach(pz=>{const pile=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.44,5),_woodDk);pile.position.set(px,0.06,pz);g.add(pile);}));const w=disc(waterMid,0.95,0.03,0);w.position.set(0.25,0.03,0.4);w.scale.set(1.2,1,1.6);g.add(w);const boat=makeBoat(0.55);boat.position.set(0.55,0.05,0.55);boat.rotation.y=0.3;g.add(boat);g.traverse(m=>{if(m.isMesh&&m.geometry&&m.geometry.type!=='CircleGeometry')m.castShadow=true;});return g;}
 function addLake(cx,cy,r){lakeCenters.push({cx,cy,r});
   for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++){if(dx*dx+dy*dy<=r*r+0.4){const x=cx+dx,y=cy+dy;if(inB(x,y)&&!unlockedCell(x,y))markWater(x,y);}}
   const [wx,wz]=cw(cx,cy);const R=r*CELL;const g=new THREE.Group();g.position.set(wx,0,wz);
@@ -801,12 +807,30 @@ function addRiver(pts){const seed=Math.random()*6.28;
   const mb=new THREE.Mesh(riverRibbon(pts,CELL*2.1,3+Math.random()*2,seed),shoreMat);mb.position.y=0.04;mb.renderOrder=27;cityGroup.add(mb);
   const m1=new THREE.Mesh(riverRibbon(pts,CELL*1.5,3.5+Math.random()*2,seed+1),waterMid);m1.position.y=0.05;m1.renderOrder=28;cityGroup.add(m1);
   const m2=new THREE.Mesh(riverRibbon(pts,CELL*0.8,4+Math.random()*2,seed+2),waterDeep);m2.position.y=0.06;m2.renderOrder=29;cityGroup.add(m2);}
+// grande lago (sfocio dei fiumi), solo visivo, fuori dall'area giocabile
+let bigLakes=[];
+function addBigLake(wx,wz,R){const g=new THREE.Group();g.position.set(wx,0,wz);const sx=1.0+Math.random()*0.4,sz=0.78+Math.random()*0.3,rot=Math.random()*3;
+  const sh=disc(shoreMat,R*1.28,0.03,rot);sh.scale.set(sx*1.05,1,sz*1.05);g.add(sh);
+  const w1=disc(waterMid,R*1.06,0.05,rot+0.2);w1.scale.set(sx,1,sz);g.add(w1);
+  const w2=disc(waterDeep,R*0.72,0.066,rot-0.2);w2.scale.set(sx*0.95,1,sz*0.95);g.add(w2);
+  for(let i=0;i<2;i++){const a=Math.random()*6.28,d=R*(0.7+Math.random()*0.4),lr=R*(0.45+Math.random()*0.35),lx=Math.cos(a)*d,lz=Math.sin(a)*d;const ls=disc(shoreMat,lr*1.25,0.032,Math.random()*3);ls.position.set(lx,0.032,lz);g.add(ls);const lw=disc(waterMid,lr,0.052,Math.random()*3);lw.position.set(lx,0.052,lz);g.add(lw);}
+  cityGroup.add(g);const L={wx,wz,R};bigLakes.push(L);return L;}
+// laghetto collegato a un fiume da un canale
+function riverPond(wx,wz,R,rvx,rvz){addBigLake(wx,wz,R);const pts=[[wx,wz],[(wx+rvx)/2,(wz+rvz)/2],[rvx,rvz]];
+  const mb=new THREE.Mesh(riverRibbon(pts,CELL*1.35,2,Math.random()*6),shoreMat);mb.position.y=0.04;mb.renderOrder=27;cityGroup.add(mb);
+  const m1=new THREE.Mesh(riverRibbon(pts,CELL*0.9,2,1+Math.random()*6),waterMid);m1.position.y=0.05;m1.renderOrder=28;cityGroup.add(m1);}
 let riversPlaced=false;
 function placeRivers(){if(riversPlaced)return;riversPlaced=true;
-  // i fiumi entrano da un bordo (nella foschia) ed escono dall'altro: scorrono nel corridoio fra la città (±16) e i vicini, senza passarci sopra
-  addRiver([[-20,-64],[-19,-42],[-20,-22],[-21,-4],[-23,14],[-25,32],[-27,52],[-29,66]]); // fiume ovest: nord→sud, fra città e Nefele
-  addRiver([[-64,46],[-34,42],[-10,40],[8,41],[26,43],[46,45],[66,48]]);                 // fiume sud: ovest→est, dietro Oros
-  addRiver([[64,-30],[42,-24],[24,-20],[18,-14],[19,0],[22,14],[21,34],[20,62]]);         // fiume est: scende oltre Chrysa fino a sud
+  // i fiumi SFOCIANO in grandi laghi da un lato ed escono dai bordi (nella foschia) dall'altro
+  const L1=addBigLake(-44,-30,8), L2=addBigLake(46,42,9), L3=addBigLake(48,-34,7);
+  addRiver([[L1.wx,L1.wz],[-34,-18],[-23,-6],[-20,8],[-23,26],[-27,48],[-29,70]]); // ovest: dal lago NO giù a sud, fra città e Nefele
+  addRiver([[L3.wx,L3.wz],[38,-22],[26,-14],[20,-4],[20,10],[21,30],[20,66]]);     // est: dal lago NE giù oltre Chrysa
+  addRiver([[-66,42],[-34,40],[-8,40],[12,41],[30,42],[L2.wx,L2.wz]]);             // sud: da ovest sfocia nel lago SE, dietro Oros
+  // laghetti collegati ai fiumi
+  riverPond(-31,-13,3.4, -23,-6); riverPond(31,-9,3, 24,-13); riverPond(-19,47,3.4, -8,40);
+  // barche e navi sui grandi laghi
+  const boatOn=(L,ship)=>{const b=ship?makeShip(0.7):makeBoat(0.95);b.position.set(L.wx+(Math.random()-.5)*L.R*0.7,0.08,L.wz+(Math.random()-.5)*L.R*0.7);b.rotation.y=Math.random()*6.28;cityGroup.add(b);};
+  boatOn(L1,false);boatOn(L1,false);boatOn(L2,true);boatOn(L2,false);boatOn(L3,true);boatOn(L3,false);
 }
 function commandFish(a,wx,wy){if(a.kind==='milite'){toast('I soldati non pescano: scegli un abitante 🧍');return;}const t=adjWalk(wx,wy,1,1);if(t&&startWalk(a,t[0],t[1],'fish')){a.fishCell=[wx,wy];toast('🎣 Vado a pescare! (porterò 🌾 cibo)',3200);}else toast('Non riesco a raggiungere l’acqua: libera prima un passaggio tagliando la vegetazione');}
 function commandClear(a,cx,cy){if(a.kind==='milite'){toast('Manda un abitante ad aprire la strada 🧍');return;}const t=adjWalk(cx,cy,1,1);if(t&&startWalk(a,t[0],t[1],'clearcmd')){a.clearCell=[cx,cy];toast('🛣️ Vado ad aprire la strada (spiano il terreno)…',3200);}else toast('Non riesco ad arrivarci: apri prima le celle più vicine');}
@@ -997,6 +1021,7 @@ function walkToNeighbor(k){const nb=neighbors.find(n=>n.k===k);if(!nb)return;if(
 function updTraveler(dt){if(!traveler)return;const t=traveler,o=t.obj;let tx,tz;if(t.phase==='path'){if(t.pi>=t.path.length){t.phase='final';return;}const cell=t.path[t.pi];const w=cw(cell[0],cell[1]);tx=w[0];tz=w[1];}else{tx=t.nb.g.position.x;tz=t.nb.g.position.z-2.2;}const dx=tx-o.position.x,dz=tz-o.position.z;const d=Math.hypot(dx,dz);camTarget.x=o.position.x;camTarget.z=o.position.z;updateCam();if(d<0.12){if(t.phase==='path')t.pi++;else{t.nb.reached=true;reachedNb[t.nb.k]=1;const p=POPOLI.find(x=>x.k===t.nb.k);toast('🎉 Arrivato a '+p.n+'! 👥'+t.nb.pop+' ⚔️'+t.nb.mil,4500);save();cityGroup.remove(o);traveler=null;}return;}const sp=Math.min(1.2*dt,d);o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);t.bob+=dt*5;o.position.y=Math.abs(Math.sin(t.bob))*.03;}
 function updNeighbors(dt){neighbors.forEach(nb=>{
   if(allied[nb.k]){const t=NB_TRADE[nb.k];nb.giftT=(nb.giftT||40)-dt;if(nb.giftT<=0){nb.giftT=40+Math.random()*20;if(t&&!nb.caravan)spawnCaravan(nb,t.gift);}}
+  if(hostile[nb.k]){nb.warT=(nb.warT==null?(70+Math.random()*60):nb.warT)-dt;if(nb.warT<=0){nb.warT=130+Math.random()*120;if(!raidActive&&started&&mode==='city'&&builtCount>=4)startNeighborRaid(nb);}}
   nb.timer-=dt;if(nb.timer<=0){nb.timer=70+Math.random()*60;const nbc=Object.keys(nb.cells).length;if(nbc<13){const spots=[];for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++)if(!nb.cells[x+','+z])spots.push([x,z]);if(spots.length){const [x,z]=spots[Math.floor(Math.random()*spots.length)];const f=['home_A','home_B','tower_B','windmill','church','blacksmith'][Math.floor(Math.random()*6)];nbBuild(nb,f,x,z);nb.pop+=1;if(Math.random()<.3&&nb.mil<10)nb.mil++;if(nb.agents.length<7&&Math.random()<.4)nbSpawn(nb);}}}
   nb.agents.forEach(a=>{const o=a.obj;const dx=a.tx-o.position.x,dz=a.tz-o.position.z;const d=Math.hypot(dx,dz);if(a.state==='idle'){a.timer-=dt;if(a.timer<=0){a.tx=(Math.random()-.5)*6;a.tz=(Math.random()-.5)*6;a.state='walk';}return;}if(d<.12){a.state='idle';a.timer=.6+Math.random()*2;return;}const sp=a.speed*dt;o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);a.bob+=dt*9;o.position.y=Math.abs(Math.sin(a.bob))*.03;});});}
 // carovane di commercio: i doni degli alleati arrivano con un mercante che viaggia fino in città
@@ -1045,6 +1070,14 @@ function startRaid(){raidActive=true;const pw=raidPower();raidHpMul=Math.min(2.4
   toast((boss?'☠️ L’Èrebo attacca con un BOSS! ':'⚔️ L’Èrebo attacca il regno! ')+(siege?'🪨 Porta una catapulta! ':'')+(allyKs.length?'🤝 Gli alleati mandano rinforzi!':'I soldati difendono.'),4800);setBubble('L’Èrebo attacca'+(siege?' con una catapulta 🪨 che colpisce le mura':'')+'! Difendi con i soldati ⚔️, le torri 🗼 e le mura 🧱'+(allyKs.length?'; gli alleati 🤝 ti aiutano':'')+'.');
   raidBanner('⚔️ SOTTO ATTACCO! I tuoi <b>soldati</b> e le <b>torri</b> 🏹 si difendono <b>da soli</b>.<br>Rinforza con <b>Torri</b> 🏹 e <b>Mura</b> 🧱 (menu 🛡️ Difesa) e addestra <b>Soldati</b> ⚔️ (Caserma).');}
 function endRaid(){raidActive=false;agents.forEach(a=>{if((a.kind==='milite'||a.kind==='eroe')&&a.state==='raidfight'){a.state='idle';a.timer=.3;}});allyTroops.forEach(t=>cityGroup.remove(t.obj));allyTroops=[];arrows.forEach(a=>cityGroup.remove(a.obj));arrows=[];stones.forEach(s=>cityGroup.remove(s.obj));stones=[];raidBanner('');setBubble('Attacco respinto! Il regno è salvo 🛡️');}
+// ===== i villaggi NEMICI ti riattaccano (vendetta visibile) =====
+function spawnFoeSoldier(x,z,hp,col){const g=new THREE.Group();g.position.set(x,0,z);cityGroup.add(g);loadModel(AD+'Knight.glb').then(m=>{m.scale.setScalar(PS);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);});const flag=new THREE.Mesh(new THREE.ConeGeometry(0.11,0.22,4),new THREE.MeshBasicMaterial({color:col}));flag.position.y=0.78;g.add(flag);const bar=mkBar3();bar.fg.material.color.set(0xe24b4a);bar.g.scale.setScalar(0.34);cityGroup.add(bar.g);raiders.push({obj:g,hp,maxhp:hp,speed:0.42,bob:Math.random()*6,type:'soldier',rew:7,bar});}
+function startNeighborRaid(nb){if(raidActive)return;raidActive=true;raidHpMul=1;const p=POPOLI.find(x=>x.k===nb.k)||{n:'Un villaggio'};const col=SIGNCOL[nb.col]||0xcccccc;
+  const ang=Math.atan2(nb.g.position.z,nb.g.position.x),m=14.5,bx=Math.cos(ang)*m,bz=Math.sin(ang)*m;
+  const n=Math.min(8,2+Math.round((nb.mil||2)*0.9));for(let i=0;i<n;i++)spawnFoeSoldier(bx+(Math.random()-.5)*5,bz+(Math.random()-.5)*5,16+Math.round((nb.mil||2)*1.3),col);
+  agents.forEach(a=>{if(a.kind==='milite'||a.kind==='eroe')a.state='raidfight';});
+  toast('⚔️ '+p.n+' ti attacca per vendetta!',4800);setBubble(p.n+' manda i suoi soldati! Difenditi: soldati ⚔️, torri 🏹 e mura 🧱.');
+  raidBanner('⚔️ '+p.n+' TI ATTACCA! I tuoi <b>soldati</b> e le <b>torri</b> 🏹 si difendono da soli. Rinforza con <b>Torri</b> 🏹 e <b>Mura</b> 🧱.');}
 // ===== catapulte dell'Èrebo (bombardano le mura da lontano) =====
 let stones=[];
 function makeCatapult(){const g=new THREE.Group();const wood=new THREE.MeshStandardMaterial({color:0x6b4a28,roughness:1});const base=new THREE.Mesh(new THREE.BoxGeometry(0.72,0.18,0.46),wood);base.position.y=0.22;g.add(base);const w1=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.1,12),new THREE.MeshStandardMaterial({color:0x3a2a16,roughness:1}));w1.rotation.z=Math.PI/2;w1.position.set(0,0.2,0.29);g.add(w1);const w2=w1.clone();w2.position.z=-0.29;g.add(w2);const arm=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.62,0.06),wood);arm.position.set(-0.12,0.52,0);arm.rotation.z=0.6;g.add(arm);const bucket=new THREE.Mesh(new THREE.SphereGeometry(0.1,8,6),new THREE.MeshStandardMaterial({color:0x4a4a4a,roughness:1}));bucket.position.set(-0.38,0.74,0);g.add(bucket);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
@@ -1089,7 +1122,11 @@ function nbAttack(k){const nb=neighbors.find(n=>n.k===k);const p=POPOLI.find(p=>
 let offlineSince=0;
 function applyOfflineEarnings(){if(!offlineSince)return;let secs=(Date.now()-offlineSince)/1000;offlineSince=0;if(secs<300)return;secs=Math.min(secs,8*3600);const gain={};buildings.forEach(b=>{if(b.def&&b.def.prod&&b.active){const r=b.def.prod.r;const perSec=(b.def.prod.a/b.def.prod.t)*lvlMul(b)*prodBonus(r)*0.5;gain[r]=(gain[r]||0)+perSec*secs;}});const parts=[];for(const r in gain){const v=Math.round(gain[r]);if(v>0){R[r]=(R[r]||0)+v;parts.push(RES[r]+'+'+v);}}if(!parts.length)return;drawTop();save();const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60),tstr=(h?h+'h ':'')+m+'m';dialog('🌙','Bentornato!','',`<p style="text-align:left">Mentre eri via (${tstr}) il regno ha continuato a produrre:</p><p style="font-size:15px">${parts.join('  ')}</p><button class="btn" id="obk">Raccogli 🎁</button>`);const dd=document.getElementById('dyn');if(dd&&dd.querySelector('#obk'))dd.querySelector('#obk').onclick=closeDyn;}
 let prodBoostT=0;
-function produce(dt){if(prodBoostT>0)prodBoostT=Math.max(0,prodBoostT-dt);const boost=prodBoostT>0?2:1;const mul=moraleMul();buildings.forEach(b=>{if(!b.active)return;
+let harborT=0;
+function produce(dt){if(prodBoostT>0)prodBoostT=Math.max(0,prodBoostT-dt);const boost=prodBoostT>0?2:1;const mul=moraleMul();
+  // commercio via mare: i porticcioli portano oro ogni tanto
+  const nH=decos.filter(x=>x.k==='porticciolo').length;if(nH){harborT+=dt*mul;if(harborT>=24){harborT=0;const g=nH*5*boost;R.oro+=g;const pc=decos.find(x=>x.k==='porticciolo');if(pc){const [wx,wz]=cw(pc.cx,pc.cy);floatText(wx,wz,'⚓ 🪙+'+g);}drawTop();}}
+  buildings.forEach(b=>{if(!b.active)return;
   if(b.def.prod){b.timer+=dt*mul;if(b.timer>=b.def.prod.t){b.timer=0;R[b.def.prod.r]+=Math.max(1,Math.round(b.def.prod.a*lvlMul(b)*prodBonus(b.def.prod.r)*boost));}}
   if(b.def.chain){const c=b.def.chain;b.ctimer=(b.ctimer||0)+dt*mul;if(b.ctimer>=c.t){b.ctimer=0;if(R[c.inR]>=c.inA){R[c.inR]-=c.inA;R[c.outR]+=Math.round(c.outA*lvlMul(b)*boost);}}}
 });}
@@ -1284,11 +1321,20 @@ function openShop(){closeDyn();const d=document.createElement('div');d.className
 window.tuzuPurchaseDone=function(r){if(!r)return;if(r.cancelled){toast('Pagamento annullato');return;}if(r.ok){toast('✅ Pagamento riuscito! 💎 +'+(r.credited||'')+' Gemme (saldo '+(r.balance!=null?r.balance:'?')+')',5200);if(cloudUser&&started)openShop();}else if(r.error){toast('Verifica pagamento: '+r.error,4000);}else if(r.reason==='not_paid'){toast('Pagamento non completato');}};
 document.getElementById('btnLib').onclick=()=>{if(mode==='city')openResearch();};
 document.getElementById('btnShop').onclick=()=>{if(mode==='city')openShop();};
-function openWorld(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let lh='';POPOLI.forEach(p=>{const own=p.own,lib=liberated[p.k],vis=COLORMAP[p.k];const st=own?'<span class="st" style="background:#1f6e56">Il tuo regno</span>':lib?'<span class="st" style="background:#2b6cb0">Alleata</span>':'<span class="st" style="background:#7a2b2b">Occupata</span>';let btn=own?'':lib?'<button style="background:rgba(255,255,255,.12)" disabled>Liberata ✓</button>':`<button style="background:#e24b4a" data-lib="${p.k}">⚔️ Libera</button>`;
-    const nb=neighbors.find(n=>n.k===p.k);
-    if(nb&&!own){if(nb.reached)btn+=`<button style="background:#1f8a56;margin-top:5px" data-enter="${p.k}">${allied[p.k]?'🤝 Alleata — commercia':'🤝 Entra: commercia o allèati'}</button><button style="background:#1f6e56;margin-top:5px" data-walk="${p.k}">🚶 Torna a piedi</button>`;else if(neighborReachable(nb))btn+=`<button style="background:#1f8a56;margin-top:5px" data-walk="${p.k}">🚶 Cammina fin là (strada aperta!)</button>`;else btn+=`<div style="margin-top:5px;font-size:11px;opacity:.85">🌳 Taglia la vegetazione verso il cartello colorato per aprire la strada</div>`;}
-    lh+=`<div class="land"><div class="nm">${p.n}</div><div class="ds">${p.ds}</div>${st}${btn}</div>`;});d.innerHTML=`<div class="card"><div class="em">🌍</div><h2>Il mondo di Tuzu</h2><p>Apri una strada verso i vicini tagliando la vegetazione, poi cammina fin là. O libera le terre dall'Èrebo.</p><div class="lands">${lh}</div><button class="btn alt" id="dc">Chiudi</button></div>`;document.body.appendChild(d);armPanel(d);d.querySelector('#dc').onclick=()=>d.remove();
+function openWorld(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let lh='';POPOLI.forEach(p=>{const own=p.own;const nb=neighbors.find(n=>n.k===p.k);let st,btn='';
+    if(own){st='<span class="st" style="background:#1f6e56">Il tuo regno</span>';}
+    else if(nb){ // villaggio vicino: commercia / allèati / ATTACCA
+      st=hostile[p.k]?'<span class="st" style="background:#8c2f28">In guerra ⚔️</span>':allied[p.k]?'<span class="st" style="background:#2b6cb0">Alleata 🤝</span>':'<span class="st" style="background:#6b5a2b">Vicino</span>';
+      if(nb.reached){btn+=`<button style="background:#1f8a56;margin-top:5px" data-enter="${p.k}">${allied[p.k]?'🤝 Alleata — commercia':'🤝 Entra: commercia o allèati'}</button>`;
+        btn+=`<button style="background:#b33b3b;margin-top:5px" data-attack="${p.k}">⚔️ Attacca il villaggio</button>`;
+        btn+=`<button style="background:#1f6e56;margin-top:5px" data-walk="${p.k}">🚶 Torna a piedi</button>`;}
+      else if(neighborReachable(nb)){btn+=`<button style="background:#1f8a56;margin-top:5px" data-walk="${p.k}">🚶 Cammina fin là (strada aperta!)</button>`;btn+=`<button style="background:#b33b3b;margin-top:5px" data-attack="${p.k}">⚔️ Attacca il villaggio</button>`;}
+      else btn+=`<div style="margin-top:5px;font-size:11px;opacity:.85">🌳 Taglia la vegetazione verso il cartello colorato per aprire la strada, poi potrai commerciare o attaccare</div>`;}
+    else{ // terra dell'Èrebo da liberare
+      const lib=liberated[p.k];st=lib?'<span class="st" style="background:#2b6cb0">Liberata</span>':'<span class="st" style="background:#7a2b2b">Occupata dall’Èrebo</span>';btn=lib?'<button style="background:rgba(255,255,255,.12)" disabled>Liberata ✓</button>':`<button style="background:#e24b4a" data-lib="${p.k}">⚔️ Libera dall’Èrebo</button>`;}
+    lh+=`<div class="land"><div class="nm">${p.n}</div><div class="ds">${p.ds}</div>${st}${btn}</div>`;});d.innerHTML=`<div class="card"><div class="em">🌍</div><h2>Il mondo di Tuzu</h2><p>Vicini: commercia, allèati o <b>attaccali</b> ⚔️. Terre dell’Èrebo: liberale in battaglia.</p><div class="lands">${lh}</div><button class="btn alt" id="dc">Chiudi</button></div>`;document.body.appendChild(d);armPanel(d);d.querySelector('#dc').onclick=()=>d.remove();
   d.querySelectorAll('[data-lib]').forEach(b=>b.onclick=()=>{if(soldiers<1){toast('Non hai soldati: costruisci una Caserma e addestra ⚔️');return;}d.remove();pendingLand=b.dataset.lib;startBattle();});
+  d.querySelectorAll('[data-attack]').forEach(b=>b.onclick=()=>{d.remove();nbAttack(b.dataset.attack);});
   d.querySelectorAll('[data-visit]').forEach(b=>b.onclick=()=>{d.remove();visitNeighbor(b.dataset.visit);});
   d.querySelectorAll('[data-walk]').forEach(b=>b.onclick=()=>{d.remove();walkToNeighbor(b.dataset.walk);});
   d.querySelectorAll('[data-enter]').forEach(b=>b.onclick=()=>{d.remove();openNeighbor(b.dataset.enter);});}
