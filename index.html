@@ -72,6 +72,54 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 #load .em{font-size:52px}#load .bar{width:190px;height:6px;background:rgba(255,255,255,.14);border-radius:4px;overflow:hidden}
 #load .bar i{display:block;height:100%;width:4%;background:#1d9e75;transition:.3s}#load p{font-size:13px;opacity:.85;font-weight:600}
 </style>
+<style>
+/* ===== tema medievale (legno · pergamena · pietra) ===== */
+:root{--serif:Georgia,'Times New Roman',serif;--gold:#caa24e}
+.card{background:#f2e3c0!important;border:3px solid #2a1a0a!important;box-shadow:inset 0 0 0 2px #d8c190,0 10px 28px rgba(0,0,0,.55)!important;color:#4a3415!important;font-family:var(--serif)}
+.card h2{color:#3a2a10!important;font-family:var(--serif)}
+.card p{color:#6e5230!important}
+.card .em{filter:drop-shadow(0 1px 0 #d8c190)}
+.btn{background:#6b4a28!important;border:2.5px solid #2a1a0a!important;color:#f0dca8!important;font-family:var(--serif);font-weight:700;border-radius:8px!important}
+.btn.alt{background:#9a8560!important;color:#2a2114!important;border-color:#5a4a30!important}
+.btn.red{background:#8c2f28!important;border-color:#4a1510!important;color:#f3dcbf!important}
+.trade{background:#e7d3a2!important;border:1.5px solid #d8c190!important}
+.trade .lb{color:#4a3415}
+.miss{background:#e7d3a2!important;color:#4a3415!important}
+.land{background:#e7d3a2!important;border:1.5px solid #d8c190!important}
+.land .nm{color:#3a2a10}.land .ds{color:#6e5230}
+.res{background:#2c2012!important;border:1.5px solid var(--gold);color:#f0dca8!important}
+.sbtn,.zb{background:#2c2012!important;border:2px solid var(--gold)!important;color:#f0dca8!important;font-family:var(--serif)}
+.sbtn b{color:#e7cf9a!important}
+#drawer{background:#4a3218;border-top:3px solid #2a1a0a}
+#drawer .hd span{color:#f0dca8;font-family:var(--serif)}
+#dclose{background:#6b4a28;color:#f0dca8;border:2px solid #2a1a0a}
+.cat{background:#6b4a28!important;border:2px solid #2a1a0a!important;color:#e7cf9a!important;font-family:var(--serif)}
+.cat.on{background:#2f6d4f!important;border-color:#1b3d2c!important;color:#eafff2!important}
+#build{background:transparent!important}
+.bbtn{background:#5b3d20!important;border:2px solid #2a1a0a!important}
+.bbtn .n{color:#f0dca8}.bbtn .co{color:#d8c190}
+.bbtn.sel{background:#2f6d4f!important;border-color:#1b3d2c!important}
+#toast,#hint,#bat .t{background:#2c2012!important;border:1.5px solid var(--gold);color:#f0dca8!important;font-family:var(--serif)}
+#endturn{background:#8c2f28!important;border:2px solid #4a1510;font-family:var(--serif)}
+/* ===== scena mercato ===== */
+.mktroom{max-width:470px;width:100%;background:#4a3016;border:4px solid #2a1a0a;border-radius:16px;padding:0 0 14px;overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,.6);font-family:var(--serif)}
+.mktawn{height:24px;background:repeating-linear-gradient(90deg,#8c2f28 0 22px,#f2e3c0 22px 44px);border-bottom:3px solid #2a1a0a}
+.mktsign{margin:14px auto 4px;width:76%;background:#2a1a0a;color:#f0dca8;text-align:center;padding:8px;border-radius:8px;border:2px solid var(--gold);font-size:16px;letter-spacing:.5px}
+.mktstage{position:relative;height:150px;margin:8px 10px 0;background:linear-gradient(#7a5226,#5e3d18);border-radius:10px;border:2px solid #2a1a0a;overflow:hidden}
+.mktcounter{position:absolute;bottom:0;left:0;right:0;height:38px;background:#3a2410;border-top:3px solid var(--gold)}
+.mktspeech{background:#f2e3c0;color:#4a3415;border:2px solid #b9933f;border-radius:4px 12px 12px 12px;padding:9px 12px;margin:10px 12px 8px;font-size:14px;line-height:1.4}
+.mktchoice{display:flex;gap:10px;padding:0 12px}
+.woodbtn{flex:1;background:#6b4a28;border:2.5px solid #2a1a0a;color:#f0dca8;font-family:var(--serif);font-size:15px;font-weight:700;padding:12px;border-radius:9px;cursor:pointer}
+.woodbtn:active{transform:scale(.97)}
+.woodbtn.sm{flex:none;font-size:12px;padding:7px 11px}
+.scroll{margin:10px 12px 0;background:#f2e3c0;border:2px solid var(--gold);border-radius:6px;padding:8px 12px;max-height:210px;overflow:auto}
+.srow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px dashed #c9a24a}
+.srow:last-child{border-bottom:none}
+.srow .nm{color:#4a3415;font-size:14px}
+.srow button{background:#2f6d4f;border:none;color:#fff;font-family:var(--serif);font-weight:700;border-radius:7px;padding:7px 11px;cursor:pointer;font-size:13px}
+.srow button.buy{background:#8c6a2a}
+.mktfoot{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:10px 12px 0}
+</style>
 
 <canvas id="c"></canvas>
 <div id="top"></div>
@@ -314,8 +362,47 @@ function demolish(b){cityGroup.remove(b.obj);delete grid[key(b.cx,b.cy)];const i
   if(b.def.cost){for(const r in b.def.cost)R[r]+=Math.floor(b.def.cost[r]*0.5);}
   if(b.def.pop){operai=Math.max(4,operai-b.def.pop);}recompute();drawTop();save();closeDyn();toast('Demolito (metà risorse restituite)');}
 
+// ===== scena mercato (bottegaio + pergamena) =====
+const KEEPER_SVG=`<svg viewBox="0 0 170 150" width="150" style="position:absolute;left:50%;bottom:20px;transform:translateX(-50%)">
+<ellipse cx="85" cy="128" rx="46" ry="44" fill="#8fd7b4" stroke="#2f5d49" stroke-width="3"/>
+<path d="M40 150 q45 16 90 0 v-18 q-45 12 -90 0 z" fill="#6b4a28" stroke="#4a2f14" stroke-width="2"/>
+<rect x="80" y="118" width="10" height="26" fill="#caa24e"/>
+<ellipse cx="70" cy="112" rx="5.5" ry="7.5" fill="#243b33"/>
+<ellipse cx="100" cy="112" rx="5.5" ry="7.5" fill="#243b33"/>
+<circle cx="61" cy="121" r="4.5" fill="#f5b2c0" opacity=".7"/>
+<circle cx="109" cy="121" r="4.5" fill="#f5b2c0" opacity=".7"/>
+<path d="M72 124 q13 11 26 0" fill="none" stroke="#243b33" stroke-width="3" stroke-linecap="round"/>
+<path d="M52 96 q33 -30 66 0 q-33 -12 -66 0 z" fill="#8c2f28" stroke="#4a1510" stroke-width="2.5"/>
+<ellipse cx="85" cy="92" rx="8" ry="5" fill="#caa24e" stroke="#6e5220" stroke-width="2"/>
+<circle cx="132" cy="110" r="11" fill="#8fd7b4" stroke="#2f5d49" stroke-width="2.5"/>
+<circle cx="146" cy="99" r="9" fill="#caa24e" stroke="#6e5220" stroke-width="2"/>
+<text x="146" y="103" font-size="10" text-anchor="middle" fill="#6e5220" font-weight="bold">$</text>
+</svg>`;
+function openMarketScene(b){const d=document.createElement('div');d.className='panel';d.id='dyn';
+  d.innerHTML=`<div class="mktroom"><div class="mktawn"></div><div class="mktsign">⚜ Mercato di Dèndora ⚜</div>
+   <div class="mktstage">${KEEPER_SVG}<div class="mktcounter"></div></div>
+   <div class="mktspeech" id="mksp">Benvenuto, viandante! Cosa desideri oggi — <b>vendere</b> o <b>comprare</b>?</div>
+   <div class="mktchoice" id="mkch"><button class="woodbtn" data-m="sell">🪙 Vendere</button><button class="woodbtn" data-m="buy">🛒 Comprare</button></div>
+   <div class="scroll" id="mksc" style="display:none"></div>
+   <div class="mktfoot"><button class="woodbtn sm" id="mkmove">✋ Sposta</button><button class="woodbtn sm" id="mkdem">🗑 Demolisci</button><button class="woodbtn sm" id="mkx">Esci dal mercato</button></div></div>`;
+  document.body.appendChild(d);
+  const sc=d.querySelector('#mksc'),sp=d.querySelector('#mksp'),ch=d.querySelector('#mkch');
+  function render(mode){ch.style.display='none';sc.style.display='block';
+    sp.innerHTML=mode==='sell'?'Cosa mi vendi? Ti pago in oro 🪙.':'Ecco la mia merce, scegli pure. Si paga in oro 🪙.';
+    const list=mode==='sell'?[['legna',6],['cibo',6],['pietra',7]]:[['cibo',9],['pietra',9],['ferro',12]];
+    let h='';list.forEach(([r,p])=>{h+=`<div class="srow"><span class="nm">${RES[r]} ${mode==='sell'?'Vendi':'Compra'} 10</span><button class="${mode==='buy'?'buy':''}" data-r="${r}" data-p="${p}">${mode==='sell'?'+ 🪙'+p:'− 🪙'+p}</button></div>`;});
+    h+=`<div class="mktfoot"><button class="woodbtn sm" id="mkback">↩ Indietro</button></div>`;sc.innerHTML=h;
+    sc.querySelectorAll('[data-r]').forEach(x=>x.onclick=()=>{const r=x.dataset.r,p=+x.dataset.p;if(mode==='sell'){if(R[r]>=10){R[r]-=10;R.oro+=p;drawTop();save();sp.textContent='Affare fatto! Grazie, viandante.';}else sp.textContent='Non hai abbastanza '+r+', mi spiace.';}else{if(R.oro>=p){R.oro-=p;R[r]+=10;drawTop();save();sp.textContent='Ecco a te. Torna presto!';}else sp.textContent='Ti manca l’oro, viandante…';}});
+    d.querySelector('#mkback').onclick=()=>{sc.style.display='none';ch.style.display='flex';sp.innerHTML='Allora, <b>vendere</b> o <b>comprare</b>?';};
+  }
+  ch.querySelectorAll('[data-m]').forEach(x=>x.onclick=()=>render(x.dataset.m));
+  d.querySelector('#mkx').onclick=()=>d.remove();
+  d.querySelector('#mkmove').onclick=()=>{moveTarget={obj:b.obj,fromKey:key(b.cx,b.cy)};d.remove();toast('Tocca dove spostare il mercato ✋');};
+  d.querySelector('#mkdem').onclick=()=>{d.remove();demolish(b);};
+}
 // ===== pannelli edifici (entra dentro) =====
 function openBuilding(b){
+  if(b.def.market){openMarketScene(b);return;}
   const d=b.def;let body='';let extra='';
   if(d.market){
     const sell=['legna','cibo','pietra'];const buy=['cibo','pietra','ferro'];
@@ -368,11 +455,11 @@ const neighbors=[];
 async function nbBuild(nb,file,cx,cz){const o=await loadModel(B+'buildings/'+nb.col+'/building_'+file+'_'+nb.col+'.gltf');o.position.set(cx*CELL,0,cz*CELL);o.rotation.y=Math.random()*.4-.2;nb.g.add(o);autoSeat(o);nb.cells[cx+','+cz]=1;}
 function nbSpawn(nb){const o=inst('char');o.scale.setScalar(PS);o.position.set((Math.random()-.5)*5,0,(Math.random()-.5)*5);nb.g.add(o);nb.agents.push({obj:o,tx:o.position.x,tz:o.position.z,state:'idle',timer:Math.random()*3,speed:1.1+Math.random()*.4,bob:Math.random()*6});}
 async function initNeighbors(){const spec=[{k:'nefele',x:-34,z:-8},{k:'chrysa',x:28,z:-30},{k:'oros',x:10,z:34}];
-  for(const s of spec){const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:8,mil:3,timer:8+Math.random()*6,agents:[]};
-    await nbBuild(nb,'castle',0,0);await nbBuild(nb,'home_A',-1,0);await nbBuild(nb,'home_B',1,0);await nbBuild(nb,'market',0,-1);await nbBuild(nb,'windmill',0,1);
-    for(let i=0;i<4;i++)nbSpawn(nb);neighbors.push(nb);}}
+  for(const s of spec){const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:6,mil:2,timer:40+Math.random()*30,agents:[]};
+    await nbBuild(nb,'castle',0,0);await nbBuild(nb,'home_A',-1,0);await nbBuild(nb,'home_B',1,0);await nbBuild(nb,'market',0,-1);
+    for(let i=0;i<3;i++)nbSpawn(nb);neighbors.push(nb);}}
 function updNeighbors(dt){neighbors.forEach(nb=>{
-  nb.timer-=dt;if(nb.timer<=0){nb.timer=11+Math.random()*8;const spots=[];for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++)if(!nb.cells[x+','+z])spots.push([x,z]);if(spots.length){const [x,z]=spots[Math.floor(Math.random()*spots.length)];const f=['home_A','home_B','tower_B','windmill','church','blacksmith'][Math.floor(Math.random()*6)];nbBuild(nb,f,x,z);nb.pop+=2;if(Math.random()<.6)nb.mil++;if(Math.random()<.5)nbSpawn(nb);}}
+  nb.timer-=dt;if(nb.timer<=0){nb.timer=70+Math.random()*60;const nbc=Object.keys(nb.cells).length;if(nbc<13){const spots=[];for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++)if(!nb.cells[x+','+z])spots.push([x,z]);if(spots.length){const [x,z]=spots[Math.floor(Math.random()*spots.length)];const f=['home_A','home_B','tower_B','windmill','church','blacksmith'][Math.floor(Math.random()*6)];nbBuild(nb,f,x,z);nb.pop+=1;if(Math.random()<.3&&nb.mil<10)nb.mil++;if(nb.agents.length<7&&Math.random()<.4)nbSpawn(nb);}}}
   nb.agents.forEach(a=>{const o=a.obj;const dx=a.tx-o.position.x,dz=a.tz-o.position.z;const d=Math.hypot(dx,dz);if(a.state==='idle'){a.timer-=dt;if(a.timer<=0){a.tx=(Math.random()-.5)*6;a.tz=(Math.random()-.5)*6;a.state='walk';}return;}if(d<.12){a.state='idle';a.timer=.6+Math.random()*2;return;}const sp=a.speed*dt;o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);a.bob+=dt*9;o.position.y=Math.abs(Math.sin(a.bob))*.03;});});}
 function visitNeighbor(k){const nb=neighbors.find(n=>n.k===k);const p=POPOLI.find(p=>p.k===k);if(!nb){toast('Troppo lontana per ora');return;}camTarget.x=Math.max(-55,Math.min(55,nb.g.position.x));camTarget.z=Math.max(-55,Math.min(55,nb.g.position.z));setZoom(8);updateCam();toast('Visiti '+p.n+' · 👥'+nb.pop+' ⚔️'+nb.mil,3200);}
 
