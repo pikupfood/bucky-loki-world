@@ -18,7 +18,7 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 #zoom{position:fixed;right:8px;bottom:calc(90px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:6px;z-index:5}
 .zb{background:rgba(26,22,40,.86);border:1.5px solid rgba(255,255,255,.16);border-radius:11px;width:44px;height:44px;font-size:22px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .zb:active{transform:scale(.92)}
-#fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));background:#1d9e75;border:none;color:#fff;font-size:15px;font-weight:800;padding:12px 22px;border-radius:14px;cursor:pointer;z-index:6;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+#fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));background:#6b4a28;border:2.5px solid #33200c;color:#f0dca8;font-size:15px;font-weight:700;padding:11px 22px;border-radius:10px;cursor:pointer;z-index:6;box-shadow:0 4px 14px rgba(0,0,0,.35);font-family:Georgia,'Times New Roman',serif;letter-spacing:.3px}
 #fab:active{transform:translateX(-50%) scale(.96)}
 #drawer{position:fixed;left:0;right:0;bottom:0;z-index:7;transform:translateY(110%);transition:.22s;padding:0 0 calc(8px + env(safe-area-inset-bottom))}
 #drawer.open{transform:translateY(0)}
@@ -36,12 +36,12 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 .bbtn .n{font-size:10.5px;font-weight:700;margin-top:2px;line-height:1.1}
 .bbtn .co{font-size:9px;opacity:.78;margin-top:2px;font-weight:600}
 .bbtn .em{font-size:21px;line-height:1}
-#guide{position:fixed;left:8px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;align-items:flex-end;gap:7px;z-index:6;max-width:62vw}
-#tuzu{width:46px;height:46px;flex:0 0 auto;border-radius:14px 14px 16px 16px;background:#7fdbb7;position:relative;cursor:pointer;box-shadow:0 3px 9px rgba(0,0,0,.25)}
-#tuzu:before,#tuzu:after{content:'';position:absolute;top:17px;width:7px;height:9px;background:#243b33;border-radius:4px}
-#tuzu:before{left:12px}#tuzu:after{right:12px}
-#tuzu i{position:absolute;bottom:11px;left:50%;transform:translateX(-50%);width:13px;height:6px;border-bottom:2.5px solid #243b33;border-radius:0 0 7px 7px}
-#bubble{background:#fff;color:#222;font-size:12px;font-weight:600;line-height:1.35;padding:8px 11px;border-radius:12px 12px 12px 3px;max-width:100%;box-shadow:0 3px 9px rgba(0,0,0,.2)}
+#guide{position:fixed;left:8px;top:calc(54px + env(safe-area-inset-top));display:flex;align-items:flex-start;gap:7px;z-index:6;max-width:60vw}
+#tuzu{width:46px;height:48px;flex:0 0 auto;border-radius:16px 16px 20px 20px;background:#8fd7b4;border:2.5px solid #2f5d49;position:relative;cursor:pointer;box-shadow:0 3px 9px rgba(0,0,0,.28)}
+#tuzu:before,#tuzu:after{content:'';position:absolute;top:16px;width:7px;height:10px;background:#243b33;border-radius:4px}
+#tuzu:before{left:11px}#tuzu:after{right:11px}
+#tuzu i{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:14px;height:6px;border-bottom:2.5px solid #243b33;border-radius:0 0 7px 7px}
+#bubble{background:#f3e4c0;color:#4a3415;font-size:12px;font-weight:600;line-height:1.35;padding:8px 11px;border:2px solid #b9933f;border-radius:4px 12px 12px 12px;max-width:100%;box-shadow:0 3px 9px rgba(0,0,0,.2);font-family:Georgia,'Times New Roman',serif}
 #toast{position:fixed;left:50%;top:calc(54px + env(safe-area-inset-top));transform:translateX(-50%);background:rgba(26,22,40,.92);padding:7px 14px;border-radius:12px;font-size:12.5px;font-weight:600;z-index:9;opacity:0;transition:.3s;pointer-events:none;max-width:88vw;text-align:center}
 #toast.show{opacity:1}
 .panel{position:fixed;inset:0;background:rgba(10,8,18,.78);display:flex;align-items:center;justify-content:center;z-index:11;padding:16px}
@@ -207,6 +207,13 @@ function setupTerritory(){const r=2;for(let x=HALF-r;x<=HALF+r;x++)for(let y=HAL
 function refreshLocks(){for(const k in lockMesh){cityGroup.remove(lockMesh[k]);delete lockMesh[k];}for(let x=0;x<GRID;x++)for(let y=0;y<GRID;y++){const k=key(x,y);if(!unlocked[k]){const [wx,wz]=cw(x,y);const m=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.98,CELL*0.98),lockMat);m.rotation.x=-Math.PI/2;m.position.set(wx,0.04,wz);cityGroup.add(m);lockMesh[k]=m;}}}
 function terrCost(){let n=0;for(const k in unlocked)n++;return Math.round(12*Math.pow(1.22,n-25));}
 function adjU(x,y){return unlocked[key(x-1,y)]||unlocked[key(x+1,y)]||unlocked[key(x,y-1)]||unlocked[key(x,y+1)];}
+function freeState(){try{let s=JSON.parse(localStorage.getItem('tuzu_free')||'null');const today=new Date().toISOString().slice(0,10);if(!s||s.date!==today){s={date:today,used:0};localStorage.setItem('tuzu_free',JSON.stringify(s));}return s;}catch(e){return {date:'',used:2};}}
+function freeLeft(){return Math.max(0,2-freeState().used);}
+function useFree(){const s=freeState();s.used++;try{localStorage.setItem('tuzu_free',JSON.stringify(s));}catch(e){}}
+function doUnlock(cx,cy,cost){if(cost)R.oro-=cost;unlocked[key(cx,cy)]=1;refreshLocks();drawTop();save();toast('Terra sbloccata! 🔓');}
+function openUnlock(cx,cy){const c=terrCost();const fl=freeLeft();
+  dialog('🔓','Annettere la terra?','',`<p>Vuoi aggiungere questa casella al regno dei Chlòri?</p><p style="margin-top:4px;font-size:12px;opacity:.85">Gratis oggi: <b>${fl}/2</b> rimaste.</p>`+(fl>0?`<button class="btn" id="uf">Sblocca gratis (${fl} oggi)</button>`:'')+`<button class="btn alt" id="up">Sblocca per 🪙${c}</button><button class="btn alt" id="uc">Annulla</button>`);
+  const d=document.getElementById('dyn');const uf=d.querySelector('#uf');if(uf)uf.onclick=()=>{useFree();doUnlock(cx,cy,0);closeDyn();};d.querySelector('#up').onclick=()=>{if(R.oro>=c){doUnlock(cx,cy,c);closeDyn();}else toast('Serve 🪙'+c);};d.querySelector('#uc').onclick=closeDyn;}
 function placeCastle(){if(grid[key(HALF,HALF)])return;const [wx,wz]=cw(HALF,HALF);const o=inst('castle');o.position.set(wx,0,wz);cityGroup.add(o);autoSeat(o);grid[key(HALF,HALF)]={type:'building',ref:{key:'castle',def:{nome:'Municipio',em:'🏰'},cx:HALF,cy:HALF,obj:o},obj:o,cx:HALF,cy:HALF};}
 
 // ===== HUD =====
@@ -249,9 +256,12 @@ function negCost(c){const o={};for(const r in c)o[r]=-c[r];return o;}
 
 // ===== costruzione / deco =====
 function makeFlowers(){const g=new THREE.Group();const cols=[0xff6b9d,0xffd23f,0xff8c42,0xb892ff,0xffffff];for(let i=0;i<7;i++){const f=new THREE.Group();const st=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.4,5),new THREE.MeshStandardMaterial({color:0x3b6d11,roughness:1}));st.position.y=0.2;const hd=new THREE.Mesh(new THREE.SphereGeometry(0.14,7,6),new THREE.MeshStandardMaterial({color:cols[i%cols.length],roughness:.9}));hd.position.y=0.42;f.add(st);f.add(hd);f.position.set((Math.random()-.5)*1.3,0,(Math.random()-.5)*1.3);g.add(f);}g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
-function roadMesh(wx,wz){const m=new THREE.Mesh(new THREE.PlaneGeometry(CELL,CELL),roadMat);m.rotation.x=-Math.PI/2;m.position.set(wx,0.035,wz);m.receiveShadow=true;return m;}
+function isPath(cx,cy){const g=grid[key(cx,cy)];return !!(g&&(g.type==='road'||g.type==='building'||g.type==='site'));}
+function newRoad(cx,cy){const [wx,wz]=cw(cx,cy);const g=new THREE.Group();g.position.set(wx,0.045,wz);cityGroup.add(g);return g;}
+function rebuildRoad(cx,cy){const e=grid[key(cx,cy)];if(!e||e.type!=='road'||!e.obj)return;const g=e.obj;while(g.children.length)g.remove(g.children[0]);const w=isPath(cx-1,cy),ea=isPath(cx+1,cy),n=isPath(cx,cy-1),s=isPath(cx,cy+1);const W=CELL*0.3;const put=(sx,sz)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(sx,sz),roadMat);m.rotation.x=-Math.PI/2;m.receiveShadow=true;g.add(m);};let any=false;if(w||ea){put(CELL*1.02,W);any=true;}if(n||s){put(W,CELL*1.02);any=true;}if(!any)put(W*1.3,W*1.3);}
+function rebuildRoadArea(cx,cy){rebuildRoad(cx,cy);rebuildRoad(cx-1,cy);rebuildRoad(cx+1,cy);rebuildRoad(cx,cy-1);rebuildRoad(cx,cy+1);}
 function placeDeco(cx,cy,kk){const sk=kk||selKey;const d=DECO[sk];const [wx,wz]=cw(cx,cy);const k=key(cx,cy);let o;
-  if(d.road){o=roadMesh(wx,wz);cityGroup.add(o);grid[k]={type:'road',key:sk,obj:o,cx,cy};decos.push({k:sk,cx,cy});return;}
+  if(d.road){const g=newRoad(cx,cy);grid[k]={type:'road',key:sk,obj:g,cx,cy};decos.push({k:sk,cx,cy});rebuildRoadArea(cx,cy);return;}
   if(d.flower){o=makeFlowers();o.position.set(wx,0,wz);}
   else{const f=d.files[Math.floor(Math.random()*d.files.length)];o=inst(f);o.position.set(wx,0,wz);o.rotation.y=d.rot?[0,1.57,3.14,-1.57][Math.floor(Math.random()*4)]:Math.random()*6.28;}
   cityGroup.add(o);autoSeat(o);grid[k]={type:(sk==='albero'?'tree':'deco'),key:sk,obj:o,cx,cy};decos.push({k:sk,cx,cy});
@@ -265,13 +275,13 @@ function startBuildAt(cx,cy,src){const d=src[selKey];const [wx,wz]=cw(cx,cy);con
   const site={key:selKey,def:d,cx,cy,wx,wz,obj:o,bar,builder:null,prog:0,time:consTime(d.time||14)};sites.push(site);grid[k]={type:'site',obj:o,cx,cy};
   toast(d.nome+': in costruzione…');drawTop();
 }
-function finishSite(s){setOpacity(s.obj,1);cityGroup.remove(s.bar.g);const b={key:s.key,def:s.def,cx:s.cx,cy:s.cy,obj:s.obj,timer:0,active:true};buildings.push(b);grid[key(s.cx,s.cy)]={type:'building',ref:b,obj:s.obj,cx:s.cx,cy:s.cy};builtCount++;if(s.def.pop){operai+=s.def.pop;spawnAgent('abitante');}if(s.def.mor){morale=Math.min(100,morale+s.def.mor);}if(MON[s.key]&&MON[s.key].deco){}recompute();drawTop();save();toast(s.def.nome+' pronta!');setBubble(tip());}
+function finishSite(s){setOpacity(s.obj,1);cityGroup.remove(s.bar.g);const b={key:s.key,def:s.def,cx:s.cx,cy:s.cy,obj:s.obj,timer:0,active:true};buildings.push(b);grid[key(s.cx,s.cy)]={type:'building',ref:b,obj:s.obj,cx:s.cx,cy:s.cy};rebuildRoadArea(s.cx,s.cy);builtCount++;if(s.def.pop){operai+=s.def.pop;spawnAgent('abitante');}if(s.def.mor){morale=Math.min(100,morale+s.def.mor);}if(MON[s.key]&&MON[s.key].deco){}recompute();drawTop();save();toast(s.def.nome+' pronta!');setBubble(tip());}
 
 // ===== tap su cella =====
 function tryPlace(cx,cy){
   const k=key(cx,cy);
   if(moveTarget){doMove(cx,cy);return;}
-  if(!unlocked[k]){const c=terrCost();if(adjU(cx,cy)){if(R.oro>=c){R.oro-=c;unlocked[k]=1;refreshLocks();drawTop();save();toast('Terra sbloccata! 🔓');}else toast('Serve 🪙'+c+' per sbloccare');}else toast('Sblocca prima le terre vicine');return;}
+  if(!unlocked[k]){if(adjU(cx,cy))openUnlock(cx,cy);else toast('Sblocca prima le terre vicine');return;}
   const occ=grid[k];
   if(occ){ // già qualcosa qui → aprilo/gestiscilo
     if(occ.type==='building')openBuilding(occ.ref);
@@ -288,16 +298,17 @@ function tryPlace(cx,cy){
 // ===== sposta / elimina =====
 function startMove(obj,fromKey){moveTarget={obj,fromKey};closeDyn();toast('Tocca dove spostarlo ✋');}
 function doMove(cx,cy){const nk=key(cx,cy);if(!unlocked[nk]){toast('Terra bloccata');return;}if(grid[nk]){toast('Casella occupata');moveTarget=null;return;}
-  const g=grid[moveTarget.fromKey];delete grid[moveTarget.fromKey];const [wx,wz]=cw(cx,cy);
+  const fk=moveTarget.fromKey;const [ox,oy]=fk.split(',').map(Number);
+  const g=grid[fk];delete grid[fk];const [wx,wz]=cw(cx,cy);
   g.cx=cx;g.cy=cy;if(g.ref){g.ref.cx=cx;g.ref.cy=cy;}
-  if(g.type==='road'){g.obj.position.set(wx,0.035,wz);}else{g.obj.position.set(wx,0,wz);autoSeat(g.obj);}
+  if(g.type==='road'){g.obj.position.set(wx,0.045,wz);}else{g.obj.position.set(wx,0,wz);autoSeat(g.obj);}
   if(g.type==='tree'){const t=trees.find(t=>t.obj===g.obj);if(t){t.x=wx;t.z=wz;}}
-  grid[nk]=g;moveTarget=null;save();toast('Spostato ✔');
+  grid[nk]=g;moveTarget=null;rebuildRoadArea(ox,oy);rebuildRoadArea(cx,cy);save();toast('Spostato ✔');
 }
 function removeObj(occ){const g=occ;cityGroup.remove(g.obj);delete grid[key(g.cx,g.cy)];
   if(g.type==='tree'){const i=trees.findIndex(t=>t.obj===g.obj);if(i>=0)trees.splice(i,1);R.legna+=5;}
   const di=decos.findIndex(d=>d.cx===g.cx&&d.cy===g.cy);if(di>=0)decos.splice(di,1);
-  drawTop();save();closeDyn();toast('Rimosso');
+  rebuildRoadArea(g.cx,g.cy);drawTop();save();closeDyn();toast('Rimosso');
 }
 function demolish(b){cityGroup.remove(b.obj);delete grid[key(b.cx,b.cy)];const i=buildings.indexOf(b);if(i>=0)buildings.splice(i,1);
   if(b.def.cost){for(const r in b.def.cost)R[r]+=Math.floor(b.def.cost[r]*0.5);}
@@ -351,6 +362,20 @@ function updAgents(dt){agents.forEach(a=>{const o=a.obj;const dx=a.tx-o.position
   if(d<.12){if(a.state==='toSite')a.state='build';else if(a.state==='toTree'){a.state='chop';a.timer=1.6;}else{a.state='idle';a.timer=.6+Math.random()*1.4;}return;}
   const sp=a.speed*dt;o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);a.bob+=dt*10;o.position.y=Math.abs(Math.sin(a.bob))*.035;});}
 
+// ===== villaggi vicini (autonomi) =====
+const COLORMAP={nefele:'blue',chrysa:'yellow',oros:'red'};
+const neighbors=[];
+async function nbBuild(nb,file,cx,cz){const o=await loadModel(B+'buildings/'+nb.col+'/building_'+file+'_'+nb.col+'.gltf');o.position.set(cx*CELL,0,cz*CELL);o.rotation.y=Math.random()*.4-.2;nb.g.add(o);autoSeat(o);nb.cells[cx+','+cz]=1;}
+function nbSpawn(nb){const o=inst('char');o.scale.setScalar(PS);o.position.set((Math.random()-.5)*5,0,(Math.random()-.5)*5);nb.g.add(o);nb.agents.push({obj:o,tx:o.position.x,tz:o.position.z,state:'idle',timer:Math.random()*3,speed:1.1+Math.random()*.4,bob:Math.random()*6});}
+async function initNeighbors(){const spec=[{k:'nefele',x:-34,z:-8},{k:'chrysa',x:28,z:-30},{k:'oros',x:10,z:34}];
+  for(const s of spec){const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:8,mil:3,timer:8+Math.random()*6,agents:[]};
+    await nbBuild(nb,'castle',0,0);await nbBuild(nb,'home_A',-1,0);await nbBuild(nb,'home_B',1,0);await nbBuild(nb,'market',0,-1);await nbBuild(nb,'windmill',0,1);
+    for(let i=0;i<4;i++)nbSpawn(nb);neighbors.push(nb);}}
+function updNeighbors(dt){neighbors.forEach(nb=>{
+  nb.timer-=dt;if(nb.timer<=0){nb.timer=11+Math.random()*8;const spots=[];for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++)if(!nb.cells[x+','+z])spots.push([x,z]);if(spots.length){const [x,z]=spots[Math.floor(Math.random()*spots.length)];const f=['home_A','home_B','tower_B','windmill','church','blacksmith'][Math.floor(Math.random()*6)];nbBuild(nb,f,x,z);nb.pop+=2;if(Math.random()<.6)nb.mil++;if(Math.random()<.5)nbSpawn(nb);}}
+  nb.agents.forEach(a=>{const o=a.obj;const dx=a.tx-o.position.x,dz=a.tz-o.position.z;const d=Math.hypot(dx,dz);if(a.state==='idle'){a.timer-=dt;if(a.timer<=0){a.tx=(Math.random()-.5)*6;a.tz=(Math.random()-.5)*6;a.state='walk';}return;}if(d<.12){a.state='idle';a.timer=.6+Math.random()*2;return;}const sp=a.speed*dt;o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);a.bob+=dt*9;o.position.y=Math.abs(Math.sin(a.bob))*.03;});});}
+function visitNeighbor(k){const nb=neighbors.find(n=>n.k===k);const p=POPOLI.find(p=>p.k===k);if(!nb){toast('Troppo lontana per ora');return;}camTarget.x=Math.max(-55,Math.min(55,nb.g.position.x));camTarget.z=Math.max(-55,Math.min(55,nb.g.position.z));setZoom(8);updateCam();toast('Visiti '+p.n+' · 👥'+nb.pop+' ⚔️'+nb.mil,3200);}
+
 // ===== produzione / addestra =====
 function produce(dt){const mul=moraleMul();buildings.forEach(b=>{if(!b.def.prod||!b.active)return;b.timer+=dt*mul;if(b.timer>=b.def.prod.t){b.timer=0;R[b.def.prod.r]+=b.def.prod.a;}});}
 let training=0;
@@ -369,7 +394,7 @@ canvas.addEventListener('pointerdown',ev=>{canvas.setPointerCapture(ev.pointerId
 canvas.addEventListener('pointermove',ev=>{if(!pointers.has(ev.pointerId))return;pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
   if(pointers.size===2){const p=[...pointers.values()];const nd=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);if(pinchD)setZoom(VZ*pinchD/nd);pinchD=nd;return;}
   if(pointers.size===1){if(downXY&&Math.hypot(ev.clientX-downXY.x,ev.clientY-downXY.y)>9)moved=true;
-    if(mode==='city'&&moved&&dragStart){const cur=groundPt(ev.clientX,ev.clientY);if(cur){camTarget.x+=dragStart.x-cur.x;camTarget.z+=dragStart.z-cur.z;camTarget.x=Math.max(-46,Math.min(46,camTarget.x));camTarget.z=Math.max(-46,Math.min(46,camTarget.z));updateCam();}}
+    if(mode==='city'&&moved&&dragStart){const cur=groundPt(ev.clientX,ev.clientY);if(cur){camTarget.x+=dragStart.x-cur.x;camTarget.z+=dragStart.z-cur.z;camTarget.x=Math.max(-55,Math.min(55,camTarget.x));camTarget.z=Math.max(-55,Math.min(55,camTarget.z));updateCam();}}
     else if(mode==='city'&&selKey&&!moved){const c=cellAt(ev.clientX,ev.clientY);if(c){const [wx,wz]=cw(c.cx,c.cy);hl.position.set(wx,.06,wz);hl.visible=true;hl.material.color.set((!unlocked[key(c.cx,c.cy)]||grid[key(c.cx,c.cy)])?0xff6b6b:0x7fffb0);}}}});
 function endPtr(ev){const was=pointers.size;pointers.delete(ev.pointerId);
   if(was===1&&!moved){if(mode==='city'){const c=cellAt(ev.clientX,ev.clientY);if(c)tryPlace(c.cx,c.cy);}else if(mode==='battle')battleTapXY(ev.clientX,ev.clientY);}
@@ -386,7 +411,9 @@ function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg3'));if
 
 // ===== MONDO =====
 document.getElementById('btnWorld').onclick=()=>{if(mode==='city')openWorld();};
-function openWorld(){const d=document.createElement('div');d.className='panel';d.id='dyn';let lh='';POPOLI.forEach(p=>{const own=p.own,lib=liberated[p.k];const st=own?'<span class="st" style="background:#1f6e56">Il tuo regno</span>':lib?'<span class="st" style="background:#2b6cb0">Alleata</span>':'<span class="st" style="background:#7a2b2b">Occupata</span>';const btn=own?'':lib?'<button style="background:rgba(255,255,255,.12)" disabled>Liberata ✓</button>':`<button style="background:#e24b4a" data-lib="${p.k}">Libera ▸</button>`;lh+=`<div class="land"><div class="nm">${p.n}</div><div class="ds">${p.ds}</div>${st}${btn}</div>`;});d.innerHTML=`<div class="card"><div class="em">🌍</div><h2>Il mondo di Tuzu</h2><p>Nove terre, un solo male. Libera le terre dall'Èrebo.</p><div class="lands">${lh}</div><button class="btn alt" id="dc">Chiudi</button></div>`;document.body.appendChild(d);d.querySelector('#dc').onclick=()=>d.remove();d.querySelectorAll('[data-lib]').forEach(b=>b.onclick=()=>{if(soldiers<1){toast('Non hai soldati: costruisci una Caserma e addestra ⚔️');return;}d.remove();pendingLand=b.dataset.lib;startBattle();});}
+function openWorld(){const d=document.createElement('div');d.className='panel';d.id='dyn';let lh='';POPOLI.forEach(p=>{const own=p.own,lib=liberated[p.k],vis=COLORMAP[p.k];const st=own?'<span class="st" style="background:#1f6e56">Il tuo regno</span>':lib?'<span class="st" style="background:#2b6cb0">Alleata</span>':'<span class="st" style="background:#7a2b2b">Occupata</span>';let btn=own?'':lib?'<button style="background:rgba(255,255,255,.12)" disabled>Liberata ✓</button>':`<button style="background:#e24b4a" data-lib="${p.k}">⚔️ Libera</button>`;if(vis&&!own)btn+=`<button style="background:#2b6cb0;margin-top:5px" data-visit="${p.k}">👁 Visita</button>`;lh+=`<div class="land"><div class="nm">${p.n}</div><div class="ds">${p.ds}</div>${st}${btn}</div>`;});d.innerHTML=`<div class="card"><div class="em">🌍</div><h2>Il mondo di Tuzu</h2><p>Nove terre, un solo male. Visita i vicini in pace, o libera le terre dall'Èrebo.</p><div class="lands">${lh}</div><button class="btn alt" id="dc">Chiudi</button></div>`;document.body.appendChild(d);d.querySelector('#dc').onclick=()=>d.remove();
+  d.querySelectorAll('[data-lib]').forEach(b=>b.onclick=()=>{if(soldiers<1){toast('Non hai soldati: costruisci una Caserma e addestra ⚔️');return;}d.remove();pendingLand=b.dataset.lib;startBattle();});
+  d.querySelectorAll('[data-visit]').forEach(b=>b.onclick=()=>{d.remove();visitNeighbor(b.dataset.visit);});}
 let pendingLand=null;
 
 // ===== BATTAGLIA =====
@@ -431,7 +458,7 @@ function closeDyn(){const d=document.getElementById('dyn');if(d)d.remove();}
 // ===== loop =====
 let last=performance.now(),saveT=0,missT=0,started=false;
 function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000,.1);last=now;
-  if(started&&mode==='city'){produce(dt);tickTrain(dt);updAgents(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
+  if(started&&mode==='city'){produce(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
 requestAnimationFrame(tick);
@@ -448,11 +475,14 @@ requestAnimationFrame(tick);
     put({key:'casa',file:'home_B',def:BUILD.casa},HALF+1,HALF-2);
     put({key:'casa',file:'home_A',def:BUILD.casa},HALF,HALF+2);
     // sentieri che collegano
-    [[HALF-1,HALF],[HALF+1,HALF],[HALF,HALF-1],[HALF,HALF+1]].forEach(([x,y])=>{if(!grid[key(x,y)]){const [wx,wz]=cw(x,y);const m=roadMesh(wx,wz);cityGroup.add(m);grid[key(x,y)]={type:'road',key:'strada',obj:m,cx:x,cy:y};decos.push({k:'strada',cx:x,cy:y});}});
+    const sp=[[HALF-1,HALF],[HALF+1,HALF],[HALF,HALF-1],[HALF,HALF+1]];
+    sp.forEach(([x,y])=>{if(!grid[key(x,y)]){const g=newRoad(x,y);grid[key(x,y)]={type:'road',key:'strada',obj:g,cx:x,cy:y};decos.push({k:'strada',cx:x,cy:y});}});
+    sp.forEach(([x,y])=>rebuildRoad(x,y));
     // qualche albero
     [[HALF-2,HALF-2],[HALF+2,HALF+2],[HALF+2,HALF-2]].forEach(([x,y])=>{if(!grid[key(x,y)]){const [wx,wz]=cw(x,y);const t=inst(Math.random()<.5?'tree_single_A':'tree_single_B');t.position.set(wx,0,wz);t.rotation.y=Math.random()*6.28;cityGroup.add(t);autoSeat(t);grid[key(x,y)]={type:'tree',key:'albero',obj:t,cx:x,cy:y};trees.push({x:wx,z:wz,obj:t,cx:x,cy:y});}});
   }
   placeCastle();
+  initNeighbors();
   for(let i=0;i<5;i++)spawnAgent('operaio');for(let i=0;i<2;i++)spawnAgent('milite');
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
   recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());document.getElementById('load').style.display='none';
