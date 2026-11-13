@@ -181,6 +181,9 @@ function cw(cx,cy){return [(cx-HALF)*CELL,(cy-HALF)*CELL];}
 const cityGroup=new THREE.Group();scene.add(cityGroup);
 let lockMesh={};const lockMat=new THREE.MeshBasicMaterial({color:0x101018,transparent:true,opacity:0.4});
 const hl=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.98,CELL*0.98),new THREE.MeshBasicMaterial({color:0x7fffb0,transparent:true,opacity:0.42}));hl.rotation.x=-Math.PI/2;hl.position.y=0.05;hl.visible=false;cityGroup.add(hl);
+// evidenziatore della singola casella sotto il dito/cursore
+const cellHL=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.9,CELL*0.9),new THREE.MeshBasicMaterial({color:0x5fe0ff,transparent:true,opacity:0.6,depthWrite:false}));cellHL.rotation.x=-Math.PI/2;cellHL.position.y=0.058;cellHL.visible=false;cellHL.renderOrder=1100;cityGroup.add(cellHL);
+const cellRing=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(CELL,CELL)),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.95,depthTest:false}));cellRing.rotation.x=-Math.PI/2;cellRing.position.y=0.06;cellRing.visible=false;cellRing.renderOrder=1101;cityGroup.add(cellRing);
 // griglia fine visibile (quadratini)
 const fineGrid=new THREE.GridHelper(GRID*CELL,GRID,0x2d3f1c,0x2d3f1c);fineGrid.position.y=0.028;fineGrid.material.transparent=true;fineGrid.material.opacity=0.33;fineGrid.material.depthWrite=false;cityGroup.add(fineGrid);
 // sentiero di terra vero (texture marrone con granuli)
@@ -285,7 +288,14 @@ function parKey(px,py){return px+','+py;}
 function parOf(cx,cy){return [Math.floor(cx/PAR),Math.floor(cy/PAR)];}
 function unlockedCell(cx,cy){const p=parOf(cx,cy);return !!unlockedPar[parKey(p[0],p[1])];}
 function setupTerritory(){const c=Math.floor(HALF/PAR);for(let px=c-1;px<=c+1;px++)for(let py=c-1;py<=c+1;py++)unlockedPar[parKey(px,py)]=1;refreshLocks();}
-function refreshLocks(){for(const k in lockMesh){cityGroup.remove(lockMesh[k]);delete lockMesh[k];}const nP=Math.ceil(GRID/PAR);for(let px=0;px<nP;px++)for(let py=0;py<nP;py++){const k=parKey(px,py);if(!unlockedPar[k]){const ccx=px*PAR+(PAR-1)/2,ccy=py*PAR+(PAR-1)/2;const [wx,wz]=cw(ccx,ccy);const m=new THREE.Mesh(new THREE.PlaneGeometry(PAR*CELL*0.98,PAR*CELL*0.98),lockMat);m.rotation.x=-Math.PI/2;m.position.set(wx,0.04,wz);cityGroup.add(m);lockMesh[k]=m;}}}
+function refreshLocks(){for(const k in lockMesh){cityGroup.remove(lockMesh[k]);delete lockMesh[k];}const nP=Math.ceil(GRID/PAR);for(let px=0;px<nP;px++)for(let py=0;py<nP;py++){const k=parKey(px,py);if(!unlockedPar[k]){const ccx=px*PAR+(PAR-1)/2,ccy=py*PAR+(PAR-1)/2;const [wx,wz]=cw(ccx,ccy);const g=new THREE.Group();g.position.set(wx,0,wz);
+  // velo scuro sul blocco
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(PAR*CELL*0.99,PAR*CELL*0.99),lockMat);m.rotation.x=-Math.PI/2;m.position.y=0.04;g.add(m);
+  // quadratini dentro il blocco (così si capisce quanti se ne sbloccano)
+  const sub=new THREE.GridHelper(PAR*CELL,PAR,0xbfe4c8,0xbfe4c8);sub.position.y=0.05;sub.material.transparent=true;sub.material.opacity=0.42;sub.material.depthWrite=false;sub.renderOrder=20;g.add(sub);
+  // bordo del blocco
+  const ring=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(PAR*CELL,PAR*CELL)),new THREE.LineBasicMaterial({color:0x8fe6b4,transparent:true,opacity:0.7}));ring.rotation.x=-Math.PI/2;ring.position.y=0.052;g.add(ring);
+  cityGroup.add(g);lockMesh[k]=g;}}}
 function parCount(){let n=0;for(const k in unlockedPar)n++;return n;}
 function terrCost(){return Math.round(18*Math.pow(1.28,parCount()-9));}
 function adjPar(px,py){return unlockedPar[parKey(px-1,py)]||unlockedPar[parKey(px+1,py)]||unlockedPar[parKey(px,py-1)]||unlockedPar[parKey(px,py+1)];}
@@ -294,7 +304,7 @@ function freeLeft(){return Math.max(0,2-freeState().used);}
 function useFree(){const s=freeState();s.used++;try{localStorage.setItem('tuzu_free',JSON.stringify(s));}catch(e){}}
 function doUnlock(px,py,cost){if(cost)R.oro-=cost;unlockedPar[parKey(px,py)]=1;refreshLocks();drawTop();save();toast('Terra sbloccata! 🔓');}
 function openUnlock(px,py){const c=terrCost();const fl=freeLeft();
-  dialog('🔓','Annettere la terra?','',`<p>Vuoi aggiungere questa zona al regno dei Chlòri?</p><p style="margin-top:4px;font-size:12px;opacity:.85">Gratis oggi: <b>${fl}/2</b> rimaste.</p>`+(fl>0?`<button class="btn" id="uf">Sblocca gratis (${fl} oggi)</button>`:'')+`<button class="btn alt" id="up">Sblocca per 🪙${c}</button><button class="btn alt" id="uc">Annulla</button>`);
+  dialog('🔓','Annettere la terra?','',`<p>Vuoi aggiungere questa zona al regno dei Chlòri?</p><p style="margin-top:4px;font-size:12.5px"><b>Sblocchi ${PAR}×${PAR} = ${PAR*PAR} quadratini</b> dove costruire.</p><p style="margin-top:4px;font-size:12px;opacity:.85">Gratis oggi: <b>${fl}/2</b> rimaste.</p>`+(fl>0?`<button class="btn" id="uf">Sblocca gratis (${fl} oggi)</button>`:'')+`<button class="btn alt" id="up">Sblocca per 🪙${c}</button><button class="btn alt" id="uc">Annulla</button>`);
   const d=document.getElementById('dyn');const uf=d.querySelector('#uf');if(uf)uf.onclick=()=>{useFree();doUnlock(px,py,0);closeDyn();};d.querySelector('#up').onclick=()=>{if(R.oro>=c){doUnlock(px,py,c);closeDyn();}else toast('Serve 🪙'+c);};d.querySelector('#uc').onclick=closeDyn;}
 function placeCastle(){const [w,h]=FP['castle']||[6,6];const [ax,ay]=fpAnchor(HALF,HALF,w,h);if(grid[key(ax,ay)])return;const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst('castle');o.position.set(wx,0,wz);cityGroup.add(o);autoSeat(o);const ref={key:'castle',def:{nome:'Municipio',em:'🏰'},cx:ax,cy:ay,obj:o};const e={type:'building',key:'castle',ref,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);}
 
@@ -549,14 +559,17 @@ function cellAt(cx,cy){const p=groundPt(cx,cy);if(!p)return null;const gx=Math.r
 let pointers=new Map(),dragStart=null,moved=false,downXY=null,pinchD=0;
 function setZoom(v){VZ=Math.max(4,Math.min(15,v));resize();}
 canvas.addEventListener('pointerdown',ev=>{canvas.setPointerCapture(ev.pointerId);pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
-  if(pointers.size===1){dragStart=mode==='city'?groundPt(ev.clientX,ev.clientY):null;moved=false;downXY={x:ev.clientX,y:ev.clientY};}
-  if(pointers.size===2){const p=[...pointers.values()];pinchD=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);dragStart=null;}});
+  if(pointers.size===1){dragStart=mode==='city'?groundPt(ev.clientX,ev.clientY):null;moved=false;downXY={x:ev.clientX,y:ev.clientY};if(mode==='city')showCell(ev.clientX,ev.clientY);}
+  if(pointers.size===2){const p=[...pointers.values()];pinchD=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);dragStart=null;hideCell();}});
 function hoverPreview(px,py){const c=cellAt(px,py);if(!c){hl.visible=false;return;}const def=cat==='edifici'?BUILD[selKey]:cat==='monumenti'?MON[selKey]:DECO[selKey];const [w,h]=fpSize(def);const [ax,ay]=fpAnchor(c.cx,c.cy,w,h);const [wx,wz]=fpCenter(ax,ay,w,h);hl.position.set(wx,.06,wz);hl.scale.set(w,h,1);hl.visible=true;hl.material.color.set(canPlace(ax,ay,w,h)?0x7fffb0:0xff6b6b);}
+function showCell(px,py){if(mode!=='city'){hideCell();return;}const c=cellAt(px,py);if(!c){hideCell();return;}const [wx,wz]=cw(c.cx,c.cy);cellHL.position.set(wx,0.058,wz);cellRing.position.set(wx,0.06,wz);const ok=unlockedCell(c.cx,c.cy);cellHL.material.color.set(ok?0x5fe0ff:0xffd24a);cellHL.visible=true;cellRing.visible=true;}
+function hideCell(){cellHL.visible=false;cellRing.visible=false;}
 canvas.addEventListener('pointermove',ev=>{
-  if(pointers.size===0){if(mode==='city'&&selKey)hoverPreview(ev.clientX,ev.clientY);else hl.visible=false;return;}
+  if(pointers.size===0){if(mode==='city'){showCell(ev.clientX,ev.clientY);if(selKey)hoverPreview(ev.clientX,ev.clientY);else hl.visible=false;}else{hl.visible=false;hideCell();}return;}
   if(!pointers.has(ev.pointerId))return;pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
   if(pointers.size===2){const p=[...pointers.values()];const nd=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);if(pinchD)setZoom(VZ*pinchD/nd);pinchD=nd;return;}
   if(pointers.size===1){if(downXY&&Math.hypot(ev.clientX-downXY.x,ev.clientY-downXY.y)>9)moved=true;
+    if(mode==='city')showCell(ev.clientX,ev.clientY);
     if(mode==='city'&&moved&&dragStart){const cur=groundPt(ev.clientX,ev.clientY);if(cur){camTarget.x+=dragStart.x-cur.x;camTarget.z+=dragStart.z-cur.z;camTarget.x=Math.max(-55,Math.min(55,camTarget.x));camTarget.z=Math.max(-55,Math.min(55,camTarget.z));updateCam();}}
     else if(mode==='city'&&selKey&&!moved)hoverPreview(ev.clientX,ev.clientY);}});
 function endPtr(ev){const was=pointers.size;pointers.delete(ev.pointerId);
