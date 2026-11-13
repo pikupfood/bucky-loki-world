@@ -575,6 +575,7 @@ function tryPlace(cx,cy){
     if(occ.type==='building')openBuilding(occ.ref);
     else if(occ.type==='pen')openPen(occ.pen);
     else if(occ.type==='crop'){tapCrop(occ);}
+    else if(occ.type==='deco'&&occ.key==='porticciolo')openHarbor();
     else if(occ.type==='tree'||occ.type==='deco'||occ.type==='road'||occ.type==='wall'||occ.type==='gate'||occ.type==='tower')openObj(occ);
     else if(occ.type==='site')toast('In costruzione…');
     return;
@@ -587,7 +588,7 @@ function tryPlace(cx,cy){
   const [w,h]=fpSize(def);const [ax,ay]=fpAnchor(cx,cy,w,h);
   if(cat==='monumenti'&&!monUnlocked()){toast('Monumenti bloccati');return;}
   if(!canPlace(ax,ay,w,h)){toast('Spazio occupato o non sbloccato');return;}
-  if(cat==='decora'){const dd=DECO[selKey];if(dd.cost){if(!afford(dd.cost)){toast('Risorse insufficienti');return;}pay(dd.cost);}placeDeco(ax,ay);drawTop();save();if(selKey==='porticciolo')toast('⚓ Porticciolo costruito! Porta commercio via mare: 🪙 in arrivo ogni tanto',4200);return;}
+  if(cat==='decora'){const dd=DECO[selKey];if(dd.cost){if(!afford(dd.cost)){toast('Risorse insufficienti');return;}pay(dd.cost);}placeDeco(ax,ay);drawTop();save();if(selKey==='porticciolo')toast('⚓ Porticciolo costruito! Dà 🪙 via mare, e toccalo per mandare una nave a commerciare o attaccare ⛵',5000);return;}
   startBuildAt(ax,ay,w,h,cat==='edifici'?BUILD:MON);save();
 }
 
@@ -1028,6 +1029,34 @@ function updNeighbors(dt){neighbors.forEach(nb=>{
 let caravans=[];
 function spawnCaravan(nb,gift){const g=new THREE.Group();g.position.set(nb.g.position.x,0,nb.g.position.z);cityGroup.add(g);loadModel(AD+'Rogue.glb').then(m=>{m.scale.setScalar(PS);g.add(m);});const cargo=new THREE.Mesh(new THREE.BoxGeometry(0.17,0.13,0.14),new THREE.MeshBasicMaterial({color:0xb9843f}));cargo.position.set(0,0.12,-0.17);g.add(cargo);nb.caravan=true;caravans.push({obj:g,gift,nb,bob:0,nm:POPOLI.find(p=>p.k===nb.k).n});}
 function updCaravans(dt){for(let i=caravans.length-1;i>=0;i--){const c=caravans[i],o=c.obj;const dx=-o.position.x,dz=-o.position.z,d=Math.hypot(dx,dz)||1;if(d<2.8){const amt=Math.round(c.gift.a*caravanBonus());R[c.gift.r]+=amt;drawTop();save();floatText(o.position.x,o.position.z,RES[c.gift.r]+'+'+amt);toast('🐫 Carovana da '+c.nm+': '+RES[c.gift.r]+'+'+amt,3000);cityGroup.remove(o);if(c.nb)c.nb.caravan=false;caravans.splice(i,1);continue;}const sp=1.5*dt;o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);c.bob+=dt*5;o.position.y=Math.abs(Math.sin(c.bob))*.03;}}
+// ===== NAVIGAZIONE NAVALE: manda una nave a commerciare o attaccare via mare =====
+let ships=[];
+function openHarbor(){closeDyn();if(!decos.some(x=>x.k==='porticciolo')){dialog('⚓','Porticciolo','Costruisci un Porticciolo (menu 🔨 → Decori) per mandare navi.','<button class="btn" id="hc">Ok</button>');document.getElementById('hc').onclick=closeDyn;return;}
+  let h='';neighbors.forEach(nb=>{const p=POPOLI.find(x=>x.k===nb.k);const t=NB_TRADE[nb.k];const gain=Math.round((t?t.buys.gold:20)*2.4*(allied[nb.k]?1.2:1));
+    h+=`<div class="trade" style="flex-direction:column;align-items:stretch;gap:6px"><b>${p.n} ${hostile[nb.k]?'⚔️':allied[nb.k]?'🤝':''}</b><div style="display:flex;gap:6px"><button class="btn" style="margin:0;flex:1" data-strade="${nb.k}">⛵ Commercia (+🪙${gain})</button><button class="btn red" style="margin:0;flex:1" data-satt="${nb.k}">⚔️ Attacca via mare</button></div></div>`;});
+  dialog('⚓','Spedizione navale','Manda una nave: <b>commercia</b> (vendi a buon prezzo) o <b>attacca</b> via mare. Una nave alla volta.',h+(ships.length?'<p style="color:#b33b3b;font-weight:700;margin-top:6px">⛵ Una nave è già in viaggio…</p>':'')+'<button class="btn alt" id="hc">Chiudi</button>');
+  const d=document.getElementById('dyn');d.querySelector('#hc').onclick=closeDyn;
+  d.querySelectorAll('[data-strade]').forEach(b=>b.onclick=()=>sendShip(b.dataset.strade,'trade'));
+  d.querySelectorAll('[data-satt]').forEach(b=>b.onclick=()=>sendShip(b.dataset.satt,'attack'));}
+function sendShip(k,action){if(ships.length){toast('Una nave è già in viaggio');return;}const nb=neighbors.find(n=>n.k===k);const p=POPOLI.find(x=>x.k===k);if(!nb)return;
+  if(action==='attack'&&soldiers<1){toast('Servono soldati ⚔️ per attaccare');return;}
+  closeDyn();
+  // parte dal grande lago più vicino al villaggio (la tua flotta è all'ancora lì)
+  let L=bigLakes[0]||{wx:0,wz:0},bd=1e9;bigLakes.forEach(x=>{const dd=Math.hypot(x.wx-nb.g.position.x,x.wz-nb.g.position.z);if(dd<bd){bd=dd;L=x;}});
+  const ang=Math.atan2(nb.g.position.z,nb.g.position.x);const ex=Math.cos(ang)*62,ez=Math.sin(ang)*62;
+  const g=makeShip(0.85);g.position.set(L.wx,0.1,L.wz);cityGroup.add(g);
+  const dur=Math.max(5,Math.hypot(ex-L.wx,ez-L.wz)/4);
+  ships.push({obj:g,phase:'out',from:{x:L.wx,z:L.wz},to:{x:ex,z:ez},t:0,dur,nb,action,bob:0,loot:0});
+  toast('⛵ La nave salpa verso '+p.n+'…',3200);setBubble('La nave è salpata verso '+p.n+' per '+(action==='attack'?'attaccare ⚔️':'commerciare 🪙')+'.');}
+function updShips(dt){for(let i=ships.length-1;i>=0;i--){const s=ships[i],o=s.obj;s.t+=dt;const u=Math.min(1,s.t/s.dur);
+  const a=s.phase==='out'?s.from:s.to,b=s.phase==='out'?s.to:s.from;
+  o.position.x=a.x+(b.x-a.x)*u;o.position.z=a.z+(b.z-a.z)*u;o.position.y=0.1+Math.sin(s.t*3)*0.02;o.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);
+  if(u<1)continue;
+  if(s.phase==='out'){const nb=s.nb,p=POPOLI.find(x=>x.k===nb.k)||{n:'il villaggio'};
+    if(s.action==='trade'){const t=NB_TRADE[nb.k];s.loot=Math.round((t?t.buys.gold:20)*2.4*(allied[nb.k]?1.2:1));toast('⛵ Commercio a '+p.n+': 🪙'+s.loot+'. La nave torna…',4000);s.phase='back';s.t=0;}
+    else{cityGroup.remove(o);ships.splice(i,1);battleTarget={kind:'neighbor',k:nb.k,mil:nb.mil,pop:nb.pop,naval:true};toast('⚔️ Sbarco a '+p.n+'!',2600);startBattle();continue;}
+  }else{if(s.action==='trade'&&s.loot){R.oro+=s.loot;drawTop();save();floatText(o.position.x,o.position.z,'🪙+'+s.loot);toast('⛵ La nave è tornata con 🪙'+s.loot,3200);}cityGroup.remove(o);ships.splice(i,1);continue;}
+}}
 // forzieri lasciati dai boss dell'Èrebo (toccali per il bottino, o si aprono da soli dopo un po')
 let chests=[];
 function makeChest(){const g=new THREE.Group();const base=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.26,0.3),new THREE.MeshStandardMaterial({color:0x7a4a22,roughness:1}));base.position.y=0.13;const lid=new THREE.Mesh(new THREE.BoxGeometry(0.44,0.12,0.32),new THREE.MeshStandardMaterial({color:0x9a5a28,roughness:1}));lid.position.y=0.3;const band=new THREE.Mesh(new THREE.BoxGeometry(0.46,0.3,0.06),new THREE.MeshBasicMaterial({color:0xe0b33a}));band.position.y=0.18;const lock=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.1,0.04),new THREE.MeshBasicMaterial({color:0xf4d47a}));lock.position.set(0,0.2,0.17);g.add(base);g.add(lid);g.add(band);g.add(lock);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.userData.chest=true;return g;}
@@ -1353,11 +1382,12 @@ async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');retu
   const bg=grass.clone();bg.needsUpdate=true;bg.wrapS=bg.wrapT=THREE.RepeatWrapping;bg.repeat.set(BGRID,BGRID);bg.encoding=THREE.sRGBEncoding;const fm=new THREE.MeshStandardMaterial({map:bg,color:0x8fb56f,roughness:1});fm.envMapIntensity=.4;const floor=new THREE.Mesh(new THREE.PlaneGeometry(BGRID*BCELL,BGRID*BCELL),fm);floor.rotation.x=-Math.PI/2;floor.position.y=.015;floor.receiveShadow=true;batGroup.add(floor);const gh=new THREE.GridHelper(BGRID*BCELL,BGRID,0xffffff,0xffffff);gh.position.y=.03;gh.material.transparent=true;gh.material.opacity=.22;batGroup.add(gh);
   const n=Math.min(soldiers,4);const he=['Knight.glb','Barbarian.glb','Mage.glb','Rogue.glb'];for(let i=0;i<n;i++){const o=await loadModel(AD+he[i%he.length]);o.scale.setScalar(.42);o.rotation.y=Math.PI/2;const uhp=30+soldierRank*8;const u={x:0,y:1+i,hp:uhp,max:uhp,atk:12+soldierRank*3,obj:o,done:false,enemy:false,bar:mkBarB()};batGroup.add(o);batGroup.add(u.bar.g);place(u);units.push(u);}
   const nbA=battleTarget&&battleTarget.kind==='neighbor';
+  const foeName=nbA?((POPOLI.find(p=>p.k===battleTarget.k)||{}).n||'il villaggio'):'';
   const ne=nbA?Math.max(3,Math.min(BGRID-2,Math.round(battleTarget.mil*0.8)+2)):3+Math.min(terreLiberate,4);
   const ehp=nbA?20+Math.round(battleTarget.mil*1.6):18, eatk=nbA?8:7;
   const foe=nbA?['Knight.glb','Barbarian.glb','Rogue.glb']:['Skeleton_Warrior.glb','Skeleton_Minion.glb','Skeleton_Rogue.glb'];const foeDir=nbA?AD:SK;
   for(let i=0;i<ne;i++){const o=await loadModel(foeDir+foe[i%foe.length]);o.scale.setScalar(.42);o.rotation.y=-Math.PI/2;const e={x:BGRID-1,y:1+(i%(BGRID-2)),hp:ehp,max:ehp,atk:eatk,obj:o,enemy:true,bar:mkBarB()};batGroup.add(o);batGroup.add(e.bar.g);place(e);enemies.push(e);}
-  turn='player';units.forEach(u=>u.done=false);batInfo();HINT.style.display='block';HINT.textContent=nbA?('Attacchi '+(POPOLI.find(p=>p.k===battleTarget.k)||{}).n+'! Tocca un soldato, poi una casella verde o un nemico rosso.'):'Tocca un soldato, poi una casella verde o un nemico rosso.';}
+  turn='player';units.forEach(u=>u.done=false);batInfo();HINT.style.display='block';HINT.textContent=nbA?('Attacchi '+foeName+'! Tocca un soldato, poi una casella verde o un nemico rosso.'):'Tocca un soldato, poi una casella verde o un nemico rosso.';}
 let batRestore=null;
 function mkBarB(){const g=new THREE.Group();const b=new THREE.MeshBasicMaterial({color:0x111111});b.depthTest=false;const f=new THREE.MeshBasicMaterial({color:0x4ade80});f.depthTest=false;const bg=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.2),b);const fg=new THREE.Mesh(new THREE.PlaneGeometry(1.14,.14),f);fg.position.z=.01;g.add(bg);g.add(fg);g.renderOrder=999;return {g,fg};}
 function updBar(u){const f=Math.max(0,u.hp/u.max);u.bar.fg.scale.x=f;u.bar.fg.position.x=-.57*(1-f);u.bar.fg.material.color.set(u.enemy?0xe24b4a:(f>.5?0x4ade80:0xfacc15));u.bar.g.position.set(u.obj.position.x,1.55,u.obj.position.z);u.bar.g.lookAt(camera.position.x,1.55,camera.position.z);}
@@ -1400,7 +1430,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updDayNight(dt);
   if(started)updWeather(dt);
   if(started)updSeason(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
 requestAnimationFrame(tick);
