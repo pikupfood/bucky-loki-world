@@ -446,7 +446,7 @@ function openHeroes(){const d=document.createElement('div');d.className='panel';
    h+=`<div class="miss" style="align-items:flex-start;gap:8px"><span style="text-align:left;flex:1"><b>${HD.em} ${HD.nome}</b>${lv?' · <span style="color:#1f8a56">Lv'+lv+'</span>':''}<br><span style="font-size:11px;opacity:.85">${HD.desc}</span></span>`+
       (can?`<button class="btn" style="width:auto;margin:0;padding:6px 10px;white-space:nowrap" data-h="${k}">${lv?'Potenzia':'Recluta'}<br>${costS}</button>`:`<span style="font-size:11px;color:#1f8a56">Max ⭐⭐⭐</span>`)+`</div>`;}
   d.innerHTML=`<div class="card"><div class="em">🦸</div><h2>Eroi</h2><p>Recluta e potenzia eroi: ognuno dà un bonus permanente al regno.</p>${h}<button class="btn alt" id="hc">Chiudi</button></div>`;document.body.appendChild(d);
-  d.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{const k=b.dataset.h;const cost=heroCost(k);if(!afford(cost)){toast('Risorse insufficienti');return;}pay(cost);heroes[k]=heroLvl(k)+1;drawTop();save();toast(HEROES[k].em+' '+HEROES[k].nome+' — Lv'+heroes[k]+'! '+HEROES[k].desc,3600);d.remove();openHeroes();});
+  d.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{const k=b.dataset.h;const cost=heroCost(k);if(!afford(cost)){toast('Risorse insufficienti');return;}const wasNew=heroLvl(k)===0;pay(cost);heroes[k]=heroLvl(k)+1;if(wasNew)spawnHeroUnit(k);drawTop();save();toast(HEROES[k].em+' '+HEROES[k].nome+' — Lv'+heroes[k]+'! '+HEROES[k].desc,3600);d.remove();openHeroes();});
   d.querySelector('#hc').onclick=()=>d.remove();}
 function checkMissions(){let changed=false;missions.forEach(m=>{if(!m.got&&m.done()){m.got=true;pay(negCost(m.rew));changed=true;toast('Missione completata! '+Object.entries(m.rew).map(([r,v])=>RES[r]+v).join(' '));}});if(changed){drawTop();drawSide();save();setBubble(tip());}}
 function negCost(c){const o={};for(const r in c)o[r]=-c[r];return o;}
@@ -634,6 +634,10 @@ function pickTargetCell(preferRoad){let pool=preferRoad?allUnlockedCells((x,y)=>
 function adjWalk(ax,ay,w,h){const c=[];for(let x=ax-1;x<=ax+w;x++){c.push([x,ay-1]);c.push([x,ay+h]);}for(let y=ay;y<ay+h;y++){c.push([ax-1,y]);c.push([ax+w,y]);}const ok=c.filter(p=>walkable(p[0],p[1]));return ok.length?ok[Math.floor(Math.random()*ok.length)]:null;}
 function bfsPath(sx,sy,tx,ty){if(!walkable(tx,ty))return null;if(sx===tx&&sy===ty)return [[tx,ty]];const q=[[sx,sy]];const prev={};prev[key(sx,sy)]='S';let it=0;while(q.length&&it<1500){it++;const cur=q.shift();if(cur[0]===tx&&cur[1]===ty)break;for(const d of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=cur[0]+d[0],ny=cur[1]+d[1],k=key(nx,ny);if(prev[k]===undefined&&walkable(nx,ny)){prev[k]=key(cur[0],cur[1]);q.push([nx,ny]);}}}if(prev[key(tx,ty)]===undefined)return null;const path=[];let k=key(tx,ty);while(k!=='S'){path.unshift(k.split(',').map(Number));k=prev[k];}return path;}
 function spawnAgent(kind){const g=new THREE.Group();const c=pickTargetCell(false)||[HALF,HALF];const [wx,wz]=cw(c[0],c[1]);g.position.set(wx,0,wz);cityGroup.add(g);const a={kind,obj:g,state:'idle',timer:Math.random()*2,speed:0.7+Math.random()*0.16,site:null,tree:null,path:null,pi:0,onArrive:'idle',bob:Math.random()*6};agents.push(a);loadModel(AD+(kind==='milite'?'Knight.glb':'Rogue.glb')).then(m=>{m.scale.setScalar(PS);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);});return a;}
+// gli eroi reclutati compaiono come unità in città (girano e combattono nelle incursioni)
+function spawnHeroUnit(k){const g=new THREE.Group();const c=pickTargetCell(false)||[HALF,HALF];const [wx,wz]=cw(c[0],c[1]);g.position.set(wx,0,wz);cityGroup.add(g);const a={kind:'eroe',heroKey:k,obj:g,state:'idle',timer:Math.random()*2,speed:0.75,site:null,tree:null,path:null,pi:0,onArrive:'idle',bob:Math.random()*6};agents.push(a);
+  loadModel(AD+((k==='capitano'||k==='guardiano')?'Knight.glb':'Rogue.glb')).then(m=>{m.scale.setScalar(PS*1.18);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);});
+  const star=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.22,4),new THREE.MeshBasicMaterial({color:0xffd23f}));star.position.y=0.82;g.add(star);return a;}
 function startWalk(a,tx,ty,onArrive){const cur=cellOfWorld(a.obj.position.x,a.obj.position.z);const p=bfsPath(cur[0],cur[1],tx,ty);if(p){a.path=p;a.pi=0;a.onArrive=onArrive;a.state='walk';return true;}return false;}
 // ----- comandi del giocatore su un abitante/soldato -----
 function fellTree(tr){if(!tr)return;const e=grid[key(tr.cx,tr.cy)];if(e&&e.type==='tree'){if(e.obj)cityGroup.remove(e.obj);else if(e.wild)hideInstance(e);freeOf(e);}const i=trees.indexOf(tr);if(i>=0)trees.splice(i,1);const di=decos.findIndex(d=>d.cx===tr.cx&&d.cy===tr.cy&&d.k==='albero');if(di>=0)decos.splice(di,1);const wi=wilds.findIndex(w=>w.cx===tr.cx&&w.cy===tr.cy);if(wi>=0)wilds.splice(wi,1);rebuildRoadArea(tr.cx,tr.cy);save();}
@@ -698,8 +702,9 @@ function commandFish(a,wx,wy){if(a.kind==='milite'){toast('I soldati non pescano
 function commandClear(a,cx,cy){if(a.kind==='milite'){toast('Manda un abitante ad aprire la strada 🧍');return;}const t=adjWalk(cx,cy,1,1);if(t&&startWalk(a,t[0],t[1],'clearcmd')){a.clearCell=[cx,cy];toast('🛣️ Vado ad aprire la strada (spiano il terreno)…',3200);}else toast('Non riesco ad arrivarci: apri prima le celle più vicine');}
 function commandGuard(a,cx,cy){if(!walkable(cx,cy)){const near=adjWalk(cx,cy,1,1);if(near){cx=near[0];cy=near[1];}}if(startWalk(a,cx,cy,'guard')){a.post=[cx,cy];toast(a.kind==='milite'?'🛡️ Vado a sorvegliare la posizione!':'🧍 Vado a presidiare il punto!');}else toast('Non riesco ad arrivare lì');}
 function pickTask(a){
-  if(a.kind!=='abitante'){const s=sites.find(s=>!s.builder);if(s){const t=adjWalk(s.ax,s.ay,s.w,s.h);if(t&&startWalk(a,t[0],t[1],'build')){s.builder=a;a.site=s;return;}}}
-  if(a.kind!=='abitante'&&trees.length&&Math.random()<.35){const tr=trees[Math.floor(Math.random()*trees.length)];const t=adjWalk(tr.cx,tr.cy,1,1);if(t&&startWalk(a,t[0],t[1],'chop')){a.tree=tr;return;}}
+  const worker=(a.kind!=='abitante'&&a.kind!=='eroe');
+  if(worker){const s=sites.find(s=>!s.builder);if(s){const t=adjWalk(s.ax,s.ay,s.w,s.h);if(t&&startWalk(a,t[0],t[1],'build')){s.builder=a;a.site=s;return;}}}
+  if(worker&&trees.length&&Math.random()<.35){const tr=trees[Math.floor(Math.random()*trees.length)];const t=adjWalk(tr.cx,tr.cy,1,1);if(t&&startWalk(a,t[0],t[1],'chop')){a.tree=tr;return;}}
   const tc=pickTargetCell(Math.random()<.7);if(tc&&startWalk(a,tc[0],tc[1],'idle'))return;
   a.state='idle';a.timer=.8+Math.random();
 }
@@ -846,20 +851,30 @@ function visitNeighbor(k){const nb=neighbors.find(n=>n.k===k);const p=POPOLI.fin
 let raiders=[],allyTroops=[],raidTimer=100+Math.random()*60,raidActive=false;
 function soldierFight(o,dt,dmg,st){let best=null,bd=1e9;raiders.forEach(r=>{const d=Math.hypot(r.obj.position.x-o.position.x,r.obj.position.z-o.position.z);if(d<bd){bd=d;best=r;}});if(!best)return;const dx=best.obj.position.x-o.position.x,dz=best.obj.position.z-o.position.z,d=Math.hypot(dx,dz)||1;if(d>0.7){const sp=1.05*dt;o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;st.bob=(st.bob||0)+dt*6;o.position.y=Math.abs(Math.sin(st.bob))*.03;}else{best.hp-=dt*dmg;o.position.y=0;}o.rotation.y=Math.atan2(dx,dz);}
 function maybeRaid(dt){if(raidActive||builtCount<6)return;raidTimer-=dt;if(raidTimer<=0){raidTimer=160+Math.random()*120;startRaid();}}
-function startRaid(){raidActive=true;const n=Math.min(6,2+Math.floor(terreLiberate+builtCount/9));const edge=Math.floor(Math.random()*4);
+const RAIDERS={
+ minion: {file:'Skeleton_Minion.glb', hp:9,  speed:0.55, sc:0.2,  rew:4},
+ warrior:{file:'Skeleton_Warrior.glb',hp:22, speed:0.36, sc:0.24, rew:7},
+ rogue:  {file:'Skeleton_Rogue.glb',  hp:13, speed:0.62, sc:0.21, rew:5},
+ boss:   {file:'Skeleton_Warrior.glb',hp:60, speed:0.28, sc:0.42, rew:30}
+};
+function spawnRaider(type,x,z){const d=RAIDERS[type];const g=new THREE.Group();g.position.set(x,0,z);cityGroup.add(g);loadModel(SK+d.file).then(mm=>{mm.scale.setScalar(d.sc);mm.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(mm);});const bar=mkBar3();bar.fg.material.color.set(0xe24b4a);bar.g.scale.setScalar(type==='boss'?0.55:0.34);cityGroup.add(bar.g);raiders.push({obj:g,hp:d.hp,maxhp:d.hp,speed:d.speed,bob:Math.random()*6,type,rew:d.rew,bar,boss:type==='boss'});}
+function startRaid(){raidActive=true;const n=Math.min(7,2+Math.floor(terreLiberate+builtCount/9));const edge=Math.floor(Math.random()*4);const types=['minion','warrior','rogue'];const boss=n>=4&&Math.random()<0.45;
   for(let i=0;i<n;i++){let x,z;const m=14.5;const off=(Math.random()-.5)*7;if(edge===0){x=-m;z=off;}else if(edge===1){x=m;z=off;}else if(edge===2){x=off;z=-m;}else{x=off;z=m;}
-    const g=new THREE.Group();g.position.set(x,0,z);cityGroup.add(g);const sk=['Skeleton_Warrior.glb','Skeleton_Minion.glb','Skeleton_Rogue.glb'][i%3];loadModel(SK+sk).then(mm=>{mm.scale.setScalar(0.22);mm.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(mm);});
-    raiders.push({obj:g,hp:14,speed:0.42+Math.random()*0.12,bob:Math.random()*6});}
-  agents.forEach(a=>{if(a.kind==='milite')a.state='raidfight';});
+    spawnRaider((boss&&i===0)?'boss':types[Math.floor(Math.random()*types.length)],x,z);}
+  agents.forEach(a=>{if(a.kind==='milite'||a.kind==='eroe')a.state='raidfight';});
   // gli alleati mandano rinforzi
   const allyKs=Object.keys(allied);allyKs.forEach(k=>{const nb=neighbors.find(n=>n.k===k);const col=SIGNCOL[nb?nb.col:'']||0x9fd0ff;for(let i=0;i<2;i++){const g=new THREE.Group();const ang=Math.random()*6.28,rr=6.5+Math.random()*2;g.position.set(Math.cos(ang)*rr,0,Math.sin(ang)*rr);cityGroup.add(g);loadModel(AD+'Knight.glb').then(m=>{m.scale.setScalar(PS);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);});const flag=new THREE.Mesh(new THREE.ConeGeometry(0.11,0.2,4),new THREE.MeshBasicMaterial({color:col}));flag.position.y=0.72;g.add(flag);allyTroops.push({obj:g,bob:Math.random()*6});}});
-  toast(allyKs.length?'⚔️ L’Èrebo attacca! 🤝 Gli alleati mandano rinforzi!':'⚔️ L’Èrebo attacca il regno! I soldati difendono.',4500);setBubble('L’Èrebo attacca! Difendi con i soldati ⚔️, le torri 🗼 e le mura'+(allyKs.length?'; gli alleati 🤝 ti aiutano':'. Allèati coi vicini per avere rinforzi!')+'.');}
-function endRaid(){raidActive=false;agents.forEach(a=>{if(a.kind==='milite'&&a.state==='raidfight'){a.state='idle';a.timer=.3;}});allyTroops.forEach(t=>cityGroup.remove(t.obj));allyTroops=[];setBubble('Attacco respinto! Il regno è salvo 🛡️');}
+  toast((boss?'☠️ L’Èrebo attacca con un BOSS! ':'⚔️ L’Èrebo attacca il regno! ')+(allyKs.length?'🤝 Gli alleati mandano rinforzi!':'I soldati difendono.'),4800);setBubble('L’Èrebo attacca! Difendi con i soldati ⚔️, le torri 🗼 e le mura'+(allyKs.length?'; gli alleati 🤝 ti aiutano':'. Allèati coi vicini per avere rinforzi!')+'.');}
+function endRaid(){raidActive=false;agents.forEach(a=>{if((a.kind==='milite'||a.kind==='eroe')&&a.state==='raidfight'){a.state='idle';a.timer=.3;}});allyTroops.forEach(t=>cityGroup.remove(t.obj));allyTroops=[];setBubble('Attacco respinto! Il regno è salvo 🛡️');}
 function updRaid(dt){maybeRaid(dt);if(!raiders.length){if(raidActive)endRaid();return;}
-  agents.forEach(a=>{if(a.kind==='milite'&&a.obj.children.length)soldierFight(a.obj,dt,6*soldierDmgBonus(),a);});
+  agents.forEach(a=>{if((a.kind==='milite'||a.kind==='eroe')&&a.obj.children.length)soldierFight(a.obj,dt,(a.kind==='eroe'?12:6)*soldierDmgBonus(),a);});
   allyTroops.forEach(t=>{if(t.obj.children.length)soldierFight(t.obj,dt,5,t);});
   defenses.filter(df=>df.k==='torre').forEach(df=>{const [tx,tz]=cw(df.cx,df.cy);raiders.forEach(r=>{if(Math.hypot(r.obj.position.x-tx,r.obj.position.z-tz)<3.2)r.hp-=dt*3*towerDmgBonus();});});
-  for(let i=raiders.length-1;i>=0;i--){const r=raiders[i],o=r.obj;if(r.hp<=0){floatText(o.position.x,o.position.z,'💀');cityGroup.remove(o);raiders.splice(i,1);R.oro+=5;morale=Math.min(100,morale+1);if(R.armi>0)R.armi=Math.max(0,R.armi-1);drawTop();continue;}const d=Math.hypot(o.position.x,o.position.z)||1;if(d<2.3){cityGroup.remove(o);raiders.splice(i,1);morale=Math.max(10,morale-6);R.oro=Math.max(0,R.oro-8);R.cibo=Math.max(0,R.cibo-10);drawTop();floatText(0,1,'💥 saccheggio');toast('💥 L’Èrebo ha saccheggiato! −😊 −🪙 −🌾',3500);continue;}const sp=r.speed*dt;o.position.x-=o.position.x/d*sp;o.position.z-=o.position.z/d*sp;o.rotation.y=Math.atan2(-o.position.x,-o.position.z);r.bob+=dt*5;o.position.y=Math.abs(Math.sin(r.bob))*.03;}}
+  for(let i=raiders.length-1;i>=0;i--){const r=raiders[i],o=r.obj;
+    if(r.bar){const f=Math.max(0,r.hp/r.maxhp);r.bar.fg.scale.x=f;r.bar.fg.position.x=-.52*(1-f);r.bar.g.position.set(o.position.x,r.boss?2.1:1.25,o.position.z);r.bar.g.lookAt(camera.position.x,r.bar.g.position.y,camera.position.z);}
+    if(r.hp<=0){floatText(o.position.x,o.position.z,r.boss?'☠️':'💀');cityGroup.remove(o);if(r.bar)cityGroup.remove(r.bar.g);raiders.splice(i,1);R.oro+=r.rew||5;morale=Math.min(100,morale+(r.boss?5:1));if(R.armi>0)R.armi=Math.max(0,R.armi-1);if(r.boss)toast('☠️ Boss dell’Èrebo sconfitto! +🪙'+r.rew,4000);drawTop();continue;}
+    const d=Math.hypot(o.position.x,o.position.z)||1;if(d<2.3){cityGroup.remove(o);if(r.bar)cityGroup.remove(r.bar.g);raiders.splice(i,1);const sack=r.boss?2:1;morale=Math.max(10,morale-6*sack);R.oro=Math.max(0,R.oro-8*sack);R.cibo=Math.max(0,R.cibo-10*sack);drawTop();floatText(0,1,'💥 saccheggio');toast('💥 L’Èrebo ha saccheggiato! −😊 −🪙 −🌾',3500);continue;}
+    const sp=r.speed*dt;o.position.x-=o.position.x/d*sp;o.position.z-=o.position.z/d*sp;o.rotation.y=Math.atan2(-o.position.x,-o.position.z);r.bob+=dt*5;o.position.y=Math.abs(Math.sin(r.bob))*.03;}}
 function nbBuy(k){const t=NB_TRADE[k];if(!t)return;const price=Math.round(t.sells.gold*(allied[k]?0.8:1));if(R.oro<price){toast('Serve 🪙'+price);return;}R.oro-=price;R[t.sells.r]+=t.sells.qty;drawTop();save();toast('Comprato '+RES[t.sells.r]+t.sells.qty+' per 🪙'+price);openNeighbor(k,true);}
 function nbSell(k){const t=NB_TRADE[k];if(!t)return;if(R[t.buys.r]<t.buys.qty){toast('Ti serve '+RES[t.buys.r]+t.buys.qty);return;}const gain=Math.round(t.buys.gold*(allied[k]?1.2:1));R[t.buys.r]-=t.buys.qty;R.oro+=gain;drawTop();save();toast('Venduto '+RES[t.buys.r]+t.buys.qty+' per 🪙'+gain);openNeighbor(k,true);}
 function nbAlly(k){if(allied[k]){toast('Siete già alleati 🤝');return;}if(!afford(ALLY_COST)){toast('Per allearti servono 🪙'+ALLY_COST.oro+' e 🌾'+ALLY_COST.cibo);return;}pay(ALLY_COST);allied[k]=1;liberated[k]=1;const nb=neighbors.find(n=>n.k===k);if(nb)nb.giftT=35;drawTop();save();toast('🤝 Alleanza stretta con '+POPOLI.find(p=>p.k===k).n+'! Sconti e doni in arrivo',4200);openNeighbor(k,true);}
@@ -939,7 +954,8 @@ function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if
   (s.d||[]).forEach(it=>{if(DECO[it.k])placeDeco(it.cx,it.cy,it.k);});
   (s.df||[]).forEach(it=>{const d=DEF[it.k];if(!d)return;const [w,h]=fpSize(d);const [ax,ay]=fpAnchor(it.cx,it.cy,w,h);if(canPlace(ax,ay,w,h))placeDef(ax,ay,w,h,it.k,it.manual?it.rot:undefined);});
   (s.pn||[]).forEach(it=>{const d=PENS[it.k];if(!d)return;const [w,h]=fpSize(d);const ax=it.ax,ay=it.ay;if(canPlace(ax,ay,w,h)){const pen=placePen(ax,ay,w,h,it.k);(it.an||[]).forEach(ak=>{if(ANIMALS[ak]&&pen.animals.length<pen.cap)spawnAnimal(ak,pen);});}});
-  (s.cr||[]).forEach(it=>{if(CROPS[it.t]&&!grid[key(it.cx,it.cy)])plantCrop(it.cx,it.cy,it.t,it.g||0);});recompute();return true;}catch(e){return false;}}
+  (s.cr||[]).forEach(it=>{if(CROPS[it.t]&&!grid[key(it.cx,it.cy)])plantCrop(it.cx,it.cy,it.t,it.g||0);});
+  Object.keys(heroes).forEach(k=>{if(HEROES[k])spawnHeroUnit(k);});recompute();return true;}catch(e){return false;}}
 
 // ===== MONDO =====
 document.getElementById('btnWorld').onclick=()=>{if(mode==='city')openWorld();};
