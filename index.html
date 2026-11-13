@@ -164,7 +164,7 @@ const canvas=document.getElementById('c');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
-const scene=new THREE.Scene();const SKY=0x8fc3e6;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,44,95);
+const scene=new THREE.Scene();const SKY=0x8fc3e6;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,58,135);
 let VZ=8.5;const camera=new THREE.OrthographicCamera(-VZ,VZ,VZ,-VZ,0.1,260);
 const camTarget={x:0,z:0};const CAMK=24;
 function updateCam(){camera.position.set(camTarget.x+CAMK,CAMK*1.18,camTarget.z+CAMK);camera.lookAt(camTarget.x,0,camTarget.z);}
@@ -695,7 +695,7 @@ const NB_TRADE={
   nefele:{sells:{r:'pietra',qty:16,gold:18},buys:{r:'legna',qty:25,gold:18}, gift:{r:'pietra',a:7}}
 };
 const ALLY_COST={oro:80,cibo:30};
-async function initNeighbors(){const spec=[{k:'nefele',x:-11.5,z:1.5,ax:HALF-12,ay:HALF+1},{k:'chrysa',x:11.5,z:-1.5,ax:HALF+12,ay:HALF-1},{k:'oros',x:1.5,z:11.5,ax:HALF+1,ay:HALF+12}];
+async function initNeighbors(){const spec=[{k:'nefele',x:-30,z:4,ax:HALF-12,ay:HALF+1},{k:'chrysa',x:30,z:-5,ax:HALF+12,ay:HALF-1},{k:'oros',x:5,z:30,ax:HALF+1,ay:HALF+12}];
   for(const s of spec){const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:6,mil:2,timer:40+Math.random()*30,agents:[],ax:s.ax,ay:s.ay,reached:!!reachedNb[s.k]};
     await nbBuild(nb,'castle',0,0);await nbBuild(nb,'home_A',-1,0);await nbBuild(nb,'home_B',1,0);await nbBuild(nb,'market',0,-1);
     // cartello indicatore all'imbocco della strada
