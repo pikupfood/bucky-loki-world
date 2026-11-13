@@ -256,6 +256,9 @@ const BUILD={
 const DECO={
   albero:  {nome:'Albero',  em:'🌳', files:['tree_single_A','tree_single_B'], mor:1},
   fiori:   {nome:'Fiori',   em:'🌸', flower:true, mor:1},
+  siepe:   {nome:'Siepe',   em:'🌿', build:'makeHedge', mor:1},
+  lampione:{nome:'Lampione',em:'🏮', build:'makeLamp',  mor:1},
+  casse:   {nome:'Casse',   em:'📦', build:'makeCrates',mor:0},
   strada:  {nome:'Strada',  em:'🟫', road:true, mor:0},
   bandiera:{nome:'Bandiera',em:'🚩', files:['flag_'+col], mor:1}
 };
@@ -458,13 +461,17 @@ function negCost(c){const o={};for(const r in c)o[r]=-c[r];return o;}
 
 // ===== costruzione / deco =====
 function makeFlowers(){const g=new THREE.Group();const cols=[0xff6b9d,0xffd23f,0xff8c42,0xb892ff,0xffffff];for(let i=0;i<7;i++){const f=new THREE.Group();const st=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.4,5),new THREE.MeshStandardMaterial({color:0x3b6d11,roughness:1}));st.position.y=0.2;const hd=new THREE.Mesh(new THREE.SphereGeometry(0.14,7,6),new THREE.MeshStandardMaterial({color:cols[i%cols.length],roughness:.9}));hd.position.y=0.42;f.add(st);f.add(hd);f.position.set((Math.random()-.5)*1.3,0,(Math.random()-.5)*1.3);g.add(f);}g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
+function makeHedge(){const g=new THREE.Group();const body=new THREE.Mesh(new THREE.BoxGeometry(0.44,0.3,0.44),new THREE.MeshStandardMaterial({color:0x3f7d3a,roughness:1}));body.position.y=0.15;g.add(body);const cols=[0xff6b9d,0xffd23f,0xff8c42];for(let i=0;i<5;i++){const f=new THREE.Mesh(new THREE.SphereGeometry(0.035,6,5),new THREE.MeshBasicMaterial({color:cols[i%3]}));f.position.set((Math.random()-.5)*0.36,0.3,(Math.random()-.5)*0.36);g.add(f);}g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
+function makeLamp(){const g=new THREE.Group();const dark=new THREE.MeshStandardMaterial({color:0x3a3a40,roughness:.7});const post=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.05,0.7,6),dark);post.position.y=0.35;const arm=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.04,0.22),dark);arm.position.set(0,0.7,0.09);const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.075,10,8),new THREE.MeshBasicMaterial({color:0xffcf6b}));lamp.position.set(0,0.68,0.19);const cap=new THREE.Mesh(new THREE.ConeGeometry(0.08,0.08,6),dark);cap.position.set(0,0.76,0.19);g.add(post);g.add(arm);g.add(lamp);g.add(cap);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
+function makeCrates(){const g=new THREE.Group();const c1=new THREE.Mesh(new THREE.BoxGeometry(0.26,0.26,0.26),new THREE.MeshStandardMaterial({color:0x9a6b35,roughness:1}));c1.position.set(-0.08,0.13,0);const c2=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.22,0.22),new THREE.MeshStandardMaterial({color:0xae7c42,roughness:1}));c2.position.set(0.12,0.11,0.06);c2.rotation.y=0.3;const c3=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,0.2),new THREE.MeshStandardMaterial({color:0x8a5f30,roughness:1}));c3.position.set(-0.04,0.35,-0.02);g.add(c1);g.add(c2);g.add(c3);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
 function isPath(cx,cy){const g=grid[key(cx,cy)];return !!(g&&(g.type==='road'||g.type==='building'||g.type==='site'));}
 function newRoad(cx,cy){const [wx,wz]=cw(cx,cy);const g=new THREE.Group();g.position.set(wx,0.045,wz);cityGroup.add(g);return g;}
 function rebuildRoad(cx,cy){const e=grid[key(cx,cy)];if(!e||e.type!=='road'||!e.obj)return;const g=e.obj;while(g.children.length)g.remove(g.children[0]);const w=isPath(cx-1,cy),ea=isPath(cx+1,cy),n=isPath(cx,cy-1),s=isPath(cx,cy+1);const put=(sx,sz,mat,y)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(sx,sz),mat);m.rotation.x=-Math.PI/2;m.position.y=y;m.receiveShadow=true;g.add(m);};const We=CELL*0.6,Wc=CELL*0.3;let any=false;if(w||ea){put(CELL*1.02,We,roadEdge,0);put(CELL*1.02,Wc,roadMid,0.003);any=true;}if(n||s){put(We,CELL*1.02,roadEdge,0);put(Wc,CELL*1.02,roadMid,0.003);any=true;}if(!any){put(We,We,roadEdge,0);put(Wc,Wc,roadMid,0.003);}}
 function rebuildRoadArea(cx,cy){rebuildRoad(cx,cy);rebuildRoad(cx-1,cy);rebuildRoad(cx+1,cy);rebuildRoad(cx,cy-1);rebuildRoad(cx,cy+1);}
 function placeDeco(cx,cy,kk){const sk=kk||selKey;const d=DECO[sk];const [wx,wz]=cw(cx,cy);let o;
   if(d.road){const g=newRoad(cx,cy);const e={type:'road',key:sk,obj:g,ax:cx,ay:cy,w:1,h:1,cx,cy};occupy(cx,cy,1,1,e);decos.push({k:sk,cx,cy});rebuildRoadArea(cx,cy);return;}
-  if(d.flower){o=makeFlowers();o.position.set(wx,0,wz);}
+  if(d.flower){o=makeFlowers();o.position.set(wx,0,wz);o.rotation.y=Math.random()*6.28;}
+  else if(d.build){o=(typeof window[d.build]==='function'?window[d.build]():new THREE.Group());o.position.set(wx,0,wz);o.rotation.y=Math.random()*6.28;}
   else{const f=d.files[Math.floor(Math.random()*d.files.length)];o=inst(f);o.position.set(wx,0,wz);o.rotation.y=d.rot?[0,1.57,3.14,-1.57][Math.floor(Math.random()*4)]:Math.random()*6.28;}
   if(placeRot&&o)o.rotation.y=placeRot*HALFPI;
   cityGroup.add(o);autoSeat(o);const e={type:(sk==='albero'?'tree':'deco'),key:sk,obj:o,ax:cx,ay:cy,w:1,h:1,cx,cy};occupy(cx,cy,1,1,e);decos.push({k:sk,cx,cy});
