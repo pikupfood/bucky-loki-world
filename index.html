@@ -441,8 +441,8 @@ function tip(){
 }
 function setBubble(t){document.getElementById('bubble').textContent=t;}
 document.getElementById('tuzu').onclick=()=>{setBubble(tip());openMiss();};
-function openMiss(){const d=document.createElement('div');d.className='panel';d.id='dyn';let h='';missions.forEach(m=>{const ok=m.got;const rw=Object.entries(m.rew).map(([r,v])=>RES[r]+v).join(' ');h+=`<div class="miss${ok?' ok':''}"><span>${ok?'✅':'⬜'} ${m.txt}</span><span style="font-size:11px;opacity:.85">${rw}</span></div>`;});d.innerHTML=`<div class="card"><div class="em">📜</div><h2>Missioni</h2><p>Completa gli obiettivi per avere materiali.</p>${h}<button class="btn alt" id="mc">Chiudi</button></div>`;document.body.appendChild(d);d.querySelector('#mc').onclick=()=>d.remove();}
-function openHeroes(){const d=document.createElement('div');d.className='panel';d.id='dyn';let h='';
+function openMiss(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let h='';missions.forEach(m=>{const ok=m.got;const rw=Object.entries(m.rew).map(([r,v])=>RES[r]+v).join(' ');h+=`<div class="miss${ok?' ok':''}"><span>${ok?'✅':'⬜'} ${m.txt}</span><span style="font-size:11px;opacity:.85">${rw}</span></div>`;});d.innerHTML=`<div class="card"><div class="em">📜</div><h2>Missioni</h2><p>Completa gli obiettivi per avere materiali.</p>${h}<button class="btn alt" id="mc">Chiudi</button></div>`;document.body.appendChild(d);d.querySelector('#mc').onclick=()=>d.remove();}
+function openHeroes(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let h='';
   for(const k in HEROES){const HD=HEROES[k];const lv=heroLvl(k);const cost=heroCost(k);const costS=Object.entries(cost).map(([r,v])=>RES[r]+v).join(' ');const can=lv<3;
    h+=`<div class="miss" style="align-items:flex-start;gap:8px"><span style="text-align:left;flex:1"><b>${HD.em} ${HD.nome}</b>${lv?' · <span style="color:#1f8a56">Lv'+lv+'</span>':''}<br><span style="font-size:11px;opacity:.85">${HD.desc}</span></span>`+
       (can?`<button class="btn" style="width:auto;margin:0;padding:6px 10px;white-space:nowrap" data-h="${k}">${lv?'Potenzia':'Recluta'}<br>${costS}</button>`:`<span style="font-size:11px;color:#1f8a56">Max ⭐⭐⭐</span>`)+`</div>`;}
@@ -538,7 +538,7 @@ const KEEPER_SVG=`<svg viewBox="0 0 170 150" width="188" style="position:absolut
 <circle cx="146" cy="99" r="9" fill="#caa24e" stroke="#6e5220" stroke-width="2"/>
 <text x="146" y="103" font-size="10" text-anchor="middle" fill="#6e5220" font-weight="bold">$</text>
 </svg>`;
-function openMarketScene(b){const d=document.createElement('div');d.className='panel';d.id='dyn';
+function openMarketScene(b){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';
   d.innerHTML=`<div class="mktroom"><div class="mktawn"></div><div class="mktsign">⚜ Mercato di Dèndora ⚜</div>
    <div class="mktstage">${KEEPER_SVG}<div class="mktcounter"></div></div>
    <div class="mktspeech" id="mksp">Benvenuto, viandante! Cosa desideri oggi — <b>vendere</b> o <b>comprare</b>?</div>
@@ -800,6 +800,8 @@ function pickAgent(px,py){const r=canvas.getBoundingClientRect();ndc.x=((px-r.le
 function agentNome(a){return a.kind==='milite'?'Soldato':a.kind==='abitante'?'Abitante':'Operaio';}
 function refreshOrderBar(){const b=document.getElementById('orderbar');if(!b)return;if(!selAgent){b.style.display='none';return;}const sold=selAgent.kind==='milite';b.innerHTML='<b>'+agentNome(selAgent)+' scelto.</b> '+(sold?'Tocca un punto o un 🚪 cancello da <b>sorvegliare</b>.':'Tocca un 🌳 <b>albero</b> (taglia), un <b>campo</b> pronto 🧺 (raccogli), l’<b>acqua</b> 🎣 (pesca) o un punto.')+'<button id="obcancel">✖</button>';b.style.display='block';const c=b.querySelector('#obcancel');if(c)c.onclick=()=>{selAgent=null;refreshOrderBar();toast('Annullato');};}
 function cityTap(px,py){
+  // 0) tocco su un forziere -> raccogli il bottino
+  if(!moveTarget&&!selAgent){const ch=pickChest(px,py);if(ch){openChest(ch);return;}}
   // 1) tocco su un abitante/soldato -> selezionalo (o liberalo se già scelto)
   const ag=moveTarget?null:pickAgent(px,py);
   if(ag){if(selAgent===ag){selAgent.state='idle';selAgent.timer=.3;selAgent=null;toast('Torna libero 👋');}else{selAgent=ag;selKey=null;drawer.classList.remove('open');drawBuild();toast('👆 '+agentNome(ag)+' scelto',1800);}refreshOrderBar();return;}
@@ -851,6 +853,13 @@ function updNeighbors(dt){neighbors.forEach(nb=>{
 let caravans=[];
 function spawnCaravan(nb,gift){const g=new THREE.Group();g.position.set(nb.g.position.x,0,nb.g.position.z);cityGroup.add(g);loadModel(AD+'Rogue.glb').then(m=>{m.scale.setScalar(PS);g.add(m);});const cargo=new THREE.Mesh(new THREE.BoxGeometry(0.17,0.13,0.14),new THREE.MeshBasicMaterial({color:0xb9843f}));cargo.position.set(0,0.12,-0.17);g.add(cargo);nb.caravan=true;caravans.push({obj:g,gift,nb,bob:0,nm:POPOLI.find(p=>p.k===nb.k).n});}
 function updCaravans(dt){for(let i=caravans.length-1;i>=0;i--){const c=caravans[i],o=c.obj;const dx=-o.position.x,dz=-o.position.z,d=Math.hypot(dx,dz)||1;if(d<2.8){R[c.gift.r]+=c.gift.a;drawTop();save();floatText(o.position.x,o.position.z,RES[c.gift.r]+'+'+c.gift.a);toast('🐫 Carovana da '+c.nm+': '+RES[c.gift.r]+'+'+c.gift.a,3000);cityGroup.remove(o);if(c.nb)c.nb.caravan=false;caravans.splice(i,1);continue;}const sp=1.5*dt;o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);c.bob+=dt*5;o.position.y=Math.abs(Math.sin(c.bob))*.03;}}
+// forzieri lasciati dai boss dell'Èrebo (toccali per il bottino, o si aprono da soli dopo un po')
+let chests=[];
+function makeChest(){const g=new THREE.Group();const base=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.26,0.3),new THREE.MeshStandardMaterial({color:0x7a4a22,roughness:1}));base.position.y=0.13;const lid=new THREE.Mesh(new THREE.BoxGeometry(0.44,0.12,0.32),new THREE.MeshStandardMaterial({color:0x9a5a28,roughness:1}));lid.position.y=0.3;const band=new THREE.Mesh(new THREE.BoxGeometry(0.46,0.3,0.06),new THREE.MeshBasicMaterial({color:0xe0b33a}));band.position.y=0.18;const lock=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.1,0.04),new THREE.MeshBasicMaterial({color:0xf4d47a}));lock.position.set(0,0.2,0.17);g.add(base);g.add(lid);g.add(band);g.add(lock);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.userData.chest=true;return g;}
+function spawnChest(x,z,rew){const g=makeChest();g.position.set(x,0,z);cityGroup.add(g);chests.push({obj:g,rew,bob:Math.random()*6,life:30});floatText(x,z,'🎁');}
+function openChest(c){for(const r in c.rew)R[r]=(R[r]||0)+c.rew[r];drawTop();save();toast('🎁 Forziere del boss! '+Object.entries(c.rew).map(([r,v])=>RES[r]+'+'+v).join(' '),4200);cityGroup.remove(c.obj);const i=chests.indexOf(c);if(i>=0)chests.splice(i,1);}
+function updChests(dt){for(let i=chests.length-1;i>=0;i--){const c=chests[i],o=c.obj;c.bob+=dt*3;o.position.y=Math.abs(Math.sin(c.bob))*0.05;o.rotation.y+=dt*0.6;c.life-=dt;if(c.life<=0)openChest(c);}}
+function pickChest(px,py){const r=canvas.getBoundingClientRect();ndc.x=((px-r.left)/r.width)*2-1;ndc.y=-((py-r.top)/r.height)*2+1;ray.setFromCamera(ndc,camera);let best=null,bd=1e9;for(const c of chests){const h=ray.intersectObject(c.obj,true);if(h.length&&h[0].distance<bd){bd=h[0].distance;best=c;}}return best;}
 function visitNeighbor(k){const nb=neighbors.find(n=>n.k===k);const p=POPOLI.find(p=>p.k===k);if(!nb){toast('Troppo lontana per ora');return;}camTarget.x=Math.max(-55,Math.min(55,nb.g.position.x));camTarget.z=Math.max(-55,Math.min(55,nb.g.position.z));setZoom(7);updateCam();toast('Guardi '+p.n+' · 👥'+nb.pop+' ⚔️'+nb.mil,3200);}
 // ===== incursioni dell'Èrebo (difendi la città) =====
 let raiders=[],allyTroops=[],arrows=[],raidTimer=100+Math.random()*60,raidActive=false;
@@ -880,7 +889,7 @@ function updRaid(dt){updArrows(dt);maybeRaid(dt);if(!raiders.length){if(raidActi
   defenses.filter(df=>df.k==='torre').forEach(df=>{const [tx,tz]=cw(df.cx,df.cy);df.cd=(df.cd||0)-dt;if(df.cd>0)return;let best=null,bd=3.2;raiders.forEach(r=>{const dd=Math.hypot(r.obj.position.x-tx,r.obj.position.z-tz);if(dd<bd){bd=dd;best=r;}});if(best){df.cd=0.8;fireArrow(tx,2.0,tz,best);}});
   for(let i=raiders.length-1;i>=0;i--){const r=raiders[i],o=r.obj;
     if(r.bar){const f=Math.max(0,r.hp/r.maxhp);r.bar.fg.scale.x=f;r.bar.fg.position.x=-.52*(1-f);r.bar.g.position.set(o.position.x,r.boss?2.1:1.25,o.position.z);r.bar.g.lookAt(camera.position.x,r.bar.g.position.y,camera.position.z);}
-    if(r.hp<=0){floatText(o.position.x,o.position.z,r.boss?'☠️':'💀');cityGroup.remove(o);if(r.bar)cityGroup.remove(r.bar.g);raiders.splice(i,1);R.oro+=r.rew||5;morale=Math.min(100,morale+(r.boss?5:1));if(R.armi>0)R.armi=Math.max(0,R.armi-1);if(r.boss)toast('☠️ Boss dell’Èrebo sconfitto! +🪙'+r.rew,4000);drawTop();continue;}
+    if(r.hp<=0){floatText(o.position.x,o.position.z,r.boss?'☠️':'💀');cityGroup.remove(o);if(r.bar)cityGroup.remove(r.bar.g);raiders.splice(i,1);R.oro+=r.rew||5;morale=Math.min(100,morale+(r.boss?5:1));if(R.armi>0)R.armi=Math.max(0,R.armi-1);if(r.boss){toast('☠️ Boss dell’Èrebo sconfitto! +🪙'+r.rew,4000);spawnChest(o.position.x,o.position.z,{oro:40+builtCount*3,ferro:10+builtCount,legna:25});setBubble('Il boss ha lasciato un forziere 🎁! Toccalo per il bottino.');}drawTop();continue;}
     const d=Math.hypot(o.position.x,o.position.z)||1;if(d<2.3){cityGroup.remove(o);if(r.bar)cityGroup.remove(r.bar.g);raiders.splice(i,1);const sack=r.boss?2:1;morale=Math.max(10,morale-6*sack);R.oro=Math.max(0,R.oro-8*sack);R.cibo=Math.max(0,R.cibo-10*sack);drawTop();floatText(0,1,'💥 saccheggio');toast('💥 L’Èrebo ha saccheggiato! −😊 −🪙 −🌾',3500);continue;}
     const sp=r.speed*dt;o.position.x-=o.position.x/d*sp;o.position.z-=o.position.z/d*sp;o.rotation.y=Math.atan2(-o.position.x,-o.position.z);r.bob+=dt*5;o.position.y=Math.abs(Math.sin(r.bob))*.03;}}
 function nbBuy(k){const t=NB_TRADE[k];if(!t)return;const price=Math.round(t.sells.gold*(allied[k]?0.8:1));if(R.oro<price){toast('Serve 🪙'+price);return;}R.oro-=price;R[t.sells.r]+=t.sells.qty;drawTop();save();toast('Comprato '+RES[t.sells.r]+t.sells.qty+' per 🪙'+price);openNeighbor(k,true);}
@@ -976,7 +985,7 @@ function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if
 document.getElementById('btnWorld').onclick=()=>{if(mode==='city')openWorld();};
 document.getElementById('btnMiss').onclick=()=>openMiss();
 document.getElementById('btnHero').onclick=()=>{if(mode==='city')openHeroes();};
-function openWorld(){const d=document.createElement('div');d.className='panel';d.id='dyn';let lh='';POPOLI.forEach(p=>{const own=p.own,lib=liberated[p.k],vis=COLORMAP[p.k];const st=own?'<span class="st" style="background:#1f6e56">Il tuo regno</span>':lib?'<span class="st" style="background:#2b6cb0">Alleata</span>':'<span class="st" style="background:#7a2b2b">Occupata</span>';let btn=own?'':lib?'<button style="background:rgba(255,255,255,.12)" disabled>Liberata ✓</button>':`<button style="background:#e24b4a" data-lib="${p.k}">⚔️ Libera</button>`;
+function openWorld(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let lh='';POPOLI.forEach(p=>{const own=p.own,lib=liberated[p.k],vis=COLORMAP[p.k];const st=own?'<span class="st" style="background:#1f6e56">Il tuo regno</span>':lib?'<span class="st" style="background:#2b6cb0">Alleata</span>':'<span class="st" style="background:#7a2b2b">Occupata</span>';let btn=own?'':lib?'<button style="background:rgba(255,255,255,.12)" disabled>Liberata ✓</button>':`<button style="background:#e24b4a" data-lib="${p.k}">⚔️ Libera</button>`;
     const nb=neighbors.find(n=>n.k===p.k);
     if(nb&&!own){if(nb.reached)btn+=`<button style="background:#1f8a56;margin-top:5px" data-enter="${p.k}">${allied[p.k]?'🤝 Alleata — commercia':'🤝 Entra: commercia o allèati'}</button><button style="background:#1f6e56;margin-top:5px" data-walk="${p.k}">🚶 Torna a piedi</button>`;else if(neighborReachable(nb))btn+=`<button style="background:#1f8a56;margin-top:5px" data-walk="${p.k}">🚶 Cammina fin là (strada aperta!)</button>`;else btn+=`<div style="margin-top:5px;font-size:11px;opacity:.85">🌳 Taglia la vegetazione verso il cartello colorato per aprire la strada</div>`;}
     lh+=`<div class="land"><div class="nm">${p.n}</div><div class="ds">${p.ds}</div>${st}${btn}</div>`;});d.innerHTML=`<div class="card"><div class="em">🌍</div><h2>Il mondo di Tuzu</h2><p>Apri una strada verso i vicini tagliando la vegetazione, poi cammina fin là. O libera le terre dall'Èrebo.</p><div class="lands">${lh}</div><button class="btn alt" id="dc">Chiudi</button></div>`;document.body.appendChild(d);d.querySelector('#dc').onclick=()=>d.remove();
@@ -1022,15 +1031,15 @@ function endBattle(win){if(mode!=='battle')return;mode='ended';HINT.style.displa
 function backToCity(){closeDyn();mode='city';batGroup.visible=false;cityGroup.visible=true;['top','side','zoom','guide','fab'].forEach(id=>document.getElementById(id).style.display='');if(batRestore){VZ=batRestore.svz;camTarget.x=batRestore.stx;camTarget.z=batRestore.stz;updateCam();}resize();drawSide();drawTop();setBubble(tip());}
 
 // ===== dialog =====
-function dialog(em,h,sub,html){const d=document.createElement('div');d.className='panel';d.id='dyn';d.innerHTML=`<div class="card"><div class="em">${em}</div><h2>${h}</h2>${sub?`<p>${sub}</p>`:''}${html}</div>`;document.body.appendChild(d);}
-function closeDyn(){const d=document.getElementById('dyn');if(d)d.remove();}
+function dialog(em,h,sub,html){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';d.innerHTML=`<div class="card"><div class="em">${em}</div><h2>${h}</h2>${sub?`<p>${sub}</p>`:''}${html}</div>`;document.body.appendChild(d);}
+function closeDyn(){let d;while(d=document.getElementById('dyn'))d.remove();}
 
 // ===== loop =====
 let last=performance.now(),saveT=0,missT=0,started=false;
 function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000,.1);last=now;
   if(started)updDayNight(dt);
   if(started)updWeather(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updFloaters(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updFloaters(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
 requestAnimationFrame(tick);
