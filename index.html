@@ -106,6 +106,17 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 .bbtn.sel{background:#2f6d4f!important;border-color:#1b3d2c!important}
 #toast,#hint,#bat .t{background:#2c2012!important;border:1.5px solid var(--gold);color:#f0dca8!important;font-family:var(--serif)}
 #endturn{background:#8c2f28!important;border:2px solid #4a1510;font-family:var(--serif)}
+/* ===== telefono: interfaccia piu pulita ===== */
+@media (max-width:560px){
+  #top{gap:4px;padding:5px 5px calc(5px + env(safe-area-inset-top))}
+  .res{font-size:11px;padding:3px 6px;min-width:0;gap:3px;border-radius:8px}
+  #side{gap:6px;right:6px;top:calc(52px + env(safe-area-inset-top))}
+  .sbtn{width:42px;height:42px;font-size:18px;border-radius:11px}
+  .sbtn b{display:none}
+  #guide{max-width:70vw;top:calc(56px + env(safe-area-inset-top))}
+  #tuzu{width:40px;height:42px}
+  #bubble{font-size:11px;padding:6px 9px;line-height:1.3}
+}
 /* ===== scena mercato ===== */
 .mktroom{max-width:470px;width:100%;background:#4a3016;border:4px solid #2a1a0a;border-radius:16px;padding:0 0 14px;overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,.6);font-family:var(--serif)}
 .mktawn{height:24px;background:repeating-linear-gradient(90deg,#8c2f28 0 22px,#f2e3c0 22px 44px);border-bottom:3px solid #2a1a0a}
@@ -431,7 +442,8 @@ function placeCastle(){const [w,h]=FP['castle']||[6,6];const [ax,ay]=fpAnchor(HA
 
 // ===== HUD =====
 function fmt(n){return Math.floor(n);}
-function drawTop(){let h='';for(const k in RES){const warn=(k==='cibo'&&(hungry||R[k]<Math.max(8,operai)));h+=`<div class="res"${warn?' style="box-shadow:0 0 0 2px #e24b4a"':''}><span class="ico">${RES[k]}</span>${fmt(R[k])}${k==='cibo'&&hungry?' ⚠️':''}</div>`;}h+=`<div class="res"><span class="ico">👷</span>${popUsed()}/${operai}</div>`;h+=`<div class="res"><span class="ico">⚔️</span>${soldiers}</div>`;h+=`<div class="res"><span class="ico">😊</span>${Math.round(morale)}</div>`;const er=eraInfo();h+=`<div class="res" title="Stadio del regno"><span class="ico">${er.em}</span>${er.name}${er.next?' <span style="opacity:.7;font-size:11px">'+er.cur+'/'+er.next+'</span>':''}</div>`;const se=SEASONS[season];h+=`<div class="res" title="Stagione"><span class="ico">${se.em}</span>${se.n}</div>`;document.getElementById('top').innerHTML=h;}
+const CORE_RES={legna:1,cibo:1,pietra:1,oro:1};
+function drawTop(){let h='';for(const k in RES){if(!CORE_RES[k]&&(R[k]||0)<=0)continue;const warn=(k==='cibo'&&(hungry||R[k]<Math.max(8,operai)));h+=`<div class="res"${warn?' style="box-shadow:0 0 0 2px #e24b4a"':''}><span class="ico">${RES[k]}</span>${fmt(R[k])}${k==='cibo'&&hungry?' ⚠️':''}</div>`;}h+=`<div class="res"><span class="ico">👷</span>${popUsed()}/${operai}</div>`;h+=`<div class="res"><span class="ico">⚔️</span>${soldiers}</div>`;h+=`<div class="res"><span class="ico">😊</span>${Math.round(morale)}</div>`;const er=eraInfo();h+=`<div class="res" title="Stadio del regno"><span class="ico">${er.em}</span>${er.name}${er.next?' <span style="opacity:.7;font-size:11px">'+er.cur+'/'+er.next+'</span>':''}</div>`;const se=SEASONS[season];h+=`<div class="res" title="Stagione"><span class="ico">${se.em}</span>${se.n}</div>`;document.getElementById('top').innerHTML=h;}
 function drawCats(){const c=document.getElementById('cats');const defs=[['edifici','🏠 Edifici'],['decora','🌳 Decora'],['campi','🌱 Campi'],['animali','🐑 Recinti'],['difesa','🛡️ Difesa'],['monumenti','⛲ Monumenti']];c.innerHTML=defs.map(d=>`<div class="cat${cat===d[0]?' on':''}" data-c="${d[0]}">${d[1]}</div>`).join('');c.querySelectorAll('.cat').forEach(el=>el.onclick=()=>{cat=el.dataset.c;selKey=null;drawCats();drawBuild();});}
 function monUnlocked(){return builtCount>=5||terreLiberate>=1;}
 function drawBuild(){const bar=document.getElementById('build');let src=cat==='edifici'?BUILD:cat==='decora'?DECO:cat==='animali'?PENS:cat==='campi'?CROPS:cat==='difesa'?DEF:MON;let h='';for(const k in src){const d=src[k];const lock=(cat==='monumenti'&&!monUnlocked());const co=(d.cost&&Object.keys(d.cost).length)?Object.entries(d.cost).map(([r,v])=>RES[r]+v).join(' '):(cat==='decora'||cat==='campi'?'gratis':'');const sz=fpSize(d);const szh=(cat==='edifici'||cat==='monumenti'||cat==='difesa')?`<div class="sz">▦ ${sz[0]}×${sz[1]}</div>`:(cat==='animali'?`<div class="sz">${sz[0]}×${sz[1]} · 🐑${d.cap}</div>`:cat==='campi'?`<div class="sz">${d.grow}s</div>`:'');h+=`<div class="bbtn${selKey===k?' sel':''}${lock?' lock':''}" data-k="${k}"><div class="em">${d.em}</div><div class="n">${d.nome}</div><div class="co">${lock?'🔒':co}</div>${szh}</div>`;}bar.innerHTML=h;bar.querySelectorAll('.bbtn').forEach(el=>el.onclick=()=>{if(el.classList.contains('lock')){toast('Si sblocca dopo 5 edifici o 1 terra liberata');return;}selKey=selKey===el.dataset.k?null:el.dataset.k;drawBuild();if(selKey){const dd=src[selKey];if(cat==='animali')toast(dd.nome+': tocca dove metterlo (ci entrano '+dd.cap+' animali)',3200);else if(cat==='campi')toast('Semina '+dd.nome+' '+dd.em+': tocca un quadratino libero (pronto fra '+dd.grow+'s)',3400);else if(cat==='decora')toast(dd.nome+': tocca dove metterlo',2600);else if(cat==='difesa')toast(dd.nome+' '+dd.em+': tocca le caselle per costruire (il muro si allinea da solo)',3200);else{const sz=fpSize(dd);toast(dd.nome+': occupa '+sz[0]+'×'+sz[1]+' quadratini ('+(sz[0]*sz[1])+') — tocca dove metterlo',3200);}}});}
@@ -469,7 +481,9 @@ function tip(){
   if(morale<75)return 'Metti alberi, fiori e fontane ⛲ per alzare il morale 😊.';
   return 'Ottimo lavoro! Espandi il territorio toccando i bordi scuri 🔓.';
 }
-function setBubble(t){document.getElementById('bubble').textContent=t;}
+let bubbleT=null;
+function setBubble(t){const b=document.getElementById('bubble');if(!b)return;b.textContent=t;b.style.display='';clearTimeout(bubbleT);bubbleT=setTimeout(()=>{if(b)b.style.display='none';},7000);}
+document.getElementById('bubble').onclick=()=>{document.getElementById('bubble').style.display='none';clearTimeout(bubbleT);};
 document.getElementById('tuzu').onclick=()=>{if(typeof openChat==='function')openChat();else setBubble(tip());};
 function openMiss(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let h='';missions.forEach(m=>{const ok=m.got;const rw=Object.entries(m.rew).map(([r,v])=>RES[r]+v).join(' ');h+=`<div class="miss${ok?' ok':''}"><span>${ok?'✅':'⬜'} ${m.txt}</span><span style="font-size:11px;opacity:.85">${rw}</span></div>`;});d.innerHTML=`<div class="card"><div class="em">📜</div><h2>Missioni</h2><p>Completa gli obiettivi per avere materiali.</p>${h}<button class="btn alt" id="mc">Chiudi</button></div>`;document.body.appendChild(d);armPanel(d);d.querySelector('#mc').onclick=()=>d.remove();}
 function openHeroes(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let h='';
