@@ -198,7 +198,10 @@ async function startBattle(){
   mode='battle';selBuild=null;
   document.getElementById('build').style.display='none';document.getElementById('side').style.display='none';document.getElementById('top').style.display='none';
   cityGroup.visible=false;batGroup.visible=true;BG.style.display='flex';VZ=9;resize();clearBattle();
-  for(let x=0;x<BGRID;x++)for(let y=0;y<BGRID;y++){const [wx,wz]=bCellToWorld(x,y);const mt=new THREE.MeshStandardMaterial({color:(x+y)%2?0x5f8f3a:0x6f9d46,roughness:1});mt.envMapIntensity=0.25;const t=new THREE.Mesh(new THREE.PlaneGeometry(BCELL*0.97,BCELL*0.97),mt);t.rotation.x=-Math.PI/2;t.position.set(wx,0.02,wz);t.receiveShadow=true;batGroup.add(t);}
+  const bgrass=grass.clone();bgrass.needsUpdate=true;bgrass.wrapS=bgrass.wrapT=THREE.RepeatWrapping;bgrass.repeat.set(BGRID,BGRID);bgrass.encoding=THREE.sRGBEncoding;
+  const floorM=new THREE.MeshStandardMaterial({map:bgrass,color:0x8fb56f,roughness:1});floorM.envMapIntensity=0.4;
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(BGRID*BCELL,BGRID*BCELL),floorM);floor.rotation.x=-Math.PI/2;floor.position.y=0.015;floor.receiveShadow=true;batGroup.add(floor);
+  const gh=new THREE.GridHelper(BGRID*BCELL,BGRID,0xffffff,0xffffff);gh.position.y=0.03;gh.material.transparent=true;gh.material.opacity=0.22;batGroup.add(gh);
   const n=Math.min(soldiers,4);const heroes=['Knight.glb','Barbarian.glb','Mage.glb','Rogue.glb'];
   for(let i=0;i<n;i++){const o=await loadModel(AD+heroes[i%heroes.length]);o.scale.setScalar(0.42);o.rotation.y=Math.PI/2;const u={x:0,y:1+i,hp:30,max:30,atk:12,obj:o,done:false,enemy:false,bar:mkBar()};batGroup.add(o);batGroup.add(u.bar.g);place(u);units.push(u);}
   const ne=3+Math.min(terreLiberate,4);const sk=['Skeleton_Warrior.glb','Skeleton_Minion.glb','Skeleton_Rogue.glb'];
