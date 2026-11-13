@@ -565,29 +565,38 @@ function bfsPath(sx,sy,tx,ty){if(!walkable(tx,ty))return null;if(sx===tx&&sy===t
 function spawnAgent(kind){const g=new THREE.Group();const c=pickTargetCell(false)||[HALF,HALF];const [wx,wz]=cw(c[0],c[1]);g.position.set(wx,0,wz);cityGroup.add(g);const a={kind,obj:g,state:'idle',timer:Math.random()*2,speed:0.7+Math.random()*0.16,site:null,tree:null,path:null,pi:0,onArrive:'idle',bob:Math.random()*6};agents.push(a);loadModel(AD+(kind==='milite'?'Knight.glb':'Rogue.glb')).then(m=>{m.scale.setScalar(PS);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);});return a;}
 function startWalk(a,tx,ty,onArrive){const cur=cellOfWorld(a.obj.position.x,a.obj.position.z);const p=bfsPath(cur[0],cur[1],tx,ty);if(p){a.path=p;a.pi=0;a.onArrive=onArrive;a.state='walk';return true;}return false;}
 // ----- comandi del giocatore su un abitante/soldato -----
-function fellTree(tr){if(!tr)return;const e=grid[key(tr.cx,tr.cy)];if(e&&e.type==='tree'){cityGroup.remove(e.obj);freeOf(e);}const i=trees.indexOf(tr);if(i>=0)trees.splice(i,1);const di=decos.findIndex(d=>d.cx===tr.cx&&d.cy===tr.cy&&d.k==='albero');if(di>=0)decos.splice(di,1);const wi=wilds.findIndex(w=>w.cx===tr.cx&&w.cy===tr.cy);if(wi>=0)wilds.splice(wi,1);rebuildRoadArea(tr.cx,tr.cy);save();}
+function fellTree(tr){if(!tr)return;const e=grid[key(tr.cx,tr.cy)];if(e&&e.type==='tree'){if(e.obj)cityGroup.remove(e.obj);else if(e.wild)hideInstance(e);freeOf(e);}const i=trees.indexOf(tr);if(i>=0)trees.splice(i,1);const di=decos.findIndex(d=>d.cx===tr.cx&&d.cy===tr.cy&&d.k==='albero');if(di>=0)decos.splice(di,1);const wi=wilds.findIndex(w=>w.cx===tr.cx&&w.cy===tr.cy);if(wi>=0)wilds.splice(wi,1);rebuildRoadArea(tr.cx,tr.cy);save();}
 function commandChop(a,tree){if(a.kind==='milite'){toast('I soldati non tagliano legna: scegli un abitante 🧍');return;}const t=adjWalk(tree.cx,tree.cy,1,1);if(t&&startWalk(a,t[0],t[1],'chopcmd')){a.tree=tree;a.chopWild=!!tree.wild;toast(tree.wild?'🪓 Vado a disboscare: ci vuole del tempo (~6 ore), poi guadagni legna e recuperi terreno':'🪓 Vado a tagliare la legna!',3600);}else toast('Non riesco ad arrivare a quell’albero');}
 // vegetazione selvatica intorno al villaggio (si taglia per recuperare terreno)
-function wildTree(cx,cy){if(!inB(cx,cy)||grid[key(cx,cy)])return;const [wx,wz]=cw(cx,cy);const t=inst(Math.random()<.5?'tree_single_A':'tree_single_B');t.position.set(wx,0,wz);t.rotation.y=Math.random()*6.28;t.scale.setScalar(0.85+Math.random()*0.35);cityGroup.add(t);autoSeat(t);const e={type:'tree',key:'albero',obj:t,ax:cx,ay:cy,w:1,h:1,cx,cy,wild:true};occupy(cx,cy,1,1,e);trees.push({x:wx,z:wz,obj:t,cx,cy,wild:true});wilds.push({cx,cy});}
+// bosco selvatico con INSTANCING: 350+ alberi = poche draw call (fluido su telefono)
+let forestA=null,forestB=null,forestNA=0,forestNB=0;const FOREST_MAX=560;const _zeroM=new THREE.Matrix4().makeScale(0,0,0);
+function extractTreeGeo(name){const tpl=templates[name];if(!tpl)return null;tpl.updateWorldMatrix(true,true);let geo=null,mat=null;tpl.traverse(m=>{if(m.isMesh&&!geo){geo=m.geometry.clone();geo.applyMatrix4(m.matrixWorld);mat=m.material;}});if(geo){geo.computeBoundingBox();geo.translate(0,-geo.boundingBox.min.y,0);}return geo?{geo,mat}:null;}
+function initForest(){if(forestA)return;const a=extractTreeGeo('tree_single_A'),b=extractTreeGeo('tree_single_B')||a;if(!a)return;forestA=new THREE.InstancedMesh(a.geo,a.mat,FOREST_MAX);forestB=new THREE.InstancedMesh(b.geo,b.mat,FOREST_MAX);[forestA,forestB].forEach(im=>{im.count=0;im.castShadow=true;im.receiveShadow=true;im.frustumCulled=false;cityGroup.add(im);});forestNA=forestNB=0;}
+function hideInstance(t){const im=t.variant?forestB:forestA;if(im&&t.inst!=null){im.setMatrixAt(t.inst,_zeroM);im.instanceMatrix.needsUpdate=true;}}
+function wildTree(cx,cy){if(!inB(cx,cy)||grid[key(cx,cy)])return;if(!forestA)initForest();if(!forestA)return;const variant=Math.random()<.5?0:1;const im=variant?forestB:forestA;const n=variant?forestNB:forestNA;if(n>=FOREST_MAX)return;const [wx,wz]=cw(cx,cy);const s=0.85+Math.random()*0.35;const mtx=new THREE.Matrix4().compose(new THREE.Vector3(wx,0,wz),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.random()*6.28,0)),new THREE.Vector3(s,s,s));im.setMatrixAt(n,mtx);im.count=n+1;im.instanceMatrix.needsUpdate=true;if(variant)forestNB++;else forestNA++;const e={type:'tree',key:'albero',ax:cx,ay:cy,w:1,h:1,cx,cy,wild:true,inst:n,variant};grid[key(cx,cy)]=e;trees.push({x:wx,z:wz,cx,cy,wild:true,inst:n,variant});wilds.push({cx,cy});}
 function placeWildVegetation(){const lo=HALF-22,hi=HALF+22;for(let x=lo;x<=hi;x++)for(let y=lo;y<=hi;y++){if(!inB(x,y)||unlockedCell(x,y)||grid[key(x,y)])continue;let dmin=9;for(let dx=-5;dx<=5;dx++)for(let dy=-5;dy<=5;dy++){if(unlockedCell(x+dx,y+dy)){const dd=Math.abs(dx)+Math.abs(dy);if(dd<dmin)dmin=dd;}}if(dmin>5)continue;const prob=[0,1.0,1.0,0.85,0.62,0.42][dmin];if(Math.random()<prob)wildTree(x,y);}}
 // colline/montagnette lontane (decoro fisso, fuori dall'area giocabile)
 let hillsPlaced=false;
-const ROCK_LO=new THREE.MeshStandardMaterial({color:0x6e727b,roughness:1,flatShading:true});
-const ROCK_HI=new THREE.MeshStandardMaterial({color:0x898e98,roughness:1,flatShading:true});
-const SNOW=new THREE.MeshStandardMaterial({color:0xf2f5fa,roughness:1,flatShading:true});
-const FOOT=new THREE.MeshStandardMaterial({color:0x6fa24e,roughness:1,flatShading:true});
+const ROCK_LO=new THREE.MeshStandardMaterial({color:0x565961,roughness:1,flatShading:true,envMapIntensity:0.14});
+const ROCK_HI=new THREE.MeshStandardMaterial({color:0x72767e,roughness:1,flatShading:true,envMapIntensity:0.14});
+const SNOW=new THREE.MeshStandardMaterial({color:0xe6ebf2,roughness:1,flatShading:true,envMapIntensity:0.35});
+const FOOT=new THREE.MeshStandardMaterial({color:0x4f8e36,roughness:1,flatShading:true,envMapIntensity:0.15});
+const DIRT=new THREE.MeshStandardMaterial({color:0x5e4124,roughness:1,flatShading:true,envMapIntensity:0.14});
+const TRUNKM=new THREE.MeshStandardMaterial({color:0x4a3620,roughness:1,envMapIntensity:0.15});
+const PINEM=new THREE.MeshStandardMaterial({color:0x386729,roughness:1,flatShading:true,envMapIntensity:0.15});
+function makeConeTree(s){const g=new THREE.Group();const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,0.4,5),TRUNKM);trunk.position.y=0.2;g.add(trunk);const f=new THREE.Mesh(new THREE.ConeGeometry(0.36,0.9,6,1),PINEM);f.position.y=0.8;g.add(f);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.scale.setScalar(s||1);return g;}
 function peak(g,x,z,r,h,snow){const col=new THREE.Mesh(new THREE.ConeGeometry(r,h,5,1),Math.random()<.5?ROCK_LO:ROCK_HI);col.position.set(x,h/2,z);col.rotation.y=Math.random()*6.28;g.add(col);if(snow){const cp=new THREE.Mesh(new THREE.ConeGeometry(r*0.42,h*0.32,5,1),SNOW);cp.position.set(x,h*0.86,z);cp.rotation.y=col.rotation.y;g.add(cp);}}
 function makeMountain(s){const g=new THREE.Group();
-  // pedemontana verde
-  const foot=new THREE.Mesh(new THREE.SphereGeometry(2.1,10,6,0,6.28,0,Math.PI/2),FOOT);foot.scale.set(1.3,0.35,1.3);g.add(foot);
-  // cima principale + cime minori sfalsate (massiccio)
-  peak(g,0,0,1.7,3.0,true);
-  peak(g,1.5,0.6,1.1,2.0,true);
-  peak(g,-1.3,0.9,0.95,1.7,false);
-  peak(g,0.4,-1.4,0.8,1.5,false);
-  peak(g,-0.9,-1.1,0.6,1.1,false);
+  // base di TERRA
+  const dirt=new THREE.Mesh(new THREE.ConeGeometry(2.7,1.3,7,1),DIRT);dirt.position.y=0.62;g.add(dirt);
+  // manto d'ERBA sulle pendici basse
+  const grassSlope=new THREE.Mesh(new THREE.ConeGeometry(2.35,1.8,7,1),FOOT);grassSlope.position.y=0.95;g.add(grassSlope);
+  // cime di ROCCIA (con neve)
+  peak(g,0,0,1.55,2.7,true);peak(g,1.3,0.5,1.0,1.8,true);peak(g,-1.1,0.7,0.8,1.4,false);
+  // qualche ALBERO sulle pendici
+  [[1.7,-0.9,0.5],[-1.5,-1.0,0.45],[0.5,1.6,0.4]].forEach(([tx,tz,ts])=>{const tr=makeConeTree(ts);tr.position.set(tx,0.35,tz);g.add(tr);});
   g.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.scale.setScalar(s||1);g.rotation.y=Math.random()*6.28;return g;}
-function makeHill(s){const g=new THREE.Group();const d=new THREE.Mesh(new THREE.SphereGeometry(1,10,6,0,6.28,0,Math.PI/2),FOOT);d.scale.set(1.7,0.7,1.7);g.add(d);const d2=new THREE.Mesh(new THREE.SphereGeometry(0.75,9,5,0,6.28,0,Math.PI/2),FOOT);d2.scale.set(1.4,0.68,1.4);d2.position.set(1.0,0,0.6);g.add(d2);const d3=new THREE.Mesh(new THREE.SphereGeometry(0.6,8,5,0,6.28,0,Math.PI/2),FOOT);d3.scale.set(1.3,0.62,1.3);d3.position.set(-0.8,0,0.7);g.add(d3);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.scale.setScalar(s||1);g.rotation.y=Math.random()*6.28;return g;}
+function makeHill(s){const g=new THREE.Group();const d=new THREE.Mesh(new THREE.SphereGeometry(1,10,6,0,6.28,0,Math.PI/2),FOOT);d.scale.set(1.8,0.72,1.8);g.add(d);const d2=new THREE.Mesh(new THREE.SphereGeometry(0.78,9,5,0,6.28,0,Math.PI/2),FOOT);d2.scale.set(1.4,0.68,1.4);d2.position.set(1.1,0,0.6);g.add(d2);const dt=new THREE.Mesh(new THREE.SphereGeometry(1.05,10,6,0,6.28,0,Math.PI/2),DIRT);dt.scale.set(1.7,0.28,1.7);dt.position.y=-0.02;g.add(dt);[[1.0,-0.7,0.5],[-0.8,0.6,0.42]].forEach(([tx,tz,ts])=>{const tr=makeConeTree(ts);tr.position.set(tx,0.15,tz);g.add(tr);});g.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.scale.setScalar(s||1);g.rotation.y=Math.random()*6.28;return g;}
 function placeHills(){if(hillsPlaced)return;hillsPlaced=true;const spots=[[-21,-7,'m',1.4],[18,-17,'m',1.1],[-10,21,'h',1.5],[22,10,'m',1.1],[-23,12,'h',1.3],[8,-23,'m',1.3],[-16,-19,'m',1.5],[20,21,'h',1.4],[-5,-24,'h',1.2],[24,-5,'m',1.0],[12,23,'m',1.2],[-24,-2,'h',1.3]];spots.forEach(([x,z,t,s])=>{const o=t==='m'?makeMountain(s):makeHill(s);o.position.set(x,0,z);o.rotation.y=Math.random()*6.28;cityGroup.add(o);});}
 // laghi/acqua (oltre la vegetazione): si pesca dopo aver aperto un passaggio
 let lakes=[], lakeCenters=[];
@@ -604,7 +613,10 @@ function addLake(cx,cy,r){lakeCenters.push({cx,cy,r});
   const w2=disc(waterDeep,R*0.7,0.06,Math.random()*3);w2.scale.set(1.1,1,0.78);w2.position.set(R*0.1,0.06,-R*0.05);g.add(w2);
   cityGroup.add(g);}
 function placeLakes(){[[HALF-13,HALF+13,3],[HALF+14,HALF-12,2],[HALF+13,HALF+14,2]].forEach(([cx,cy,r])=>addLake(cx,cy,r));}
-function addRiver(pts){const curve=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(p[0],0.05,p[1])));const g1=new THREE.TubeGeometry(curve,64,CELL*1.0,8,false);const m1=new THREE.Mesh(g1,waterMid);m1.scale.y=0.04;m1.position.y=0.05;m1.renderOrder=28;cityGroup.add(m1);const g2=new THREE.TubeGeometry(curve,64,CELL*0.55,8,false);const m2=new THREE.Mesh(g2,waterDeep);m2.scale.y=0.04;m2.position.y=0.065;m2.renderOrder=29;cityGroup.add(m2);}
+function addRiver(pts){const curve=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(p[0],0.05,p[1])));
+  const gb=new THREE.TubeGeometry(curve,70,CELL*1.5,8,false);const mb=new THREE.Mesh(gb,shoreMat);mb.scale.y=0.03;mb.position.y=0.038;mb.renderOrder=27;cityGroup.add(mb);
+  const g1=new THREE.TubeGeometry(curve,70,CELL*1.05,8,false);const m1=new THREE.Mesh(g1,waterMid);m1.scale.y=0.04;m1.position.y=0.05;m1.renderOrder=28;cityGroup.add(m1);
+  const g2=new THREE.TubeGeometry(curve,70,CELL*0.55,8,false);const m2=new THREE.Mesh(g2,waterDeep);m2.scale.y=0.04;m2.position.y=0.065;m2.renderOrder=29;cityGroup.add(m2);}
 let riversPlaced=false;
 function placeRivers(){if(riversPlaced)return;riversPlaced=true;addRiver([[-32,-18],[-26,-8],[-21,2],[-20,12],[-24,22],[-30,30]]);addRiver([[22,-30],[28,-18],[30,-6],[26,6],[20,16],[16,26]]);}
 function commandFish(a,wx,wy){if(a.kind==='milite'){toast('I soldati non pescano: scegli un abitante 🧍');return;}const t=adjWalk(wx,wy,1,1);if(t&&startWalk(a,t[0],t[1],'fish')){a.fishCell=[wx,wy];toast('🎣 Vado a pescare! (porterò 🌾 cibo)',3200);}else toast('Non riesco a raggiungere l’acqua: libera prima un passaggio tagliando la vegetazione');}
@@ -625,7 +637,7 @@ function updAgents(dt){agents.forEach(a=>{const o=a.obj;
   if(a.state==='fish'){a.timer-=dt;a.bob+=dt*3;o.position.y=Math.abs(Math.sin(a.bob))*.02;if(a.fishCell){const [fx,fz]=cw(a.fishCell[0],a.fishCell[1]);o.rotation.y=Math.atan2(fx-o.position.x,fz-o.position.z);}if(a.timer<=0){R.cibo+=4;floatText(o.position.x,o.position.z,'🐟+4');a.timer=6;drawTop();}return;}
   if(a.state==='clearcmd'){a.timer-=dt;a.bob+=dt*5;o.position.y=Math.abs(Math.sin(a.bob))*.03;if(a.clearBar){const f=1-Math.max(0,a.timer)/(a.clearDur||1);a.clearBar.fg.scale.x=f;a.clearBar.fg.position.x=-.52*(1-f);a.clearBar.g.lookAt(camera.position.x,a.clearBar.g.position.y,camera.position.z);}if(a.timer<=0){if(a.clearCell)reclaimCell(a.clearCell[0],a.clearCell[1]);floatText(o.position.x,o.position.z,'🟩 terreno');if(a.clearBar){cityGroup.remove(a.clearBar.g);a.clearBar=null;}a.clearCell=null;o.position.y=0;a.state='idle';a.timer=.4;save();}return;}
   if(a.state==='walk'){
-    if(!a.path||a.pi>=a.path.length){a.state=a.onArrive||'idle';if(a.state==='idle')a.timer=.6+Math.random()*1.4;else if(a.state==='chop')a.timer=1.6;else if(a.state==='fish')a.timer=4;else if(a.state==='clearcmd'){a.clearDur=6;a.timer=6;if(a.clearCell){a.clearBar=mkBar3();const [cx,cy]=a.clearCell;const [wx,wz]=cw(cx,cy);a.clearBar.g.position.set(wx,1.2,wz);a.clearBar.g.scale.setScalar(0.8);cityGroup.add(a.clearBar.g);}}else if(a.state==='chopcmd'){a.chopDur=a.chopWild?14:4;a.timer=a.chopDur;if(a.tree&&a.tree.obj){a.chopBar=mkBar3();const tp=a.tree.obj.position;a.chopBar.g.position.set(tp.x,1.4,tp.z);a.chopBar.g.scale.setScalar(0.8);cityGroup.add(a.chopBar.g);}}o.position.y=0;return;}
+    if(!a.path||a.pi>=a.path.length){a.state=a.onArrive||'idle';if(a.state==='idle')a.timer=.6+Math.random()*1.4;else if(a.state==='chop')a.timer=1.6;else if(a.state==='fish')a.timer=4;else if(a.state==='clearcmd'){a.clearDur=6;a.timer=6;if(a.clearCell){a.clearBar=mkBar3();const [cx,cy]=a.clearCell;const [wx,wz]=cw(cx,cy);a.clearBar.g.position.set(wx,1.2,wz);a.clearBar.g.scale.setScalar(0.8);cityGroup.add(a.clearBar.g);}}else if(a.state==='chopcmd'){a.chopDur=a.chopWild?14:4;a.timer=a.chopDur;if(a.tree){a.chopBar=mkBar3();const bp=a.tree.obj?[a.tree.obj.position.x,a.tree.obj.position.z]:cw(a.tree.cx,a.tree.cy);a.chopBar.g.position.set(bp[0],1.4,bp[1]);a.chopBar.g.scale.setScalar(0.8);cityGroup.add(a.chopBar.g);}}o.position.y=0;return;}
     const cell=a.path[a.pi];
     if(a.pi<a.path.length-1&&!walkable(cell[0],cell[1])){a.state='idle';a.timer=.3;a.path=null;if(a.site){a.site.builder=null;a.site=null;}return;}
     const [tx,tz]=cw(cell[0],cell[1]);const dx=tx-o.position.x,dz=tz-o.position.z;const d=Math.hypot(dx,dz);
