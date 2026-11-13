@@ -1284,7 +1284,7 @@ window.TuzuCloud={
   push,
   async signInEmail(email,pass){ if(!supa) return {error:'offline'}; const {error}=await supa.auth.signInWithPassword({email,password:pass}); return error?{error:error.message}:{ok:true}; },
   async signUpEmail(email,pass){ if(!supa) return {error:'offline'}; const {data,error}=await supa.auth.signUp({email,password:pass}); return error?{error:error.message}:{ok:true,needConfirm:!data.session}; },
-  async signInGoogle(){ if(!supa) throw new Error('offline'); await supa.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}}); },
+  async signInGoogle(){ if(!supa) throw new Error('offline'); await supa.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+'/'}}); },
   async signOut(){ if(supa) await supa.auth.signOut(); localStorage.removeItem(MARK); },
   // ===== acquisti (Gemme) =====
   async getWallet(){ try{ const u=await currentUser(); if(!u) return null; const {data}=await supa.from('game_wallet').select('coins').eq('user_id',u.id).maybeSingle(); return data?data.coins:0; }catch(e){ return null; } },
