@@ -181,9 +181,9 @@ const cityGroup=new THREE.Group();scene.add(cityGroup);
 let lockMesh={};const lockMat=new THREE.MeshBasicMaterial({color:0x101018,transparent:true,opacity:0.4});
 const hl=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.98,CELL*0.98),new THREE.MeshBasicMaterial({color:0x7fffb0,transparent:true,opacity:0.33}));hl.rotation.x=-Math.PI/2;hl.position.y=0.05;hl.visible=false;cityGroup.add(hl);
 // sentiero di terra vero (texture marrone con granuli)
-function makeDirtTex(){const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle='#6b4824';g.fillRect(0,0,64,64);for(let i=0;i<1100;i++){const x=Math.random()*64,y=Math.random()*64,r=Math.random()*1.9+0.3;const s=Math.random();g.fillStyle=s<0.45?'rgba(54,34,14,0.55)':(s<0.8?'rgba(120,88,46,0.45)':'rgba(150,120,70,0.4)');g.beginPath();g.arc(x,y,r,0,6.283);g.fill();}const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,2);t.anisotropy=4;return t;}
+function makeDirtTex(){const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle='#584019';g.fillRect(0,0,64,64);for(let i=0;i<1300;i++){const x=Math.random()*64,y=Math.random()*64,r=Math.random()*2+0.3;const s=Math.random();g.fillStyle=s<0.5?'rgba(38,26,8,0.6)':(s<0.85?'rgba(96,70,34,0.5)':'rgba(130,100,54,0.45)');g.beginPath();g.arc(x,y,r,0,6.283);g.fill();}const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,2);t.anisotropy=4;t.encoding=THREE.sRGBEncoding;return t;}
 const dirtTex=makeDirtTex();
-const roadMat=new THREE.MeshStandardMaterial({map:dirtTex,roughness:1});roadMat.envMapIntensity=0.05;
+const roadMat=new THREE.MeshBasicMaterial({map:dirtTex});
 
 // ===== asset =====
 const B='https://cdn.jsdelivr.net/gh/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0@main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/';
