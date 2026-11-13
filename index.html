@@ -133,7 +133,7 @@ const cityGroup=new THREE.Group();scene.add(cityGroup);
 let lockMesh={};const lockMat=new THREE.MeshBasicMaterial({color:0x101018,transparent:true,opacity:0.4});
 const hl=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.98,CELL*0.98),new THREE.MeshBasicMaterial({color:0x7fffb0,transparent:true,opacity:0.33}));hl.rotation.x=-Math.PI/2;hl.position.y=0.05;hl.visible=false;cityGroup.add(hl);
 // sentiero di terra (marrone)
-const roadMat=new THREE.MeshStandardMaterial({color:0xa6835a,roughness:1});roadMat.envMapIntensity=0.3;
+const roadMat=new THREE.MeshStandardMaterial({color:0x6b4a2c,roughness:1});roadMat.envMapIntensity=0.15;
 
 // ===== asset =====
 const B='https://cdn.jsdelivr.net/gh/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0@main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/';
@@ -207,6 +207,7 @@ function setupTerritory(){const r=2;for(let x=HALF-r;x<=HALF+r;x++)for(let y=HAL
 function refreshLocks(){for(const k in lockMesh){cityGroup.remove(lockMesh[k]);delete lockMesh[k];}for(let x=0;x<GRID;x++)for(let y=0;y<GRID;y++){const k=key(x,y);if(!unlocked[k]){const [wx,wz]=cw(x,y);const m=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.98,CELL*0.98),lockMat);m.rotation.x=-Math.PI/2;m.position.set(wx,0.04,wz);cityGroup.add(m);lockMesh[k]=m;}}}
 function terrCost(){let n=0;for(const k in unlocked)n++;return Math.round(12*Math.pow(1.22,n-25));}
 function adjU(x,y){return unlocked[key(x-1,y)]||unlocked[key(x+1,y)]||unlocked[key(x,y-1)]||unlocked[key(x,y+1)];}
+function placeCastle(){if(grid[key(HALF,HALF)])return;const [wx,wz]=cw(HALF,HALF);const o=inst('castle');o.position.set(wx,0,wz);cityGroup.add(o);autoSeat(o);grid[key(HALF,HALF)]={type:'building',ref:{key:'castle',def:{nome:'Municipio',em:'🏰'},cx:HALF,cy:HALF,obj:o},obj:o,cx:HALF,cy:HALF};}
 
 // ===== HUD =====
 function fmt(n){return Math.floor(n);}
@@ -440,7 +441,7 @@ requestAnimationFrame(tick);
   if(!had){setupTerritory();
     const put=(fk,cx,cy)=>{const [wx,wz]=cw(cx,cy);const o=inst(fk.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:fk.key,def:fk.def,cx,cy,obj:o,timer:0,active:true};buildings.push(b);grid[key(cx,cy)]={type:'building',ref:b,obj:o,cx,cy};if(fk.def.pop)operai+=fk.def.pop;builtCount++;};
     // villaggio di partenza
-    {const [wx,wz]=cw(HALF,HALF);const o=inst('castle');o.position.set(wx,0,wz);cityGroup.add(o);autoSeat(o);grid[key(HALF,HALF)]={type:'building',ref:{key:'castle',def:{nome:'Municipio',em:'🏰'},cx:HALF,cy:HALF,obj:o},obj:o,cx:HALF,cy:HALF};}
+    placeCastle();
     put({key:'mercato',file:'market',def:BUILD.mercato},HALF-2,HALF);
     put({key:'chiesa',file:'church',def:BUILD.chiesa},HALF+2,HALF);
     put({key:'casa',file:'home_A',def:BUILD.casa},HALF-1,HALF-2);
@@ -451,6 +452,7 @@ requestAnimationFrame(tick);
     // qualche albero
     [[HALF-2,HALF-2],[HALF+2,HALF+2],[HALF+2,HALF-2]].forEach(([x,y])=>{if(!grid[key(x,y)]){const [wx,wz]=cw(x,y);const t=inst(Math.random()<.5?'tree_single_A':'tree_single_B');t.position.set(wx,0,wz);t.rotation.y=Math.random()*6.28;cityGroup.add(t);autoSeat(t);grid[key(x,y)]={type:'tree',key:'albero',obj:t,cx:x,cy:y};trees.push({x:wx,z:wz,obj:t,cx:x,cy:y});}});
   }
+  placeCastle();
   for(let i=0;i<5;i++)spawnAgent('operaio');for(let i=0;i<2;i++)spawnAgent('milite');
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
   recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());document.getElementById('load').style.display='none';
