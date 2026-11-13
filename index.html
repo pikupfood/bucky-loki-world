@@ -441,12 +441,12 @@ function tip(){
 }
 function setBubble(t){document.getElementById('bubble').textContent=t;}
 document.getElementById('tuzu').onclick=()=>{setBubble(tip());openMiss();};
-function openMiss(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let h='';missions.forEach(m=>{const ok=m.got;const rw=Object.entries(m.rew).map(([r,v])=>RES[r]+v).join(' ');h+=`<div class="miss${ok?' ok':''}"><span>${ok?'✅':'⬜'} ${m.txt}</span><span style="font-size:11px;opacity:.85">${rw}</span></div>`;});d.innerHTML=`<div class="card"><div class="em">📜</div><h2>Missioni</h2><p>Completa gli obiettivi per avere materiali.</p>${h}<button class="btn alt" id="mc">Chiudi</button></div>`;document.body.appendChild(d);d.querySelector('#mc').onclick=()=>d.remove();}
+function openMiss(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let h='';missions.forEach(m=>{const ok=m.got;const rw=Object.entries(m.rew).map(([r,v])=>RES[r]+v).join(' ');h+=`<div class="miss${ok?' ok':''}"><span>${ok?'✅':'⬜'} ${m.txt}</span><span style="font-size:11px;opacity:.85">${rw}</span></div>`;});d.innerHTML=`<div class="card"><div class="em">📜</div><h2>Missioni</h2><p>Completa gli obiettivi per avere materiali.</p>${h}<button class="btn alt" id="mc">Chiudi</button></div>`;document.body.appendChild(d);armPanel(d);d.querySelector('#mc').onclick=()=>d.remove();}
 function openHeroes(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let h='';
   for(const k in HEROES){const HD=HEROES[k];const lv=heroLvl(k);const cost=heroCost(k);const costS=Object.entries(cost).map(([r,v])=>RES[r]+v).join(' ');const can=lv<3;
    h+=`<div class="miss" style="align-items:flex-start;gap:8px"><span style="text-align:left;flex:1"><b>${HD.em} ${HD.nome}</b>${lv?' · <span style="color:#1f8a56">Lv'+lv+'</span>':''}<br><span style="font-size:11px;opacity:.85">${HD.desc}</span></span>`+
       (can?`<button class="btn" style="width:auto;margin:0;padding:6px 10px;white-space:nowrap" data-h="${k}">${lv?'Potenzia':'Recluta'}<br>${costS}</button>`:`<span style="font-size:11px;color:#1f8a56">Max ⭐⭐⭐</span>`)+`</div>`;}
-  d.innerHTML=`<div class="card"><div class="em">🦸</div><h2>Eroi</h2><p>Recluta e potenzia eroi: ognuno dà un bonus permanente al regno.</p>${h}<button class="btn alt" id="hc">Chiudi</button></div>`;document.body.appendChild(d);
+  d.innerHTML=`<div class="card"><div class="em">🦸</div><h2>Eroi</h2><p>Recluta e potenzia eroi: ognuno dà un bonus permanente al regno.</p>${h}<button class="btn alt" id="hc">Chiudi</button></div>`;document.body.appendChild(d);armPanel(d);
   d.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{const k=b.dataset.h;const cost=heroCost(k);if(!afford(cost)){toast('Risorse insufficienti');return;}const wasNew=heroLvl(k)===0;pay(cost);heroes[k]=heroLvl(k)+1;if(wasNew)spawnHeroUnit(k);drawTop();save();toast(HEROES[k].em+' '+HEROES[k].nome+' — Lv'+heroes[k]+'! '+HEROES[k].desc,3600);d.remove();openHeroes();});
   d.querySelector('#hc').onclick=()=>d.remove();}
 function checkMissions(){let changed=false;missions.forEach(m=>{if(!m.got&&m.done()){m.got=true;pay(negCost(m.rew));changed=true;toast('Missione completata! '+Object.entries(m.rew).map(([r,v])=>RES[r]+v).join(' '));}});if(changed){drawTop();drawSide();save();setBubble(tip());}}
@@ -545,7 +545,7 @@ function openMarketScene(b){closeDyn();const d=document.createElement('div');d.c
    <div class="mktchoice" id="mkch"><button class="woodbtn" data-m="sell">🪙 Vendere</button><button class="woodbtn" data-m="buy">🛒 Comprare</button></div>
    <div class="scroll" id="mksc" style="display:none"></div>
    <div class="mktfoot"><button class="woodbtn sm" id="mkmove">✋ Sposta</button><button class="woodbtn sm" id="mkdem">🗑 Demolisci</button><button class="woodbtn sm" id="mkx">Esci dal mercato</button></div></div>`;
-  document.body.appendChild(d);
+  document.body.appendChild(d);armPanel(d);
   const sc=d.querySelector('#mksc'),sp=d.querySelector('#mksp'),ch=d.querySelector('#mkch');
   function render(mode){ch.style.display='none';sc.style.display='block';
     sp.innerHTML=mode==='sell'?'Cosa mi vendi? Ti pago in oro 🪙.':'Ecco la mia merce, scegli pure. Si paga in oro 🪙.';
@@ -558,7 +558,7 @@ function openMarketScene(b){closeDyn();const d=document.createElement('div');d.c
   ch.querySelectorAll('[data-m]').forEach(x=>x.onclick=()=>render(x.dataset.m));
   d.querySelector('#mkx').onclick=()=>d.remove();
   d.querySelector('#mkmove').onclick=()=>{moveTarget={entry:grid[key(b.cx,b.cy)]};d.remove();toast('Tocca dove spostare il mercato ✋');};
-  d.querySelector('#mkdem').onclick=()=>{d.remove();demolish(b);};
+  d.querySelector('#mkdem').onclick=()=>confirmDemolish('Mercato',()=>demolish(b));
 }
 // ===== pannelli edifici (entra dentro) =====
 function openBuilding(b){
@@ -590,7 +590,7 @@ function openBuilding(b){
   d2.querySelectorAll('[data-buy]').forEach(x=>x.onclick=()=>{const r=x.dataset.buy;if(R.oro>=9){R.oro-=9;R[r]+=10;drawTop();save();toast('Comprato '+RES[r]+'10');}else toast('Serve 🪙9');});
   const bt=d2.querySelector('#btrain');if(bt)bt.onclick=()=>{trainSoldier();closeDyn();};
   const mv=d2.querySelector('#pmove');if(mv)mv.onclick=()=>{moveTarget={entry:grid[key(b.cx,b.cy)]};closeDyn();toast('Tocca dove spostarlo ✋');};
-  const dm=d2.querySelector('#pdem');if(dm)dm.onclick=()=>demolish(b);
+  const dm=d2.querySelector('#pdem');if(dm)dm.onclick=()=>confirmDemolish(d.nome||'Edificio',()=>demolish(b));
   d2.querySelector('#pclose').onclick=closeDyn;
 }
 function rotateObj(occ){occ.obj.rotation.y+=HALFPI;const df=defenses.find(d=>d.cx===occ.ax&&d.cy===occ.ay);if(occ.type==='wall'||occ.type==='gate'){occ.manual=true;const base=(WALL_ALONG==='x'?0:HALFPI);if(df){df.manual=true;df.rot=occ.obj.rotation.y-base;}}else if(df){df.rot=occ.obj.rotation.y;df.manual=true;}save();toast('Ruotato ↻');}
@@ -780,7 +780,7 @@ function openPen(pen){const d=pen.def;const counts={};pen.animals.forEach(a=>cou
   let buy='';if(pen.animals.length<pen.cap)for(const ak in ANIMALS){const a=ANIMALS[ak];buy+=`<button class="btn" id="pa_${ak}" style="margin-top:6px">${a.em} ${a.nome} — 🪙${a.cost.oro}</button>`;}else buy='<div style="font-size:12px;opacity:.85;margin-top:6px">Recinto pieno</div>';
   dialog('🐑',d.nome,'',`<div style="font-size:12.5px">Animali: <b>${pen.animals.length}/${pen.cap}</b> · danno 🌾 nel tempo</div><div style="font-size:12px;margin:4px 0">${list}</div>${buy}<button class="btn red" id="pdem" style="margin-top:8px">🗑 Demolisci</button><button class="btn alt" id="pcl">Chiudi</button>`);
   const dy=document.getElementById('dyn');for(const ak in ANIMALS){const b=dy.querySelector('#pa_'+ak);if(b)b.onclick=()=>{const a=ANIMALS[ak];if(pen.animals.length>=pen.cap){toast('Recinto pieno');return;}if(!afford(a.cost)){toast('Serve 🪙'+a.cost.oro);return;}pay(a.cost);spawnAnimal(ak,pen);drawTop();save();openPen(pen);};}
-  dy.querySelector('#pdem').onclick=()=>{demolishPen(pen);closeDyn();toast('Recinto demolito');};dy.querySelector('#pcl').onclick=closeDyn;}
+  dy.querySelector('#pdem').onclick=()=>confirmDemolish(d.nome||'Recinto',()=>{demolishPen(pen);toast('Recinto demolito');});dy.querySelector('#pcl').onclick=closeDyn;}
 // ===== COLTIVAZIONI =====
 const SOILMAT=new THREE.MeshStandardMaterial({color:0x6b4a2b,roughness:1,envMapIntensity:0.18});
 const FURROW=new THREE.MeshStandardMaterial({color:0x55381f,roughness:1,envMapIntensity:0.18});
@@ -796,7 +796,10 @@ function cropReady(cr){cr.ready=true;if(cr.gridE)cr.gridE.ready=true;cityGroup.r
 function growCrops(dt){const mul=(raining?2:1)*cropBonus();crops.forEach(cr=>{if(cr.ready)return;cr.t+=dt*mul;if(cr.t>=CROPS[cr.type].grow)cropReady(cr);});}
 function removeCrop(cr){cityGroup.remove(cr.obj);if(cr.badge)cityGroup.remove(cr.badge);delete grid[key(cr.cx,cr.cy)];const i=crops.indexOf(cr);if(i>=0)crops.splice(i,1);}
 function commandHarvest(a,occ){if(a.kind==='milite'){toast('Manda un abitante a raccogliere 🧍');return;}const t=adjWalk(occ.cx,occ.cy,1,1);if(t&&startWalk(a,t[0],t[1],'harvest')){a.harvest=occ.ref;toast('🧺 Vado a raccogliere il '+CROPS[occ.key].nome+'!',3000);}else toast('Non riesco ad arrivarci');}
-function pickAgent(px,py){const r=canvas.getBoundingClientRect();ndc.x=((px-r.left)/r.width)*2-1;ndc.y=-((py-r.top)/r.height)*2+1;ray.setFromCamera(ndc,camera);let best=null,bd=1e9;for(const a of agents){if(!a.obj.children.length)continue;const h=ray.intersectObject(a.obj,true);if(h.length&&h[0].distance<bd){bd=h[0].distance;best=a;}}return best;}
+function pickAgent(px,py){const r=canvas.getBoundingClientRect();ndc.x=((px-r.left)/r.width)*2-1;ndc.y=-((py-r.top)/r.height)*2+1;ray.setFromCamera(ndc,camera);let best=null,bd=1e9;for(const a of agents){if(!a.obj.children.length)continue;const h=ray.intersectObject(a.obj,true);if(h.length&&h[0].distance<bd){bd=h[0].distance;best=a;}}
+  if(best)return best;
+  // il dito è impreciso: se il raggio non colpisce la mesh piccola, prendi l'abitante/soldato più vicino sullo schermo (entro ~38px)
+  let near=null,nd=38*38;const v=new THREE.Vector3();for(const a of agents){if(!a.obj.children.length)continue;v.setFromMatrixPosition(a.obj.matrixWorld);v.y+=0.3;v.project(camera);if(v.z>1)continue;const ax=r.left+(v.x*0.5+0.5)*r.width,ay=r.top+(-v.y*0.5+0.5)*r.height;const dd=(ax-px)*(ax-px)+(ay-py)*(ay-py);if(dd<nd){nd=dd;near=a;}}return near;}
 function agentNome(a){return a.kind==='milite'?'Soldato':a.kind==='abitante'?'Abitante':'Operaio';}
 function refreshOrderBar(){const b=document.getElementById('orderbar');if(!b)return;if(!selAgent){b.style.display='none';return;}const sold=selAgent.kind==='milite';b.innerHTML='<b>'+agentNome(selAgent)+' scelto.</b> '+(sold?'Tocca un punto o un 🚪 cancello da <b>sorvegliare</b>.':'Tocca un 🌳 <b>albero</b> (taglia), un <b>campo</b> pronto 🧺 (raccogli), l’<b>acqua</b> 🎣 (pesca) o un punto.')+'<button id="obcancel">✖</button>';b.style.display='block';const c=b.querySelector('#obcancel');if(c)c.onclick=()=>{selAgent=null;refreshOrderBar();toast('Annullato');};}
 function cityTap(px,py){
@@ -988,7 +991,7 @@ document.getElementById('btnHero').onclick=()=>{if(mode==='city')openHeroes();};
 function openWorld(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let lh='';POPOLI.forEach(p=>{const own=p.own,lib=liberated[p.k],vis=COLORMAP[p.k];const st=own?'<span class="st" style="background:#1f6e56">Il tuo regno</span>':lib?'<span class="st" style="background:#2b6cb0">Alleata</span>':'<span class="st" style="background:#7a2b2b">Occupata</span>';let btn=own?'':lib?'<button style="background:rgba(255,255,255,.12)" disabled>Liberata ✓</button>':`<button style="background:#e24b4a" data-lib="${p.k}">⚔️ Libera</button>`;
     const nb=neighbors.find(n=>n.k===p.k);
     if(nb&&!own){if(nb.reached)btn+=`<button style="background:#1f8a56;margin-top:5px" data-enter="${p.k}">${allied[p.k]?'🤝 Alleata — commercia':'🤝 Entra: commercia o allèati'}</button><button style="background:#1f6e56;margin-top:5px" data-walk="${p.k}">🚶 Torna a piedi</button>`;else if(neighborReachable(nb))btn+=`<button style="background:#1f8a56;margin-top:5px" data-walk="${p.k}">🚶 Cammina fin là (strada aperta!)</button>`;else btn+=`<div style="margin-top:5px;font-size:11px;opacity:.85">🌳 Taglia la vegetazione verso il cartello colorato per aprire la strada</div>`;}
-    lh+=`<div class="land"><div class="nm">${p.n}</div><div class="ds">${p.ds}</div>${st}${btn}</div>`;});d.innerHTML=`<div class="card"><div class="em">🌍</div><h2>Il mondo di Tuzu</h2><p>Apri una strada verso i vicini tagliando la vegetazione, poi cammina fin là. O libera le terre dall'Èrebo.</p><div class="lands">${lh}</div><button class="btn alt" id="dc">Chiudi</button></div>`;document.body.appendChild(d);d.querySelector('#dc').onclick=()=>d.remove();
+    lh+=`<div class="land"><div class="nm">${p.n}</div><div class="ds">${p.ds}</div>${st}${btn}</div>`;});d.innerHTML=`<div class="card"><div class="em">🌍</div><h2>Il mondo di Tuzu</h2><p>Apri una strada verso i vicini tagliando la vegetazione, poi cammina fin là. O libera le terre dall'Èrebo.</p><div class="lands">${lh}</div><button class="btn alt" id="dc">Chiudi</button></div>`;document.body.appendChild(d);armPanel(d);d.querySelector('#dc').onclick=()=>d.remove();
   d.querySelectorAll('[data-lib]').forEach(b=>b.onclick=()=>{if(soldiers<1){toast('Non hai soldati: costruisci una Caserma e addestra ⚔️');return;}d.remove();pendingLand=b.dataset.lib;startBattle();});
   d.querySelectorAll('[data-visit]').forEach(b=>b.onclick=()=>{d.remove();visitNeighbor(b.dataset.visit);});
   d.querySelectorAll('[data-walk]').forEach(b=>b.onclick=()=>{d.remove();walkToNeighbor(b.dataset.walk);});
@@ -1031,7 +1034,9 @@ function endBattle(win){if(mode!=='battle')return;mode='ended';HINT.style.displa
 function backToCity(){closeDyn();mode='city';batGroup.visible=false;cityGroup.visible=true;['top','side','zoom','guide','fab'].forEach(id=>document.getElementById(id).style.display='');if(batRestore){VZ=batRestore.svz;camTarget.x=batRestore.stx;camTarget.z=batRestore.stz;updateCam();}resize();drawSide();drawTop();setBubble(tip());}
 
 // ===== dialog =====
-function dialog(em,h,sub,html){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';d.innerHTML=`<div class="card"><div class="em">${em}</div><h2>${h}</h2>${sub?`<p>${sub}</p>`:''}${html}</div>`;document.body.appendChild(d);}
+function armPanel(d){const card=d&&d.querySelector('.card');if(card){card.style.pointerEvents='none';setTimeout(()=>{if(card)card.style.pointerEvents='';},350);}}
+function confirmDemolish(name,fn){dialog('⚠️','Demolire '+name+'?','','<p>Sparirà dal regno. Sei sicuro?</p><div class="row"><button class="btn red" id="cfy">🗑 Sì, demolisci</button><button class="btn alt" id="cfn">Annulla</button></div>');const dd=document.getElementById('dyn');dd.querySelector('#cfy').onclick=()=>{fn();closeDyn();};dd.querySelector('#cfn').onclick=closeDyn;}
+function dialog(em,h,sub,html){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';d.innerHTML=`<div class="card"><div class="em">${em}</div><h2>${h}</h2>${sub?`<p>${sub}</p>`:''}${html}</div>`;document.body.appendChild(d);armPanel(d);}
 function closeDyn(){let d;while(d=document.getElementById('dyn'))d.remove();}
 
 // ===== loop =====
