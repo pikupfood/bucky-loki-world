@@ -105,7 +105,7 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 .mktroom{max-width:470px;width:100%;background:#4a3016;border:4px solid #2a1a0a;border-radius:16px;padding:0 0 14px;overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,.6);font-family:var(--serif)}
 .mktawn{height:24px;background:repeating-linear-gradient(90deg,#8c2f28 0 22px,#f2e3c0 22px 44px);border-bottom:3px solid #2a1a0a}
 .mktsign{margin:14px auto 4px;width:76%;background:#2a1a0a;color:#f0dca8;text-align:center;padding:8px;border-radius:8px;border:2px solid var(--gold);font-size:16px;letter-spacing:.5px}
-.mktstage{position:relative;height:150px;margin:8px 10px 0;background:linear-gradient(#7a5226,#5e3d18);border-radius:10px;border:2px solid #2a1a0a;overflow:hidden}
+.mktstage{position:relative;height:168px;margin:8px 10px 0;background:linear-gradient(#7a5226,#5e3d18);border-radius:10px;border:2px solid #2a1a0a;overflow:hidden}
 .mktcounter{position:absolute;bottom:0;left:0;right:0;height:38px;background:#3a2410;border-top:3px solid var(--gold)}
 .mktspeech{background:#f2e3c0;color:#4a3415;border:2px solid #b9933f;border-radius:4px 12px 12px 12px;padding:9px 12px;margin:10px 12px 8px;font-size:14px;line-height:1.4}
 .mktchoice{display:flex;gap:10px;padding:0 12px}
@@ -365,7 +365,7 @@ function demolish(b){cityGroup.remove(b.obj);delete grid[key(b.cx,b.cy)];const i
   if(b.def.pop){operai=Math.max(4,operai-b.def.pop);}recompute();drawTop();save();closeDyn();toast('Demolito (metà risorse restituite)');}
 
 // ===== scena mercato (bottegaio + pergamena) =====
-const KEEPER_SVG=`<svg viewBox="0 0 170 150" width="150" style="position:absolute;left:50%;bottom:20px;transform:translateX(-50%)">
+const KEEPER_SVG=`<svg viewBox="0 0 170 150" width="188" style="position:absolute;left:50%;bottom:4px;transform:translateX(-50%)">
 <ellipse cx="85" cy="128" rx="46" ry="44" fill="#8fd7b4" stroke="#2f5d49" stroke-width="3"/>
 <path d="M40 150 q45 16 90 0 v-18 q-45 12 -90 0 z" fill="#6b4a28" stroke="#4a2f14" stroke-width="2"/>
 <rect x="80" y="118" width="10" height="26" fill="#caa24e"/>
