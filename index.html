@@ -235,8 +235,11 @@ const BUILD={
   cava:    {nome:'Cava',    em:'🪨', file:'mine',      cost:{legna:40},            time:20, prod:{r:'pietra',a:3,t:5},job:1},
   fonderia:{nome:'Fonderia',em:'⚙️', file:'blacksmith',cost:{legna:45,pietra:25},  time:26, prod:{r:'ferro',a:2,t:6},job:1},
   mercato: {nome:'Mercato', em:'🪙', file:'market',    cost:{legna:45,pietra:20},  time:26, market:1},
+  mulino:  {nome:'Mulino',  em:'🌾', file:'watermill', cost:{legna:35,pietra:15},  time:22, prod:{r:'cibo',a:7,t:4},job:1},
+  taverna: {nome:'Taverna', em:'🍺', file:'tavern',    cost:{legna:45,pietra:20},  time:26, prod:{r:'oro',a:3,t:6},job:1, mor:5},
   chiesa:  {nome:'Chiesa',  em:'⛪', file:'church',    cost:{legna:50,pietra:30},  time:28, mor:4},
-  caserma: {nome:'Caserma', em:'⚔️', file:'barracks',  cost:{legna:55,pietra:35,ferro:10}, time:32, caserma:1}
+  caserma: {nome:'Caserma', em:'⚔️', file:'barracks',  cost:{legna:55,pietra:35,ferro:10}, time:32, caserma:1},
+  arcieri: {nome:'Arcieri', em:'🏹', file:'archeryrange',cost:{legna:50,pietra:30,ferro:12}, time:30, caserma:1}
 };
 const DECO={
   albero:  {nome:'Albero',  em:'🌳', files:['tree_single_A','tree_single_B'], mor:1},
@@ -251,7 +254,7 @@ const MON={
 };
 const RES={legna:'🪵',cibo:'🌾',pietra:'🪨',ferro:'⚙️',oro:'🪙'};
 // ingombri di riserva (se la misura del modello non è pronta) — quadratini fini da 0.5
-[['casa',4,4],['segheria',4,4],['fattoria',4,4],['cava',4,4],['fonderia',4,5],['mercato',5,5],['chiesa',5,5],['caserma',5,5]].forEach(([k,w,h])=>{BUILD[k].w=w;BUILD[k].h=h;});
+[['casa',4,4],['segheria',4,4],['fattoria',4,4],['cava',4,4],['fonderia',4,5],['mercato',5,5],['chiesa',5,5],['caserma',5,5],['mulino',4,5],['taverna',5,5],['arcieri',5,5]].forEach(([k,w,h])=>{BUILD[k].w=w;BUILD[k].h=h;});
 MON.fontana.w=3;MON.fontana.h=3;MON.albsacro.w=3;MON.albsacro.h=3;MON.torre.w=4;MON.torre.h=4;
 // animali con il cervello (modelli CC0 animati)
 const HORSE='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/Horse.glb';
@@ -290,7 +293,7 @@ const POPOLI=[
 ];
 let templates={};
 async function preload(){
-  const names=['home_A','home_B','lumbermill','windmill','mine','blacksmith','market','church','barracks','castle','tower_A','tower_B','well'];
+  const names=['home_A','home_B','lumbermill','windmill','mine','blacksmith','market','church','barracks','castle','tower_A','tower_B','well','watermill','tavern','archeryrange'];
   const nat=['rock_single_A','tree_single_A','tree_single_B','trees_A_large'];
   const tot=names.length+nat.length+5; let d=0;
   for(const n of names){templates[n]=await loadModel(B+'buildings/'+col+'/building_'+n+'_'+col+'.gltf');FP[n]=measFP(templates[n]);setLoad(++d/tot);}
