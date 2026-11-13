@@ -25,7 +25,8 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 #drawer .hd{display:flex;justify-content:space-between;align-items:center;padding:9px 14px 4px}
 #drawer .hd span{font-size:13px;font-weight:800}
 #dclose{background:rgba(255,255,255,.12);border:none;color:#fff;font-size:16px;font-weight:800;width:30px;height:30px;border-radius:9px;cursor:pointer}
-#cats{display:flex;gap:6px;justify-content:center;padding:4px 8px}
+#cats{display:flex;gap:6px;justify-content:center;padding:4px 8px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+#cats .cat{flex:0 0 auto;white-space:nowrap}
 .cat{background:rgba(26,22,40,.8);border:1.5px solid rgba(255,255,255,.14);border-radius:11px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer}
 .cat.on{background:#1d9e75;border-color:#7fdbb7}
 #build{display:flex;gap:7px;padding:8px 9px 10px;overflow-x:auto;background:linear-gradient(to top,rgba(20,16,30,.92),rgba(20,16,30,.72))}
@@ -68,6 +69,9 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 #bat .t{background:rgba(26,22,40,.9);padding:7px 13px;border-radius:12px;font-size:13px;font-weight:700}
 #endturn{background:#e24b4a;border:none;color:#fff;font-weight:800;font-size:13px;padding:9px 15px;border-radius:12px;cursor:pointer}
 #hint{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(26,22,40,.9);padding:7px 13px;border-radius:12px;font-size:12px;font-weight:600;z-index:8;display:none;text-align:center;max-width:90vw}
+#orderbar{position:fixed;left:50%;bottom:calc(66px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#2a1a0a;border:2px solid #b9933f;color:#f3e4c0;padding:8px 12px;border-radius:12px;font-size:12.5px;font-weight:700;z-index:9;display:none;text-align:center;max-width:94vw;font-family:var(--serif);box-shadow:0 4px 14px rgba(0,0,0,.4)}
+#orderbar b{color:#ffd98a}
+#orderbar button{margin-left:8px;background:#6b4a28;border:1.5px solid #b9933f;color:#f3e4c0;font-weight:800;padding:4px 10px;border-radius:8px;cursor:pointer;font-family:var(--serif)}
 #load{position:fixed;inset:0;background:#14101e;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;gap:14px}
 #load .em{font-size:52px}#load .bar{width:190px;height:6px;background:rgba(255,255,255,.14);border-radius:4px;overflow:hidden}
 #load .bar i{display:block;height:100%;width:4%;background:#1d9e75;transition:.3s}#load p{font-size:13px;opacity:.85;font-weight:600}
@@ -128,7 +132,7 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
   <div class="sbtn" id="btnWorld"><span>🌍</span><b>Mondo</b><span class="badge" id="worldBadge">0</span></div>
   <div class="sbtn" id="btnMiss"><span>📜</span><b>Missioni</b><span class="badge" id="missBadge">0</span></div>
 </div>
-<div id="zoom"><div class="zb" id="zin">+</div><div class="zb" id="zout">−</div></div>
+<div id="zoom"><div class="zb" id="zrot" title="Ruota">↻</div><div class="zb" id="zin">+</div><div class="zb" id="zout">−</div></div>
 
 <div id="guide"><div id="tuzu"><i></i></div><div id="bubble">Benvenuto! Tocca 🔨 per costruire.</div></div>
 <button id="fab">🔨 Costruisci</button>
@@ -140,6 +144,7 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 
 <div id="bat"><div class="t" id="batInfo">Il tuo turno</div><button id="endturn">Fine turno ▸</button></div>
 <div id="hint"></div>
+<div id="orderbar"></div>
 <div id="toast"></div>
 
 <div id="load"><div class="em">🏰</div><div class="bar"><i id="loadbar"></i></div><p id="loadtxt">Preparo il regno…</p></div>
@@ -249,6 +254,7 @@ MON.fontana.w=3;MON.fontana.h=3;MON.albsacro.w=3;MON.albsacro.h=3;MON.torre.w=4;
 const HORSE='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/Horse.glb';
 const FOX='https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models/2.0/Fox/glTF-Binary/Fox.glb';
 const ANIMALS={
+  mucca:  {nome:'Mucca',  em:'🐄',build:()=>makeCow(),hgt:0.72,cost:{oro:55},yield:{r:'cibo',a:5}},
   cavallo:{nome:'Cavallo',em:'🐴',url:HORSE,hgt:0.95,cost:{oro:60},yield:{r:'oro',a:3},clip:0},
   volpe:  {nome:'Volpe',  em:'🦊',url:FOX,  hgt:0.5, cost:{oro:40},yield:{r:'morale',a:3},clip:'Walk'}
 };
@@ -290,9 +296,11 @@ function setLoad(f){document.getElementById('loadbar').style.width=Math.round(f*
 // ===== stato =====
 const PS=0.22;
 let R={legna:120,cibo:60,pietra:50,ferro:14,oro:40};
-let grid={}, buildings=[], decos=[], sites=[], agents=[], trees=[], animals=[], floaters=[], defenses=[];
+let grid={}, buildings=[], decos=[], sites=[], agents=[], trees=[], animals=[], floaters=[], defenses=[], reclaimPatches=[], wilds=[];
+let reclaimed={};
 let soldiers=2, operai=5, terreLiberate=0, morale=58, builtCount=0;
-let liberated={}, unlockedPar={}, cat='edifici', selKey=null, mode='city', moveTarget=null, selAgent=null;
+let liberated={}, unlockedPar={}, cat='edifici', selKey=null, mode='city', moveTarget=null, selAgent=null, placeRot=0;
+const HALFPI=Math.PI/2;
 function key(x,y){return x+','+y;}
 function inB(x,y){return x>=0&&y>=0&&x<GRID&&y<GRID;}
 function moraleMul(){return 0.7+Math.max(0,Math.min(100,morale))/100*0.6;}
@@ -313,7 +321,9 @@ function freeOf(e){for(const c of cellsOf(e))if(grid[key(c[0],c[1])]===e)delete 
 // territorio a parcelle (sblocchi zone, non singoli quadratini)
 function parKey(px,py){return px+','+py;}
 function parOf(cx,cy){return [Math.floor(cx/PAR),Math.floor(cy/PAR)];}
-function unlockedCell(cx,cy){const p=parOf(cx,cy);return !!unlockedPar[parKey(p[0],p[1])];}
+function unlockedCell(cx,cy){if(reclaimed[key(cx,cy)])return true;const p=parOf(cx,cy);return !!unlockedPar[parKey(p[0],p[1])];}
+const reclaimMat=new THREE.MeshStandardMaterial({map:grass,roughness:1});
+function reclaimCell(cx,cy){const k=key(cx,cy);if(reclaimed[k])return;reclaimed[k]=1;const [wx,wz]=cw(cx,cy);const p=new THREE.Mesh(new THREE.PlaneGeometry(CELL,CELL),reclaimMat);p.rotation.x=-Math.PI/2;p.position.set(wx,0.05,wz);p.receiveShadow=true;p.renderOrder=26;cityGroup.add(p);reclaimPatches.push(p);}
 function setupTerritory(){const c=Math.floor(HALF/PAR);for(let px=c-1;px<=c+1;px++)for(let py=c-1;py<=c+1;py++)unlockedPar[parKey(px,py)]=1;refreshLocks();}
 function refreshLocks(){for(const k in lockMesh){cityGroup.remove(lockMesh[k]);delete lockMesh[k];}const nP=Math.ceil(GRID/PAR);for(let px=0;px<nP;px++)for(let py=0;py<nP;py++){const k=parKey(px,py);if(!unlockedPar[k]){const ccx=px*PAR+(PAR-1)/2,ccy=py*PAR+(PAR-1)/2;const [wx,wz]=cw(ccx,ccy);const g=new THREE.Group();g.position.set(wx,0,wz);
   // velo scuro sul blocco
@@ -383,13 +393,14 @@ function placeDeco(cx,cy,kk){const sk=kk||selKey;const d=DECO[sk];const [wx,wz]=
   if(d.road){const g=newRoad(cx,cy);const e={type:'road',key:sk,obj:g,ax:cx,ay:cy,w:1,h:1,cx,cy};occupy(cx,cy,1,1,e);decos.push({k:sk,cx,cy});rebuildRoadArea(cx,cy);return;}
   if(d.flower){o=makeFlowers();o.position.set(wx,0,wz);}
   else{const f=d.files[Math.floor(Math.random()*d.files.length)];o=inst(f);o.position.set(wx,0,wz);o.rotation.y=d.rot?[0,1.57,3.14,-1.57][Math.floor(Math.random()*4)]:Math.random()*6.28;}
+  if(placeRot&&o)o.rotation.y=placeRot*HALFPI;
   cityGroup.add(o);autoSeat(o);const e={type:(sk==='albero'?'tree':'deco'),key:sk,obj:o,ax:cx,ay:cy,w:1,h:1,cx,cy};occupy(cx,cy,1,1,e);decos.push({k:sk,cx,cy});
   if(sk==='albero')trees.push({x:wx,z:wz,obj:o,cx,cy});
   if(d.mor){morale=Math.min(100,morale+d.mor);drawTop();}
 }
 function mkBar3(){const g=new THREE.Group();const bgM=new THREE.MeshBasicMaterial({color:0x111111});bgM.depthTest=false;const fgM=new THREE.MeshBasicMaterial({color:0xffd23f});fgM.depthTest=false;const bg=new THREE.Mesh(new THREE.PlaneGeometry(1.1,0.18),bgM);const fg=new THREE.Mesh(new THREE.PlaneGeometry(1.04,0.12),fgM);fg.position.z=0.01;g.add(bg);g.add(fg);g.renderOrder=999;return {g,fg};}
 function startBuildAt(ax,ay,w,h,src){const d=src[selKey];if(d.cost&&!afford(d.cost)){toast('Risorse insufficienti');return;}if(d.cost)pay(d.cost);
-  const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(d.file);o.position.set(wx,0,wz);o.scale.setScalar(d.sc||1);o.rotation.y=(Math.random()*.5-.25);cityGroup.add(o);autoSeat(o);setOpacity(o,0.45);
+  const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(d.file);o.position.set(wx,0,wz);o.scale.setScalar(d.sc||1);o.rotation.y=placeRot?placeRot*HALFPI:(Math.random()*.5-.25);cityGroup.add(o);autoSeat(o);setOpacity(o,0.45);
   const bar=mkBar3();bar.g.position.set(wx,2.2,wz);cityGroup.add(bar.g);
   const site={type:'site',key:selKey,def:d,ax,ay,w,h,cx:ax,cy:ay,wx,wz,obj:o,bar,builder:null,prog:0,time:consTime(d.time||14)};sites.push(site);occupy(ax,ay,w,h,site);
   toast(d.nome+': in costruzione…');drawTop();
@@ -399,7 +410,7 @@ function finishSite(s){setOpacity(s.obj,1);cityGroup.remove(s.bar.g);const b={ke
 // ===== tap su cella =====
 function tryPlace(cx,cy){
   if(moveTarget){doMove(cx,cy);return;}
-  if(!unlockedCell(cx,cy)){const p=parOf(cx,cy);if(adjPar(p[0],p[1]))openUnlock(p[0],p[1]);else toast('Sblocca prima le terre vicine');return;}
+  if(!unlockedCell(cx,cy)){const g0=grid[key(cx,cy)];if(g0&&g0.type==='tree'&&g0.wild){toast('🌳 Vegetazione selvatica: scegli un abitante e mandalo a tagliarla per recuperare il terreno',3600);return;}const p=parOf(cx,cy);if(adjPar(p[0],p[1]))openUnlock(p[0],p[1]);else toast('Sblocca prima le terre vicine');return;}
   const occ=grid[key(cx,cy)];
   if(occ){
     if(occ.type==='building')openBuilding(occ.ref);
@@ -409,7 +420,7 @@ function tryPlace(cx,cy){
   }
   if(!selKey){toast('Apri 🔨 e scegli cosa mettere');return;}
   if(cat==='animali'){const d=ANIMALS[selKey];if(!afford(d.cost)){toast('Serve 🪙'+d.cost.oro);return;}pay(d.cost);spawnAnimal(selKey,cx,cy);drawTop();save();toast(d.nome+' '+d.em+' è arrivato! Toccalo per dargli da mangiare 🌾',3600);return;}
-  if(cat==='difesa'){const d=DEF[selKey];const [w,h]=fpSize(d);const [ax,ay]=fpAnchor(cx,cy,w,h);if(!canPlace(ax,ay,w,h)){toast('Spazio occupato');return;}if(!afford(d.cost)){toast('Risorse insufficienti');return;}pay(d.cost);placeDef(ax,ay,w,h,selKey);drawTop();save();return;}
+  if(cat==='difesa'){const d=DEF[selKey];const [w,h]=fpSize(d);const [ax,ay]=fpAnchor(cx,cy,w,h);if(!canPlace(ax,ay,w,h)){toast('Spazio occupato');return;}if(!afford(d.cost)){toast('Risorse insufficienti');return;}pay(d.cost);placeDef(ax,ay,w,h,selKey,placeRot?placeRot*HALFPI:undefined);drawTop();save();return;}
   const def=cat==='edifici'?BUILD[selKey]:cat==='monumenti'?MON[selKey]:DECO[selKey];
   const [w,h]=fpSize(def);const [ax,ay]=fpAnchor(cx,cy,w,h);
   if(cat==='monumenti'&&!monUnlocked()){toast('Monumenti bloccati');return;}
@@ -506,10 +517,11 @@ function openBuilding(b){
   const dm=d2.querySelector('#pdem');if(dm)dm.onclick=()=>demolish(b);
   d2.querySelector('#pclose').onclick=closeDyn;
 }
-function openObj(occ){const src=DEF[occ.key]||DECO[occ.key];const nm=occ.key==='albero'?'Albero':src?src.nome:'Oggetto';const em=occ.key==='albero'?'🌳':src?src.em:'🌸';
-  dialog(em,nm,'','<p style="text-align:left">Puoi spostarlo o toglierlo per liberare la casella.</p>'+
-   `<div class="row"><button class="btn alt" id="omove">✋ Sposta</button><button class="btn red" id="odel">🗑 Elimina</button></div><button class="btn" id="oclose">Chiudi</button>`);
-  const d2=document.getElementById('dyn');
+function rotateObj(occ){occ.obj.rotation.y+=HALFPI;const df=defenses.find(d=>d.cx===occ.ax&&d.cy===occ.ay);if(occ.type==='wall'||occ.type==='gate'){occ.manual=true;const base=(WALL_ALONG==='x'?0:HALFPI);if(df){df.manual=true;df.rot=occ.obj.rotation.y-base;}}else if(df){df.rot=occ.obj.rotation.y;df.manual=true;}save();toast('Ruotato ↻');}
+function openObj(occ){const src=DEF[occ.key]||DECO[occ.key];const nm=occ.key==='albero'?'Albero':src?src.nome:'Oggetto';const em=occ.key==='albero'?'🌳':src?src.em:'🌸';const canRot=(occ.type!=='road');
+  dialog(em,nm,'','<p style="text-align:left">Puoi girarlo, spostarlo o toglierlo.</p>'+
+   `<div class="row">`+(canRot?`<button class="btn alt" id="orot">↻ Ruota</button>`:'')+`<button class="btn alt" id="omove">✋ Sposta</button></div><div class="row"><button class="btn red" id="odel">🗑 Elimina</button><button class="btn" id="oclose">Chiudi</button></div>`);
+  const d2=document.getElementById('dyn');const rb=d2.querySelector('#orot');if(rb)rb.onclick=()=>rotateObj(occ);
   d2.querySelector('#omove').onclick=()=>{moveTarget={entry:occ};closeDyn();toast('Tocca dove spostarlo ✋');};
   d2.querySelector('#odel').onclick=()=>removeObj(occ);
   d2.querySelector('#oclose').onclick=closeDyn;
@@ -520,12 +532,14 @@ function cellOfWorld(wx,wz){return [Math.round(wx/CELL+HALF),Math.round(wz/CELL+
 function walkable(cx,cy){if(!inB(cx,cy)||!unlockedCell(cx,cy))return false;const g=grid[key(cx,cy)];return !g||g.type==='road'||g.type==='gate';}
 function isWall(cx,cy){const g=grid[key(cx,cy)];return !!(g&&(g.type==='wall'||g.type==='gate'));}
 function wallRot(cx,cy){const h=isWall(cx-1,cy)||isWall(cx+1,cy);const v=isWall(cx,cy-1)||isWall(cx,cy+1);const vertical=(v&&!h);const base=(WALL_ALONG==='x')?0:Math.PI/2;return base+((vertical)?Math.PI/2:0);}
-function rebuildWall(cx,cy){const e=grid[key(cx,cy)];if(!e||!(e.type==='wall'||e.type==='gate')||!e.obj)return;e.obj.rotation.y=wallRot(cx,cy);}
+function rebuildWall(cx,cy){const e=grid[key(cx,cy)];if(!e||!(e.type==='wall'||e.type==='gate')||!e.obj||e.manual)return;e.obj.rotation.y=wallRot(cx,cy);}
 function rebuildWallArea(cx,cy){rebuildWall(cx,cy);rebuildWall(cx-1,cy);rebuildWall(cx+1,cy);rebuildWall(cx,cy-1);rebuildWall(cx,cy+1);}
-function placeDef(ax,ay,w,h,k){const d=DEF[k];const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(d.file);if(d.wall||d.gate)o.scale.copy(wallScaleVec());o.position.set(wx,0,wz);cityGroup.add(o);autoSeat(o);
-  const type=d.gate?'gate':d.wall?'wall':'tower';const e={type,key:k,def:d,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);defenses.push({k,cx:ax,cy:ay});
-  if(d.wall||d.gate)rebuildWallArea(ax,ay);
+function placeDef(ax,ay,w,h,k,rot){const d=DEF[k];const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(d.file);if(d.wall||d.gate)o.scale.copy(wallScaleVec());o.position.set(wx,0,wz);cityGroup.add(o);autoSeat(o);
+  const manual=(rot!==undefined&&rot!==null);const type=d.gate?'gate':d.wall?'wall':'tower';const e={type,key:k,def:d,obj:o,ax,ay,w,h,cx:ax,cy:ay,manual,rot:rot||0};occupy(ax,ay,w,h,e);defenses.push({k,cx:ax,cy:ay,rot:e.rot,manual});
+  if(d.wall||d.gate){if(manual)o.rotation.y=(WALL_ALONG==='x'?0:HALFPI)+e.rot;rebuildWallArea(ax,ay);}
+  else o.rotation.y=e.rot;
   if(d.mor){morale=Math.min(100,morale+d.mor);}
+  return e;
 }
 function allUnlockedCells(pred){const a=[];for(const pk in unlockedPar){const p=pk.split(',').map(Number);for(let dx=0;dx<PAR;dx++)for(let dy=0;dy<PAR;dy++){const x=p[0]*PAR+dx,y=p[1]*PAR+dy;if(inB(x,y)&&pred(x,y))a.push([x,y]);}}return a;}
 function pickTargetCell(preferRoad){let pool=preferRoad?allUnlockedCells((x,y)=>{const g=grid[key(x,y)];return g&&g.type==='road';}):[];if(!pool.length)pool=allUnlockedCells(walkable);return pool.length?pool[Math.floor(Math.random()*pool.length)]:null;}
@@ -534,8 +548,11 @@ function bfsPath(sx,sy,tx,ty){if(!walkable(tx,ty))return null;if(sx===tx&&sy===t
 function spawnAgent(kind){const g=new THREE.Group();const c=pickTargetCell(false)||[HALF,HALF];const [wx,wz]=cw(c[0],c[1]);g.position.set(wx,0,wz);cityGroup.add(g);const a={kind,obj:g,state:'idle',timer:Math.random()*2,speed:0.7+Math.random()*0.16,site:null,tree:null,path:null,pi:0,onArrive:'idle',bob:Math.random()*6};agents.push(a);loadModel(AD+(kind==='milite'?'Knight.glb':'Rogue.glb')).then(m=>{m.scale.setScalar(PS);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);});return a;}
 function startWalk(a,tx,ty,onArrive){const cur=cellOfWorld(a.obj.position.x,a.obj.position.z);const p=bfsPath(cur[0],cur[1],tx,ty);if(p){a.path=p;a.pi=0;a.onArrive=onArrive;a.state='walk';return true;}return false;}
 // ----- comandi del giocatore su un abitante/soldato -----
-function fellTree(tr){if(!tr)return;const e=grid[key(tr.cx,tr.cy)];if(e&&e.type==='tree'){cityGroup.remove(e.obj);freeOf(e);}const i=trees.indexOf(tr);if(i>=0)trees.splice(i,1);const di=decos.findIndex(d=>d.cx===tr.cx&&d.cy===tr.cy&&d.k==='albero');if(di>=0)decos.splice(di,1);rebuildRoadArea(tr.cx,tr.cy);save();}
-function commandChop(a,tree){if(a.kind==='milite'){toast('I soldati non tagliano legna: scegli un abitante 🧍');return;}const t=adjWalk(tree.cx,tree.cy,1,1);if(t&&startWalk(a,t[0],t[1],'chopcmd')){a.tree=tree;a.timer=1.8;toast('🪓 Vado a tagliare la legna!');}else toast('Non riesco ad arrivare a quell’albero');}
+function fellTree(tr){if(!tr)return;const e=grid[key(tr.cx,tr.cy)];if(e&&e.type==='tree'){cityGroup.remove(e.obj);freeOf(e);}const i=trees.indexOf(tr);if(i>=0)trees.splice(i,1);const di=decos.findIndex(d=>d.cx===tr.cx&&d.cy===tr.cy&&d.k==='albero');if(di>=0)decos.splice(di,1);const wi=wilds.findIndex(w=>w.cx===tr.cx&&w.cy===tr.cy);if(wi>=0)wilds.splice(wi,1);rebuildRoadArea(tr.cx,tr.cy);save();}
+function commandChop(a,tree){if(a.kind==='milite'){toast('I soldati non tagliano legna: scegli un abitante 🧍');return;}const t=adjWalk(tree.cx,tree.cy,1,1);if(t&&startWalk(a,t[0],t[1],'chopcmd')){a.tree=tree;a.chopWild=!!tree.wild;toast(tree.wild?'🪓 Vado a disboscare: ci vuole del tempo (~6 ore), poi guadagni legna e recuperi terreno':'🪓 Vado a tagliare la legna!',3600);}else toast('Non riesco ad arrivare a quell’albero');}
+// vegetazione selvatica intorno al villaggio (si taglia per recuperare terreno)
+function wildTree(cx,cy){if(!inB(cx,cy)||grid[key(cx,cy)])return;const [wx,wz]=cw(cx,cy);const t=inst(Math.random()<.5?'tree_single_A':'tree_single_B');t.position.set(wx,0,wz);t.rotation.y=Math.random()*6.28;t.scale.setScalar(0.85+Math.random()*0.35);cityGroup.add(t);autoSeat(t);const e={type:'tree',key:'albero',obj:t,ax:cx,ay:cy,w:1,h:1,cx,cy,wild:true};occupy(cx,cy,1,1,e);trees.push({x:wx,z:wz,obj:t,cx,cy,wild:true});wilds.push({cx,cy});}
+function placeWildVegetation(){const lo=HALF-14,hi=HALF+14;for(let x=lo;x<=hi;x++)for(let y=lo;y<=hi;y++){if(!inB(x,y)||unlockedCell(x,y)||grid[key(x,y)])continue;let near=false;for(let dx=-2;dx<=2&&!near;dx++)for(let dy=-2;dy<=2;dy++){if(unlockedCell(x+dx,y+dy)){near=true;break;}}if(near&&Math.random()<0.42)wildTree(x,y);}}
 function commandGuard(a,cx,cy){if(!walkable(cx,cy)){const near=adjWalk(cx,cy,1,1);if(near){cx=near[0];cy=near[1];}}if(startWalk(a,cx,cy,'guard')){a.post=[cx,cy];toast(a.kind==='milite'?'🛡️ Vado a sorvegliare la posizione!':'🧍 Vado a presidiare il punto!');}else toast('Non riesco ad arrivare lì');}
 function pickTask(a){
   if(a.kind!=='abitante'){const s=sites.find(s=>!s.builder);if(s){const t=adjWalk(s.ax,s.ay,s.w,s.h);if(t&&startWalk(a,t[0],t[1],'build')){s.builder=a;a.site=s;return;}}}
@@ -547,10 +564,10 @@ function updAgents(dt){agents.forEach(a=>{const o=a.obj;
   if(a.state==='idle'){a.timer-=dt;if(a.timer<=0)pickTask(a);return;}
   if(a.state==='build'){const s=a.site;if(!s||sites.indexOf(s)<0){a.state='idle';a.timer=.5;a.site=null;o.position.y=0;return;}s.prog+=dt;const f=Math.min(1,s.prog/s.time);s.bar.fg.scale.x=f;s.bar.fg.position.x=-.52*(1-f);a.bob+=dt*5;o.position.y=Math.abs(Math.sin(a.bob))*.04;if(s.prog>=s.time){finishSite(s);sites.splice(sites.indexOf(s),1);a.site=null;o.position.y=0;a.state='idle';a.timer=.4;}return;}
   if(a.state==='chop'){a.timer-=dt;a.bob+=dt*6;o.position.y=Math.abs(Math.sin(a.bob))*.03;if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=Math.sin(a.bob)*.05;if(a.timer<=0){R.legna+=2;if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=0;o.position.y=0;a.state='idle';a.timer=.4;}return;}
-  if(a.state==='chopcmd'){a.timer-=dt;a.bob+=dt*7;o.position.y=Math.abs(Math.sin(a.bob))*.04;if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=Math.sin(a.bob)*.08;if(a.timer<=0){if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=0;fellTree(a.tree);R.legna+=10;floatText(o.position.x,o.position.z,'🪵+10');a.tree=null;o.position.y=0;a.state='idle';a.timer=.4;drawTop();}return;}
+  if(a.state==='chopcmd'){a.timer-=dt;a.bob+=dt*7;o.position.y=Math.abs(Math.sin(a.bob))*.04;if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=Math.sin(a.bob)*.08;if(a.chopBar){const f=1-Math.max(0,a.timer)/(a.chopDur||1);a.chopBar.fg.scale.x=f;a.chopBar.fg.position.x=-.52*(1-f);a.chopBar.g.lookAt(camera.position.x,a.chopBar.g.position.y,camera.position.z);}if(a.timer<=0){if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=0;const wild=a.chopWild,tc=a.tree?[a.tree.cx,a.tree.cy]:null;const gain=wild?14:10;fellTree(a.tree);R.legna+=gain;floatText(o.position.x,o.position.z,wild?'🪵+'+gain+' 🟩':'🪵+'+gain);if(wild&&tc)reclaimCell(tc[0],tc[1]);if(a.chopBar){cityGroup.remove(a.chopBar.g);a.chopBar=null;}a.tree=null;a.chopWild=false;o.position.y=0;a.state='idle';a.timer=.4;drawTop();}return;}
   if(a.state==='guard'){a.bob+=dt;o.position.y=0;o.rotation.y+=dt*0.3;return;}
   if(a.state==='walk'){
-    if(!a.path||a.pi>=a.path.length){a.state=a.onArrive||'idle';if(a.state==='idle')a.timer=.6+Math.random()*1.4;else if(a.state==='chop'||a.state==='chopcmd')a.timer=1.8;o.position.y=0;return;}
+    if(!a.path||a.pi>=a.path.length){a.state=a.onArrive||'idle';if(a.state==='idle')a.timer=.6+Math.random()*1.4;else if(a.state==='chop')a.timer=1.6;else if(a.state==='chopcmd'){a.chopDur=a.chopWild?14:4;a.timer=a.chopDur;if(a.tree&&a.tree.obj){a.chopBar=mkBar3();const tp=a.tree.obj.position;a.chopBar.g.position.set(tp.x,1.4,tp.z);a.chopBar.g.scale.setScalar(0.8);cityGroup.add(a.chopBar.g);}}o.position.y=0;return;}
     const cell=a.path[a.pi];
     if(a.pi<a.path.length-1&&!walkable(cell[0],cell[1])){a.state='idle';a.timer=.3;a.path=null;if(a.site){a.site.builder=null;a.site=null;}return;}
     const [tx,tz]=cw(cell[0],cell[1]);const dx=tx-o.position.x,dz=tz-o.position.z;const d=Math.hypot(dx,dz);
@@ -559,25 +576,56 @@ function updAgents(dt){agents.forEach(a=>{const o=a.obj;
     return;
   }
 });
-if(selAgent&&agents.indexOf(selAgent)>=0){agentRing.position.set(selAgent.obj.position.x,0.07,selAgent.obj.position.z);agentRing.visible=true;}else{selAgent=null;agentRing.visible=false;}}
+if(selAgent){if(agents.indexOf(selAgent)<0){selAgent=null;agentRing.visible=false;refreshOrderBar();}else{agentRing.position.set(selAgent.obj.position.x,0.07,selAgent.obj.position.z);agentRing.visible=true;}}else agentRing.visible=false;}
 
 // ===== animali con il cervello =====
 function floatText(x,z,txt){const cv=document.createElement('canvas');cv.width=140;cv.height=70;const g=cv.getContext('2d');g.font='bold 42px system-ui';g.textAlign='center';g.textBaseline='middle';g.lineWidth=6;g.strokeStyle='rgba(0,0,0,.65)';g.strokeText(txt,70,35);g.fillStyle='#fff';g.fillText(txt,70,35);const tx=new THREE.CanvasTexture(cv);const m=new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true});const sp=new THREE.Sprite(m);sp.scale.set(1.0,0.5,1);sp.position.set(x,1.1,z);sp.renderOrder=1200;cityGroup.add(sp);floaters.push({sp,t:0});}
 function updFloaters(dt){for(let i=floaters.length-1;i>=0;i--){const f=floaters[i];f.t+=dt;f.sp.position.y+=dt*0.55;f.sp.material.opacity=Math.max(0,1-f.t/1.4);if(f.t>1.4){cityGroup.remove(f.sp);floaters.splice(i,1);}}}
 function spawnAnimal(key,cx,cy){const d=ANIMALS[key];const g=new THREE.Group();const [wx,wz]=cw(cx,cy);g.position.set(wx,0,wz);cityGroup.add(g);
-  const an={key,def:d,obj:g,state:'graze',timer:1+Math.random()*2,speed:(d.hgt>0.7?0.75:1.1),fed:0,ytimer:0,tx:wx,tz:wz,bob:Math.random()*6,mixer:null};animals.push(an);
+  const an={key,def:d,obj:g,state:'graze',timer:1+Math.random()*2,speed:(d.hgt>0.7?0.7:1.1),fed:0,ytimer:0,tx:wx,tz:wz,bob:Math.random()*6,mixer:null,head:null};animals.push(an);
+  if(d.build){const m=d.build();fitHeight(m,d.hgt);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);an.head=m.getObjectByName('head');return an;}
   loadAnimated(d.url).then(r=>{const m=r.scene;fitHeight(m,d.hgt);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);
     if(r.clips&&r.clips.length){an.mixer=new THREE.AnimationMixer(m);let clip=r.clips[0];if(typeof d.clip==='string'){const c=r.clips.find(c=>c.name&&c.name.toLowerCase().indexOf(d.clip.toLowerCase())>=0);if(c)clip=c;}else if(r.clips[d.clip])clip=r.clips[d.clip];an.action=an.mixer.clipAction(clip);an.action.play();}});
   return an;}
+// una mucca vera costruita in 3D (CC0) — corpo, testa, muso, corna, macchie, mammella, zampe, coda
+function makeCow(){const g=new THREE.Group();
+  const white=new THREE.MeshStandardMaterial({color:0xf5f1e8,roughness:.95});
+  const dark=new THREE.MeshStandardMaterial({color:0x2e2823,roughness:.95});
+  const pink=new THREE.MeshStandardMaterial({color:0xe59aa2,roughness:.85});
+  const horn=new THREE.MeshStandardMaterial({color:0xe8dcc0,roughness:.7});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.92,0.98),white);body.position.set(0,1.0,0);g.add(body);
+  // macchie scure sui fianchi e sul dorso
+  [[-.35,1.05,.5,.46,.4],[.35,0.95,.5,.5,.42],[-.1,1.46,-.0,.55,.5],[.35,1.05,-.5,.42,.46]].forEach(p=>{const s=new THREE.Mesh(new THREE.BoxGeometry(p[3],p[4],.04),dark);s.position.set(p[0],p[1],p[2]);if(Math.abs(p[2])<.1){s.rotation.x=Math.PI/2;}g.add(s);});
+  // testa
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.62,.6,.6),white);head.name='head';head.position.set(.92,1.18,0);g.add(head);
+  const snout=new THREE.Mesh(new THREE.BoxGeometry(.34,.36,.5),pink);snout.position.set(1.22,1.03,0);head.add(snout);snout.position.set(.3,-.15,0);
+  // narici
+  [[-.12],[.12]].forEach(p=>{const n=new THREE.Mesh(new THREE.BoxGeometry(.05,.07,.06),dark);n.position.set(.47,-.17,p[0]);head.add(n);});
+  // orecchie
+  [[-.38],[.38]].forEach(p=>{const e=new THREE.Mesh(new THREE.BoxGeometry(.1,.18,.26),white);e.position.set(-.05,.12,p[0]);head.add(e);});
+  // corna
+  [[-.2],[.2]].forEach(p=>{const h=new THREE.Mesh(new THREE.ConeGeometry(.08,.26,8),horn);h.position.set(-.12,.42,p[0]);h.rotation.z=p[0]<0?0.5:-0.5;head.add(h);});
+  // occhi
+  [[-.2],[.2]].forEach(p=>{const e=new THREE.Mesh(new THREE.SphereGeometry(.06,8,6),dark);e.position.set(.28,.08,p[0]);head.add(e);});
+  // zampe
+  const legGeo=new THREE.BoxGeometry(.24,.72,.24);
+  [[-.52,.36,.32],[-.52,.36,-.32],[.52,.36,.32],[.52,.36,-.32]].forEach(p=>{const l=new THREE.Mesh(legGeo,dark);l.position.set(p[0],p[1],p[2]);g.add(l);});
+  // mammella
+  const ud=new THREE.Mesh(new THREE.SphereGeometry(.22,10,8),pink);ud.position.set(-.1,.55,0);ud.scale.set(1,.7,1);g.add(ud);
+  // coda
+  const tail=new THREE.Mesh(new THREE.BoxGeometry(.08,.6,.08),white);tail.position.set(-.78,0.95,0);tail.rotation.z=0.3;g.add(tail);
+  const tuft=new THREE.Mesh(new THREE.BoxGeometry(.12,.16,.12),dark);tuft.position.set(-.86,0.6,0);g.add(tuft);
+  g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
 function pickAnimal(px,py){const r=canvas.getBoundingClientRect();ndc.x=((px-r.left)/r.width)*2-1;ndc.y=-((py-r.top)/r.height)*2+1;ray.setFromCamera(ndc,camera);for(const a of animals){if(a.obj.children.length&&ray.intersectObject(a.obj,true).length)return a;}return null;}
 function pickAgent(px,py){const r=canvas.getBoundingClientRect();ndc.x=((px-r.left)/r.width)*2-1;ndc.y=-((py-r.top)/r.height)*2+1;ray.setFromCamera(ndc,camera);let best=null,bd=1e9;for(const a of agents){if(!a.obj.children.length)continue;const h=ray.intersectObject(a.obj,true);if(h.length&&h[0].distance<bd){bd=h[0].distance;best=a;}}return best;}
 function agentNome(a){return a.kind==='milite'?'Soldato':a.kind==='abitante'?'Abitante':'Operaio';}
+function refreshOrderBar(){const b=document.getElementById('orderbar');if(!b)return;if(!selAgent){b.style.display='none';return;}const sold=selAgent.kind==='milite';b.innerHTML='<b>'+agentNome(selAgent)+' scelto.</b> '+(sold?'Tocca un punto o un 🚪 cancello da <b>sorvegliare</b>.':'Tocca un 🌳 <b>albero</b> (taglia) o un punto dove <b>andare</b>.')+'<button id="obcancel">✖</button>';b.style.display='block';const c=b.querySelector('#obcancel');if(c)c.onclick=()=>{selAgent=null;refreshOrderBar();toast('Annullato');};}
 function cityTap(px,py){
   // 1) tocco su un abitante/soldato -> selezionalo (o liberalo se già scelto)
   const ag=moveTarget?null:pickAgent(px,py);
-  if(ag){if(selAgent===ag){selAgent.state='idle';selAgent.timer=.3;selAgent=null;toast('Torna libero 👋');}else{selAgent=ag;selKey=null;drawer.classList.remove('open');drawBuild();toast(ag.kind==='milite'?'⚔️ '+agentNome(ag)+' scelto: tocca un punto o un cancello da sorvegliare':'🧍 '+agentNome(ag)+' scelto: tocca un albero (taglia) o un punto dove andare',4000);}return;}
+  if(ag){if(selAgent===ag){selAgent.state='idle';selAgent.timer=.3;selAgent=null;toast('Torna libero 👋');}else{selAgent=ag;selKey=null;drawer.classList.remove('open');drawBuild();toast('👆 '+agentNome(ag)+' scelto',1800);}refreshOrderBar();return;}
   // 2) agente selezionato -> impartisci l'ordine sul bersaglio toccato
-  if(selAgent){const c=cellAt(px,py);if(c){const occ=grid[key(c.cx,c.cy)];if(occ&&occ.type==='tree'){const tr=trees.find(t=>t.cx===c.cx&&t.cy===c.cy)||{cx:c.cx,cy:c.cy,obj:occ.obj};commandChop(selAgent,tr);}else commandGuard(selAgent,c.cx,c.cy);}selAgent=null;return;}
+  if(selAgent){const c=cellAt(px,py);if(c){const occ=grid[key(c.cx,c.cy)];if(occ&&occ.type==='tree'){const tr=trees.find(t=>t.cx===c.cx&&t.cy===c.cy)||{cx:c.cx,cy:c.cy,obj:occ.obj};commandChop(selAgent,tr);}else commandGuard(selAgent,c.cx,c.cy);}selAgent=null;refreshOrderBar();return;}
   // 3) animali (nutri) / costruzione
   const an=(!(selKey&&cat==='animali'))?pickAnimal(px,py):null;if(an){feedAnimal(an);return;}
   const c=cellAt(px,py);if(c)tryPlace(c.cx,c.cy);
@@ -585,8 +633,8 @@ function cityTap(px,py){
 function feedAnimal(a){if(a.fed>0){toast(a.def.nome+' è sazio 🙂');return;}if(R.cibo<3){toast('Serve 🌾3 per dar da mangiare');return;}R.cibo-=3;a.fed=30;a.ytimer=0;drawTop();save();floatText(a.obj.position.x,a.obj.position.z,'🌾');toast('Dai da mangiare al '+a.def.nome+' '+a.def.em+' → ti darà '+(a.def.yield.r==='morale'?'😊 compagnia':RES[a.def.yield.r]+' prodotti'),3200);}
 function updAnimals(dt){animals.forEach(a=>{const o=a.obj;if(a.mixer)a.mixer.update(dt*(a.state==='walk'?1:0.5));
   if(a.fed>0){a.fed-=dt;a.ytimer+=dt;if(a.ytimer>=9){a.ytimer=0;const y=a.def.yield;if(y.r==='morale'){morale=Math.min(100,morale+y.a);floatText(o.position.x,o.position.z,'😊+'+y.a);}else{R[y.r]+=y.a;floatText(o.position.x,o.position.z,RES[y.r]+'+'+y.a);}drawTop();}}
-  if(a.state==='graze'){a.timer-=dt;if(a.timer<=0){const c=pickTargetCell(false);if(c){const [wx,wz]=cw(c[0],c[1]);a.tx=wx+(Math.random()-.5)*CELL;a.tz=wz+(Math.random()-.5)*CELL;a.state='walk';}else a.timer=1;}return;}
-  if(a.state==='walk'){const dx=a.tx-o.position.x,dz=a.tz-o.position.z;const d=Math.hypot(dx,dz);if(d<.12){a.state='graze';a.timer=2.5+Math.random()*4.5;return;}const sp=Math.min(a.speed*dt,d);o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);return;}
+  if(a.state==='graze'){a.timer-=dt;if(a.head){a.bob+=dt*2;a.head.rotation.z=-0.5-Math.sin(a.bob)*0.12;}if(a.timer<=0){if(a.head)a.head.rotation.z=0;const c=pickTargetCell(false);if(c){const [wx,wz]=cw(c[0],c[1]);a.tx=wx+(Math.random()-.5)*CELL;a.tz=wz+(Math.random()-.5)*CELL;a.state='walk';}else a.timer=1;}return;}
+  if(a.state==='walk'){if(a.head)a.head.rotation.z=0;const dx=a.tx-o.position.x,dz=a.tz-o.position.z;const d=Math.hypot(dx,dz);if(d<.12){a.state='graze';a.timer=2.5+Math.random()*4.5;return;}const sp=Math.min(a.speed*dt,d);o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);return;}
 });}
 
 // ===== villaggi vicini (autonomi) =====
@@ -635,13 +683,14 @@ function endPtr(ev){const was=pointers.size;pointers.delete(ev.pointerId);
 canvas.addEventListener('pointerup',endPtr);canvas.addEventListener('pointercancel',endPtr);
 canvas.addEventListener('wheel',ev=>{ev.preventDefault();setZoom(VZ*(1+ev.deltaY*.0012));},{passive:false});
 document.getElementById('zin').onclick=()=>setZoom(VZ*0.8);document.getElementById('zout').onclick=()=>setZoom(VZ/0.8);
+document.getElementById('zrot').onclick=()=>{placeRot=(placeRot+1)%4;toast('↻ Rotazione: '+(placeRot*90)+'° (per muri, cancelli, torri, decori)',2600);};
 
 // ===== salvataggio =====
-function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy})),d:decos,df:defenses,an:animals.map(a=>({k:a.key,cx:Math.round(a.obj.position.x/CELL+HALF),cy:Math.round(a.obj.position.z/CELL+HALF)}))}));}catch(e){}}
-function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();
+function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy})),d:decos,df:defenses,an:animals.map(a=>({k:a.key,cx:Math.round(a.obj.position.x/CELL+HALF),cy:Math.round(a.obj.position.z/CELL+HALF)}))}));}catch(e){}}
+function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});(s.wl||[]).forEach(w=>wildTree(w.cx,w.cy));
   (s.b||[]).forEach(it=>{const d=BUILD[it.k];if(!d)return;const [w,h]=fpSize(d);const ax=it.cx,ay=it.cy;const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(d.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:it.k,def:d,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true};buildings.push(b);const e={type:'building',key:it.k,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);});
   (s.d||[]).forEach(it=>{if(DECO[it.k])placeDeco(it.cx,it.cy,it.k);});
-  (s.df||[]).forEach(it=>{const d=DEF[it.k];if(!d)return;const [w,h]=fpSize(d);const [ax,ay]=fpAnchor(it.cx,it.cy,w,h);if(canPlace(ax,ay,w,h))placeDef(ax,ay,w,h,it.k);});
+  (s.df||[]).forEach(it=>{const d=DEF[it.k];if(!d)return;const [w,h]=fpSize(d);const [ax,ay]=fpAnchor(it.cx,it.cy,w,h);if(canPlace(ax,ay,w,h))placeDef(ax,ay,w,h,it.k,it.manual?it.rot:undefined);});
   (s.an||[]).forEach(it=>{if(ANIMALS[it.k])spawnAnimal(it.k,it.cx,it.cy);});recompute();return true;}catch(e){return false;}}
 
 // ===== MONDO =====
@@ -658,7 +707,7 @@ const BGRID=7,BCELL=2.2,BHALF=(BGRID-1)/2;
 let units=[],enemies=[],selUnit=null,turn='player',marks=[];
 function bcw(x,y){return [(x-BHALF)*BCELL,(y-BHALF)*BCELL];}
 function clearBattle(){while(batGroup.children.length)batGroup.remove(batGroup.children[0]);units=[];enemies=[];marks=[];selUnit=null;}
-async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');return;}mode='battle';selKey=null;selAgent=null;agentRing.visible=false;drawer.classList.remove('open');
+async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');return;}mode='battle';selKey=null;selAgent=null;agentRing.visible=false;refreshOrderBar();drawer.classList.remove('open');
   ['top','side','zoom','guide','fab'].forEach(id=>document.getElementById(id).style.display='none');
   cityGroup.visible=false;batGroup.visible=true;BG.style.display='flex';const svz=VZ;VZ=9;const stx=camTarget.x,stz=camTarget.z;camTarget.x=0;camTarget.z=0;updateCam();resize();batRestore={svz,stx,stz};clearBattle();
   const bg=grass.clone();bg.needsUpdate=true;bg.wrapS=bg.wrapT=THREE.RepeatWrapping;bg.repeat.set(BGRID,BGRID);bg.encoding=THREE.sRGBEncoding;const fm=new THREE.MeshStandardMaterial({map:bg,color:0x8fb56f,roughness:1});fm.envMapIntensity=.4;const floor=new THREE.Mesh(new THREE.PlaneGeometry(BGRID*BCELL,BGRID*BCELL),fm);floor.rotation.x=-Math.PI/2;floor.position.y=.015;floor.receiveShadow=true;batGroup.add(floor);const gh=new THREE.GridHelper(BGRID*BCELL,BGRID,0xffffff,0xffffff);gh.position.y=.03;gh.material.transparent=true;gh.material.opacity=.22;batGroup.add(gh);
@@ -716,6 +765,7 @@ requestAnimationFrame(tick);
     sp.forEach(([x,y])=>rebuildRoad(x,y));
     // qualche albero agli angoli
     [[H-10,H-10],[H+9,H-10],[H-10,H+9],[H+9,H+9]].forEach(([x,y])=>{if(!grid[key(x,y)]&&unlockedCell(x,y))placeDeco(x,y,'albero');});
+    placeWildVegetation();
   }
   placeCastle();
   initNeighbors();
