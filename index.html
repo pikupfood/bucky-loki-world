@@ -1116,26 +1116,32 @@ function openResearch(){closeDyn();const d=document.createElement('div');d.class
  document.body.appendChild(d);armPanel(d);
  d.querySelectorAll('[data-res]').forEach(b=>b.onclick=()=>{const t=RESEARCH.find(x=>x.id===b.dataset.res);if(t.req&&!hasRes(t.req)){toast('Prima studia '+RESEARCH.find(x=>x.id===t.req).nome);return;}if(!afford(t.cost)){toast('Serve '+Object.entries(t.cost).map(([r,v])=>RES[r]+v).join(' '));return;}pay(t.cost);research[t.id]=1;recompute&&recompute();drawTop();save();toast('📚 Ricerca completata: '+t.nome+'! '+t.desc,4200);setBubble('Nuova ricerca: '+t.nome+' '+t.em+'. '+t.desc);openResearch();});
  d.querySelector('#rclose').onclick=closeDyn;}
-// ===== Negozio: pacchetti di monete (ANTEPRIMA — pagamenti reali da collegare allo store) =====
+// ===== Negozio: pacchetti di Gemme 💎 (acquisto reale via Stripe; le Gemme si riscattano in oro) =====
 const SHOP=[
- {id:'sacchetto',em:'💰',nome:'Sacchetto d’oro',give:{oro:400},  price:'€0,99',bonus:''},
- {id:'forziere', em:'🧰',nome:'Forziere',       give:{oro:1200}, price:'€2,99',bonus:'+10% in regalo'},
- {id:'baule',    em:'🎁',nome:'Grande baule',   give:{oro:3500}, price:'€6,99',bonus:'+20% in regalo'},
- {id:'tesoro',   em:'💎',nome:'Tesoro reale',   give:{oro:9000}, price:'€14,99',bonus:'+30% in regalo'},
- {id:'starter',  em:'🚀',nome:'Pacchetto Partenza',give:{oro:500,legna:300,pietra:200,ferro:60},price:'€3,99',bonus:'Tutto per partire forte'}
+ {id:'p1',em:'💎',nome:'500 Gemme',  price:'€0,99', bonus:''},
+ {id:'p2',em:'💎',nome:'1200 Gemme', price:'€2,99', bonus:'+20% extra'},
+ {id:'p3',em:'💎',nome:'3500 Gemme', price:'€6,99', bonus:'Il più venduto'},
+ {id:'p4',em:'👑',nome:'9000 Gemme', price:'€14,99',bonus:'Miglior valore'}
 ];
-function grantPack(p){for(const r in p.give)R[r]=(R[r]||0)+p.give[r];drawTop();save();}
 function openShop(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';
- let h='';SHOP.forEach(p=>{const give=Object.entries(p.give).map(([r,v])=>RES[r]+v).join(' ');
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;padding:9px 6px;border-bottom:1px solid rgba(0,0,0,.08)">
-    <div><div style="font-weight:700;font-size:13.5px">${p.em} ${p.nome}</div><div style="font-size:12px;opacity:.85">${give}</div>${p.bonus?`<div style="font-size:11px;color:#1f8a56;font-weight:700">${p.bonus}</div>`:''}</div>
+ const logged=!!cloudUser;
+ let h='';SHOP.forEach(p=>{h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;padding:9px 6px;border-bottom:1px solid rgba(0,0,0,.08)">
+    <div><div style="font-weight:700;font-size:13.5px">${p.em} ${p.nome}</div>${p.bonus?`<div style="font-size:11px;color:#1f8a56;font-weight:700">${p.bonus}</div>`:''}</div>
     <button class="btn" data-pack="${p.id}" style="width:auto;margin:0;padding:8px 12px;background:#b8860b">${p.price}</button></div>`;});
- d.innerHTML=`<div class="card" style="max-width:460px;max-height:86vh;overflow:auto"><div class="em">🛒</div><h2>Negozio</h2><p>Pacchetti di monete 🪙 per crescere più in fretta.</p>${h}<div style="font-size:11px;opacity:.7;margin-top:8px;text-align:left">ℹ️ Anteprima: i pagamenti reali verranno collegati a Google Play / App Store. Qui puoi provarli gratis.</div><button class="btn alt" id="shclose" style="margin-top:8px">Chiudi</button></div>`;
- document.body.appendChild(d);armPanel(d);
- d.querySelectorAll('[data-pack]').forEach(b=>b.onclick=()=>{const p=SHOP.find(x=>x.id===b.dataset.pack);const give=Object.entries(p.give).map(([r,v])=>RES[r]+'+'+v).join(' ');
-   dialog(p.em,p.nome,'',`<p>Prezzo: <b>${p.price}</b></p><p style="font-size:12.5px">Ricevi: ${give}</p><div style="font-size:11.5px;opacity:.75;background:rgba(0,0,0,.05);padding:8px;border-radius:10px">⚠️ I pagamenti reali non sono ancora attivi (il gioco è una pagina web). Puoi ricevere il pacchetto <b>gratis in anteprima</b> per provare.</div><div class="row"><button class="btn" id="pkyes" style="background:#1f8a56">🎁 Ricevi gratis (demo)</button><button class="btn alt" id="pkno">Annulla</button></div>`);
-   const dd=document.getElementById('dyn');dd.querySelector('#pkyes').onclick=()=>{grantPack(p);toast('🎁 (Demo) Pacchetto ricevuto: '+give,4200);closeDyn();openShop();};dd.querySelector('#pkno').onclick=()=>openShop();});
- d.querySelector('#shclose').onclick=closeDyn;}
+ const gate=logged?'':`<div style="font-size:12.5px;background:rgba(0,0,0,.06);padding:9px;border-radius:10px;margin-bottom:6px">🔒 Accedi per acquistare e tenere le Gemme sul tuo account. <button class="btn alt" id="shlogin" style="margin-top:6px">👤 Accedi</button></div>`;
+ d.innerHTML=`<div class="card" style="max-width:460px;max-height:86vh;overflow:auto"><div class="em">🛒</div><h2>Negozio</h2>
+   <div id="gemsbal" style="font-size:14px;font-weight:700;margin-bottom:8px">💎 Gemme: …</div>${gate}
+   <p style="font-size:12.5px">Compra <b>Gemme 💎</b> e riscàttale in oro 🪙 per crescere più in fretta.</p>${h}
+   <div id="redeemBox" style="margin-top:10px"></div>
+   <div style="font-size:11px;opacity:.72;margin-top:8px;text-align:left">🧪 Modalità test: carta di prova 4242 4242 4242 4242, scadenza futura, CVC qualsiasi. Nessun addebito reale.</div>
+   <button class="btn alt" id="shclose" style="margin-top:8px">Chiudi</button></div>`;
+ document.body.appendChild(d);armPanel(d);const q=s=>d.querySelector(s);
+ const sl=q('#shlogin');if(sl)sl.onclick=openAccount;
+ async function refreshBal(){if(!window.TuzuCloud||!cloudUser){q('#gemsbal').textContent='💎 Gemme: accedi per vederle';q('#redeemBox').innerHTML='';return;}const bal=await window.TuzuCloud.getWallet();q('#gemsbal').textContent='💎 Gemme: '+(bal==null?'—':bal);if(bal>0){q('#redeemBox').innerHTML=`<button class="btn" id="redeemBtn" style="background:#1f8a56">🪙 Riscatta ${bal} Gemme → ${bal} oro</button>`;q('#redeemBtn').onclick=async()=>{const r=await window.TuzuCloud.redeem(bal);if(r&&r.ok){R.oro=(R.oro||0)+bal;drawTop();save();toast('🪙 Riscattate '+bal+' Gemme in oro!',3800);refreshBal();}else toast('Riscatto non riuscito');};}else q('#redeemBox').innerHTML='';}
+ refreshBal();
+ d.querySelectorAll('[data-pack]').forEach(b=>b.onclick=async()=>{if(!cloudUser){toast('Accedi prima per acquistare 👤');openAccount();return;}const pid=b.dataset.pack,old=b.textContent;b.textContent='…';const r=await window.TuzuCloud.buy(pid);if(r&&r.url){location.href=r.url;}else{toast('Errore nell’avvio del pagamento'+(r&&r.error?': '+r.error:''));b.textContent=old;}});
+ q('#shclose').onclick=closeDyn;}
+window.tuzuPurchaseDone=function(r){if(!r)return;if(r.cancelled){toast('Pagamento annullato');return;}if(r.ok){toast('✅ Pagamento riuscito! 💎 +'+(r.credited||'')+' Gemme (saldo '+(r.balance!=null?r.balance:'?')+')',5200);if(cloudUser&&started)openShop();}else if(r.error){toast('Verifica pagamento: '+r.error,4000);}else if(r.reason==='not_paid'){toast('Pagamento non completato');}};
 document.getElementById('btnLib').onclick=()=>{if(mode==='city')openResearch();};
 document.getElementById('btnShop').onclick=()=>{if(mode==='city')openShop();};
 function openWorld(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';let lh='';POPOLI.forEach(p=>{const own=p.own,lib=liberated[p.k],vis=COLORMAP[p.k];const st=own?'<span class="st" style="background:#1f6e56">Il tuo regno</span>':lib?'<span class="st" style="background:#2b6cb0">Alleata</span>':'<span class="st" style="background:#7a2b2b">Occupata</span>';let btn=own?'':lib?'<button style="background:rgba(255,255,255,.12)" disabled>Liberata ✓</button>':`<button style="background:#e24b4a" data-lib="${p.k}">⚔️ Libera</button>`;
@@ -1279,11 +1285,18 @@ window.TuzuCloud={
   async signInEmail(email,pass){ if(!supa) return {error:'offline'}; const {error}=await supa.auth.signInWithPassword({email,password:pass}); return error?{error:error.message}:{ok:true}; },
   async signUpEmail(email,pass){ if(!supa) return {error:'offline'}; const {data,error}=await supa.auth.signUp({email,password:pass}); return error?{error:error.message}:{ok:true,needConfirm:!data.session}; },
   async signInGoogle(){ if(!supa) throw new Error('offline'); await supa.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}}); },
-  async signOut(){ if(supa) await supa.auth.signOut(); localStorage.removeItem(MARK); }
+  async signOut(){ if(supa) await supa.auth.signOut(); localStorage.removeItem(MARK); },
+  // ===== acquisti (Gemme) =====
+  async getWallet(){ try{ const u=await currentUser(); if(!u) return null; const {data}=await supa.from('game_wallet').select('coins').eq('user_id',u.id).maybeSingle(); return data?data.coins:0; }catch(e){ return null; } },
+  async buy(pack){ try{ const {data,error}=await supa.functions.invoke('game-checkout',{body:{pack}}); if(error) return {error:error.message||'errore'}; return data; }catch(e){ return {error:String(e)}; } },
+  async verify(sessionId){ try{ const {data,error}=await supa.functions.invoke('game-verify',{body:{session_id:sessionId}}); if(error) return {error:error.message||'errore'}; return data; }catch(e){ return {error:String(e)}; } },
+  async redeem(amount){ try{ const {data,error}=await supa.rpc('game_redeem_gems',{p_amount:amount}); if(error) return {ok:false,err:error.message}; return data; }catch(e){ return {ok:false,err:String(e)}; } }
 };
 function notify(u){ if(typeof window.tuzuCloudReady==='function'){ try{ window.tuzuCloudReady(u); }catch(e){} } }
+function cleanParam(k){ const p=new URLSearchParams(location.search); if(p.has(k)){ p.delete(k); const qs=p.toString(); history.replaceState(null,'',location.pathname+(qs?('?'+qs):'')); } }
+async function handleReturn(){ try{ const p=new URLSearchParams(location.search); const sid=p.get('gverify'); if(sid){ const u=await currentUser(); cleanParam('gverify'); if(u){ const r=await window.TuzuCloud.verify(sid); if(typeof window.tuzuPurchaseDone==='function') window.tuzuPurchaseDone(r); } } if(p.get('gcancel')){ cleanParam('gcancel'); if(typeof window.tuzuPurchaseDone==='function') window.tuzuPurchaseDone({cancelled:true}); } }catch(e){ console.warn('return',e); } }
 if(supa){ supa.auth.onAuthStateChange(async (ev,session)=>{ const u=session&&session.user; notify(u||null); if(u) await pull(); });
-  (async()=>{ const u=await currentUser(); notify(u||null); if(u) await pull(); })(); }
+  (async()=>{ const u=await currentUser(); notify(u||null); await handleReturn(); if(u) await pull(); })(); }
 else notify(null);
 </script>
 </html>
