@@ -182,7 +182,7 @@ const cityGroup=new THREE.Group();scene.add(cityGroup);
 let lockMesh={};const lockMat=new THREE.MeshBasicMaterial({color:0x101018,transparent:true,opacity:0.4});
 const hl=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.98,CELL*0.98),new THREE.MeshBasicMaterial({color:0x7fffb0,transparent:true,opacity:0.42}));hl.rotation.x=-Math.PI/2;hl.position.y=0.05;hl.visible=false;cityGroup.add(hl);
 // griglia fine visibile (quadratini)
-const fineGrid=new THREE.GridHelper(GRID*CELL,GRID,0xffffff,0xffffff);fineGrid.position.y=0.028;fineGrid.material.transparent=true;fineGrid.material.opacity=0.28;fineGrid.material.depthWrite=false;cityGroup.add(fineGrid);
+const fineGrid=new THREE.GridHelper(GRID*CELL,GRID,0x2d3f1c,0x2d3f1c);fineGrid.position.y=0.028;fineGrid.material.transparent=true;fineGrid.material.opacity=0.33;fineGrid.material.depthWrite=false;cityGroup.add(fineGrid);
 // sentiero di terra vero (texture marrone con granuli)
 function makeDirt(base){const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle=base;g.fillRect(0,0,64,64);for(let i=0;i<800;i++){const x=Math.random()*64,y=Math.random()*64,r=Math.random()*1.8+0.3;g.fillStyle=Math.random()<0.5?'rgba(80,58,28,0.3)':'rgba(240,224,184,0.3)';g.beginPath();g.arc(x,y,r,0,6.283);g.fill();}const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,2);t.anisotropy=4;t.encoding=THREE.sRGBEncoding;return t;}
 const roadEdge=new THREE.MeshBasicMaterial({map:makeDirt('#9c7a4c')});
@@ -522,11 +522,14 @@ function setZoom(v){VZ=Math.max(4,Math.min(15,v));resize();}
 canvas.addEventListener('pointerdown',ev=>{canvas.setPointerCapture(ev.pointerId);pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
   if(pointers.size===1){dragStart=mode==='city'?groundPt(ev.clientX,ev.clientY):null;moved=false;downXY={x:ev.clientX,y:ev.clientY};}
   if(pointers.size===2){const p=[...pointers.values()];pinchD=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);dragStart=null;}});
-canvas.addEventListener('pointermove',ev=>{if(!pointers.has(ev.pointerId))return;pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+function hoverPreview(px,py){const c=cellAt(px,py);if(!c){hl.visible=false;return;}const def=cat==='edifici'?BUILD[selKey]:cat==='monumenti'?MON[selKey]:DECO[selKey];const [w,h]=fpSize(def);const [ax,ay]=fpAnchor(c.cx,c.cy,w,h);const [wx,wz]=fpCenter(ax,ay,w,h);hl.position.set(wx,.06,wz);hl.scale.set(w,h,1);hl.visible=true;hl.material.color.set(canPlace(ax,ay,w,h)?0x7fffb0:0xff6b6b);}
+canvas.addEventListener('pointermove',ev=>{
+  if(pointers.size===0){if(mode==='city'&&selKey)hoverPreview(ev.clientX,ev.clientY);else hl.visible=false;return;}
+  if(!pointers.has(ev.pointerId))return;pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
   if(pointers.size===2){const p=[...pointers.values()];const nd=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);if(pinchD)setZoom(VZ*pinchD/nd);pinchD=nd;return;}
   if(pointers.size===1){if(downXY&&Math.hypot(ev.clientX-downXY.x,ev.clientY-downXY.y)>9)moved=true;
     if(mode==='city'&&moved&&dragStart){const cur=groundPt(ev.clientX,ev.clientY);if(cur){camTarget.x+=dragStart.x-cur.x;camTarget.z+=dragStart.z-cur.z;camTarget.x=Math.max(-55,Math.min(55,camTarget.x));camTarget.z=Math.max(-55,Math.min(55,camTarget.z));updateCam();}}
-    else if(mode==='city'&&selKey&&!moved){const c=cellAt(ev.clientX,ev.clientY);if(c){const def=cat==='edifici'?BUILD[selKey]:cat==='monumenti'?MON[selKey]:DECO[selKey];const [w,h]=fpSize(def);const [ax,ay]=fpAnchor(c.cx,c.cy,w,h);const [wx,wz]=fpCenter(ax,ay,w,h);hl.position.set(wx,.06,wz);hl.scale.set(w,h,1);hl.visible=true;hl.material.color.set(canPlace(ax,ay,w,h)?0x7fffb0:0xff6b6b);}}}});
+    else if(mode==='city'&&selKey&&!moved)hoverPreview(ev.clientX,ev.clientY);}});
 function endPtr(ev){const was=pointers.size;pointers.delete(ev.pointerId);
   if(was===1&&!moved){if(mode==='city'){const c=cellAt(ev.clientX,ev.clientY);if(c)tryPlace(c.cx,c.cy);}else if(mode==='battle')battleTapXY(ev.clientX,ev.clientY);}
   if(pointers.size<2)pinchD=0;if(pointers.size===0){dragStart=null;moved=false;downXY=null;}}
