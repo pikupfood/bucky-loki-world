@@ -175,7 +175,13 @@ sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.near=1;sun.shadow.camera.far
 // ciclo giorno/notte dolce
 const C_DAY=new THREE.Color(0x8fc3e6),C_NIGHT=new THREE.Color(0x44568a),C_DUSK=new THREE.Color(0xf0a96c);
 let dayTime=0.18;
-function updDayNight(dt){dayTime=(dayTime+dt/230)%1;const d=Math.sin(dayTime*Math.PI*2);const day=Math.max(0,Math.min(1,d*1.4+0.45));sun.intensity=0.9+day*1.25;renderer.toneMappingExposure=0.72+day*0.34;const col=C_NIGHT.clone().lerp(C_DAY,day);const dusk=Math.max(0,1-Math.abs(d)*3);col.lerp(C_DUSK,dusk*0.3);scene.background.copy(col);scene.fog.color.copy(col);}
+function updDayNight(dt){dayTime=(dayTime+dt/230)%1;const d=Math.sin(dayTime*Math.PI*2);const day=Math.max(0,Math.min(1,d*1.4+0.45));sun.intensity=0.9+day*1.25;renderer.toneMappingExposure=0.72+day*0.34;const col=C_NIGHT.clone().lerp(C_DAY,day);const dusk=Math.max(0,1-Math.abs(d)*3);col.lerp(C_DUSK,dusk*0.3);if(raining){col.lerp(new THREE.Color(0x5d6b7e),0.55);renderer.toneMappingExposure*=0.78;}scene.background.copy(col);scene.fog.color.copy(col);}
+// ===== meteo: pioggia (accelera le colture) =====
+let raining=false,rainTimer=130+Math.random()*120;const RN=700;
+const rainGeo=new THREE.BufferGeometry();{const p=new Float32Array(RN*3);for(let i=0;i<RN;i++){p[i*3]=(Math.random()-.5)*70;p[i*3+1]=Math.random()*22;p[i*3+2]=(Math.random()-.5)*70;}rainGeo.setAttribute('position',new THREE.BufferAttribute(p,3));}
+const rain=new THREE.Points(rainGeo,new THREE.PointsMaterial({color:0xd6ecff,size:0.2,transparent:true,opacity:0.75,depthWrite:false}));rain.visible=false;rain.frustumCulled=false;scene.add(rain);
+function updWeather(dt){rainTimer-=dt;if(rainTimer<=0){raining=!raining;rainTimer=raining?(16+Math.random()*22):(150+Math.random()*130);rain.visible=raining;toast(raining?'🌧️ Piove: le colture crescono più in fretta!':'☀️ È tornato il sole',raining?3500:2500);}
+  if(raining){const p=rainGeo.attributes.position;for(let i=0;i<RN;i++){p.array[i*3+1]-=dt*22;if(p.array[i*3+1]<0){p.array[i*3+1]=22;p.array[i*3]=camTarget.x+(Math.random()-.5)*60;p.array[i*3+2]=camTarget.z+(Math.random()-.5)*60;}}p.needsUpdate=true;}}
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);const a=w/h;camera.left=-VZ*a;camera.right=VZ*a;camera.top=VZ;camera.bottom=-VZ;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
 try{new THREE.RGBELoader().load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/equirectangular/royal_esplanade_1k.hdr',t=>{const p=new THREE.PMREMGenerator(renderer);p.compileEquirectangularShader();scene.environment=p.fromEquirectangular(t).texture;t.dispose();p.dispose();});}catch(e){}
@@ -747,7 +753,7 @@ function makeCrop(type,ready){const g=new THREE.Group();cropSoil(g);if(!ready){c
   g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
 function plantCrop(cx,cy,type,t0){const [wx,wz]=cw(cx,cy);const o=makeCrop(type,false);o.position.set(wx,0,wz);cityGroup.add(o);const cr={type,cx,cy,t:t0||0,ready:false,obj:o};const e={type:'crop',key:type,cx,cy,ax:cx,ay:cy,w:1,h:1,obj:o,ref:cr,ready:false};grid[key(cx,cy)]=e;cr.gridE=e;crops.push(cr);if(cr.t>=CROPS[type].grow)cropReady(cr);return cr;}
 function cropReady(cr){cr.ready=true;if(cr.gridE)cr.gridE.ready=true;cityGroup.remove(cr.obj);const [wx,wz]=cw(cr.cx,cr.cy);const o=makeCrop(cr.type,true);o.position.set(wx,0,wz);cityGroup.add(o);cr.obj=o;if(cr.gridE)cr.gridE.obj=o;const cv=document.createElement('canvas');cv.width=cv.height=48;const g=cv.getContext('2d');g.font='34px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('✅',24,26);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),depthTest:false,transparent:true}));sp.scale.set(0.5,0.5,1);sp.position.set(wx,0.9,wz);sp.renderOrder=1200;cityGroup.add(sp);cr.badge=sp;}
-function growCrops(dt){crops.forEach(cr=>{if(cr.ready)return;cr.t+=dt;if(cr.t>=CROPS[cr.type].grow)cropReady(cr);});}
+function growCrops(dt){const mul=raining?2:1;crops.forEach(cr=>{if(cr.ready)return;cr.t+=dt*mul;if(cr.t>=CROPS[cr.type].grow)cropReady(cr);});}
 function removeCrop(cr){cityGroup.remove(cr.obj);if(cr.badge)cityGroup.remove(cr.badge);delete grid[key(cr.cx,cr.cy)];const i=crops.indexOf(cr);if(i>=0)crops.splice(i,1);}
 function commandHarvest(a,occ){if(a.kind==='milite'){toast('Manda un abitante a raccogliere 🧍');return;}const t=adjWalk(occ.cx,occ.cy,1,1);if(t&&startWalk(a,t[0],t[1],'harvest')){a.harvest=occ.ref;toast('🧺 Vado a raccogliere il '+CROPS[occ.key].nome+'!',3000);}else toast('Non riesco ad arrivarci');}
 function pickAgent(px,py){const r=canvas.getBoundingClientRect();ndc.x=((px-r.left)/r.width)*2-1;ndc.y=-((py-r.top)/r.height)*2+1;ray.setFromCamera(ndc,camera);let best=null,bd=1e9;for(const a of agents){if(!a.obj.children.length)continue;const h=ray.intersectObject(a.obj,true);if(h.length&&h[0].distance<bd){bd=h[0].distance;best=a;}}return best;}
@@ -934,6 +940,7 @@ function closeDyn(){const d=document.getElementById('dyn');if(d)d.remove();}
 let last=performance.now(),saveT=0,missT=0,started=false;
 function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000,.1);last=now;
   if(started)updDayNight(dt);
+  if(started)updWeather(dt);
   if(started&&mode==='city'){produce(dt);feedPop(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updFloaters(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
