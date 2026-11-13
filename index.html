@@ -775,9 +775,12 @@ function makeHill(s){const g=new THREE.Group();const d=new THREE.Mesh(new THREE.
 function placeHills(){/* montagne rimosse su richiesta del titolare */}
 // laghi/acqua (oltre la vegetazione): si pesca dopo aver aperto un passaggio
 let lakes=[], lakeCenters=[];
-const waterDeep=new THREE.MeshBasicMaterial({color:0x2f78bf,side:THREE.DoubleSide});
-const waterMid=new THREE.MeshBasicMaterial({color:0x4296da,side:THREE.DoubleSide});
-const shoreMat=new THREE.MeshBasicMaterial({color:0xc2d8ac,side:THREE.DoubleSide});
+// acqua realistica: riflette l'HDR (metalness) e ha increspature animate (normalMap che scorre)
+const waterNrm=tl.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/waternormals.jpg');
+waterNrm.wrapS=waterNrm.wrapT=THREE.RepeatWrapping;waterNrm.repeat.set(5,5);
+const waterDeep=new THREE.MeshStandardMaterial({color:0x16466a,roughness:0.22,metalness:0.18,transparent:true,opacity:0.97,normalMap:waterNrm,normalScale:new THREE.Vector2(0.5,0.5),envMapIntensity:0.8,side:THREE.DoubleSide});
+const waterMid=new THREE.MeshStandardMaterial({color:0x2470a0,roughness:0.28,metalness:0.15,transparent:true,opacity:0.93,normalMap:waterNrm,normalScale:new THREE.Vector2(0.45,0.45),envMapIntensity:0.8,side:THREE.DoubleSide});
+const shoreMat=new THREE.MeshStandardMaterial({color:0xcfbc8e,roughness:1,metalness:0,side:THREE.DoubleSide});
 function markWater(cx,cy){if(!inB(cx,cy)||grid[key(cx,cy)])return;grid[key(cx,cy)]={type:'water',ax:cx,ay:cy,w:1,h:1,cx,cy};lakes.push({cx,cy});}
 function disc(mat,R,y,rot){const m=new THREE.Mesh(new THREE.CircleGeometry(R,24),mat);m.rotation.x=-Math.PI/2;m.rotation.z=rot||0;m.position.y=y;m.renderOrder=28;return m;}
 // ===== barche, navi e porticcioli =====
@@ -790,30 +793,30 @@ function addLake(cx,cy,r){lakeCenters.push({cx,cy,r});
   const [wx,wz]=cw(cx,cy);const R=r*CELL;const g=new THREE.Group();g.position.set(wx,0,wz);
   // forma irregolare, diversa per ogni lago (niente cerchi tutti uguali)
   const sx=1.0+Math.random()*0.55, sz=0.58+Math.random()*0.4, rot0=Math.random()*3;
-  const sh=disc(shoreMat,R*1.32,0.03,rot0);sh.scale.set(sx*1.06,1,sz*1.06);g.add(sh);
-  const w1=disc(waterMid,R*1.08,0.05,rot0+0.2);w1.scale.set(sx,1,sz);g.add(w1);
-  const w2=disc(waterDeep,R*0.66,0.065,rot0-0.3);w2.scale.set(sx*0.95,1,sz*0.95);w2.position.set(R*(Math.random()-.4)*0.3,0.065,R*(Math.random()-.5)*0.3);g.add(w2);
+  const sh=disc(shoreMat,R*1.16,0.03,rot0);sh.scale.set(sx*1.05,1,sz*1.05);g.add(sh);
+  const w1=disc(waterMid,R*1.05,0.05,rot0+0.2);w1.scale.set(sx,1,sz);g.add(w1);
+  const w2=disc(waterDeep,R*0.72,0.065,rot0-0.3);w2.scale.set(sx*0.95,1,sz*0.95);w2.position.set(R*(Math.random()-.4)*0.3,0.065,R*(Math.random()-.5)*0.3);g.add(w2);
   // 1-2 insenature/lobi: rompono il profilo e variano la dimensione
   const lobes=1+Math.floor(Math.random()*2);for(let i=0;i<lobes;i++){const a=Math.random()*6.28,d=R*(0.7+Math.random()*0.5),lr=R*(0.4+Math.random()*0.45),lx=Math.cos(a)*d,lz=Math.sin(a)*d;const ls=disc(shoreMat,lr*1.3,0.032,Math.random()*3);ls.position.set(lx,0.032,lz);g.add(ls);const lw=disc(waterMid,lr*1.05,0.052,Math.random()*3);lw.position.set(lx,0.052,lz);g.add(lw);}
   cityGroup.add(g);}
 function placeLakes(){addLake(HALF-13,HALF+13,2+Math.floor(Math.random()*3));addLake(HALF+14,HALF-12,2+Math.floor(Math.random()*2));addLake(HALF+13,HALF+14,2+Math.floor(Math.random()*3));}
 // fiume a larghezza VARIABILE (si allarga e si stringe), costruito come nastro piatto seguendo la curva
 function riverRibbon(pts,baseW,wob,seed){const curve=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(p[0],0,p[1])));const N=140,S=[];for(let i=0;i<=N;i++)S.push(curve.getPoint(i/N));
-  const verts=[],idx=[];for(let i=0;i<=N;i++){const t=i/N,a=S[Math.max(0,i-1)],b=S[Math.min(N,i+1)];let tx=b.x-a.x,tz=b.z-a.z;const tl=Math.hypot(tx,tz)||1;const px=-tz/tl,pz=tx/tl;
+  const verts=[],idx=[],uvs=[];for(let i=0;i<=N;i++){const t=i/N,a=S[Math.max(0,i-1)],b=S[Math.min(N,i+1)];let tx=b.x-a.x,tz=b.z-a.z;const tl=Math.hypot(tx,tz)||1;const px=-tz/tl,pz=tx/tl;
     const noise=0.58+0.3*Math.sin(t*Math.PI*wob+seed)+0.15*Math.sin(t*Math.PI*wob*2.3+seed*1.7);const w=baseW*Math.max(0.38,noise);const c=S[i];
-    verts.push(c.x+px*w,0,c.z+pz*w);verts.push(c.x-px*w,0,c.z-pz*w);}
+    verts.push(c.x+px*w,0,c.z+pz*w);verts.push(c.x-px*w,0,c.z-pz*w);uvs.push(0,t*N*0.12, 1,t*N*0.12);}
   for(let i=0;i<N;i++){const o=i*2;idx.push(o,o+1,o+2,o+1,o+3,o+2);}
-  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geo.setIndex(idx);geo.computeVertexNormals();return geo;}
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));geo.setIndex(idx);geo.computeVertexNormals();return geo;}
 function addRiver(pts){const seed=Math.random()*6.28;
-  const mb=new THREE.Mesh(riverRibbon(pts,CELL*2.1,3+Math.random()*2,seed),shoreMat);mb.position.y=0.04;mb.renderOrder=27;cityGroup.add(mb);
-  const m1=new THREE.Mesh(riverRibbon(pts,CELL*1.5,3.5+Math.random()*2,seed+1),waterMid);m1.position.y=0.05;m1.renderOrder=28;cityGroup.add(m1);
-  const m2=new THREE.Mesh(riverRibbon(pts,CELL*0.8,4+Math.random()*2,seed+2),waterDeep);m2.position.y=0.06;m2.renderOrder=29;cityGroup.add(m2);}
+  const mb=new THREE.Mesh(riverRibbon(pts,CELL*1.75,3+Math.random()*2,seed),shoreMat);mb.position.y=0.04;mb.renderOrder=27;cityGroup.add(mb);
+  const m1=new THREE.Mesh(riverRibbon(pts,CELL*1.45,3.5+Math.random()*2,seed+1),waterMid);m1.position.y=0.05;m1.renderOrder=28;cityGroup.add(m1);
+  const m2=new THREE.Mesh(riverRibbon(pts,CELL*0.85,4+Math.random()*2,seed+2),waterDeep);m2.position.y=0.06;m2.renderOrder=29;cityGroup.add(m2);}
 // grande lago (sfocio dei fiumi), solo visivo, fuori dall'area giocabile
 let bigLakes=[];
 function addBigLake(wx,wz,R){const g=new THREE.Group();g.position.set(wx,0,wz);const sx=1.0+Math.random()*0.4,sz=0.78+Math.random()*0.3,rot=Math.random()*3;
-  const sh=disc(shoreMat,R*1.28,0.03,rot);sh.scale.set(sx*1.05,1,sz*1.05);g.add(sh);
-  const w1=disc(waterMid,R*1.06,0.05,rot+0.2);w1.scale.set(sx,1,sz);g.add(w1);
-  const w2=disc(waterDeep,R*0.72,0.066,rot-0.2);w2.scale.set(sx*0.95,1,sz*0.95);g.add(w2);
+  const sh=disc(shoreMat,R*1.14,0.03,rot);sh.scale.set(sx*1.04,1,sz*1.04);g.add(sh);
+  const w1=disc(waterMid,R*1.04,0.05,rot+0.2);w1.scale.set(sx,1,sz);g.add(w1);
+  const w2=disc(waterDeep,R*0.74,0.066,rot-0.2);w2.scale.set(sx*0.95,1,sz*0.95);g.add(w2);
   for(let i=0;i<2;i++){const a=Math.random()*6.28,d=R*(0.7+Math.random()*0.4),lr=R*(0.45+Math.random()*0.35),lx=Math.cos(a)*d,lz=Math.sin(a)*d;const ls=disc(shoreMat,lr*1.25,0.032,Math.random()*3);ls.position.set(lx,0.032,lz);g.add(ls);const lw=disc(waterMid,lr,0.052,Math.random()*3);lw.position.set(lx,0.052,lz);g.add(lw);}
   cityGroup.add(g);const L={wx,wz,R};bigLakes.push(L);return L;}
 // laghetto collegato a un fiume da un canale
@@ -1427,6 +1430,7 @@ function closeDyn(){let d;while(d=document.getElementById('dyn'))d.remove();}
 // ===== loop =====
 let last=performance.now(),saveT=0,missT=0,started=false;
 function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000,.1);last=now;
+  if(waterNrm){waterNrm.offset.x=(waterNrm.offset.x+dt*0.013)%1;waterNrm.offset.y=(waterNrm.offset.y+dt*0.009)%1;}
   if(started)updDayNight(dt);
   if(started)updWeather(dt);
   if(started)updSeason(dt);
