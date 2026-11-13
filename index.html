@@ -181,7 +181,7 @@ const canvas=document.getElementById('c');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
-const scene=new THREE.Scene();const SKY=0x8fc3e6;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,58,135);
+const scene=new THREE.Scene();const SKY=0x8fc3e6;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,60,150);
 let VZ=8.5;const camera=new THREE.OrthographicCamera(-VZ,VZ,VZ,-VZ,0.1,260);
 const camTarget={x:0,z:0};const CAMK=24;
 function updateCam(){camera.position.set(camTarget.x+CAMK,CAMK*1.18,camTarget.z+CAMK);camera.lookAt(camTarget.x,0,camTarget.z);}
@@ -222,7 +222,9 @@ const GRID=65, CELL=0.5, HALF=(GRID-1)/2, PAR=7;
 const tl=new THREE.TextureLoader();
 const grass=tl.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/terrain/grasslight-big.jpg');
 grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(18,18);grass.encoding=THREE.sRGBEncoding;grass.anisotropy=4;
-const ground=new THREE.Mesh(new THREE.CircleGeometry(80,56),new THREE.MeshStandardMaterial({map:grass,color:0x9cbf7e,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+const ground=new THREE.Mesh(new THREE.CircleGeometry(175,80),new THREE.MeshStandardMaterial({map:grass,color:0x9cbf7e,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+// anello di terra più scura all'orizzonte (si dissolve nella foschia, niente bordo netto)
+const groundRim=new THREE.Mesh(new THREE.RingGeometry(60,175,80,1),new THREE.MeshStandardMaterial({color:0x7a9c63,roughness:1}));groundRim.rotation.x=-Math.PI/2;groundRim.position.y=-0.02;scene.add(groundRim);
 function cw(cx,cy){return [(cx-HALF)*CELL,(cy-HALF)*CELL];}
 const cityGroup=new THREE.Group();scene.add(cityGroup);
 let lockMesh={};const lockMat=new THREE.MeshBasicMaterial({color:0x101018,transparent:true,opacity:0.4});
@@ -731,7 +733,7 @@ function fellTree(tr){if(!tr)return;const e=grid[key(tr.cx,tr.cy)];if(e&&e.type=
 function commandChop(a,tree){if(a.kind==='milite'){toast('I soldati non tagliano legna: scegli un abitante 🧍');return;}const t=adjWalk(tree.cx,tree.cy,1,1);if(t&&startWalk(a,t[0],t[1],'chopcmd')){a.tree=tree;a.chopWild=!!tree.wild;toast(tree.wild?'🪓 Vado a disboscare: ci vuole del tempo (~6 ore), poi guadagni legna e recuperi terreno':'🪓 Vado a tagliare la legna!',3600);}else toast('Non riesco ad arrivare a quell’albero');}
 // vegetazione selvatica intorno al villaggio (si taglia per recuperare terreno)
 // bosco selvatico con INSTANCING: 350+ alberi = poche draw call (fluido su telefono)
-let forestA=null,forestB=null,forestNA=0,forestNB=0;const FOREST_MAX=1500;const _zeroM=new THREE.Matrix4().makeScale(0,0,0);
+let forestA=null,forestB=null,forestNA=0,forestNB=0;const FOREST_MAX=2600;const _zeroM=new THREE.Matrix4().makeScale(0,0,0);
 function extractTreeGeo(name){const tpl=templates[name];if(!tpl)return null;tpl.updateWorldMatrix(true,true);let geo=null,mat=null;tpl.traverse(m=>{if(m.isMesh&&!geo){geo=m.geometry.clone();geo.applyMatrix4(m.matrixWorld);mat=m.material;}});if(geo){geo.computeBoundingBox();geo.translate(0,-geo.boundingBox.min.y,0);}return geo?{geo,mat}:null;}
 function initForest(){if(forestA)return;const a=extractTreeGeo('tree_single_A'),b=extractTreeGeo('tree_single_B')||a;if(!a)return;forestA=new THREE.InstancedMesh(a.geo,a.mat,FOREST_MAX);forestB=new THREE.InstancedMesh(b.geo,b.mat,FOREST_MAX);[forestA,forestB].forEach(im=>{im.count=0;im.castShadow=true;im.receiveShadow=true;im.frustumCulled=false;cityGroup.add(im);});forestNA=forestNB=0;}
 function hideInstance(t){const im=t.variant?forestB:forestA;if(im&&t.inst!=null){im.setMatrixAt(t.inst,_zeroM);im.instanceMatrix.needsUpdate=true;}}
@@ -740,7 +742,9 @@ function placeWildVegetation(){for(let x=3;x<GRID-3;x++)for(let y=3;y<GRID-3;y++
 // alberi decorativi (istanziati) sparsi su tutta la mappa, qua e là
 function addDecoTree(wx,wz){if(!forestA)initForest();if(!forestA)return;const variant=Math.random()<.5?0:1;const im=variant?forestB:forestA;const n=variant?forestNB:forestNA;if(n>=FOREST_MAX)return;const s=0.8+Math.random()*0.5;const mtx=new THREE.Matrix4().compose(new THREE.Vector3(wx,0,wz),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.random()*6.28,0)),new THREE.Vector3(s,s,s));im.setMatrixAt(n,mtx);im.count=n+1;im.instanceMatrix.needsUpdate=true;if(variant)forestNB++;else forestNA++;}
 let scatterDone=false;
-function placeScatterForests(){if(scatterDone)return;scatterDone=true;const nbPos=[[-30,4],[30,-5],[5,30]];let placed=0;for(let c=0;c<40&&placed<340;c++){const ang=Math.random()*6.28,rad=17+Math.random()*34;const cx=Math.cos(ang)*rad,cz=Math.sin(ang)*rad;if(nbPos.some(p=>Math.hypot(cx-p[0],cz-p[1])<9))continue;const n=3+Math.floor(Math.random()*7);for(let i=0;i<n&&placed<340;i++){addDecoTree(cx+(Math.random()-.5)*5,cz+(Math.random()-.5)*5);placed++;}}}
+function placeScatterForests(){if(scatterDone)return;scatterDone=true;const nbPos=[[-30,4],[30,-5],[5,30]];let placed=0;for(let c=0;c<40&&placed<340;c++){const ang=Math.random()*6.28,rad=17+Math.random()*34;const cx=Math.cos(ang)*rad,cz=Math.sin(ang)*rad;if(nbPos.some(p=>Math.hypot(cx-p[0],cz-p[1])<9))continue;const n=3+Math.floor(Math.random()*7);for(let i=0;i<n&&placed<340;i++){addDecoTree(cx+(Math.random()-.5)*5,cz+(Math.random()-.5)*5);placed++;}}
+  // fascia di bosco all'orizzonte: la terra sfuma fra gli alberi e la foschia, niente taglio netto verde→blu
+  let far=0;for(let c=0;c<120&&far<480;c++){const ang=Math.random()*6.28,rad=56+Math.random()*58;const cx=Math.cos(ang)*rad,cz=Math.sin(ang)*rad;const n=4+Math.floor(Math.random()*6);for(let i=0;i<n&&far<480;i++){addDecoTree(cx+(Math.random()-.5)*7,cz+(Math.random()-.5)*7);far++;}}}
 // colline/montagnette lontane (decoro fisso, fuori dall'area giocabile)
 let hillsPlaced=false;
 const ROCK_LO=new THREE.MeshStandardMaterial({color:0x565961,roughness:1,flatShading:true,envMapIntensity:0.14});
@@ -784,7 +788,12 @@ function addRiver(pts){const curve=new THREE.CatmullRomCurve3(pts.map(p=>new THR
   const g1=new THREE.TubeGeometry(curve,70,CELL*1.05,8,false);const m1=new THREE.Mesh(g1,waterMid);m1.scale.y=0.04;m1.position.y=0.05;m1.renderOrder=28;cityGroup.add(m1);
   const g2=new THREE.TubeGeometry(curve,70,CELL*0.55,8,false);const m2=new THREE.Mesh(g2,waterDeep);m2.scale.y=0.04;m2.position.y=0.065;m2.renderOrder=29;cityGroup.add(m2);}
 let riversPlaced=false;
-function placeRivers(){if(riversPlaced)return;riversPlaced=true;addRiver([[-32,-18],[-26,-8],[-21,2],[-20,12],[-24,22],[-30,30]]);addRiver([[22,-30],[28,-18],[30,-6],[26,6],[20,16],[16,26]]);}
+function placeRivers(){if(riversPlaced)return;riversPlaced=true;
+  // i fiumi entrano da un bordo (nella foschia) ed escono dall'altro: scorrono nel corridoio fra la città (±16) e i vicini, senza passarci sopra
+  addRiver([[-20,-64],[-19,-42],[-20,-22],[-21,-4],[-23,14],[-25,32],[-27,52],[-29,66]]); // fiume ovest: nord→sud, fra città e Nefele
+  addRiver([[-64,46],[-34,42],[-10,40],[8,41],[26,43],[46,45],[66,48]]);                 // fiume sud: ovest→est, dietro Oros
+  addRiver([[64,-30],[42,-24],[24,-20],[18,-14],[19,0],[22,14],[21,34],[20,62]]);         // fiume est: scende oltre Chrysa fino a sud
+}
 function commandFish(a,wx,wy){if(a.kind==='milite'){toast('I soldati non pescano: scegli un abitante 🧍');return;}const t=adjWalk(wx,wy,1,1);if(t&&startWalk(a,t[0],t[1],'fish')){a.fishCell=[wx,wy];toast('🎣 Vado a pescare! (porterò 🌾 cibo)',3200);}else toast('Non riesco a raggiungere l’acqua: libera prima un passaggio tagliando la vegetazione');}
 function commandClear(a,cx,cy){if(a.kind==='milite'){toast('Manda un abitante ad aprire la strada 🧍');return;}const t=adjWalk(cx,cy,1,1);if(t&&startWalk(a,t[0],t[1],'clearcmd')){a.clearCell=[cx,cy];toast('🛣️ Vado ad aprire la strada (spiano il terreno)…',3200);}else toast('Non riesco ad arrivarci: apri prima le celle più vicine');}
 function commandGuard(a,cx,cy){if(!walkable(cx,cy)){const near=adjWalk(cx,cy,1,1);if(near){cx=near[0];cy=near[1];}}if(startWalk(a,cx,cy,'guard')){a.post=[cx,cy];toast(a.kind==='milite'?'🛡️ Vado a sorvegliare la posizione!':'🧍 Vado a presidiare il punto!');}else toast('Non riesco ad arrivare lì');}
@@ -922,9 +931,28 @@ const NB_TRADE={
   nefele:{sells:{r:'pietra',qty:16,gold:18},buys:{r:'legna',qty:25,gold:18}, gift:{r:'pietra',a:7}}
 };
 const ALLY_COST={oro:80,cibo:30};
-async function initNeighbors(){const spec=[{k:'nefele',x:-30,z:4,ax:HALF-12,ay:HALF+1},{k:'chrysa',x:30,z:-5,ax:HALF+12,ay:HALF-1},{k:'oros',x:5,z:30,ax:HALF+1,ay:HALF+12}];
+// bosco che circonda un vicino: lascia un varco verso la città (dove c'è la strada e il cartello)
+function nbForestRing(nb,count,rad,dense){const toCity=Math.atan2(-nb.g.position.x,-nb.g.position.z);let done=0,tries=0;
+  while(done<count&&tries<count*4){tries++;const a=Math.random()*6.28;const da=Math.atan2(Math.sin(a-toCity),Math.cos(a-toCity));if(Math.abs(da)<0.95)continue; // varco verso la città
+    const r=rad+(Math.random()-.5)*(dense?1.8:2.6);const t=makeConeTree(2.0+Math.random()*1.3);t.position.set(Math.sin(a)*r,0,Math.cos(a)*r);t.rotation.y=Math.random()*6.28;nb.g.add(t);done++;}}
+// cinta: palisade di legno o muro di pietra, con porta verso la città
+function nbRampart(nb,rad,stone){const toCity=Math.atan2(-nb.g.position.x,-nb.g.position.z);const N=stone?26:34;
+  const wood=new THREE.MeshStandardMaterial({color:0x6b4a28,roughness:1});const stoneM=new THREE.MeshStandardMaterial({color:0x8a8f99,roughness:1,flatShading:true});const cap=new THREE.MeshStandardMaterial({color:0x5a3c20,roughness:1});
+  for(let i=0;i<N;i++){const a=i/N*6.28;const da=Math.atan2(Math.sin(a-toCity),Math.cos(a-toCity));if(Math.abs(da)<0.8)continue; // porta
+    const x=Math.sin(a)*rad,z=Math.cos(a)*rad;let p;
+    if(stone){p=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.85,0.55),stoneM);p.position.set(x,0.42,z);if(i%3===0){const m=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.3,0.4),stoneM);m.position.set(x,0.95,z);nb.g.add(m);}}
+    else{p=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.13,1.2,6),wood);p.position.set(x,0.6,z);p.rotation.set((Math.random()-.5)*0.12,Math.random()*0.5,(Math.random()-.5)*0.12);const tip=new THREE.Mesh(new THREE.ConeGeometry(0.13,0.22,6),cap);tip.position.set(x,1.25,z);nb.g.add(tip);}
+    p.castShadow=true;nb.g.add(p);}}
+async function initNeighbors(){const spec=[
+    {k:'nefele',x:-30,z:4,ax:HALF-12,ay:HALF+1, build:[['castle',0,0],['home_A',-1,0],['home_B',1,0],['tower_B',0,1],['market',1,-1]], defense:'stone', ring:5.6, forest:10},
+    {k:'chrysa',x:30,z:-5,ax:HALF+12,ay:HALF-1, build:[['castle',0,0],['market',-1,0],['home_A',1,1],['blacksmith',-1,-1],['home_B',1,-1]], defense:'wood', ring:5.2, forest:14},
+    {k:'oros',x:5,z:30,ax:HALF+1,ay:HALF+12, build:[['castle',0,0],['home_A',-1,-1],['home_B',1,0],['church',0,1],['home_A',-1,1]], defense:'forest', ring:5.0, forest:26}];
   for(const s of spec){const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:6,mil:2,timer:40+Math.random()*30,agents:[],ax:s.ax,ay:s.ay,reached:!!reachedNb[s.k]};
-    await nbBuild(nb,'castle',0,0);await nbBuild(nb,'home_A',-1,0);await nbBuild(nb,'home_B',1,0);await nbBuild(nb,'market',0,-1);
+    for(const [f,cx,cz] of s.build)await nbBuild(nb,f,cx,cz);
+    // difesa: muro di pietra, palisade di legno, o fitto bosco
+    if(s.defense==='stone'){nbRampart(nb,s.ring,true);nbForestRing(nb,s.forest,s.ring+2.6,false);}
+    else if(s.defense==='wood'){nbRampart(nb,s.ring,false);nbForestRing(nb,s.forest,s.ring+2.4,false);}
+    else{nbForestRing(nb,s.forest,s.ring+0.3,true);nbForestRing(nb,Math.round(s.forest*0.6),s.ring+2.4,true);}
     // cartello indicatore all'imbocco della strada
     const sign=makeSign(SIGNCOL[col]||0x888888);const [sx,sz]=cw(s.ax,s.ay);sign.position.set(sx,0,sz);sign.rotation.y=Math.atan2(s.x-sx,s.z-sz);cityGroup.add(sign);nb.sign=sign;
     for(let i=0;i<3;i++)nbSpawn(nb);neighbors.push(nb);}}
