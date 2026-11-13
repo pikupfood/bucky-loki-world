@@ -172,6 +172,10 @@ updateCam();
 scene.add(new THREE.HemisphereLight(0xdceeff,0x5a5240,0.55));
 const sun=new THREE.DirectionalLight(0xfff1dc,2.0);sun.position.set(-16,30,12);sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.near=1;sun.shadow.camera.far=120;sun.shadow.camera.left=-34;sun.shadow.camera.right=34;sun.shadow.camera.top=34;sun.shadow.camera.bottom=-34;sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;scene.add(sun);
+// ciclo giorno/notte dolce
+const C_DAY=new THREE.Color(0x8fc3e6),C_NIGHT=new THREE.Color(0x44568a),C_DUSK=new THREE.Color(0xf0a96c);
+let dayTime=0.18;
+function updDayNight(dt){dayTime=(dayTime+dt/230)%1;const d=Math.sin(dayTime*Math.PI*2);const day=Math.max(0,Math.min(1,d*1.4+0.45));sun.intensity=0.9+day*1.25;renderer.toneMappingExposure=0.72+day*0.34;const col=C_NIGHT.clone().lerp(C_DAY,day);const dusk=Math.max(0,1-Math.abs(d)*3);col.lerp(C_DUSK,dusk*0.3);scene.background.copy(col);scene.fog.color.copy(col);}
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);const a=w/h;camera.left=-VZ*a;camera.right=VZ*a;camera.top=VZ;camera.bottom=-VZ;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
 try{new THREE.RGBELoader().load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/equirectangular/royal_esplanade_1k.hdr',t=>{const p=new THREE.PMREMGenerator(renderer);p.compileEquirectangularShader();scene.environment=p.fromEquirectangular(t).texture;t.dispose();p.dispose();});}catch(e){}
@@ -364,7 +368,7 @@ function placeCastle(){const [w,h]=FP['castle']||[6,6];const [ax,ay]=fpAnchor(HA
 
 // ===== HUD =====
 function fmt(n){return Math.floor(n);}
-function drawTop(){let h='';for(const k in RES)h+=`<div class="res"><span class="ico">${RES[k]}</span>${fmt(R[k])}</div>`;h+=`<div class="res"><span class="ico">👷</span>${popUsed()}/${operai}</div>`;h+=`<div class="res"><span class="ico">⚔️</span>${soldiers}</div>`;h+=`<div class="res"><span class="ico">😊</span>${Math.round(morale)}</div>`;document.getElementById('top').innerHTML=h;}
+function drawTop(){let h='';for(const k in RES){const warn=(k==='cibo'&&(hungry||R[k]<Math.max(8,operai)));h+=`<div class="res"${warn?' style="box-shadow:0 0 0 2px #e24b4a"':''}><span class="ico">${RES[k]}</span>${fmt(R[k])}${k==='cibo'&&hungry?' ⚠️':''}</div>`;}h+=`<div class="res"><span class="ico">👷</span>${popUsed()}/${operai}</div>`;h+=`<div class="res"><span class="ico">⚔️</span>${soldiers}</div>`;h+=`<div class="res"><span class="ico">😊</span>${Math.round(morale)}</div>`;document.getElementById('top').innerHTML=h;}
 function drawCats(){const c=document.getElementById('cats');const defs=[['edifici','🏠 Edifici'],['decora','🌳 Decora'],['campi','🌱 Campi'],['animali','🐑 Recinti'],['difesa','🛡️ Difesa'],['monumenti','⛲ Monumenti']];c.innerHTML=defs.map(d=>`<div class="cat${cat===d[0]?' on':''}" data-c="${d[0]}">${d[1]}</div>`).join('');c.querySelectorAll('.cat').forEach(el=>el.onclick=()=>{cat=el.dataset.c;selKey=null;drawCats();drawBuild();});}
 function monUnlocked(){return builtCount>=5||terreLiberate>=1;}
 function drawBuild(){const bar=document.getElementById('build');let src=cat==='edifici'?BUILD:cat==='decora'?DECO:cat==='animali'?PENS:cat==='campi'?CROPS:cat==='difesa'?DEF:MON;let h='';for(const k in src){const d=src[k];const lock=(cat==='monumenti'&&!monUnlocked());const co=(d.cost&&Object.keys(d.cost).length)?Object.entries(d.cost).map(([r,v])=>RES[r]+v).join(' '):(cat==='decora'||cat==='campi'?'gratis':'');const sz=fpSize(d);const szh=(cat==='edifici'||cat==='monumenti'||cat==='difesa')?`<div class="sz">▦ ${sz[0]}×${sz[1]}</div>`:(cat==='animali'?`<div class="sz">${sz[0]}×${sz[1]} · 🐑${d.cap}</div>`:cat==='campi'?`<div class="sz">${d.grow}s</div>`:'');h+=`<div class="bbtn${selKey===k?' sel':''}${lock?' lock':''}" data-k="${k}"><div class="em">${d.em}</div><div class="n">${d.nome}</div><div class="co">${lock?'🔒':co}</div>${szh}</div>`;}bar.innerHTML=h;bar.querySelectorAll('.bbtn').forEach(el=>el.onclick=()=>{if(el.classList.contains('lock')){toast('Si sblocca dopo 5 edifici o 1 terra liberata');return;}selKey=selKey===el.dataset.k?null:el.dataset.k;drawBuild();if(selKey){const dd=src[selKey];if(cat==='animali')toast(dd.nome+': tocca dove metterlo (ci entrano '+dd.cap+' animali)',3200);else if(cat==='campi')toast('Semina '+dd.nome+' '+dd.em+': tocca un quadratino libero (pronto fra '+dd.grow+'s)',3400);else if(cat==='decora')toast(dd.nome+': tocca dove metterlo',2600);else if(cat==='difesa')toast(dd.nome+' '+dd.em+': tocca le caselle per costruire (il muro si allinea da solo)',3200);else{const sz=fpSize(dd);toast(dd.nome+': occupa '+sz[0]+'×'+sz[1]+' quadratini ('+(sz[0]*sz[1])+') — tocca dove metterlo',3200);}}});}
@@ -378,11 +382,19 @@ document.getElementById('fab').onclick=()=>{drawer.classList.add('open');};
 document.getElementById('dclose').onclick=()=>{drawer.classList.remove('open');selKey=null;drawBuild();};
 
 // ===== guida Tuzu + missioni =====
+let cropsHarvested=0,fishedCount=0;
 const missions=[
  {id:'seg',txt:'Costruisci una Segheria',done:()=>buildings.some(b=>b.key==='segheria'),rew:{legna:40},got:false},
  {id:'fat',txt:'Costruisci una Fattoria',done:()=>buildings.some(b=>b.key==='fattoria'),rew:{cibo:40},got:false},
  {id:'cas',txt:'Arriva a 4 case',done:()=>buildings.filter(b=>b.key==='casa').length>=4,rew:{oro:40},got:false},
- {id:'mor',txt:'Porta il morale a 75',done:()=>morale>=75,rew:{oro:40},got:false},
+ {id:'pen',txt:'Costruisci un recinto 🐑',done:()=>pens.length>=1,rew:{legna:30},got:false},
+ {id:'ani',txt:'Alleva un animale 🐔',done:()=>animals.length>=1,rew:{cibo:30},got:false},
+ {id:'crop',txt:'Raccogli 3 coltivazioni 🌾',done:()=>cropsHarvested>=3,rew:{oro:40},got:false},
+ {id:'fish',txt:'Pesca al lago 🎣',done:()=>fishedCount>=1,rew:{cibo:35},got:false},
+ {id:'walk',txt:'Raggiungi un vicino a piedi 🚶',done:()=>Object.keys(reachedNb).length>=1,rew:{oro:50},got:false},
+ {id:'ally',txt:'Allèati con un vicino 🤝',done:()=>Object.keys(allied).length>=1,rew:{oro:60,ferro:10},got:false},
+ {id:'fort',txt:'Costruisci 8 difese (fortezza) 🛡️',done:()=>defenses.length>=8,rew:{pietra:40},got:false},
+ {id:'mor',txt:'Porta il morale a 80',done:()=>morale>=80,rew:{oro:40},got:false},
  {id:'ter',txt:'Libera 1 terra dall’Èrebo',done:()=>terreLiberate>=1,rew:{oro:60,ferro:10},got:false}
 ];
 function tip(){
@@ -654,9 +666,9 @@ function updAgents(dt){agents.forEach(a=>{const o=a.obj;
   if(a.state==='chop'){a.timer-=dt;a.bob+=dt*6;o.position.y=Math.abs(Math.sin(a.bob))*.03;if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=Math.sin(a.bob)*.05;if(a.timer<=0){R.legna+=2;if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=0;o.position.y=0;a.state='idle';a.timer=.4;}return;}
   if(a.state==='chopcmd'){a.timer-=dt;a.bob+=dt*7;o.position.y=Math.abs(Math.sin(a.bob))*.04;if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=Math.sin(a.bob)*.08;if(a.chopBar){const f=1-Math.max(0,a.timer)/(a.chopDur||1);a.chopBar.fg.scale.x=f;a.chopBar.fg.position.x=-.52*(1-f);a.chopBar.g.lookAt(camera.position.x,a.chopBar.g.position.y,camera.position.z);}if(a.timer<=0){if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=0;const wild=a.chopWild,tc=a.tree?[a.tree.cx,a.tree.cy]:null;const gain=wild?14:10;fellTree(a.tree);R.legna+=gain;floatText(o.position.x,o.position.z,wild?'🪵+'+gain+' 🟩':'🪵+'+gain);if(wild&&tc)reclaimCell(tc[0],tc[1]);if(a.chopBar){cityGroup.remove(a.chopBar.g);a.chopBar=null;}a.tree=null;a.chopWild=false;o.position.y=0;a.state='idle';a.timer=.4;drawTop();}return;}
   if(a.state==='guard'){a.bob+=dt;o.position.y=0;o.rotation.y+=dt*0.3;return;}
-  if(a.state==='fish'){a.timer-=dt;a.bob+=dt*3;o.position.y=Math.abs(Math.sin(a.bob))*.02;if(a.fishCell){const [fx,fz]=cw(a.fishCell[0],a.fishCell[1]);o.rotation.y=Math.atan2(fx-o.position.x,fz-o.position.z);}if(a.timer<=0){R.cibo+=4;floatText(o.position.x,o.position.z,'🐟+4');a.timer=6;drawTop();}return;}
+  if(a.state==='fish'){a.timer-=dt;a.bob+=dt*3;o.position.y=Math.abs(Math.sin(a.bob))*.02;if(a.fishCell){const [fx,fz]=cw(a.fishCell[0],a.fishCell[1]);o.rotation.y=Math.atan2(fx-o.position.x,fz-o.position.z);}if(a.timer<=0){R.cibo+=4;fishedCount++;floatText(o.position.x,o.position.z,'🐟+4');a.timer=6;drawTop();}return;}
   if(a.state==='clearcmd'){a.timer-=dt;a.bob+=dt*5;o.position.y=Math.abs(Math.sin(a.bob))*.03;if(a.clearBar){const f=1-Math.max(0,a.timer)/(a.clearDur||1);a.clearBar.fg.scale.x=f;a.clearBar.fg.position.x=-.52*(1-f);a.clearBar.g.lookAt(camera.position.x,a.clearBar.g.position.y,camera.position.z);}if(a.timer<=0){if(a.clearCell)reclaimCell(a.clearCell[0],a.clearCell[1]);floatText(o.position.x,o.position.z,'🟩 terreno');if(a.clearBar){cityGroup.remove(a.clearBar.g);a.clearBar=null;}a.clearCell=null;o.position.y=0;a.state='idle';a.timer=.4;save();}return;}
-  if(a.state==='harvest'){a.timer-=dt;a.bob+=dt*6;o.position.y=Math.abs(Math.sin(a.bob))*.03;if(a.timer<=0){const cr=a.harvest;if(cr&&crops.indexOf(cr)>=0){const y=CROPS[cr.type].yield;R[y.r]+=y.a;floatText(o.position.x,o.position.z,CROPS[cr.type].em+' '+RES[y.r]+'+'+y.a);removeCrop(cr);drawTop();save();}a.harvest=null;o.position.y=0;a.state='idle';a.timer=.4;}return;}
+  if(a.state==='harvest'){a.timer-=dt;a.bob+=dt*6;o.position.y=Math.abs(Math.sin(a.bob))*.03;if(a.timer<=0){const cr=a.harvest;if(cr&&crops.indexOf(cr)>=0){const y=CROPS[cr.type].yield;R[y.r]+=y.a;cropsHarvested++;floatText(o.position.x,o.position.z,CROPS[cr.type].em+' '+RES[y.r]+'+'+y.a);removeCrop(cr);drawTop();save();}a.harvest=null;o.position.y=0;a.state='idle';a.timer=.4;}return;}
   if(a.state==='walk'){
     if(!a.path||a.pi>=a.path.length){a.state=a.onArrive||'idle';if(a.state==='idle')a.timer=.6+Math.random()*1.4;else if(a.state==='chop')a.timer=1.6;else if(a.state==='fish')a.timer=4;else if(a.state==='harvest')a.timer=3;else if(a.state==='clearcmd'){a.clearDur=6;a.timer=6;if(a.clearCell){a.clearBar=mkBar3();const [cx,cy]=a.clearCell;const [wx,wz]=cw(cx,cy);a.clearBar.g.position.set(wx,1.2,wz);a.clearBar.g.scale.setScalar(0.8);cityGroup.add(a.clearBar.g);}}else if(a.state==='chopcmd'){a.chopDur=a.chopWild?14:4;a.timer=a.chopDur;if(a.tree){a.chopBar=mkBar3();const bp=a.tree.obj?[a.tree.obj.position.x,a.tree.obj.position.z]:cw(a.tree.cx,a.tree.cy);a.chopBar.g.position.set(bp[0],1.4,bp[1]);a.chopBar.g.scale.setScalar(0.8);cityGroup.add(a.chopBar.g);}}o.position.y=0;return;}
     const cell=a.path[a.pi];
@@ -803,6 +815,12 @@ function openNeighbor(k,replace){const nb=neighbors.find(n=>n.k===k);const p=POP
 
 // ===== produzione / addestra =====
 function produce(dt){const mul=moraleMul();buildings.forEach(b=>{if(!b.def.prod||!b.active)return;b.timer+=dt*mul;if(b.timer>=b.def.prod.t){b.timer=0;R[b.def.prod.r]+=b.def.prod.a;}});}
+// la popolazione consuma cibo: se manca cala il morale (campi/animali/pesca lo rimettono)
+let foodT=0,hungry=false,hungerWarnT=0;
+function feedPop(dt){hungerWarnT-=dt;foodT+=dt;if(foodT<6)return;foodT=0;const need=Math.max(1,Math.round(operai*0.7));
+  if(R.cibo>=need){R.cibo-=need;hungry=false;if(morale<100)morale=Math.min(100,morale+0.4);}
+  else{R.cibo=0;hungry=true;morale=Math.max(15,morale-2.5);if(hungerWarnT<=0){hungerWarnT=22;toast('⚠️ La popolazione ha fame! Coltiva 🌱, alleva 🐑 o pesca 🎣 per avere 🌾',4500);setBubble('C’è poco cibo! Semina nei Campi 🌱, alleva animali 🐑 o manda a pescare 🎣 per sfamare i Tuzu.');}}
+  drawTop();}
 let training=0;
 function trainSoldier(){if(!buildings.some(b=>b.key==='caserma')){toast('Serve una Caserma ⚔️');return;}if(training>0){toast('Addestramento in corso…');return;}const c={cibo:20,ferro:8};if(!afford(c)){toast('Servono 🌾20 ⚙️8');return;}pay(c);drawTop();training=6;toast('Addestro un soldato…');}
 function tickTrain(dt){if(training>0){training-=dt;if(training<=0){training=0;soldiers++;spawnAgent('milite');drawTop();save();toast('Soldato pronto! ⚔️ ('+soldiers+')');}}}
@@ -898,7 +916,8 @@ function closeDyn(){const d=document.getElementById('dyn');if(d)d.remove();}
 // ===== loop =====
 let last=performance.now(),saveT=0,missT=0,started=false;
 function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000,.1);last=now;
-  if(started&&mode==='city'){produce(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updFloaters(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
+  if(started)updDayNight(dt);
+  if(started&&mode==='city'){produce(dt);feedPop(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updFloaters(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
 requestAnimationFrame(tick);
