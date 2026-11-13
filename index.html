@@ -273,17 +273,17 @@ function setOpacity(o,v){o.traverse(m=>{if(m.isMesh&&m.material){m.material.tran
 const col='green';
 const BUILD={
   casa:    {nome:'Casa',    em:'🏠', file:'home_A',    cost:{legna:30},            time:14, pop:2, mor:1},
-  segheria:{nome:'Segheria',em:'🪵', file:'lumbermill',cost:{legna:28},            time:14, prod:{r:'legna',a:5,t:4},job:1},
-  fattoria:{nome:'Fattoria',em:'🌾', file:'windmill',  cost:{legna:30},            time:14, prod:{r:'cibo', a:5,t:4},job:1},
-  cava:    {nome:'Cava',    em:'🪨', file:'mine',      cost:{legna:40},            time:20, prod:{r:'pietra',a:3,t:5},job:1},
-  fonderia:{nome:'Fonderia',em:'⚙️', file:'blacksmith',cost:{legna:45,pietra:25},  time:26, prod:{r:'ferro',a:2,t:6},job:1},
+  segheria:{nome:'Segheria',em:'🪵', file:'lumbermill',cost:{legna:28},            time:14, prod:{r:'legna',a:9,t:16},job:1},
+  fattoria:{nome:'Fattoria',em:'🌾', file:'windmill',  cost:{legna:30},            time:14, prod:{r:'cibo', a:9,t:16},job:1},
+  cava:    {nome:'Cava',    em:'🪨', file:'mine',      cost:{legna:40},            time:20, prod:{r:'pietra',a:6,t:20},job:1},
+  fonderia:{nome:'Fonderia',em:'⚙️', file:'blacksmith',cost:{legna:45,pietra:25},  time:26, prod:{r:'ferro',a:4,t:24},job:1},
   mercato: {nome:'Mercato', em:'🪙', file:'market',    cost:{legna:45,pietra:20},  time:26, market:1},
-  mulino:  {nome:'Mulino',  em:'🍞', file:'watermill', cost:{legna:35,pietra:15},  time:22, chain:{inR:'cibo',inA:4,outR:'pane',outA:3,t:5},job:1},
-  taverna: {nome:'Taverna', em:'🍺', file:'tavern',    cost:{legna:45,pietra:20},  time:26, prod:{r:'oro',a:3,t:6},job:1, mor:5},
+  mulino:  {nome:'Mulino',  em:'🍞', file:'watermill', cost:{legna:35,pietra:15},  time:22, chain:{inR:'cibo',inA:6,outR:'pane',outA:5,t:20},job:1},
+  taverna: {nome:'Taverna', em:'🍺', file:'tavern',    cost:{legna:45,pietra:20},  time:26, prod:{r:'oro',a:6,t:26},job:1, mor:5},
   chiesa:  {nome:'Chiesa',  em:'⛪', file:'church',    cost:{legna:50,pietra:30},  time:28, mor:4},
   caserma: {nome:'Caserma', em:'⚔️', file:'barracks',  cost:{legna:55,pietra:35,ferro:10}, time:32, caserma:1},
   arcieri: {nome:'Arcieri', em:'🏹', file:'archeryrange',cost:{legna:50,pietra:30,ferro:12}, time:30, caserma:1},
-  armeria: {nome:'Armeria', em:'🗡️', file:'tower_catapult',cost:{legna:50,pietra:30,ferro:15}, time:30, chain:{inR:'ferro',inA:2,outR:'armi',outA:1,t:6},job:1}
+  armeria: {nome:'Armeria', em:'🗡️', file:'tower_catapult',cost:{legna:50,pietra:30,ferro:15}, time:30, chain:{inR:'ferro',inA:3,outR:'armi',outA:2,t:26},job:1}
 };
 const DECO={
   albero:  {nome:'Albero',  em:'🌳', files:['tree_single_A','tree_single_B'], mor:1},
@@ -319,11 +319,13 @@ const PENS={
   grande: {nome:'Recinto grande', em:'🏕️',w:6,h:4,cap:6,cost:{legna:52,pietra:12}}
 };
 // coltivazioni: un quadratino, crescono a tempo, poi un operaio raccoglie (cibo)
+// coltivazioni a TEMPO REALE: semini, torni dopo 1-2 ore e raccogli. Il campo resta e si ripianta da solo per 10 raccolti, poi si esaurisce.
 const CROPS={
-  grano:   {nome:'Grano',   em:'🌾',grow:35, yield:{r:'cibo',a:6},  cost:{}},
-  mais:    {nome:'Mais',    em:'🌽',grow:55, yield:{r:'cibo',a:10}, cost:{}},
-  pomodori:{nome:'Pomodori',em:'🍅',grow:80, yield:{r:'cibo',a:14}, cost:{}}
+  grano:   {nome:'Grano',   em:'🌾',grow:3600, yield:{r:'cibo',a:34},  cost:{}},   // ~1 ora
+  mais:    {nome:'Mais',    em:'🌽',grow:5400, yield:{r:'cibo',a:60}, cost:{}},     // ~1 ora e mezza
+  pomodori:{nome:'Pomodori',em:'🍅',grow:7200, yield:{r:'cibo',a:95}, cost:{}}      // ~2 ore
 };
+const MAX_HARVESTS=10;
 // difesa: mura, cancelli, torri per la città-fortezza
 const DEF={
   recinto: {nome:'Recinto', em:'🪵', file:'fence_wood_straight', cost:{legna:5}, fence:1, w:1,h:1, mor:0},
@@ -570,14 +572,14 @@ function tryPlace(cx,cy){
   if(occ){
     if(occ.type==='building')openBuilding(occ.ref);
     else if(occ.type==='pen')openPen(occ.pen);
-    else if(occ.type==='crop'){if(occ.ready)toast('✅ Pronto! Scegli un abitante e toccalo per raccoglierlo 🧺',3400);else toast('🌱 Sta crescendo… ('+CROPS[occ.key].nome+')',2600);}
+    else if(occ.type==='crop'){tapCrop(occ);}
     else if(occ.type==='tree'||occ.type==='deco'||occ.type==='road'||occ.type==='wall'||occ.type==='gate'||occ.type==='tower')openObj(occ);
     else if(occ.type==='site')toast('In costruzione…');
     return;
   }
   if(!selKey){toast('Apri 🔨 e scegli cosa mettere');return;}
   if(cat==='animali'){const d=PENS[selKey];const [w,h]=fpSize(d);const [ax,ay]=fpAnchor(cx,cy,w,h);if(!canPlace(ax,ay,w,h)){toast('Spazio occupato o non sbloccato');return;}if(!afford(d.cost)){toast('Risorse insufficienti');return;}pay(d.cost);const pen=placePen(ax,ay,w,h,selKey,true);drawTop();drawer.classList.remove('open');selKey=null;openPen(pen);return;}
-  if(cat==='campi'){const d=CROPS[selKey];if(!canPlace(cx,cy,1,1)){toast('Spazio occupato');return;}if(!afford(d.cost)){toast('Risorse insufficienti');return;}pay(d.cost);plantCrop(cx,cy,selKey);drawTop();save();toast('🌱 '+d.nome+' seminato! Pronto fra poco, poi manda un abitante a raccoglierlo',3600);return;}
+  if(cat==='campi'){const d=CROPS[selKey];if(!canPlace(cx,cy,1,1)){toast('Spazio occupato');return;}if(!afford(d.cost)){toast('Risorse insufficienti');return;}pay(d.cost);const ncr=plantCrop(cx,cy,selKey);drawTop();save();toast('🌱 '+d.nome+' seminato! Pronto fra '+fmtLeft(ncr.dur)+' — torna a raccoglierlo con un tocco. Il campo dà '+MAX_HARVESTS+' raccolti.',5200);return;}
   if(cat==='difesa'){const d=DEF[selKey];const [w,h]=fpSize(d);const [ax,ay]=fpAnchor(cx,cy,w,h);if(!canPlace(ax,ay,w,h)){toast('Spazio occupato');return;}if(!afford(d.cost)){toast('Risorse insufficienti');return;}pay(d.cost);placeDef(ax,ay,w,h,selKey,placeRot?placeRot*HALFPI:undefined);drawTop();save();return;}
   const def=cat==='edifici'?BUILD[selKey]:cat==='monumenti'?MON[selKey]:DECO[selKey];
   const [w,h]=fpSize(def);const [ax,ay]=fpAnchor(cx,cy,w,h);
@@ -770,23 +772,34 @@ function makeHill(s){const g=new THREE.Group();const d=new THREE.Mesh(new THREE.
 function placeHills(){/* montagne rimosse su richiesta del titolare */}
 // laghi/acqua (oltre la vegetazione): si pesca dopo aver aperto un passaggio
 let lakes=[], lakeCenters=[];
-const waterDeep=new THREE.MeshBasicMaterial({color:0x2f78bf});
-const waterMid=new THREE.MeshBasicMaterial({color:0x4296da});
-const shoreMat=new THREE.MeshBasicMaterial({color:0xc2d8ac});
+const waterDeep=new THREE.MeshBasicMaterial({color:0x2f78bf,side:THREE.DoubleSide});
+const waterMid=new THREE.MeshBasicMaterial({color:0x4296da,side:THREE.DoubleSide});
+const shoreMat=new THREE.MeshBasicMaterial({color:0xc2d8ac,side:THREE.DoubleSide});
 function markWater(cx,cy){if(!inB(cx,cy)||grid[key(cx,cy)])return;grid[key(cx,cy)]={type:'water',ax:cx,ay:cy,w:1,h:1,cx,cy};lakes.push({cx,cy});}
 function disc(mat,R,y,rot){const m=new THREE.Mesh(new THREE.CircleGeometry(R,24),mat);m.rotation.x=-Math.PI/2;m.rotation.z=rot||0;m.position.y=y;m.renderOrder=28;return m;}
 function addLake(cx,cy,r){lakeCenters.push({cx,cy,r});
   for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++){if(dx*dx+dy*dy<=r*r+0.4){const x=cx+dx,y=cy+dy;if(inB(x,y)&&!unlockedCell(x,y))markWater(x,y);}}
   const [wx,wz]=cw(cx,cy);const R=r*CELL;const g=new THREE.Group();g.position.set(wx,0,wz);
-  const sh=disc(shoreMat,R*1.3,0.03,Math.random()*3);sh.scale.set(1.18,1,0.82);g.add(sh);
-  const w1=disc(waterMid,R*1.08,0.05,Math.random()*3);w1.scale.set(1.14,1,0.8);g.add(w1);
-  const w2=disc(waterDeep,R*0.7,0.06,Math.random()*3);w2.scale.set(1.1,1,0.78);w2.position.set(R*0.1,0.06,-R*0.05);g.add(w2);
+  // forma irregolare, diversa per ogni lago (niente cerchi tutti uguali)
+  const sx=1.0+Math.random()*0.55, sz=0.58+Math.random()*0.4, rot0=Math.random()*3;
+  const sh=disc(shoreMat,R*1.32,0.03,rot0);sh.scale.set(sx*1.06,1,sz*1.06);g.add(sh);
+  const w1=disc(waterMid,R*1.08,0.05,rot0+0.2);w1.scale.set(sx,1,sz);g.add(w1);
+  const w2=disc(waterDeep,R*0.66,0.065,rot0-0.3);w2.scale.set(sx*0.95,1,sz*0.95);w2.position.set(R*(Math.random()-.4)*0.3,0.065,R*(Math.random()-.5)*0.3);g.add(w2);
+  // 1-2 insenature/lobi: rompono il profilo e variano la dimensione
+  const lobes=1+Math.floor(Math.random()*2);for(let i=0;i<lobes;i++){const a=Math.random()*6.28,d=R*(0.7+Math.random()*0.5),lr=R*(0.4+Math.random()*0.45),lx=Math.cos(a)*d,lz=Math.sin(a)*d;const ls=disc(shoreMat,lr*1.3,0.032,Math.random()*3);ls.position.set(lx,0.032,lz);g.add(ls);const lw=disc(waterMid,lr*1.05,0.052,Math.random()*3);lw.position.set(lx,0.052,lz);g.add(lw);}
   cityGroup.add(g);}
-function placeLakes(){[[HALF-13,HALF+13,3],[HALF+14,HALF-12,2],[HALF+13,HALF+14,2]].forEach(([cx,cy,r])=>addLake(cx,cy,r));}
-function addRiver(pts){const curve=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(p[0],0.05,p[1])));
-  const gb=new THREE.TubeGeometry(curve,70,CELL*1.5,8,false);const mb=new THREE.Mesh(gb,shoreMat);mb.scale.y=0.03;mb.position.y=0.038;mb.renderOrder=27;cityGroup.add(mb);
-  const g1=new THREE.TubeGeometry(curve,70,CELL*1.05,8,false);const m1=new THREE.Mesh(g1,waterMid);m1.scale.y=0.04;m1.position.y=0.05;m1.renderOrder=28;cityGroup.add(m1);
-  const g2=new THREE.TubeGeometry(curve,70,CELL*0.55,8,false);const m2=new THREE.Mesh(g2,waterDeep);m2.scale.y=0.04;m2.position.y=0.065;m2.renderOrder=29;cityGroup.add(m2);}
+function placeLakes(){addLake(HALF-13,HALF+13,2+Math.floor(Math.random()*3));addLake(HALF+14,HALF-12,2+Math.floor(Math.random()*2));addLake(HALF+13,HALF+14,2+Math.floor(Math.random()*3));}
+// fiume a larghezza VARIABILE (si allarga e si stringe), costruito come nastro piatto seguendo la curva
+function riverRibbon(pts,baseW,wob,seed){const curve=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(p[0],0,p[1])));const N=140,S=[];for(let i=0;i<=N;i++)S.push(curve.getPoint(i/N));
+  const verts=[],idx=[];for(let i=0;i<=N;i++){const t=i/N,a=S[Math.max(0,i-1)],b=S[Math.min(N,i+1)];let tx=b.x-a.x,tz=b.z-a.z;const tl=Math.hypot(tx,tz)||1;const px=-tz/tl,pz=tx/tl;
+    const noise=0.58+0.3*Math.sin(t*Math.PI*wob+seed)+0.15*Math.sin(t*Math.PI*wob*2.3+seed*1.7);const w=baseW*Math.max(0.38,noise);const c=S[i];
+    verts.push(c.x+px*w,0,c.z+pz*w);verts.push(c.x-px*w,0,c.z-pz*w);}
+  for(let i=0;i<N;i++){const o=i*2;idx.push(o,o+1,o+2,o+1,o+3,o+2);}
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geo.setIndex(idx);geo.computeVertexNormals();return geo;}
+function addRiver(pts){const seed=Math.random()*6.28;
+  const mb=new THREE.Mesh(riverRibbon(pts,CELL*2.1,3+Math.random()*2,seed),shoreMat);mb.position.y=0.04;mb.renderOrder=27;cityGroup.add(mb);
+  const m1=new THREE.Mesh(riverRibbon(pts,CELL*1.5,3.5+Math.random()*2,seed+1),waterMid);m1.position.y=0.05;m1.renderOrder=28;cityGroup.add(m1);
+  const m2=new THREE.Mesh(riverRibbon(pts,CELL*0.8,4+Math.random()*2,seed+2),waterDeep);m2.position.y=0.06;m2.renderOrder=29;cityGroup.add(m2);}
 let riversPlaced=false;
 function placeRivers(){if(riversPlaced)return;riversPlaced=true;
   // i fiumi entrano da un bordo (nella foschia) ed escono dall'altro: scorrono nel corridoio fra la città (±16) e i vicini, senza passarci sopra
@@ -830,7 +843,7 @@ function floatText(x,z,txt){const cv=document.createElement('canvas');cv.width=1
 function updFloaters(dt){for(let i=floaters.length-1;i>=0;i--){const f=floaters[i];f.t+=dt;f.sp.position.y+=dt*0.55;f.sp.material.opacity=Math.max(0,1-f.t/1.4);if(f.t>1.4){cityGroup.remove(f.sp);floaters.splice(i,1);}}}
 function penRandPoint(pen){const r=pen.inRect;return [r.x0+Math.random()*(r.x1-r.x0), r.z0+Math.random()*(r.z1-r.z0)];}
 function spawnAnimal(key,pen){const d=ANIMALS[key];if(!d)return;const g=new THREE.Group();const [wx,wz]=penRandPoint(pen);g.position.set(wx,0,wz);cityGroup.add(g);
-  const an={key,def:d,obj:g,pen,state:'graze',timer:1+Math.random()*2,speed:0.5+Math.random()*0.2,ptimer:6+Math.random()*8,tx:wx,tz:wz,bob:Math.random()*6,mixer:null,head:null};animals.push(an);pen.animals.push(an);
+  const an={key,def:d,obj:g,pen,state:'graze',timer:1+Math.random()*2,speed:0.5+Math.random()*0.2,ptimer:30+Math.random()*25,tx:wx,tz:wz,bob:Math.random()*6,mixer:null,head:null};animals.push(an);pen.animals.push(an);
   if(d.build){const m=d.build();fitHeight(m,d.hgt);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);an.head=m.getObjectByName('head');return an;}
   loadAnimated(d.url).then(r=>{const m=r.scene;fitHeight(m,d.hgt);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);
     if(r.clips&&r.clips.length){an.mixer=new THREE.AnimationMixer(m);let clip=r.clips[0];if(typeof d.clip==='string'){const c=r.clips.find(c=>c.name&&c.name.toLowerCase().indexOf(d.clip.toLowerCase())>=0);if(c)clip=c;}else if(r.clips[d.clip])clip=r.clips[d.clip];an.action=an.mixer.clipAction(clip);an.action.play();}});
@@ -886,9 +899,28 @@ function makeCrop(type,ready){const g=new THREE.Group();cropSoil(g);if(!ready){c
   else if(type==='mais'){const grn=new THREE.MeshStandardMaterial({color:0x4f8f36,roughness:1,envMapIntensity:0.2});const yel=new THREE.MeshStandardMaterial({color:0xe8c33a,roughness:1,envMapIntensity:0.2});for(let i=0;i<3;i++){const x=(Math.random()-.5)*0.3,z=(Math.random()-.5)*0.3;const st=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.04,0.5,5),grn);st.position.set(x,0.25,z);g.add(st);const cob=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.16,6),yel);cob.position.set(x+0.05,0.32,z);cob.rotation.z=0.3;g.add(cob);}}
   else{const grn=new THREE.MeshStandardMaterial({color:0x4f8f36,roughness:1,envMapIntensity:0.2});const red=new THREE.MeshBasicMaterial({color:0xdd4a36});const bush=new THREE.Mesh(new THREE.SphereGeometry(0.22,10,8),grn);bush.scale.set(1,0.8,1);bush.position.y=0.2;g.add(bush);for(let i=0;i<4;i++){const t=new THREE.Mesh(new THREE.SphereGeometry(0.055,8,6),red);t.position.set((Math.random()-.5)*0.34,0.14+Math.random()*0.16,(Math.random()-.5)*0.34);g.add(t);}}
   g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
-function plantCrop(cx,cy,type,t0){const [wx,wz]=cw(cx,cy);const o=makeCrop(type,false);o.position.set(wx,0,wz);cityGroup.add(o);const cr={type,cx,cy,t:t0||0,ready:false,obj:o};const e={type:'crop',key:type,cx,cy,ax:cx,ay:cy,w:1,h:1,obj:o,ref:cr,ready:false};grid[key(cx,cy)]=e;cr.gridE=e;crops.push(cr);if(cr.t>=CROPS[type].grow)cropReady(cr);return cr;}
-function cropReady(cr){cr.ready=true;if(cr.gridE)cr.gridE.ready=true;cityGroup.remove(cr.obj);const [wx,wz]=cw(cr.cx,cr.cy);const o=makeCrop(cr.type,true);o.position.set(wx,0,wz);cityGroup.add(o);cr.obj=o;if(cr.gridE)cr.gridE.obj=o;const cv=document.createElement('canvas');cv.width=cv.height=48;const g=cv.getContext('2d');g.font='34px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('✅',24,26);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),depthTest:false,transparent:true}));sp.scale.set(0.5,0.5,1);sp.position.set(wx,0.9,wz);sp.renderOrder=1200;cityGroup.add(sp);cr.badge=sp;}
-function growCrops(dt){const mul=(raining?2:1)*cropBonus()*seasonCropMul();crops.forEach(cr=>{if(cr.ready)return;cr.t+=dt*mul;if(cr.t>=CROPS[cr.type].grow)cropReady(cr);});}
+function cropDur(type){return CROPS[type].grow*1000/Math.max(0.3,seasonCropMul()*cropBonus());}
+function fmtLeft(ms){const s=Math.ceil(ms/1000);if(s<60)return s+'s';const m=Math.ceil(s/60);if(m<60)return m+' min';const h=Math.floor(m/60),mm=Math.round((m%60));return h+'h'+(mm?' '+mm+'m':'');}
+function cropBadge(cr,emoji,op){if(cr.badge){cityGroup.remove(cr.badge);cr.badge=null;}const [wx,wz]=cw(cr.cx,cr.cy);const cv=document.createElement('canvas');cv.width=cv.height=48;const g=cv.getContext('2d');g.font='34px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(emoji,24,26);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),depthTest:false,transparent:true,opacity:op||1}));sp.scale.set(0.48,0.48,1);sp.position.set(wx,0.9,wz);sp.renderOrder=1200;cityGroup.add(sp);cr.badge=sp;}
+function cropSwap(cr,obj){cityGroup.remove(cr.obj);const [wx,wz]=cw(cr.cx,cr.cy);obj.position.set(wx,0,wz);cityGroup.add(obj);cr.obj=obj;if(cr.gridE)cr.gridE.obj=obj;}
+function plantCrop(cx,cy,type,saved){const [wx,wz]=cw(cx,cy);const o=makeCrop(type,false);o.position.set(wx,0,wz);cityGroup.add(o);
+  const cr={type,cx,cy,obj:o,ready:false,harvests:(saved&&saved.hv)||0,exhausted:!!(saved&&saved.ex)};
+  cr.cycleStart=(saved&&saved.cs)||Date.now();cr.dur=cropDur(type);
+  const e={type:'crop',key:type,cx,cy,ax:cx,ay:cy,w:1,h:1,obj:o,ref:cr,ready:false};grid[key(cx,cy)]=e;cr.gridE=e;crops.push(cr);
+  if(cr.exhausted)cropExhaust(cr,true);else if(Date.now()-cr.cycleStart>=cr.dur)cropReady(cr);
+  return cr;}
+function cropReady(cr){cr.ready=true;if(cr.gridE)cr.gridE.ready=true;cropSwap(cr,makeCrop(cr.type,true));cropBadge(cr,'✅');}
+function cropRegrow(cr){cr.ready=false;if(cr.gridE)cr.gridE.ready=false;if(cr.badge){cityGroup.remove(cr.badge);cr.badge=null;}cropSwap(cr,makeCrop(cr.type,false));cr.cycleStart=Date.now();cr.dur=cropDur(cr.type);}
+function cropExhaust(cr,silent){cr.exhausted=true;cr.ready=false;if(cr.gridE)cr.gridE.ready=false;const g=new THREE.Group();cropSoil(g);const dry=new THREE.MeshStandardMaterial({color:0xb8a060,roughness:1});for(let i=0;i<6;i++){const s=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.02,0.1,4),dry);s.position.set((Math.random()-.5)*0.34,0.05,(Math.random()-.5)*0.34);s.rotation.z=(Math.random()-.5)*0.6;g.add(s);}g.traverse(m=>{if(m.isMesh)m.castShadow=true;});cropSwap(cr,g);cropBadge(cr,'🌱',0.9);}
+function harvestCrop(cr){const y=CROPS[cr.type].yield;R[y.r]+=y.a;cropsHarvested++;const [wx,wz]=cw(cr.cx,cr.cy);floatText(wx,wz,CROPS[cr.type].em+' '+RES[y.r]+'+'+y.a);cr.harvests++;drawTop();
+  if(cr.harvests>=MAX_HARVESTS){cropExhaust(cr);toast('🧺 Raccolto! Campo esausto dopo '+MAX_HARVESTS+' raccolti 🌱 Toccalo per ripiantare',4600);}
+  else{cropRegrow(cr);toast('🧺 '+CROPS[cr.type].nome+' raccolto ('+cr.harvests+'/'+MAX_HARVESTS+')! Pronto fra '+fmtLeft(cr.dur),4000);}
+  save();}
+function tapCrop(occ){const cr=occ.ref||occ.gridE&&occ.gridE.ref;if(!cr)return;
+  if(cr.exhausted){cropRegrow(cr);cr.harvests=0;cr.exhausted=false;save();toast('🌱 Campo ripiantato: '+CROPS[cr.type].nome+'. Pronto fra '+fmtLeft(cr.dur),4000);return;}
+  if(cr.ready){harvestCrop(cr);return;}
+  const left=Math.max(0,cr.cycleStart+cr.dur-Date.now());toast('🌱 '+CROPS[cr.type].nome+' sta crescendo · pronto fra '+fmtLeft(left)+' ('+cr.harvests+'/'+MAX_HARVESTS+' raccolti)',3600);}
+function growCrops(dt){const now=Date.now();crops.forEach(cr=>{if(cr.ready||cr.exhausted)return;if(now-cr.cycleStart>=cr.dur)cropReady(cr);});}
 function removeCrop(cr){cityGroup.remove(cr.obj);if(cr.badge)cityGroup.remove(cr.badge);delete grid[key(cr.cx,cr.cy)];const i=crops.indexOf(cr);if(i>=0)crops.splice(i,1);}
 function commandHarvest(a,occ){if(a.kind==='milite'){toast('Manda un abitante a raccogliere 🧍');return;}const t=adjWalk(occ.cx,occ.cy,1,1);if(t&&startWalk(a,t[0],t[1],'harvest')){a.harvest=occ.ref;toast('🧺 Vado a raccogliere il '+CROPS[occ.key].nome+'!',3000);}else toast('Non riesco ad arrivarci');}
 function pickAgent(px,py){const r=canvas.getBoundingClientRect();ndc.x=((px-r.left)/r.width)*2-1;ndc.y=-((py-r.top)/r.height)*2+1;ray.setFromCamera(ndc,camera);let best=null,bd=1e9;for(const a of agents){if(!a.obj.children.length)continue;const h=ray.intersectObject(a.obj,true);if(h.length&&h[0].distance<bd){bd=h[0].distance;best=a;}}
@@ -904,13 +936,13 @@ function cityTap(px,py){
   const ag=moveTarget?null:pickAgent(px,py);
   if(ag){if(selAgent===ag){selAgent.state='idle';selAgent.timer=.3;selAgent=null;toast('Torna libero 👋');}else{selAgent=ag;selKey=null;drawer.classList.remove('open');drawBuild();toast('👆 '+agentNome(ag)+' scelto',1800);}refreshOrderBar();return;}
   // 2) agente selezionato -> impartisci l'ordine sul bersaglio toccato
-  if(selAgent){const c=cellAt(px,py);if(c){const occ=grid[key(c.cx,c.cy)];if(occ&&occ.type==='crop'){if(occ.ready)commandHarvest(selAgent,occ);else toast('🌱 Non è ancora pronto da raccogliere');}else if(occ&&occ.type==='tree'){const tr=trees.find(t=>t.cx===c.cx&&t.cy===c.cy)||{cx:c.cx,cy:c.cy,obj:occ.obj};commandChop(selAgent,tr);}else if(occ&&occ.type==='water'){commandFish(selAgent,c.cx,c.cy);}else if(!occ&&!unlockedCell(c.cx,c.cy)&&adjacentWalkable(c.cx,c.cy)){commandClear(selAgent,c.cx,c.cy);}else commandGuard(selAgent,c.cx,c.cy);}selAgent=null;refreshOrderBar();return;}
+  if(selAgent){const c=cellAt(px,py);if(c){const occ=grid[key(c.cx,c.cy)];if(occ&&occ.type==='crop'){tapCrop(occ);}else if(occ&&occ.type==='tree'){const tr=trees.find(t=>t.cx===c.cx&&t.cy===c.cy)||{cx:c.cx,cy:c.cy,obj:occ.obj};commandChop(selAgent,tr);}else if(occ&&occ.type==='water'){commandFish(selAgent,c.cx,c.cy);}else if(!occ&&!unlockedCell(c.cx,c.cy)&&adjacentWalkable(c.cx,c.cy)){commandClear(selAgent,c.cx,c.cy);}else commandGuard(selAgent,c.cx,c.cy);}selAgent=null;refreshOrderBar();return;}
   // 3) costruzione / coltivazione
   const c=cellAt(px,py);if(c)tryPlace(c.cx,c.cy);
 }
 function updAnimals(dt){animals.forEach(a=>{const o=a.obj;if(a.mixer)a.mixer.update(dt*(a.state==='walk'?1:0.5));
   // produzione passiva (allevamento → cibo)
-  a.ptimer-=dt;if(a.ptimer<=0){a.ptimer=15+Math.random()*7;const p=a.def.prod;R[p.r]+=p.a;floatText(o.position.x,o.position.z,RES[p.r]+'+'+p.a);drawTop();}
+  a.ptimer-=dt;if(a.ptimer<=0){a.ptimer=55+Math.random()*25;const p=a.def.prod;const amt=p.a*3;R[p.r]+=amt;floatText(o.position.x,o.position.z,RES[p.r]+'+'+amt);drawTop();}
   // movimento SOLO dentro il recinto
   if(a.state==='graze'){a.timer-=dt;if(a.head){a.bob+=dt*2;a.head.rotation.z=-0.4-Math.sin(a.bob)*0.1;}if(a.timer<=0){if(a.head)a.head.rotation.z=0;const t=penRandPoint(a.pen);a.tx=t[0];a.tz=t[1];a.state='walk';}return;}
   if(a.state==='walk'){if(a.head)a.head.rotation.z=0;const dx=a.tx-o.position.x,dz=a.tz-o.position.z;const d=Math.hypot(dx,dz);if(d<0.1){a.state='graze';a.timer=2+Math.random()*4;return;}const sp=Math.min(a.speed*dt,d);o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);return;}
@@ -1111,13 +1143,13 @@ document.getElementById('zin').onclick=()=>setZoom(VZ*0.8);document.getElementBy
 document.getElementById('zrot').onclick=()=>{placeRot=(placeRot+1)%4;toast('↻ Rotazione: '+(placeRot*90)+'° (per muri, cancelli, torri, decori)',2600);};
 
 // ===== salvataggio =====
-function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,g:Math.round(c.t)})),he:heroes,sr:soldierRank,rs:research,ach:achieved,ts:Date.now()}));if(window.TuzuCloud)window.TuzuCloud.scheduleSync();}catch(e){}}
+function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,cs:c.cycleStart,hv:c.harvests,ex:c.exhausted})),he:heroes,sr:soldierRank,rs:research,ach:achieved,ts:Date.now()}));if(window.TuzuCloud)window.TuzuCloud.scheduleSync();}catch(e){}}
 function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};achieved=s.ach||{};offlineSince=s.ts||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});(s.lc||[]).forEach(c=>addLake(c.cx,c.cy,c.r));(s.wl||[]).forEach(w=>wildTree(w.cx,w.cy));(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);if(!(s.lc&&s.lc.length))placeLakes();if(!(s.wl&&s.wl.length))placeWildVegetation();placeRivers();placeScatterForests();
   (s.b||[]).forEach(it=>{const d=BUILD[it.k];if(!d)return;const [w,h]=fpSize(d);const ax=it.cx,ay=it.cy;const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(d.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:it.k,def:d,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true,lvl:it.lv||1};if(b.lvl>1)o.scale.multiplyScalar(Math.pow(1.07,b.lvl-1));buildings.push(b);const e={type:'building',key:it.k,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);});
   (s.d||[]).forEach(it=>{if(DECO[it.k])placeDeco(it.cx,it.cy,it.k);});
   (s.df||[]).forEach(it=>{const d=DEF[it.k];if(!d)return;const [w,h]=fpSize(d);const [ax,ay]=fpAnchor(it.cx,it.cy,w,h);if(canPlace(ax,ay,w,h))placeDef(ax,ay,w,h,it.k,it.manual?it.rot:undefined);});
   (s.pn||[]).forEach(it=>{const d=PENS[it.k];if(!d)return;const [w,h]=fpSize(d);const ax=it.ax,ay=it.ay;if(canPlace(ax,ay,w,h)){const pen=placePen(ax,ay,w,h,it.k);(it.an||[]).forEach(ak=>{if(ANIMALS[ak]&&pen.animals.length<pen.cap)spawnAnimal(ak,pen);});}});
-  (s.cr||[]).forEach(it=>{if(CROPS[it.t]&&!grid[key(it.cx,it.cy)])plantCrop(it.cx,it.cy,it.t,it.g||0);});
+  (s.cr||[]).forEach(it=>{if(CROPS[it.t]&&!grid[key(it.cx,it.cy)])plantCrop(it.cx,it.cy,it.t,it);});
   Object.keys(heroes).forEach(k=>{if(HEROES[k])spawnHeroUnit(k);});recompute();return true;}catch(e){return false;}}
 
 // ===== MONDO =====
