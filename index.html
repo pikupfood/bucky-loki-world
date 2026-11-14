@@ -1244,7 +1244,7 @@ function cellAt(cx,cy){const p=groundPt(cx,cy);if(!p)return null;const gx=Math.r
 let pointers=new Map(),dragStart=null,moved=false,downXY=null,pinchD=0;
 function setZoom(v){VZ=Math.max(4,Math.min(15,v));resize();}
 canvas.addEventListener('pointerdown',ev=>{canvas.setPointerCapture(ev.pointerId);pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
-  if(pointers.size===1){moved=false;downXY={x:ev.clientX,y:ev.clientY};if(boxMode&&mode==='city'){boxActive=true;boxStart={x:ev.clientX,y:ev.clientY};dragStart=null;}else{dragStart=mode==='city'?groundPt(ev.clientX,ev.clientY):null;if(mode==='city')showCell(ev.clientX,ev.clientY);}}
+  if(pointers.size===1){moved=false;downXY={x:ev.clientX,y:ev.clientY};if(boxMode&&mode==='city'){boxActive=true;boxStart={x:ev.clientX,y:ev.clientY};dragStart=null;}else{dragStart=mode==='city'?groundPt(ev.clientX,ev.clientY):null;if(mode==='city'){showCell(ev.clientX,ev.clientY);if(selKey)hoverPreview(ev.clientX,ev.clientY);else if(moveTarget){const c=cellAt(ev.clientX,ev.clientY);if(c)showMovePreview(c.cx,c.cy);}}}}
   if(pointers.size===2){const p=[...pointers.values()];pinchD=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);dragStart=null;hideCell();}});
 function hoverPreview(px,py){const c=cellAt(px,py);if(!c){hl.visible=false;return;}const def=cat==='edifici'?BUILD[selKey]:cat==='monumenti'?MON[selKey]:cat==='difesa'?DEF[selKey]:cat==='animali'?PENS[selKey]:cat==='campi'?CROPS[selKey]:DECO[selKey];const [w,h]=fpSize(def);const [ax,ay]=fpAnchor(c.cx,c.cy,w,h);const [wx,wz]=fpCenter(ax,ay,w,h);hl.position.set(wx,.06,wz);hl.scale.set(w,h,1);hl.visible=true;hl.material.color.set(canPlace(ax,ay,w,h)?0x7fffb0:0xff6b6b);}
 function showCell(px,py){if(mode!=='city'){hideCell();return;}const c=cellAt(px,py);if(!c){hideCell();return;}const [wx,wz]=cw(c.cx,c.cy);cellHL.position.set(wx,0.058,wz);cellRing.position.set(wx,0.06,wz);const ok=unlockedCell(c.cx,c.cy);cellHL.material.color.set(ok?0x5fe0ff:0xffd24a);cellHL.visible=true;cellRing.visible=true;}
@@ -1256,8 +1256,9 @@ canvas.addEventListener('pointermove',ev=>{
   if(pointers.size===1){if(downXY&&Math.hypot(ev.clientX-downXY.x,ev.clientY-downXY.y)>9)moved=true;
     if(boxActive){if(moved)showSelBox(boxStart,{x:ev.clientX,y:ev.clientY});return;}
     if(mode==='city')showCell(ev.clientX,ev.clientY);
-    if(mode==='city'&&moved&&dragStart){const cur=groundPt(ev.clientX,ev.clientY);if(cur){camTarget.x+=dragStart.x-cur.x;camTarget.z+=dragStart.z-cur.z;camTarget.x=Math.max(-55,Math.min(55,camTarget.x));camTarget.z=Math.max(-55,Math.min(55,camTarget.z));updateCam();}}
-    else if(mode==='city'&&selKey&&!moved)hoverPreview(ev.clientX,ev.clientY);}});
+    if(mode==='city'&&selKey)hoverPreview(ev.clientX,ev.clientY);
+    else if(mode==='city'&&moveTarget){const c=cellAt(ev.clientX,ev.clientY);if(c)showMovePreview(c.cx,c.cy);}
+    if(mode==='city'&&moved&&dragStart){const cur=groundPt(ev.clientX,ev.clientY);if(cur){camTarget.x+=dragStart.x-cur.x;camTarget.z+=dragStart.z-cur.z;camTarget.x=Math.max(-55,Math.min(55,camTarget.x));camTarget.z=Math.max(-55,Math.min(55,camTarget.z));updateCam();}}}});
 function endPtr(ev){const was=pointers.size;pointers.delete(ev.pointerId);
   if(boxActive&&was===1){boxActive=false;hideSelBox();if(moved)finishBox(boxStart,{x:ev.clientX,y:ev.clientY});else if(mode==='city')cityTap(ev.clientX,ev.clientY);boxStart=null;}
   else if(was===1&&!moved){if(mode==='city')cityTap(ev.clientX,ev.clientY);else if(mode==='battle')battleTapXY(ev.clientX,ev.clientY);}
@@ -1495,6 +1496,15 @@ function confirmDemolish(name,fn){dialog('⚠️','Demolire '+name+'?','','<p>Sp
 function dialog(em,h,sub,html){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';d.innerHTML=`<div class="card"><div class="em">${em}</div><h2>${h}</h2>${sub?`<p>${sub}</p>`:''}${html}</div>`;document.body.appendChild(d);armPanel(d);}
 function closeDyn(){let d;while(d=document.getElementById('dyn'))d.remove();}
 
+// ===== atmosfera: fumo dai camini + uccelli =====
+let smokePuffs=[],smokeT=0;
+function spawnSmoke(x,y,z){const cv=document.createElement('canvas');cv.width=cv.height=32;const g=cv.getContext('2d');const grd=g.createRadialGradient(16,16,2,16,16,16);grd.addColorStop(0,'rgba(220,220,220,0.8)');grd.addColorStop(1,'rgba(220,220,220,0)');g.fillStyle=grd;g.fillRect(0,0,32,32);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,opacity:0.6,depthWrite:false}));sp.scale.set(0.35,0.35,1);sp.position.set(x,y,z);sp.renderOrder=900;cityGroup.add(sp);smokePuffs.push({sp,t:0,life:3.2+Math.random()*1.6,vx:(Math.random()-.5)*0.12});}
+function updSmoke(dt){smokeT+=dt;if(smokeT>0.7){smokeT=0;const prod=buildings.filter(b=>b.active&&(b.def.prod||b.def.chain||b.key==='casa'||b.key==='mulino'||b.key==='fonderia'||b.key==='taverna'));if(prod.length){const b=prod[Math.floor(Math.random()*prod.length)];const p=b.obj.position;spawnSmoke(p.x+(Math.random()-.5)*0.4,1.25+Math.random()*0.3,p.z+(Math.random()-.5)*0.4);}}
+  for(let i=smokePuffs.length-1;i>=0;i--){const s=smokePuffs[i];s.t+=dt;s.sp.position.y+=dt*0.4;s.sp.position.x+=s.vx*dt;const k=s.t/s.life;s.sp.material.opacity=0.6*(1-k);s.sp.scale.setScalar(0.35+k*0.85);if(s.t>=s.life){cityGroup.remove(s.sp);smokePuffs.splice(i,1);}}}
+let birds=[],birdsInit=false;
+function makeBird(){const g=new THREE.Group();const m=new THREE.MeshBasicMaterial({color:0x353230,side:THREE.DoubleSide});const wL=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.1),m);const wR=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.1),m);wL.position.x=-0.17;wR.position.x=0.17;const piv=new THREE.Group();piv.add(wL);const pivR=new THREE.Group();pivR.add(wR);g.add(piv);g.add(pivR);g.userData={wL:piv,wR:pivR};return g;}
+function initBirds(){if(birdsInit)return;birdsInit=true;for(let i=0;i<7;i++){const g=makeBird();cityGroup.add(g);birds.push({g,r:16+Math.random()*24,sp:0.09+Math.random()*0.07,a:Math.random()*6.28,h:7+Math.random()*5,cx:(Math.random()-.5)*22,cz:(Math.random()-.5)*22,flap:Math.random()*6});}}
+function updBirds(dt){birds.forEach(b=>{b.a+=b.sp*dt;const x=b.cx+Math.cos(b.a)*b.r,z=b.cz+Math.sin(b.a)*b.r;b.g.position.set(x,b.h+Math.sin(b.a*2)*0.6,z);b.g.rotation.y=-b.a;b.flap+=dt*11;const f=Math.sin(b.flap)*0.6;b.g.userData.wL.rotation.z=f;b.g.userData.wR.rotation.z=-f;});}
 // ===== loop =====
 let last=performance.now(),saveT=0,missT=0,started=false;
 function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000,.1);last=now;
@@ -1502,7 +1512,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updDayNight(dt);
   if(started)updWeather(dt);
   if(started)updSeason(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
 requestAnimationFrame(tick);
@@ -1537,7 +1547,7 @@ window.addEventListener('pagehide',()=>{if(started)save();});
   initNeighbors();
   for(let i=0;i<5;i++)spawnAgent('operaio');for(let i=0;i<2;i++)spawnAgent('milite');
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
-  checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());document.getElementById('load').style.display='none';
+  checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();document.getElementById('load').style.display='none';
 })();
 // ===== Account (login + salvataggio cloud, stesso account dell'app Tuzu) =====
 let cloudUser=null;
