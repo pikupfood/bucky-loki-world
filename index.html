@@ -378,7 +378,11 @@ async function preload(){
   templates['gate']=await loadModel(B+'buildings/neutral/wall_straight_gate.gltf');setLoad(++d/tot);
   measureWall();
   templates.char=await loadModel(AD+'Rogue.glb');setLoad(++d/tot);
+  await loadVillage();
 }
+// ===== Reskin edifici: Medieval Village Pack (stile carino e coerente) =====
+const VILLAGE_MAP={casa:'fantasy_house',taverna:'fantasy_inn',caserma:'fantasy_barracks',segheria:'fantasy_sawmill',fonderia:'blacksmith',mercato:'market_stand',chiesa:'bell_tower',fattoria:'mill'};
+async function loadVillage(){for(const key in VILLAGE_MAP){try{const model=await loadModel('models/village/'+VILLAGE_MAP[key]+'.glb');let hasMesh=false;model.traverse(m=>{if(m.isMesh)hasMesh=true;});if(!hasMesh)continue;const d=BUILD[key];const footCells=Math.max(d.w||4,d.h||4);const box=new THREE.Box3().setFromObject(model);const sz=box.getSize(new THREE.Vector3());const horiz=Math.max(sz.x,sz.z)||1;const s=(footCells*CELL*0.92)/horiz;model.scale.setScalar(s);model.updateWorldMatrix(true,true);const b2=new THREE.Box3().setFromObject(model);if(isFinite(b2.min.y))model.position.y-=b2.min.y;const wrap=new THREE.Group();wrap.add(model);const tn='v_'+key;templates[tn]=wrap;FP[tn]=measFP(wrap);BUILD[key].file=tn;}catch(e){}}}
 // misura muro e recinto per farli stare in una casella e capire l'asse lungo
 let WALL_LEN=1,WALL_H=1,WALL_ALONG='x',FENCE_LEN=1,FENCE_H=1,FENCE_ALONG='x';
 function measureWall(){let b=new THREE.Box3().setFromObject(templates['wall']);let sx=b.max.x-b.min.x,sy=b.max.y-b.min.y,sz=b.max.z-b.min.z;WALL_LEN=Math.max(sx,sz)||1;WALL_H=sy||1;WALL_ALONG=sx>=sz?'x':'z';
