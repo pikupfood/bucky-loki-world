@@ -383,6 +383,7 @@ async function preload(){
   templates.char=await loadModel(AD+'Rogue.glb');setLoad(++d/tot);
   await loadVillage();
   await loadAnimals();
+  await loadMonsters();
 }
 // ===== Reskin edifici: Medieval Village Pack (stile carino e coerente) =====
 const VILLAGE_MAP={casa:'fantasy_house',taverna:'fantasy_inn',caserma:'fantasy_barracks',segheria:'fantasy_sawmill',fonderia:'blacksmith',mercato:'market_stand',chiesa:'bell_tower',fattoria:'mill'};
@@ -390,6 +391,9 @@ async function loadVillage(){for(const key in VILLAGE_MAP){try{const model=await
 // ===== Animali veri (Animal Kit, leggeri) come template =====
 const ANIMAL_TPL={a_sheep:'sheep',a_chicken:'chicken',a_horse:'horse',a_cow:'cow',a_duck:'duck',a_rabbit:'rabbit'};
 async function loadAnimals(){for(const tn in ANIMAL_TPL){try{const m=await loadModel('models/animals/'+ANIMAL_TPL[tn]+'.glb');let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[tn]=m;}catch(e){}}}
+// ===== Nemici dell'Èrebo (Ultimate Monsters) come template =====
+const MONSTER_TPL={m_minion:'goleling',m_warrior:'orc_enemy',m_rogue:'green_spiky_blob',m_boss:'demon'};
+async function loadMonsters(){for(const tn in MONSTER_TPL){try{const m=await loadModel('models/monsters/'+MONSTER_TPL[tn]+'.glb');let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[tn]=m;}catch(e){}}}
 // misura muro e recinto per farli stare in una casella e capire l'asse lungo
 let WALL_LEN=1,WALL_H=1,WALL_ALONG='x',FENCE_LEN=1,FENCE_H=1,FENCE_ALONG='x';
 function measureWall(){let b=new THREE.Box3().setFromObject(templates['wall']);let sx=b.max.x-b.min.x,sy=b.max.y-b.min.y,sz=b.max.z-b.min.z;WALL_LEN=Math.max(sx,sz)||1;WALL_H=sy||1;WALL_ALONG=sx>=sz?'x':'z';
@@ -1196,12 +1200,12 @@ function wallBar(ge){const [wx,wz]=cw(ge.ax,ge.ay);if(!ge.bar){ge.bar=mkBar3();g
 function destroyWall(ge){const [wx,wz]=cw(ge.ax,ge.ay);floatText(wx,wz,'💥');if(ge.bar){cityGroup.remove(ge.bar.g);ge.bar=null;}cityGroup.remove(ge.obj);freeOf(ge);const fi=defenses.findIndex(x=>x.cx===ge.ax&&x.cy===ge.ay);if(fi>=0)defenses.splice(fi,1);cellsOf(ge).forEach(c=>{rebuildRoadArea(c[0],c[1]);rebuildBarrierArea(c[0],c[1]);});}
 function updWallRegen(dt){if(raidActive)return;defenses.forEach(df=>{if(df.k!=='muro'&&df.k!=='cancello')return;const ge=grid[key(df.cx,df.cy)];if(ge&&ge.hp!==undefined&&ge.hp<ge.maxhp){ge.hp=Math.min(ge.maxhp,ge.hp+dt*4);if(ge.hp>=ge.maxhp){if(ge.bar){cityGroup.remove(ge.bar.g);ge.bar=null;}}else wallBar(ge);}});}
 const RAIDERS={
- minion: {file:'Skeleton_Minion.glb', hp:9,  speed:0.55, sc:0.2,  rew:4},
- warrior:{file:'Skeleton_Warrior.glb',hp:22, speed:0.36, sc:0.24, rew:7},
- rogue:  {file:'Skeleton_Rogue.glb',  hp:13, speed:0.62, sc:0.21, rew:5},
- boss:   {file:'Skeleton_Warrior.glb',hp:60, speed:0.28, sc:0.42, rew:30}
+ minion: {tpl:'m_minion', hgt:0.7, file:'Skeleton_Minion.glb', hp:9,  speed:0.55, sc:0.2,  rew:4},
+ warrior:{tpl:'m_warrior',hgt:1.0, file:'Skeleton_Warrior.glb',hp:22, speed:0.36, sc:0.24, rew:7},
+ rogue:  {tpl:'m_rogue',  hgt:0.8, file:'Skeleton_Rogue.glb',  hp:13, speed:0.62, sc:0.21, rew:5},
+ boss:   {tpl:'m_boss',   hgt:1.7, file:'Skeleton_Warrior.glb',hp:60, speed:0.28, sc:0.42, rew:30}
 };
-function spawnRaider(type,x,z){const d=RAIDERS[type];const g=new THREE.Group();g.position.set(x,0,z);cityGroup.add(g);loadModel(SK+d.file).then(mm=>{mm.scale.setScalar(d.sc);mm.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(mm);});const bar=mkBar3();bar.fg.material.color.set(0xe24b4a);bar.g.scale.setScalar(type==='boss'?0.55:0.34);cityGroup.add(bar.g);const hp=Math.round(d.hp*raidHpMul);raiders.push({obj:g,hp,maxhp:hp,speed:d.speed,bob:Math.random()*6,type,rew:d.rew,bar,boss:type==='boss'});}
+function spawnRaider(type,x,z){const d=RAIDERS[type];const g=new THREE.Group();g.position.set(x,0,z);cityGroup.add(g);if(d.tpl&&templates[d.tpl]){const mm=inst(d.tpl);fitHeight(mm,d.hgt);mm.rotation.y=Math.random()*6.28;mm.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(mm);}else loadModel(SK+d.file).then(mm=>{mm.scale.setScalar(d.sc);mm.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(mm);});const bar=mkBar3();bar.fg.material.color.set(0xe24b4a);bar.g.scale.setScalar(type==='boss'?0.55:0.34);cityGroup.add(bar.g);const hp=Math.round(d.hp*raidHpMul);raiders.push({obj:g,hp,maxhp:hp,speed:d.speed,bob:Math.random()*6,type,rew:d.rew,bar,boss:type==='boss'});}
 function startRaid(){raidActive=true;const pw=raidPower();raidHpMul=Math.min(2.8,pw);const n=Math.min(13,Math.round((2+terreLiberate+builtCount/8)*Math.min(2.1,pw)));const edge=Math.floor(Math.random()*4);const types=['minion','warrior','rogue'];const boss=n>=4&&Math.random()<Math.min(0.8,0.48+daysPlayed()*0.05);
   for(let i=0;i<n;i++){let x,z;const m=14.5;const off=(Math.random()-.5)*7;if(edge===0){x=-m;z=off;}else if(edge===1){x=m;z=off;}else if(edge===2){x=off;z=-m;}else{x=off;z=m;}
     spawnRaider((boss&&i===0)?'boss':types[Math.floor(Math.random()*types.length)],x,z);}
