@@ -332,9 +332,12 @@ const HORSE='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gl
 const FOX='https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models/2.0/Fox/glTF-Binary/Fox.glb';
 // animali da fattoria: vivono in un recinto e danno cibo nel tempo
 const ANIMALS={
-  pecora: {nome:'Pecora', em:'🐑',build:()=>makeSheep(),  hgt:0.42,cost:{oro:25},prod:{r:'cibo',a:3}},
-  gallina:{nome:'Gallina',em:'🐔',build:()=>makeChicken(),hgt:0.3, cost:{oro:15},prod:{r:'cibo',a:2}},
-  cavallo:{nome:'Cavallo',em:'🐴',url:HORSE,hgt:0.6, cost:{oro:45},prod:{r:'cibo',a:2},clip:0}
+  pecora: {nome:'Pecora', em:'🐑',tpl:'a_sheep',  build:()=>makeSheep(),  hgt:0.55,cost:{oro:25},prod:{r:'cibo',a:3}},
+  gallina:{nome:'Gallina',em:'🐔',tpl:'a_chicken',build:()=>makeChicken(),hgt:0.38,cost:{oro:15},prod:{r:'cibo',a:2}},
+  mucca:  {nome:'Mucca',  em:'🐄',tpl:'a_cow',    hgt:0.8, cost:{oro:40},prod:{r:'cibo',a:5}},
+  cavallo:{nome:'Cavallo',em:'🐴',tpl:'a_horse',url:HORSE,hgt:0.75,cost:{oro:45},prod:{r:'cibo',a:2},clip:0},
+  anatra: {nome:'Anatra', em:'🦆',tpl:'a_duck',   hgt:0.36,cost:{oro:18},prod:{r:'cibo',a:2}},
+  coniglio:{nome:'Coniglio',em:'🐰',tpl:'a_rabbit',hgt:0.32,cost:{oro:12},prod:{r:'cibo',a:1}}
 };
 // recinti già pronti di varie dimensioni (capienza = quanti animali ci stanno)
 const PENS={
@@ -379,10 +382,14 @@ async function preload(){
   measureWall();
   templates.char=await loadModel(AD+'Rogue.glb');setLoad(++d/tot);
   await loadVillage();
+  await loadAnimals();
 }
 // ===== Reskin edifici: Medieval Village Pack (stile carino e coerente) =====
 const VILLAGE_MAP={casa:'fantasy_house',taverna:'fantasy_inn',caserma:'fantasy_barracks',segheria:'fantasy_sawmill',fonderia:'blacksmith',mercato:'market_stand',chiesa:'bell_tower',fattoria:'mill'};
 async function loadVillage(){for(const key in VILLAGE_MAP){try{const model=await loadModel('models/village/'+VILLAGE_MAP[key]+'.glb');let hasMesh=false;model.traverse(m=>{if(m.isMesh)hasMesh=true;});if(!hasMesh)continue;const d=BUILD[key];const footCells=Math.max(d.w||4,d.h||4);const box=new THREE.Box3().setFromObject(model);const sz=box.getSize(new THREE.Vector3());const horiz=Math.max(sz.x,sz.z)||1;const s=(footCells*CELL*0.92)/horiz;model.scale.setScalar(s);model.updateWorldMatrix(true,true);const b2=new THREE.Box3().setFromObject(model);if(isFinite(b2.min.y))model.position.y-=b2.min.y;const wrap=new THREE.Group();wrap.add(model);const tn='v_'+key;templates[tn]=wrap;FP[tn]=measFP(wrap);BUILD[key].file=tn;}catch(e){}}}
+// ===== Animali veri (Animal Kit, leggeri) come template =====
+const ANIMAL_TPL={a_sheep:'sheep',a_chicken:'chicken',a_horse:'horse',a_cow:'cow',a_duck:'duck',a_rabbit:'rabbit'};
+async function loadAnimals(){for(const tn in ANIMAL_TPL){try{const m=await loadModel('models/animals/'+ANIMAL_TPL[tn]+'.glb');let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[tn]=m;}catch(e){}}}
 // misura muro e recinto per farli stare in una casella e capire l'asse lungo
 let WALL_LEN=1,WALL_H=1,WALL_ALONG='x',FENCE_LEN=1,FENCE_H=1,FENCE_ALONG='x';
 function measureWall(){let b=new THREE.Box3().setFromObject(templates['wall']);let sx=b.max.x-b.min.x,sy=b.max.y-b.min.y,sz=b.max.z-b.min.z;WALL_LEN=Math.max(sx,sz)||1;WALL_H=sy||1;WALL_ALONG=sx>=sz?'x':'z';
@@ -968,7 +975,9 @@ function updFloaters(dt){for(let i=floaters.length-1;i>=0;i--){const f=floaters[
 function penRandPoint(pen){const r=pen.inRect;return [r.x0+Math.random()*(r.x1-r.x0), r.z0+Math.random()*(r.z1-r.z0)];}
 function spawnAnimal(key,pen){const d=ANIMALS[key];if(!d)return;const g=new THREE.Group();const [wx,wz]=penRandPoint(pen);g.position.set(wx,0,wz);cityGroup.add(g);
   const an={key,def:d,obj:g,pen,state:'graze',timer:1+Math.random()*2,speed:0.5+Math.random()*0.2,ptimer:30+Math.random()*25,tx:wx,tz:wz,bob:Math.random()*6,mixer:null,head:null};animals.push(an);pen.animals.push(an);
+  if(d.tpl&&templates[d.tpl]){const m=inst(d.tpl);fitHeight(m,d.hgt);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});m.rotation.y=Math.random()*6.28;g.add(m);return an;}
   if(d.build){const m=d.build();fitHeight(m,d.hgt);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);an.head=m.getObjectByName('head');return an;}
+  if(!d.url)return an;
   loadAnimated(d.url).then(r=>{const m=r.scene;fitHeight(m,d.hgt);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);
     if(r.clips&&r.clips.length){an.mixer=new THREE.AnimationMixer(m);let clip=r.clips[0];if(typeof d.clip==='string'){const c=r.clips.find(c=>c.name&&c.name.toLowerCase().indexOf(d.clip.toLowerCase())>=0);if(c)clip=c;}else if(r.clips[d.clip])clip=r.clips[d.clip];an.action=an.mixer.clipAction(clip);an.action.play();}});
   return an;}
