@@ -484,7 +484,9 @@ const missions=[
  {id:'ally',txt:'Allèati con un vicino 🤝',done:()=>Object.keys(allied).length>=1,rew:{oro:60,ferro:10},got:false},
  {id:'fort',txt:'Costruisci 8 difese (fortezza) 🛡️',done:()=>defenses.length>=8,rew:{pietra:40},got:false},
  {id:'mor',txt:'Porta il morale a 80',done:()=>morale>=80,rew:{oro:40},got:false},
- {id:'ter',txt:'Libera 1 terra dall’Èrebo',done:()=>terreLiberate>=1,rew:{oro:60,ferro:10},got:false}
+ {id:'ter',txt:'Libera 1 terra dall’Èrebo',done:()=>terreLiberate>=1,rew:{oro:60,ferro:10},got:false},
+ {id:'army',txt:'Addestra l’esercito (5 soldati) ⚔️',done:()=>soldiers>=5,rew:{armi:6},got:false},
+ {id:'atkwin',txt:'Conquista un villaggio vicino ⚔️ (apri 🌍 e tocca «Attacca»)',done:()=>Object.keys(hostile||{}).length>=1,rew:{oro:90,ferro:15},got:false}
 ];
 function tip(){
   if(!buildings.some(b=>b.key==='segheria'))return 'Apri 🔨 e costruisci una Segheria: ti dà legna 🪵.';
@@ -1518,6 +1520,32 @@ let birds=[],birdsInit=false;
 function makeBird(){const g=new THREE.Group();const m=new THREE.MeshBasicMaterial({color:0x353230,side:THREE.DoubleSide});const wL=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.1),m);const wR=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.1),m);wL.position.x=-0.17;wR.position.x=0.17;const piv=new THREE.Group();piv.add(wL);const pivR=new THREE.Group();pivR.add(wR);g.add(piv);g.add(pivR);g.userData={wL:piv,wR:pivR};return g;}
 function initBirds(){if(birdsInit)return;birdsInit=true;for(let i=0;i<7;i++){const g=makeBird();cityGroup.add(g);birds.push({g,r:16+Math.random()*24,sp:0.09+Math.random()*0.07,a:Math.random()*6.28,h:7+Math.random()*5,cx:(Math.random()-.5)*22,cz:(Math.random()-.5)*22,flap:Math.random()*6});}}
 function updBirds(dt){birds.forEach(b=>{b.a+=b.sp*dt;const x=b.cx+Math.cos(b.a)*b.r,z=b.cz+Math.sin(b.a)*b.r;b.g.position.set(x,b.h+Math.sin(b.a*2)*0.6,z);b.g.rotation.y=-b.a;b.flap+=dt*11;const f=Math.sin(b.flap)*0.6;b.g.userData.wL.rotation.z=f;b.g.userData.wR.rotation.z=-f;});}
+// ===== fioritura: fiori + ciuffi d'erba sparsi (instanced, leggeri) =====
+let floraDone=false;
+function placeFlora(){if(floraDone)return;floraDone=true;
+  const BIG=[[-44,-30,8],[46,42,9],[48,-34,7]];
+  function onWater(wx,wz){for(const l of BIG){if(Math.hypot(wx-l[0],wz-l[1])<l[2]+1.5)return true;}if(typeof lakeCenters!=='undefined'&&lakeCenters){for(const c of lakeCenters){const p=cw(c.cx,c.cy);if(Math.hypot(wx-p[0],wz-p[1])<(c.r||2)*CELL+0.8)return true;}}return false;}
+  const m=new THREE.Matrix4(),q=new THREE.Quaternion(),s=new THREE.Vector3(),p=new THREE.Vector3(),col=new THREE.Color();
+  // fiori: gambo verde + testa colorata (colore per-istanza)
+  const N=200;const stemG=new THREE.CylinderGeometry(0.012,0.012,0.16,4);stemG.translate(0,0.08,0);
+  const stemM=new THREE.MeshStandardMaterial({color:0x4f7a35,roughness:1,envMapIntensity:0.1});
+  const headG=new THREE.SphereGeometry(0.052,6,5);headG.translate(0,0.185,0);
+  const headM=new THREE.MeshStandardMaterial({roughness:0.8,envMapIntensity:0.25});
+  const stems=new THREE.InstancedMesh(stemG,stemM,N),heads=new THREE.InstancedMesh(headG,headM,N);
+  const PAL=[0xffffff,0xffd34e,0xff6f61,0xff9ec2,0xb892ff,0xffe08a,0xff8c3b];let n=0;
+  for(let i=0;i<N*2&&n<N;i++){const ang=Math.random()*6.28,rad=3.5+Math.random()*22;const wx=Math.cos(ang)*rad,wz=Math.sin(ang)*rad;if(onWater(wx,wz))continue;const sc=0.7+Math.random()*0.85;s.set(sc,sc,sc);q.setFromEuler(new THREE.Euler(0,Math.random()*6.28,0));p.set(wx,0,wz);m.compose(p,q,s);stems.setMatrixAt(n,m);heads.setMatrixAt(n,m);heads.setColorAt(n,col.setHex(PAL[(Math.random()*PAL.length)|0]));n++;}
+  stems.count=heads.count=n;stems.instanceMatrix.needsUpdate=heads.instanceMatrix.needsUpdate=true;if(heads.instanceColor)heads.instanceColor.needsUpdate=true;stems.frustumCulled=heads.frustumCulled=false;stems.castShadow=heads.castShadow=false;cityGroup.add(stems);cityGroup.add(heads);
+  // ciuffi d'erba
+  const TN=240;const tuftG=new THREE.ConeGeometry(0.06,0.22,4);tuftG.translate(0,0.11,0);
+  const tuftM=new THREE.MeshStandardMaterial({color:0x6aa048,roughness:1,flatShading:true,envMapIntensity:0.12});
+  const tufts=new THREE.InstancedMesh(tuftG,tuftM,TN);let tn=0;
+  for(let i=0;i<TN*2&&tn<TN;i++){const ang=Math.random()*6.28,rad=2.5+Math.random()*25;const wx=Math.cos(ang)*rad,wz=Math.sin(ang)*rad;if(onWater(wx,wz))continue;const sc=0.6+Math.random()*0.9;s.set(sc,sc+Math.random()*0.5,sc);q.setFromEuler(new THREE.Euler(0,Math.random()*6.28,0));p.set(wx,0,wz);m.compose(p,q,s);tufts.setMatrixAt(tn,m);tn++;}
+  tufts.count=tn;tufts.instanceMatrix.needsUpdate=true;tufts.frustumCulled=false;tufts.castShadow=false;cityGroup.add(tufts);}
+// ===== farfalle diurne (ambiente) =====
+let flutters=[],fluttersInit=false;
+function makeButterfly(){const g=new THREE.Group();const c=[0xff8c3b,0xffd34e,0xff6f9c,0x7cc5ff,0xffffff,0xb892ff][(Math.random()*6)|0];const mm=new THREE.MeshBasicMaterial({color:c,side:THREE.DoubleSide});const wL=new THREE.Mesh(new THREE.PlaneGeometry(0.13,0.1),mm);const wR=new THREE.Mesh(new THREE.PlaneGeometry(0.13,0.1),mm);wL.position.x=-0.065;wR.position.x=0.065;const pL=new THREE.Group();pL.add(wL);const pR=new THREE.Group();pR.add(wR);g.add(pL);g.add(pR);g.userData={wL:pL,wR:pR};return g;}
+function initFlutters(){if(fluttersInit)return;fluttersInit=true;for(let i=0;i<6;i++){const g=makeButterfly();cityGroup.add(g);flutters.push({g,cx:(Math.random()-.5)*20,cz:(Math.random()-.5)*20,a:Math.random()*6.28,r:1.4+Math.random()*4,sp:0.5+Math.random()*0.6,h:0.45+Math.random()*0.8,flap:Math.random()*6,drift:Math.random()*6.28});}}
+function updFlutters(dt){const show=started&&sun.intensity>1.15&&!raining&&season!==3;flutters.forEach(b=>{if(b.g.visible!==show)b.g.visible=show;if(!show)return;b.a+=b.sp*dt;b.drift+=dt*0.3;b.cx+=Math.cos(b.drift)*dt*0.45;b.cz+=Math.sin(b.drift*1.3)*dt*0.45;b.cx=Math.max(-24,Math.min(24,b.cx));b.cz=Math.max(-24,Math.min(24,b.cz));const x=b.cx+Math.cos(b.a)*b.r,z=b.cz+Math.sin(b.a*1.4)*b.r;b.g.position.set(x,b.h+Math.sin(b.a*3)*0.22,z);b.g.rotation.y=-b.a;b.flap+=dt*18;const f=0.45+Math.sin(b.flap)*0.7;b.g.userData.wL.rotation.z=f;b.g.userData.wR.rotation.z=-f;});}
 // ===== loop =====
 let last=performance.now(),saveT=0,missT=0,started=false;
 function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000,.1);last=now;
@@ -1525,7 +1553,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updDayNight(dt);
   if(started)updWeather(dt);
   if(started)updSeason(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
 requestAnimationFrame(tick);
@@ -1560,7 +1588,7 @@ window.addEventListener('pagehide',()=>{if(started)save();});
   initNeighbors();
   for(let i=0;i<5;i++)spawnAgent('operaio');for(let i=0;i<2;i++)spawnAgent('milite');
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
-  checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();document.getElementById('load').style.display='none';
+  checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();initFlutters();placeFlora();document.getElementById('load').style.display='none';
 })();
 // ===== Account (login + salvataggio cloud, stesso account dell'app Tuzu) =====
 let cloudUser=null;
