@@ -607,13 +607,25 @@ function doMove(cx,cy){const e=moveTarget.entry;if(!e){moveTarget=null;return;}c
   occupy(ax,ay,w,h,e);moveTarget=null;rebuildRoadArea(oldAx,oldAy);rebuildRoadArea(ax,ay);save();toast('Spostato ✔');
 }
 // ===== spostamento con anteprima (mostra dove entra, 🟩/🟥; gli abitanti si spostano) =====
-function moveValid(e,ax,ay){const w=e.w,h=e.h;freeOf(e);const ok=canPlace(ax,ay,w,h);occupy(e.ax,e.ay,w,h,e);return ok;}
+function mtWH(){return moveTarget.pen?[moveTarget.pen.w,moveTarget.pen.h]:[moveTarget.entry.w,moveTarget.entry.h];}
+function moveValid(ax,ay){const [w,h]=mtWH();
+  if(moveTarget.pen){const pen=moveTarget.pen;pen.cellKeys.forEach(k=>delete grid[k]);const ok=canPlace(ax,ay,w,h);fpCells(pen.ax,pen.ay,w,h).forEach(c=>{grid[key(c[0],c[1])]={type:'pen',pen,ax:c[0],ay:c[1],cx:c[0],cy:c[1]};});return ok;}
+  const e=moveTarget.entry;freeOf(e);const ok=canPlace(ax,ay,w,h);occupy(e.ax,e.ay,w,h,e);return ok;}
 function moveBar(valid){const b=document.getElementById('orderbar');if(!b)return;b.innerHTML='<b>Spostamento.</b> Tocca dove metterlo '+(valid?'🟩':'🟥')+' '+(valid?'<button id="mvok">✔ Metti qui</button>':'<span style="opacity:.85">qui non entra</span>')+'<button id="mvcancel">✖ Annulla</button>';b.style.display='block';const ok=b.querySelector('#mvok');if(ok)ok.onclick=commitMove;const cc=b.querySelector('#mvcancel');if(cc)cc.onclick=cancelMove;}
-function showMovePreview(cx,cy){if(!moveTarget)return;const e=moveTarget.entry;const w=e.w,h=e.h;const [ax,ay]=fpAnchor(cx,cy,w,h);const ok=moveValid(e,ax,ay);const [wx,wz]=fpCenter(ax,ay,w,h);hl.position.set(wx,.06,wz);hl.scale.set(w,h,1);hl.visible=true;hl.material.color.set(ok?0x7fffb0:0xff6b6b);const changed=(moveTarget.valid!==ok);moveTarget.ax=ax;moveTarget.ay=ay;moveTarget.valid=ok;if(changed||!moveTarget.barShown){moveTarget.barShown=true;moveBar(ok);}}
+function showMovePreview(cx,cy){if(!moveTarget)return;const [w,h]=mtWH();const [ax,ay]=fpAnchor(cx,cy,w,h);const ok=moveValid(ax,ay);const [wx,wz]=fpCenter(ax,ay,w,h);hl.position.set(wx,.06,wz);hl.scale.set(w,h,1);hl.visible=true;hl.material.color.set(ok?0x7fffb0:0xff6b6b);const changed=(moveTarget.valid!==ok);moveTarget.ax=ax;moveTarget.ay=ay;moveTarget.valid=ok;if(changed||!moveTarget.barShown){moveTarget.barShown=true;moveBar(ok);}}
 function startMove(e){if(!e)return;moveTarget={entry:e};showMovePreview(e.ax+Math.floor((e.w-1)/2),e.ay+Math.floor((e.h-1)/2));toast('Tocca dove metterlo: 🟩 ci entra, 🟥 no. Gli abitanti si spostano.',3600);}
+function startMovePen(pen){if(!pen)return;moveTarget={pen};showMovePreview(pen.ax+Math.floor((pen.w-1)/2),pen.ay+Math.floor((pen.h-1)/2));toast('Tocca dove mettere il recinto: 🟩 ci entra, 🟥 no.',3600);}
+function movePenTo(pen,ax,ay){const w=pen.w,h=pen.h;const [ocx,ocz]=fpCenter(pen.ax,pen.ay,w,h);const [nwx,nwz]=fpCenter(ax,ay,w,h);
+  pen.cellKeys.forEach(k=>delete grid[k]);pen.ax=ax;pen.ay=ay;pen.obj.position.set(nwx,0,nwz);
+  pen.cellKeys=fpCells(ax,ay,w,h).map(c=>key(c[0],c[1]));pen.cellKeys.forEach((kk,i)=>{const c=fpCells(ax,ay,w,h)[i];grid[kk]={type:'pen',pen,ax:c[0],ay:c[1],cx:c[0],cy:c[1]};});
+  const W=w*CELL,D=h*CELL,inx=W/2-CELL*0.6,inz=D/2-CELL*0.6;pen.inRect={x0:nwx-inx,x1:nwx+inx,z0:nwz-inz,z1:nwz+inz};
+  const dx=nwx-ocx,dz=nwz-ocz;pen.animals.forEach(a=>{a.obj.position.x+=dx;a.obj.position.z+=dz;if(a.tx!==undefined)a.tx+=dx;if(a.tz!==undefined)a.tz+=dz;});
+  nudgeAgentsOff(ax,ay,w,h);save();}
 function cancelMove(){moveTarget=null;hl.visible=false;const b=document.getElementById('orderbar');if(b)b.style.display='none';toast('Spostamento annullato');}
 function nudgeAgentsOff(ax,ay,w,h){const cells=fpCells(ax,ay,w,h);agents.forEach(a=>{const cc=cellOfWorld(a.obj.position.x,a.obj.position.z);if(cells.some(c=>c[0]===cc[0]&&c[1]===cc[1])){a.path=null;a.onArrive=null;a.state='idle';a.timer=.2;a.held=false;}});}
-function commitMove(){if(!moveTarget||!moveTarget.valid){toast('Scegli un punto 🟩 valido');return;}const e=moveTarget.entry,w=e.w,h=e.h,ax=moveTarget.ax,ay=moveTarget.ay,oldAx=e.ax,oldAy=e.ay;
+function commitMove(){if(!moveTarget||!moveTarget.valid){toast('Scegli un punto 🟩 valido');return;}
+  if(moveTarget.pen){movePenTo(moveTarget.pen,moveTarget.ax,moveTarget.ay);moveTarget=null;hl.visible=false;const b=document.getElementById('orderbar');if(b)b.style.display='none';toast('Recinto spostato ✔');return;}
+  const e=moveTarget.entry,w=e.w,h=e.h,ax=moveTarget.ax,ay=moveTarget.ay,oldAx=e.ax,oldAy=e.ay;
   freeOf(e);e.ax=ax;e.ay=ay;e.cx=ax;e.cy=ay;if(e.ref){e.ref.cx=ax;e.ref.cy=ay;}const [wx,wz]=fpCenter(ax,ay,w,h);
   if(e.type==='road'){e.obj.position.set(wx,0.045,wz);}else{e.obj.position.set(wx,0,wz);autoSeat(e.obj);}
   if(e.type==='tree'){const t=trees.find(t=>t.obj===e.obj);if(t){t.x=wx;t.z=wz;t.cx=ax;t.cy=ay;}}
@@ -951,8 +963,9 @@ function demolishPen(pen){pen.animals.forEach(a=>{cityGroup.remove(a.obj);const 
 function openPen(pen){const d=pen.def;const counts={};pen.animals.forEach(a=>counts[a.key]=(counts[a.key]||0)+1);
   const list=pen.animals.length?Object.entries(counts).map(([k,n])=>ANIMALS[k].em+' '+ANIMALS[k].nome+' ×'+n).join('  '):'(vuoto)';
   let buy='';if(pen.animals.length<pen.cap)for(const ak in ANIMALS){const a=ANIMALS[ak];buy+=`<button class="btn" id="pa_${ak}" style="margin-top:6px">${a.em} ${a.nome} — 🪙${a.cost.oro}</button>`;}else buy='<div style="font-size:12px;opacity:.85;margin-top:6px">Recinto pieno</div>';
-  dialog('🐑',d.nome,'',`<div style="font-size:12.5px">Animali: <b>${pen.animals.length}/${pen.cap}</b> · danno 🌾 nel tempo</div><div style="font-size:12px;margin:4px 0">${list}</div>${buy}<button class="btn red" id="pdem" style="margin-top:8px">🗑 Demolisci</button><button class="btn alt" id="pcl">Chiudi</button>`);
+  dialog('🐑',d.nome,'',`<div style="font-size:12.5px">Animali: <b>${pen.animals.length}/${pen.cap}</b> · danno 🌾 nel tempo</div><div style="font-size:12px;margin:4px 0">${list}</div>${buy}<div class="row" style="margin-top:8px"><button class="btn alt" id="pmv">✋ Sposta</button><button class="btn red" id="pdem">🗑 Demolisci</button></div><button class="btn alt" id="pcl">Chiudi</button>`);
   const dy=document.getElementById('dyn');for(const ak in ANIMALS){const b=dy.querySelector('#pa_'+ak);if(b)b.onclick=()=>{const a=ANIMALS[ak];if(pen.animals.length>=pen.cap){toast('Recinto pieno');return;}if(!afford(a.cost)){toast('Serve 🪙'+a.cost.oro);return;}pay(a.cost);spawnAnimal(ak,pen);drawTop();save();openPen(pen);};}
+  dy.querySelector('#pmv').onclick=()=>{closeDyn();startMovePen(pen);};
   dy.querySelector('#pdem').onclick=()=>confirmDemolish(d.nome||'Recinto',()=>{demolishPen(pen);toast('Recinto demolito');});dy.querySelector('#pcl').onclick=closeDyn;}
 // ===== COLTIVAZIONI =====
 const SOILMAT=new THREE.MeshStandardMaterial({color:0x6b4a2b,roughness:1,envMapIntensity:0.18});
