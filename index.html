@@ -241,11 +241,12 @@ try{new THREE.RGBELoader().load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r12
 // ===== terreno =====
 const GRID=65, CELL=0.5, HALF=(GRID-1)/2, PAR=7;
 const tl=new THREE.TextureLoader();
-const grass=tl.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/terrain/grasslight-big.jpg');
-grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(18,18);grass.encoding=THREE.sRGBEncoding;grass.anisotropy=4;
-const ground=new THREE.Mesh(new THREE.CircleGeometry(175,80),new THREE.MeshStandardMaterial({map:grass,color:0x9cbf7e,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
-// anello di terra più scura all'orizzonte (si dissolve nella foschia, niente bordo netto)
-const groundRim=new THREE.Mesh(new THREE.RingGeometry(60,175,80,1),new THREE.MeshStandardMaterial({color:0x7a9c63,roughness:1}));groundRim.rotation.x=-Math.PI/2;groundRim.position.y=-0.02;scene.add(groundRim);
+// erba STILIZZATA uniforme (procedurale, coerente col low-poly) invece della foto
+const grass=(()=>{const S=128;const c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');g.fillStyle='#6fa85a';g.fillRect(0,0,S,S);const draw=(x,y,s,col)=>{g.fillStyle=col;g.fillRect(x,y,s,s);};for(let i=0;i<420;i++){const r=Math.random();const col=r<0.5?'rgba(124,176,96,0.4)':(r<0.82?'rgba(92,150,74,0.4)':'rgba(150,198,120,0.36)');const x=Math.random()*S,y=Math.random()*S,s=1+Math.random()*2;for(const ox of [0,-S,S])for(const oy of [0,-S,S])draw(x+ox,y+oy,s,col);}return new THREE.CanvasTexture(c);})();
+grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(42,42);grass.encoding=THREE.sRGBEncoding;grass.anisotropy=4;
+const ground=new THREE.Mesh(new THREE.CircleGeometry(175,80),new THREE.MeshStandardMaterial({map:grass,color:0xffffff,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+// anello di terra all'orizzonte (stesso verde, si dissolve nella foschia, niente bordo netto)
+const groundRim=new THREE.Mesh(new THREE.RingGeometry(60,175,80,1),new THREE.MeshStandardMaterial({color:0x5f9150,roughness:1}));groundRim.rotation.x=-Math.PI/2;groundRim.position.y=-0.02;scene.add(groundRim);
 function cw(cx,cy){return [(cx-HALF)*CELL,(cy-HALF)*CELL];}
 const cityGroup=new THREE.Group();scene.add(cityGroup);
 let lockMesh={};const lockMat=new THREE.MeshBasicMaterial({color:0x101018,transparent:true,opacity:0.4});
@@ -258,7 +259,7 @@ const agentRing=new THREE.Mesh(new THREE.RingGeometry(0.16,0.24,22),new THREE.Me
 // anelli di selezione (fino a 5 operai scelti insieme)
 const selRings=[];for(let i=0;i<5;i++){const rr=new THREE.Mesh(agentRing.geometry,agentRing.material);rr.rotation.x=-Math.PI/2;rr.visible=false;rr.renderOrder=1160;cityGroup.add(rr);selRings.push(rr);}
 // griglia fine visibile (quadratini)
-const fineGrid=new THREE.GridHelper(GRID*CELL,GRID,0x2d3f1c,0x2d3f1c);fineGrid.position.y=0.028;fineGrid.material.transparent=true;fineGrid.material.opacity=0.33;fineGrid.material.depthWrite=false;cityGroup.add(fineGrid);
+const fineGrid=new THREE.GridHelper(GRID*CELL,GRID,0x2d3f1c,0x2d3f1c);fineGrid.position.y=0.028;fineGrid.material.transparent=true;fineGrid.material.opacity=0.33;fineGrid.material.depthWrite=false;fineGrid.visible=false;cityGroup.add(fineGrid);
 // sentiero di terra vero (texture marrone con granuli)
 function makeDirt(base,g1,g2){const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle=base;g.fillRect(0,0,64,64);for(let i=0;i<800;i++){const x=Math.random()*64,y=Math.random()*64,r=Math.random()*1.8+0.3;g.fillStyle=Math.random()<0.5?g1:g2;g.beginPath();g.arc(x,y,r,0,6.283);g.fill();}const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,2);t.anisotropy=4;t.encoding=THREE.sRGBEncoding;return t;}
 // le strade evolvono con le ere: terra -> pietra -> cemento -> asfalto
@@ -506,13 +507,14 @@ function reclaimCell(cx,cy){const k=key(cx,cy);if(reclaimed[k])return;reclaimed[
   const p=new THREE.Mesh(geo,reclaimMat);p.rotation.x=-Math.PI/2;p.position.set(wx,0.045,wz);p.receiveShadow=true;p.renderOrder=26;cityGroup.add(p);reclaimPatches.push(p);}
 function setupTerritory(){const c=Math.floor(HALF/PAR);for(let px=c-1;px<=c+1;px++)for(let py=c-1;py<=c+1;py++)unlockedPar[parKey(px,py)]=1;refreshLocks();}
 function refreshLocks(){for(const k in lockMesh){cityGroup.remove(lockMesh[k]);delete lockMesh[k];}const nP=Math.ceil(GRID/PAR);for(let px=0;px<nP;px++)for(let py=0;py<nP;py++){const k=parKey(px,py);if(!unlockedPar[k]){const ccx=px*PAR+(PAR-1)/2,ccy=py*PAR+(PAR-1)/2;const [wx,wz]=cw(ccx,ccy);const g=new THREE.Group();g.position.set(wx,0,wz);
-  // velo scuro sul blocco
+  // terreno UNIFORME: velo+griglia+bordo dei blocchi bloccati NASCOSTI di default,
+  // visibili solo mentre costruisci (così in vista normale è tutta erba uniforme).
   const m=new THREE.Mesh(new THREE.PlaneGeometry(PAR*CELL*0.99,PAR*CELL*0.99),lockMat);m.rotation.x=-Math.PI/2;m.position.y=0.04;g.add(m);
-  // quadratini dentro il blocco (così si capisce quanti se ne sbloccano)
   const sub=new THREE.GridHelper(PAR*CELL,PAR,0xbfe4c8,0xbfe4c8);sub.position.y=0.05;sub.material.transparent=true;sub.material.opacity=0.42;sub.material.depthWrite=false;sub.renderOrder=20;g.add(sub);
-  // bordo del blocco
-  const ring=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(PAR*CELL,PAR*CELL)),new THREE.LineBasicMaterial({color:0x8fe6b4,transparent:true,opacity:0.7}));ring.rotation.x=-Math.PI/2;ring.position.y=0.052;g.add(ring);
-  cityGroup.add(g);lockMesh[k]=g;}}}
+  const ring=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(PAR*CELL,PAR*CELL)),new THREE.LineBasicMaterial({color:0x8fe6b4,transparent:true,opacity:0.7,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.y=0.052;g.add(ring);
+  g.visible=false;cityGroup.add(g);lockMesh[k]=g;}}}
+// i blocchi bloccati (velo+griglia) si vedono solo mentre costruisci
+function showLockBorders(on){for(const k in lockMesh)lockMesh[k].visible=on;}
 function parCount(){let n=0;for(const k in unlockedPar)n++;return n;}
 function terrCost(){return Math.round(18*Math.pow(1.28,parCount()-9));}
 function adjPar(px,py){return unlockedPar[parKey(px-1,py)]||unlockedPar[parKey(px+1,py)]||unlockedPar[parKey(px,py-1)]||unlockedPar[parKey(px,py+1)];}
@@ -1673,7 +1675,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updWeather(dt);
   if(started)updSeason(dt);
   if(started)updSky(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}checkLeague();drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}checkLeague();drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
 requestAnimationFrame(tick);
