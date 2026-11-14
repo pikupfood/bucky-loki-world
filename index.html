@@ -235,6 +235,8 @@ const cellHL=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.9,CELL*0.9),new THREE
 const cellRing=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(CELL,CELL)),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.95,depthTest:false}));cellRing.rotation.x=-Math.PI/2;cellRing.position.y=0.06;cellRing.visible=false;cellRing.renderOrder=1101;cityGroup.add(cellRing);
 // anello sotto l'abitante/soldato selezionato
 const agentRing=new THREE.Mesh(new THREE.RingGeometry(0.16,0.24,22),new THREE.MeshBasicMaterial({color:0xffe23a,transparent:true,opacity:0.92,side:THREE.DoubleSide,depthTest:false}));agentRing.rotation.x=-Math.PI/2;agentRing.visible=false;agentRing.renderOrder=1160;cityGroup.add(agentRing);
+// anelli di selezione (fino a 5 operai scelti insieme)
+const selRings=[];for(let i=0;i<5;i++){const rr=new THREE.Mesh(agentRing.geometry,agentRing.material);rr.rotation.x=-Math.PI/2;rr.visible=false;rr.renderOrder=1160;cityGroup.add(rr);selRings.push(rr);}
 // griglia fine visibile (quadratini)
 const fineGrid=new THREE.GridHelper(GRID*CELL,GRID,0x2d3f1c,0x2d3f1c);fineGrid.position.y=0.028;fineGrid.material.transparent=true;fineGrid.material.opacity=0.33;fineGrid.material.depthWrite=false;cityGroup.add(fineGrid);
 // sentiero di terra vero (texture marrone con granuli)
@@ -372,7 +374,7 @@ let grid={}, buildings=[], decos=[], sites=[], agents=[], trees=[], animals=[], 
 let reclaimed={};
 let soldiers=2, operai=5, terreLiberate=0, morale=58, builtCount=0, soldierRank=0;
 function rankStars(){return soldierRank>0?'⭐'.repeat(soldierRank):'—';}
-let liberated={}, unlockedPar={}, cat='edifici', selKey=null, mode='city', moveTarget=null, selAgent=null, placeRot=0;
+let liberated={}, unlockedPar={}, cat='edifici', selKey=null, mode='city', moveTarget=null, selAgent=null, selAgents=[], placeRot=0;
 const HALFPI=Math.PI/2;
 function key(x,y){return x+','+y;}
 function inB(x,y){return x>=0&&y>=0&&x<GRID&&y<GRID;}
@@ -735,7 +737,7 @@ function spawnHeroUnit(k){const g=new THREE.Group();const c=pickTargetCell(false
 function startWalk(a,tx,ty,onArrive){const cur=cellOfWorld(a.obj.position.x,a.obj.position.z);const p=bfsPath(cur[0],cur[1],tx,ty);if(p){a.path=p;a.pi=0;a.onArrive=onArrive;a.state='walk';return true;}return false;}
 // ----- comandi del giocatore su un abitante/soldato -----
 function fellTree(tr){if(!tr)return;const e=grid[key(tr.cx,tr.cy)];if(e&&e.type==='tree'){if(e.obj)cityGroup.remove(e.obj);else if(e.wild)hideInstance(e);freeOf(e);}const i=trees.indexOf(tr);if(i>=0)trees.splice(i,1);const di=decos.findIndex(d=>d.cx===tr.cx&&d.cy===tr.cy&&d.k==='albero');if(di>=0)decos.splice(di,1);const wi=wilds.findIndex(w=>w.cx===tr.cx&&w.cy===tr.cy);if(wi>=0)wilds.splice(wi,1);rebuildRoadArea(tr.cx,tr.cy);save();}
-function commandChop(a,tree){if(a.kind==='milite'){toast('I soldati non tagliano legna: scegli un abitante 🧍');return;}const t=adjWalk(tree.cx,tree.cy,1,1);if(t&&startWalk(a,t[0],t[1],'chopcmd')){a.tree=tree;a.chopWild=!!tree.wild;toast(tree.wild?'🪓 Vado a disboscare: ci vuole del tempo (~6 ore), poi guadagni legna e recuperi terreno':'🪓 Vado a tagliare la legna!',3600);}else toast('Non riesco ad arrivare a quell’albero');}
+function commandChop(a,tree,quiet){if(a.kind==='milite'){if(!quiet)toast('I soldati non tagliano legna: scegli un abitante 🧍');return false;}const t=adjWalk(tree.cx,tree.cy,1,1);if(t&&startWalk(a,t[0],t[1],'chopcmd')){a.tree=tree;a.chopWild=!!tree.wild;if(!quiet)toast(tree.wild?'🪓 Vado a disboscare: ci vuole del tempo (~6 ore), poi guadagni legna e recuperi terreno':'🪓 Vado a tagliare la legna!',3600);return true;}if(!quiet)toast('Non riesco ad arrivare a quell’albero');return false;}
 // vegetazione selvatica intorno al villaggio (si taglia per recuperare terreno)
 // bosco selvatico con INSTANCING: 350+ alberi = poche draw call (fluido su telefono)
 let forestA=null,forestB=null,forestNA=0,forestNB=0;const FOREST_MAX=2600;const _zeroM=new THREE.Matrix4().makeScale(0,0,0);
@@ -837,8 +839,26 @@ function placeRivers(){if(riversPlaced)return;riversPlaced=true;
   boatOn(L1,false);boatOn(L1,false);boatOn(L2,true);boatOn(L2,false);boatOn(L3,true);boatOn(L3,false);
 }
 function commandFish(a,wx,wy){if(a.kind==='milite'){toast('I soldati non pescano: scegli un abitante 🧍');return;}const t=adjWalk(wx,wy,1,1);if(t&&startWalk(a,t[0],t[1],'fish')){a.fishCell=[wx,wy];toast('🎣 Vado a pescare! (porterò 🌾 cibo)',3200);}else toast('Non riesco a raggiungere l’acqua: libera prima un passaggio tagliando la vegetazione');}
-function commandClear(a,cx,cy){if(a.kind==='milite'){toast('Manda un abitante ad aprire la strada 🧍');return;}const t=adjWalk(cx,cy,1,1);if(t&&startWalk(a,t[0],t[1],'clearcmd')){a.clearCell=[cx,cy];toast('🛣️ Vado ad aprire la strada (spiano il terreno)…',3200);}else toast('Non riesco ad arrivarci: apri prima le celle più vicine');}
-function commandGuard(a,cx,cy){if(!walkable(cx,cy)){const near=adjWalk(cx,cy,1,1);if(near){cx=near[0];cy=near[1];}}if(startWalk(a,cx,cy,'guard')){a.post=[cx,cy];toast(a.kind==='milite'?'🛡️ Vado a sorvegliare la posizione!':'🧍 Vado a presidiare il punto!');}else toast('Non riesco ad arrivare lì');}
+function commandClear(a,cx,cy,quiet){if(a.kind==='milite'){if(!quiet)toast('Manda un abitante ad aprire la strada 🧍');return false;}const t=adjWalk(cx,cy,1,1);if(t&&startWalk(a,t[0],t[1],'clearcmd')){a.clearCell=[cx,cy];if(!quiet)toast('🛣️ Vado ad aprire la strada (spiano il terreno)…',3200);return true;}if(!quiet)toast('Non riesco ad arrivarci: apri prima le celle più vicine');return false;}
+function commandGuard(a,cx,cy,quiet){if(!walkable(cx,cy)){const near=adjWalk(cx,cy,1,1);if(near){cx=near[0];cy=near[1];}}if(startWalk(a,cx,cy,'guard')){a.post=[cx,cy];if(!quiet)toast(a.kind==='milite'?'🛡️ Vado a sorvegliare la posizione!':'🧍 Vado a presidiare il punto!');}else if(!quiet)toast('Non riesco ad arrivare lì');}
+// ===== selezione multipla (fino a 5) + ordini a gruppi (coda di lavori) =====
+function holdAgent(a){a.held=true;a.state='idle';a.timer=9999;a.path=null;a.onArrive=null;a.queue=[];if(a.site){a.site.builder=null;a.site=null;}if(a.chopBar){cityGroup.remove(a.chopBar.g);a.chopBar=null;}if(a.clearBar){cityGroup.remove(a.clearBar.g);a.clearBar=null;}a.tree=null;a.chopWild=false;a.clearCell=null;a.harvest=null;a.obj.position.y=0;}
+function releaseAgent(a){a.held=false;if(a.state==='idle')a.timer=.3;}
+function qlen(a){return (a.queue?a.queue.length:0)+((a.state==='walk'||a.state==='chopcmd'||a.state==='clearcmd')?1:0);}
+function startQueuedTask(a){while(a.queue&&a.queue.length){const t=a.queue.shift();let ok=false;
+   if(t.kind==='chop'){if(t.tree&&trees.indexOf(t.tree)>=0)ok=commandChop(a,t.tree,true);}
+   else if(t.kind==='clear'){ok=commandClear(a,t.cx,t.cy,true);}
+   if(ok)return;}
+  a.state='idle';a.timer=a.held?9999:.4;a.obj.position.y=0;}
+function afterTask(a){a.obj.position.y=0;startQueuedTask(a);}
+function assignToLeast(workers,task){if(!workers.length)return;let w=workers[0];for(const x of workers)if(qlen(x)<qlen(w))w=x;w.queue=w.queue||[];w.queue.push(task);if(w.state==='idle')startQueuedTask(w);}
+function clearSel(){selAgents.forEach(a=>releaseAgent(a));selAgents=[];selRings.forEach(r=>r.visible=false);refreshOrderBar();}
+function dispatchSel(cx,cy){const occ=grid[key(cx,cy)];const workers=selAgents.filter(a=>a.kind!=='milite');
+  if(occ&&occ.type==='tree'){if(!workers.length){toast('Servono operai per tagliare 🧍');return;}const tr=trees.find(t=>t.cx===cx&&t.cy===cy)||{cx,cy,obj:occ.obj};assignToLeast(workers,{kind:'chop',tree:tr});floatText(...cw(cx,cy),'🪓');}
+  else if(occ&&occ.type==='crop'){tapCrop(occ);}
+  else if(occ&&occ.type==='water'){if(workers[0])commandFish(workers[0],cx,cy);else toast('Servono operai per pescare 🧍');}
+  else if(!occ&&!unlockedCell(cx,cy)&&adjacentWalkable(cx,cy)){if(!workers.length){toast('Servono operai 🧍');return;}assignToLeast(workers,{kind:'clear',cx,cy});floatText(...cw(cx,cy),'🛣️');}
+  else{selAgents.forEach(a=>{a.held=false;commandGuard(a,cx,cy,true);});clearSel();toast('🧍 In marcia');}}
 function pickTask(a){
   const worker=(a.kind!=='abitante'&&a.kind!=='eroe');
   if(worker){const s=sites.find(s=>!s.builder);if(s){const t=adjWalk(s.ax,s.ay,s.w,s.h);if(t&&startWalk(a,t[0],t[1],'build')){s.builder=a;a.site=s;return;}}}
@@ -847,13 +867,13 @@ function pickTask(a){
   a.state='idle';a.timer=.8+Math.random();
 }
 function updAgents(dt){agents.forEach(a=>{const o=a.obj;
-  if(a.state==='idle'){a.timer-=dt;if(a.timer<=0)pickTask(a);return;}
+  if(a.state==='idle'){if(a.held){o.position.y=0;return;}a.timer-=dt;if(a.timer<=0)pickTask(a);return;}
   if(a.state==='build'){const s=a.site;if(!s||sites.indexOf(s)<0){a.state='idle';a.timer=.5;a.site=null;o.position.y=0;return;}s.prog+=dt;const f=Math.min(1,s.prog/s.time);s.bar.fg.scale.x=f;s.bar.fg.position.x=-.52*(1-f);a.bob+=dt*5;o.position.y=Math.abs(Math.sin(a.bob))*.04;if(s.prog>=s.time){finishSite(s);sites.splice(sites.indexOf(s),1);a.site=null;o.position.y=0;a.state='idle';a.timer=.4;}return;}
   if(a.state==='chop'){a.timer-=dt;a.bob+=dt*6;o.position.y=Math.abs(Math.sin(a.bob))*.03;if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=Math.sin(a.bob)*.05;if(a.timer<=0){R.legna+=2;if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=0;o.position.y=0;a.state='idle';a.timer=.4;}return;}
-  if(a.state==='chopcmd'){a.timer-=dt;a.bob+=dt*7;o.position.y=Math.abs(Math.sin(a.bob))*.04;if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=Math.sin(a.bob)*.08;if(a.chopBar){const f=1-Math.max(0,a.timer)/(a.chopDur||1);a.chopBar.fg.scale.x=f;a.chopBar.fg.position.x=-.52*(1-f);a.chopBar.g.lookAt(camera.position.x,a.chopBar.g.position.y,camera.position.z);}if(a.timer<=0){if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=0;const wild=a.chopWild,tc=a.tree?[a.tree.cx,a.tree.cy]:null;const gain=wild?14:10;fellTree(a.tree);R.legna+=gain;floatText(o.position.x,o.position.z,wild?'🪵+'+gain+' 🟩':'🪵+'+gain);if(wild&&tc)reclaimCell(tc[0],tc[1]);if(a.chopBar){cityGroup.remove(a.chopBar.g);a.chopBar=null;}a.tree=null;a.chopWild=false;o.position.y=0;a.state='idle';a.timer=.4;drawTop();}return;}
+  if(a.state==='chopcmd'){a.timer-=dt;a.bob+=dt*7;o.position.y=Math.abs(Math.sin(a.bob))*.04;if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=Math.sin(a.bob)*.08;if(a.chopBar){const f=1-Math.max(0,a.timer)/(a.chopDur||1);a.chopBar.fg.scale.x=f;a.chopBar.fg.position.x=-.52*(1-f);a.chopBar.g.lookAt(camera.position.x,a.chopBar.g.position.y,camera.position.z);}if(a.timer<=0){if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=0;const wild=a.chopWild,tc=a.tree?[a.tree.cx,a.tree.cy]:null;const gain=wild?14:10;fellTree(a.tree);R.legna+=gain;floatText(o.position.x,o.position.z,wild?'🪵+'+gain+' 🟩':'🪵+'+gain);if(wild&&tc)reclaimCell(tc[0],tc[1]);if(a.chopBar){cityGroup.remove(a.chopBar.g);a.chopBar=null;}a.tree=null;a.chopWild=false;drawTop();afterTask(a);}return;}
   if(a.state==='guard'){a.bob+=dt;o.position.y=0;o.rotation.y+=dt*0.3;return;}
   if(a.state==='fish'){a.timer-=dt;a.bob+=dt*3;o.position.y=Math.abs(Math.sin(a.bob))*.02;if(a.fishCell){const [fx,fz]=cw(a.fishCell[0],a.fishCell[1]);o.rotation.y=Math.atan2(fx-o.position.x,fz-o.position.z);}if(a.timer<=0){R.cibo+=4;fishedCount++;floatText(o.position.x,o.position.z,'🐟+4');a.timer=6;drawTop();}return;}
-  if(a.state==='clearcmd'){a.timer-=dt;a.bob+=dt*5;o.position.y=Math.abs(Math.sin(a.bob))*.03;if(a.clearBar){const f=1-Math.max(0,a.timer)/(a.clearDur||1);a.clearBar.fg.scale.x=f;a.clearBar.fg.position.x=-.52*(1-f);a.clearBar.g.lookAt(camera.position.x,a.clearBar.g.position.y,camera.position.z);}if(a.timer<=0){if(a.clearCell)reclaimCell(a.clearCell[0],a.clearCell[1]);floatText(o.position.x,o.position.z,'🟩 terreno');if(a.clearBar){cityGroup.remove(a.clearBar.g);a.clearBar=null;}a.clearCell=null;o.position.y=0;a.state='idle';a.timer=.4;save();}return;}
+  if(a.state==='clearcmd'){a.timer-=dt;a.bob+=dt*5;o.position.y=Math.abs(Math.sin(a.bob))*.03;if(a.clearBar){const f=1-Math.max(0,a.timer)/(a.clearDur||1);a.clearBar.fg.scale.x=f;a.clearBar.fg.position.x=-.52*(1-f);a.clearBar.g.lookAt(camera.position.x,a.clearBar.g.position.y,camera.position.z);}if(a.timer<=0){if(a.clearCell)reclaimCell(a.clearCell[0],a.clearCell[1]);floatText(o.position.x,o.position.z,'🟩 terreno');if(a.clearBar){cityGroup.remove(a.clearBar.g);a.clearBar=null;}a.clearCell=null;save();afterTask(a);}return;}
   if(a.state==='harvest'){a.timer-=dt;a.bob+=dt*6;o.position.y=Math.abs(Math.sin(a.bob))*.03;if(a.timer<=0){const cr=a.harvest;if(cr&&crops.indexOf(cr)>=0){const y=CROPS[cr.type].yield;R[y.r]+=y.a;cropsHarvested++;floatText(o.position.x,o.position.z,CROPS[cr.type].em+' '+RES[y.r]+'+'+y.a);removeCrop(cr);drawTop();save();}a.harvest=null;o.position.y=0;a.state='idle';a.timer=.4;}return;}
   if(a.state==='walk'){
     if(!a.path||a.pi>=a.path.length){a.state=a.onArrive||'idle';if(a.state==='idle')a.timer=.6+Math.random()*1.4;else if(a.state==='chop')a.timer=1.6;else if(a.state==='fish')a.timer=4;else if(a.state==='harvest')a.timer=3;else if(a.state==='clearcmd'){a.clearDur=6;a.timer=6;if(a.clearCell){a.clearBar=mkBar3();const [cx,cy]=a.clearCell;const [wx,wz]=cw(cx,cy);a.clearBar.g.position.set(wx,1.2,wz);a.clearBar.g.scale.setScalar(0.8);cityGroup.add(a.clearBar.g);}}else if(a.state==='chopcmd'){a.chopDur=a.chopWild?14:4;a.timer=a.chopDur;if(a.tree){a.chopBar=mkBar3();const bp=a.tree.obj?[a.tree.obj.position.x,a.tree.obj.position.z]:cw(a.tree.cx,a.tree.cy);a.chopBar.g.position.set(bp[0],1.4,bp[1]);a.chopBar.g.scale.setScalar(0.8);cityGroup.add(a.chopBar.g);}}o.position.y=0;return;}
@@ -865,7 +885,9 @@ function updAgents(dt){agents.forEach(a=>{const o=a.obj;
     return;
   }
 });
-if(selAgent){if(agents.indexOf(selAgent)<0){selAgent=null;agentRing.visible=false;refreshOrderBar();}else{agentRing.position.set(selAgent.obj.position.x,0.07,selAgent.obj.position.z);agentRing.visible=true;}}else agentRing.visible=false;}
+let changed=false;for(let i=selAgents.length-1;i>=0;i--){if(agents.indexOf(selAgents[i])<0){selAgents.splice(i,1);changed=true;}}
+if(changed)refreshOrderBar();
+selRings.forEach((rr,i)=>{const a=selAgents[i];if(a&&a.obj.children.length){rr.position.set(a.obj.position.x,0.07,a.obj.position.z);rr.visible=true;}else rr.visible=false;});}
 
 // ===== animali con il cervello =====
 function floatText(x,z,txt){const cv=document.createElement('canvas');cv.width=140;cv.height=70;const g=cv.getContext('2d');g.font='bold 42px system-ui';g.textAlign='center';g.textBaseline='middle';g.lineWidth=6;g.strokeStyle='rgba(0,0,0,.65)';g.strokeText(txt,70,35);g.fillStyle='#fff';g.fillText(txt,70,35);const tx=new THREE.CanvasTexture(cv);const m=new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true});const sp=new THREE.Sprite(m);sp.scale.set(1.0,0.5,1);sp.position.set(x,1.1,z);sp.renderOrder=1200;cityGroup.add(sp);floaters.push({sp,t:0});}
@@ -957,15 +979,21 @@ function pickAgent(px,py){const r=canvas.getBoundingClientRect();ndc.x=((px-r.le
   // il dito è impreciso: se il raggio non colpisce la mesh piccola, prendi l'abitante/soldato più vicino sullo schermo (entro ~38px)
   let near=null,nd=38*38;const v=new THREE.Vector3();for(const a of agents){if(!a.obj.children.length)continue;v.setFromMatrixPosition(a.obj.matrixWorld);v.y+=0.3;v.project(camera);if(v.z>1)continue;const ax=r.left+(v.x*0.5+0.5)*r.width,ay=r.top+(-v.y*0.5+0.5)*r.height;const dd=(ax-px)*(ax-px)+(ay-py)*(ay-py);if(dd<nd){nd=dd;near=a;}}return near;}
 function agentNome(a){return a.kind==='milite'?'Soldato':a.kind==='abitante'?'Abitante':'Operaio';}
-function refreshOrderBar(){const b=document.getElementById('orderbar');if(!b)return;if(!selAgent){b.style.display='none';return;}const sold=selAgent.kind==='milite';b.innerHTML='<b>'+agentNome(selAgent)+' scelto.</b> '+(sold?'Tocca un punto o un 🚪 cancello da <b>sorvegliare</b>.':'Tocca un 🌳 <b>albero</b> (taglia), un <b>campo</b> pronto 🧺 (raccogli), l’<b>acqua</b> 🎣 (pesca) o un punto.')+'<button id="obcancel">✖</button>';b.style.display='block';const c=b.querySelector('#obcancel');if(c)c.onclick=()=>{selAgent=null;refreshOrderBar();toast('Annullato');};}
+function refreshOrderBar(){const b=document.getElementById('orderbar');if(!b)return;if(!selAgents.length){b.style.display='none';return;}
+  const nw=selAgents.filter(a=>a.kind!=='milite').length;const n=selAgents.length;
+  b.innerHTML='<b>'+n+' scelt'+(n>1?'i':'o')+(n>=5?' (max)':'')+'.</b> '+(nw?'Tocca 🌳 <b>alberi</b> o terreno da liberare per assegnarli (anche tanti!), o un punto per muoverti.':'Tocca un punto da <b>sorvegliare</b>.')+'<button id="obcancel">✖ Fine</button>';
+  b.style.display='block';const c=b.querySelector('#obcancel');if(c)c.onclick=()=>{clearSel();toast('Selezione chiusa');};}
 function cityTap(px,py){
   // 0) tocco su un forziere -> raccogli il bottino
-  if(!moveTarget&&!selAgent){const ch=pickChest(px,py);if(ch){openChest(ch);return;}}
-  // 1) tocco su un abitante/soldato -> selezionalo (o liberalo se già scelto)
+  if(!moveTarget&&!selAgents.length){const ch=pickChest(px,py);if(ch){openChest(ch);return;}}
+  // 1) tocco su un abitante/soldato -> aggiungilo/toglilo dalla selezione (fino a 5). Si ferma appena scelto.
   const ag=moveTarget?null:pickAgent(px,py);
-  if(ag){if(selAgent===ag){selAgent.state='idle';selAgent.timer=.3;selAgent=null;toast('Torna libero 👋');}else{selAgent=ag;selKey=null;drawer.classList.remove('open');drawBuild();toast('👆 '+agentNome(ag)+' scelto',1800);}refreshOrderBar();return;}
-  // 2) agente selezionato -> impartisci l'ordine sul bersaglio toccato
-  if(selAgent){const c=cellAt(px,py);if(c){const occ=grid[key(c.cx,c.cy)];if(occ&&occ.type==='crop'){tapCrop(occ);}else if(occ&&occ.type==='tree'){const tr=trees.find(t=>t.cx===c.cx&&t.cy===c.cy)||{cx:c.cx,cy:c.cy,obj:occ.obj};commandChop(selAgent,tr);}else if(occ&&occ.type==='water'){commandFish(selAgent,c.cx,c.cy);}else if(!occ&&!unlockedCell(c.cx,c.cy)&&adjacentWalkable(c.cx,c.cy)){commandClear(selAgent,c.cx,c.cy);}else commandGuard(selAgent,c.cx,c.cy);}selAgent=null;refreshOrderBar();return;}
+  if(ag){const i=selAgents.indexOf(ag);
+    if(i>=0){selAgents.splice(i,1);releaseAgent(ag);toast('Tolto dalla selezione 👋',1400);}
+    else{if(selAgents.length>=5){toast('Puoi sceglierne al massimo 5');return;}selAgents.push(ag);holdAgent(ag);selKey=null;drawer.classList.remove('open');drawBuild();toast('👆 '+agentNome(ag)+' scelto ('+selAgents.length+'/5) · si ferma e aspetta',2000);}
+    refreshOrderBar();return;}
+  // 2) con operai selezionati -> assegna il bersaglio (puoi toccarne tanti di fila)
+  if(selAgents.length){const c=cellAt(px,py);if(c)dispatchSel(c.cx,c.cy);return;}
   // 3) costruzione / coltivazione
   const c=cellAt(px,py);if(c)tryPlace(c.cx,c.cy);
 }
@@ -1379,7 +1407,7 @@ const BGRID=7,BCELL=2.2,BHALF=(BGRID-1)/2;
 let units=[],enemies=[],selUnit=null,turn='player',marks=[];
 function bcw(x,y){return [(x-BHALF)*BCELL,(y-BHALF)*BCELL];}
 function clearBattle(){while(batGroup.children.length)batGroup.remove(batGroup.children[0]);units=[];enemies=[];marks=[];selUnit=null;}
-async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');return;}mode='battle';selKey=null;selAgent=null;agentRing.visible=false;refreshOrderBar();drawer.classList.remove('open');
+async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');return;}mode='battle';selKey=null;clearSel();drawer.classList.remove('open');
   ['top','side','zoom','guide','fab'].forEach(id=>document.getElementById(id).style.display='none');
   cityGroup.visible=false;batGroup.visible=true;BG.style.display='flex';const svz=VZ;VZ=9;const stx=camTarget.x,stz=camTarget.z;camTarget.x=0;camTarget.z=0;updateCam();resize();batRestore={svz,stx,stz};clearBattle();
   const bg=grass.clone();bg.needsUpdate=true;bg.wrapS=bg.wrapT=THREE.RepeatWrapping;bg.repeat.set(BGRID,BGRID);bg.encoding=THREE.sRGBEncoding;const fm=new THREE.MeshStandardMaterial({map:bg,color:0x8fb56f,roughness:1});fm.envMapIntensity=.4;const floor=new THREE.Mesh(new THREE.PlaneGeometry(BGRID*BCELL,BGRID*BCELL),fm);floor.rotation.x=-Math.PI/2;floor.position.y=.015;floor.receiveShadow=true;batGroup.add(floor);const gh=new THREE.GridHelper(BGRID*BCELL,BGRID,0xffffff,0xffffff);gh.position.y=.03;gh.material.transparent=true;gh.material.opacity=.22;batGroup.add(gh);
