@@ -667,7 +667,7 @@ function tryPlace(cx,cy){
     if(occ.type==='building')openBuilding(occ.ref);
     else if(occ.type==='pen')openPen(occ.pen);
     else if(occ.type==='crop'){tapCrop(occ);}
-    else if(occ.type==='deco'&&occ.key==='porticciolo')openHarbor();
+    else if(occ.type==='deco'&&occ.key==='porticciolo')openHarbor(occ);
     else if(occ.type==='tree'||occ.type==='deco'||occ.type==='road'||occ.type==='wall'||occ.type==='gate'||occ.type==='tower')openObj(occ);
     else if(occ.type==='site')toast('In costruzione…');
     return;
@@ -1184,11 +1184,12 @@ function spawnCaravan(nb,gift){const g=new THREE.Group();g.position.set(nb.g.pos
 function updCaravans(dt){for(let i=caravans.length-1;i>=0;i--){const c=caravans[i],o=c.obj;const dx=-o.position.x,dz=-o.position.z,d=Math.hypot(dx,dz)||1;if(d<2.8){const amt=Math.round(c.gift.a*caravanBonus());R[c.gift.r]+=amt;drawTop();save();floatText(o.position.x,o.position.z,RES[c.gift.r]+'+'+amt);toast('🐫 Carovana da '+c.nm+': '+RES[c.gift.r]+'+'+amt,3000);cityGroup.remove(o);if(c.nb)c.nb.caravan=false;caravans.splice(i,1);continue;}const sp=1.5*dt;o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);c.bob+=dt*5;o.position.y=Math.abs(Math.sin(c.bob))*.03;}}
 // ===== NAVIGAZIONE NAVALE: manda una nave a commerciare o attaccare via mare =====
 let ships=[];
-function openHarbor(){closeDyn();if(!decos.some(x=>x.k==='porticciolo')){dialog('⚓','Porticciolo','Costruisci un Porticciolo (menu 🔨 → Decori) per mandare navi.','<button class="btn" id="hc">Ok</button>');document.getElementById('hc').onclick=closeDyn;return;}
+function openHarbor(occ){closeDyn();if(!decos.some(x=>x.k==='porticciolo')){dialog('⚓','Porticciolo','Costruisci un Porticciolo (menu 🔨 → Decori) per mandare navi.','<button class="btn" id="hc">Ok</button>');document.getElementById('hc').onclick=closeDyn;return;}
   let h='';neighbors.forEach(nb=>{const p=POPOLI.find(x=>x.k===nb.k);const t=NB_TRADE[nb.k];const gain=Math.round((t?t.buys.gold:20)*2.4*(allied[nb.k]?1.2:1));
     h+=`<div class="trade" style="flex-direction:column;align-items:stretch;gap:6px"><b>${p.n} ${hostile[nb.k]?'⚔️':allied[nb.k]?'🤝':''}</b><div style="display:flex;gap:6px"><button class="btn" style="margin:0;flex:1" data-strade="${nb.k}">⛵ Commercia (+🪙${gain})</button><button class="btn red" style="margin:0;flex:1" data-satt="${nb.k}">⚔️ Attacca via mare</button></div></div>`;});
-  dialog('⚓','Spedizione navale','Manda una nave: <b>commercia</b> (vendi a buon prezzo) o <b>attacca</b> via mare. Una nave alla volta.',h+(ships.length?'<p style="color:#b33b3b;font-weight:700;margin-top:6px">⛵ Una nave è già in viaggio…</p>':'')+'<button class="btn alt" id="hc">Chiudi</button>');
+  dialog('⚓','Spedizione navale','Manda una nave: <b>commercia</b> (vendi a buon prezzo) o <b>attacca</b> via mare. Una nave alla volta.',h+(ships.length?'<p style="color:#b33b3b;font-weight:700;margin-top:6px">⛵ Una nave è già in viaggio…</p>':'')+(occ?'<button class="btn alt" id="hmove" style="margin-top:6px">✋ Sposta porticciolo</button><button class="btn red" id="hdel">🗑 Elimina porticciolo</button>':'')+'<button class="btn alt" id="hc">Chiudi</button>');
   const d=document.getElementById('dyn');d.querySelector('#hc').onclick=closeDyn;
+  if(occ){const hd=d.querySelector('#hdel');if(hd)hd.onclick=()=>confirmDemolish('Porticciolo',()=>removeObj(occ));const hm=d.querySelector('#hmove');if(hm)hm.onclick=()=>{closeDyn();startMove(occ);};}
   d.querySelectorAll('[data-strade]').forEach(b=>b.onclick=()=>sendShip(b.dataset.strade,'trade'));
   d.querySelectorAll('[data-satt]').forEach(b=>b.onclick=()=>sendShip(b.dataset.satt,'attack'));}
 function sendShip(k,action){if(ships.length){toast('Una nave è già in viaggio');return;}const nb=neighbors.find(n=>n.k===k);const p=POPOLI.find(x=>x.k===k);if(!nb)return;
