@@ -384,6 +384,7 @@ async function preload(){
   await loadVillage();
   await loadAnimals();
   await loadMonsters();
+  await loadEvolutions();
 }
 // ===== Reskin edifici: Medieval Village Pack (stile carino e coerente) =====
 const VILLAGE_MAP={casa:'fantasy_house',taverna:'fantasy_inn',caserma:'fantasy_barracks',segheria:'fantasy_sawmill',fonderia:'blacksmith',mercato:'market_stand',chiesa:'bell_tower',fattoria:'mill'};
@@ -394,6 +395,16 @@ async function loadAnimals(){for(const tn in ANIMAL_TPL){try{const m=await loadM
 // ===== Nemici dell'Èrebo (Ultimate Monsters) come template =====
 const MONSTER_TPL={m_minion:'goleling',m_warrior:'orc_enemy',m_rogue:'green_spiky_blob',m_boss:'demon'};
 async function loadMonsters(){for(const tn in MONSTER_TPL){try{const m=await loadModel('models/monsters/'+MONSTER_TPL[tn]+'.glb');let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[tn]=m;}catch(e){}}}
+// ===== Evoluzione estetica di livello: l'edificio cambia modello salendo di rango (varianti RTS «Age») =====
+const EVOLVE={
+  casa:    [{t:0,tpl:'v_casa'},   {t:2,file:'house',               fill:1.05},{t:4,file:'town_center_second_age',fill:1.25}],
+  caserma: [{t:0,tpl:'v_caserma'},{t:2,file:'barracks',            fill:1.1}, {t:4,file:'fortress',             fill:1.28}],
+  chiesa:  [{t:0,tpl:'v_chiesa'}, {t:2,file:'temple',              fill:1.1}, {t:4,file:'wonder_first_age_leve',fill:1.28}],
+  mercato: [{t:0,tpl:'v_mercato'},{t:2,file:'market_stalls',       fill:1.05},{t:4,file:'village_market',       fill:1.18}]
+};
+async function loadEvolutions(){for(const key in EVOLVE){const stages=EVOLVE[key];const d=BUILD[key];const footCells=Math.max(d.w||4,d.h||4);for(let i=0;i<stages.length;i++){const s=stages[i];if(!s.file)continue;try{const model=await loadModel('models/rts/'+s.file+'.glb');let has=false;model.traverse(m=>{if(m.isMesh)has=true;});if(!has)continue;const box=new THREE.Box3().setFromObject(model);const sz=box.getSize(new THREE.Vector3());const horiz=Math.max(sz.x,sz.z)||1;const sc=(footCells*CELL*(s.fill||1))/horiz;model.scale.setScalar(sc);model.updateWorldMatrix(true,true);const b2=new THREE.Box3().setFromObject(model);if(isFinite(b2.min.y))model.position.y-=b2.min.y;const wrap=new THREE.Group();wrap.add(model);const tn='e_'+key+'_'+i;templates[tn]=wrap;s.tpl=tn;}catch(e){}}}}
+// scambia il modello dell'edificio nello stadio giusto per il suo rango (senza toccare b.obj/occupazione)
+function evolveModel(b){const EV=EVOLVE[b.key];if(!EV||!b.obj)return;const tier=buildTier(buildLvl(b));let stage=EV[0];for(const s of EV){if(tier>=s.t&&s.tpl)stage=s;}if(b._evoTpl===stage.tpl)return;let cur=b._model;if(!cur){for(const ch of b.obj.children){if(ch!==b._deco){cur=ch;break;}}}const src=inst(stage.tpl);const nm=(src.children.length===1?src.children[0]:src);if(cur){b.obj.remove(cur);cur.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.material.dispose)o.material.dispose();});}b.obj.add(nm);b._model=nm;b._evoTpl=stage.tpl;}
 // misura muro e recinto per farli stare in una casella e capire l'asse lungo
 let WALL_LEN=1,WALL_H=1,WALL_ALONG='x',FENCE_LEN=1,FENCE_H=1,FENCE_ALONG='x';
 function measureWall(){let b=new THREE.Box3().setFromObject(templates['wall']);let sx=b.max.x-b.min.x,sy=b.max.y-b.min.y,sz=b.max.z-b.min.z;WALL_LEN=Math.max(sx,sz)||1;WALL_H=sy||1;WALL_ALONG=sx>=sz?'x':'z';
@@ -450,7 +461,7 @@ function tierNextLvl(lv){const t=buildTier(lv);return t>=5?null:(t+1)*5+1;}
 function upgradeCost(b){const lv=buildLvl(b),c={};for(const r in(b.def.cost||{}))c[r]=Math.max(2,Math.round(b.def.cost[r]*0.55*Math.pow(1.22,lv-1)));return c;}
 const TIERCOL=[0,0xb87333,0xd8dbe6,0xe7c66a,0xffd24a,0xfff0a0];
 const TIERNAME=['','Bronzo','Argento','Oro','Oro reale','Leggendario'];
-function applyBuildingTier(b){if(!b||!b.obj)return;const tier=buildTier(buildLvl(b));if(b._tier===tier)return;b._tier=tier;if(b._deco){b.obj.remove(b._deco);b._deco.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.material.dispose)o.material.dispose();});b._deco=null;}if(tier<=0)return;const g=new THREE.Group();const rad=Math.max(b.w||1,b.h||1)*CELL*0.5+0.22;const col=TIERCOL[tier];
+function applyBuildingTier(b){if(!b||!b.obj)return;const tier=buildTier(buildLvl(b));if(b._tier===tier)return;b._tier=tier;evolveModel(b);if(b._deco){b.obj.remove(b._deco);b._deco.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.material.dispose)o.material.dispose();});b._deco=null;}if(tier<=0)return;const g=new THREE.Group();const rad=Math.max(b.w||1,b.h||1)*CELL*0.5+0.22;const col=TIERCOL[tier];
   const ring=new THREE.Mesh(new THREE.RingGeometry(rad,rad+0.14+tier*0.03,40),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.92,side:THREE.DoubleSide,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.y=0.045;ring.renderOrder=2;g.add(ring);
   if(tier>=3){const aura=new THREE.Mesh(new THREE.RingGeometry(rad+0.18,rad+0.52,40),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.26,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));aura.rotation.x=-Math.PI/2;aura.position.y=0.04;aura.renderOrder=2;g.add(aura);}
   if(tier>=2){const n=4;for(let i=0;i<n;i++){const a=i/n*6.28+0.6;const gem=new THREE.Mesh(new THREE.ConeGeometry(0.07+tier*0.012,0.26+tier*0.05,5),new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:tier>=4?0.55:0.2,metalness:0.7,roughness:0.3}));gem.position.set(Math.cos(a)*rad,0.14,Math.sin(a)*rad);g.add(gem);}}
