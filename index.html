@@ -229,7 +229,7 @@ const groundRim=new THREE.Mesh(new THREE.RingGeometry(60,175,80,1),new THREE.Mes
 function cw(cx,cy){return [(cx-HALF)*CELL,(cy-HALF)*CELL];}
 const cityGroup=new THREE.Group();scene.add(cityGroup);
 let lockMesh={};const lockMat=new THREE.MeshBasicMaterial({color:0x101018,transparent:true,opacity:0.4});
-const hl=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.98,CELL*0.98),new THREE.MeshBasicMaterial({color:0x7fffb0,transparent:true,opacity:0.42}));hl.rotation.x=-Math.PI/2;hl.position.y=0.05;hl.visible=false;cityGroup.add(hl);
+const hl=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.98,CELL*0.98),new THREE.MeshBasicMaterial({color:0x7fffb0,transparent:true,opacity:0.55,depthWrite:false}));hl.rotation.x=-Math.PI/2;hl.position.y=0.05;hl.visible=false;hl.renderOrder=1150;cityGroup.add(hl);
 // evidenziatore della singola casella sotto il dito/cursore
 const cellHL=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.9,CELL*0.9),new THREE.MeshBasicMaterial({color:0x5fe0ff,transparent:true,opacity:0.6,depthWrite:false}));cellHL.rotation.x=-Math.PI/2;cellHL.position.y=0.058;cellHL.visible=false;cellHL.renderOrder=1100;cityGroup.add(cellHL);
 const cellRing=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(CELL,CELL)),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.95,depthTest:false}));cellRing.rotation.x=-Math.PI/2;cellRing.position.y=0.06;cellRing.visible=false;cellRing.renderOrder=1101;cityGroup.add(cellRing);
@@ -570,7 +570,7 @@ function finishSite(s){setOpacity(s.obj,1);cityGroup.remove(s.bar.g);const b={ke
 
 // ===== tap su cella =====
 function tryPlace(cx,cy){
-  if(moveTarget){doMove(cx,cy);return;}
+  if(moveTarget){showMovePreview(cx,cy);return;}
   if(!unlockedCell(cx,cy)){const g0=grid[key(cx,cy)];if(g0&&g0.type==='tree'&&g0.wild){toast('🌳 Vegetazione selvatica: scegli un abitante e mandalo a tagliarla per recuperare il terreno',3600);return;}if(g0&&g0.type==='water'){toast('💧 Acqua: scegli un abitante e toccala per mandarlo a pescare 🎣',3400);return;}const p=parOf(cx,cy);if(adjPar(p[0],p[1]))openUnlock(p[0],p[1]);else toast('Sblocca prima le terre vicine');return;}
   const occ=grid[key(cx,cy)];
   if(occ){
@@ -605,6 +605,19 @@ function doMove(cx,cy){const e=moveTarget.entry;if(!e){moveTarget=null;return;}c
   const dd=decos.find(x=>x.cx===oldAx&&x.cy===oldAy);if(dd){dd.cx=ax;dd.cy=ay;}
   occupy(ax,ay,w,h,e);moveTarget=null;rebuildRoadArea(oldAx,oldAy);rebuildRoadArea(ax,ay);save();toast('Spostato ✔');
 }
+// ===== spostamento con anteprima (mostra dove entra, 🟩/🟥; gli abitanti si spostano) =====
+function moveValid(e,ax,ay){const w=e.w,h=e.h;freeOf(e);const ok=canPlace(ax,ay,w,h);occupy(e.ax,e.ay,w,h,e);return ok;}
+function moveBar(valid){const b=document.getElementById('orderbar');if(!b)return;b.innerHTML='<b>Spostamento.</b> Tocca dove metterlo '+(valid?'🟩':'🟥')+' '+(valid?'<button id="mvok">✔ Metti qui</button>':'<span style="opacity:.85">qui non entra</span>')+'<button id="mvcancel">✖ Annulla</button>';b.style.display='block';const ok=b.querySelector('#mvok');if(ok)ok.onclick=commitMove;const cc=b.querySelector('#mvcancel');if(cc)cc.onclick=cancelMove;}
+function showMovePreview(cx,cy){if(!moveTarget)return;const e=moveTarget.entry;const w=e.w,h=e.h;const [ax,ay]=fpAnchor(cx,cy,w,h);const ok=moveValid(e,ax,ay);const [wx,wz]=fpCenter(ax,ay,w,h);hl.position.set(wx,.06,wz);hl.scale.set(w,h,1);hl.visible=true;hl.material.color.set(ok?0x7fffb0:0xff6b6b);const changed=(moveTarget.valid!==ok);moveTarget.ax=ax;moveTarget.ay=ay;moveTarget.valid=ok;if(changed||!moveTarget.barShown){moveTarget.barShown=true;moveBar(ok);}}
+function startMove(e){if(!e)return;moveTarget={entry:e};showMovePreview(e.ax+Math.floor((e.w-1)/2),e.ay+Math.floor((e.h-1)/2));toast('Tocca dove metterlo: 🟩 ci entra, 🟥 no. Gli abitanti si spostano.',3600);}
+function cancelMove(){moveTarget=null;hl.visible=false;const b=document.getElementById('orderbar');if(b)b.style.display='none';toast('Spostamento annullato');}
+function nudgeAgentsOff(ax,ay,w,h){const cells=fpCells(ax,ay,w,h);agents.forEach(a=>{const cc=cellOfWorld(a.obj.position.x,a.obj.position.z);if(cells.some(c=>c[0]===cc[0]&&c[1]===cc[1])){a.path=null;a.onArrive=null;a.state='idle';a.timer=.2;a.held=false;}});}
+function commitMove(){if(!moveTarget||!moveTarget.valid){toast('Scegli un punto 🟩 valido');return;}const e=moveTarget.entry,w=e.w,h=e.h,ax=moveTarget.ax,ay=moveTarget.ay,oldAx=e.ax,oldAy=e.ay;
+  freeOf(e);e.ax=ax;e.ay=ay;e.cx=ax;e.cy=ay;if(e.ref){e.ref.cx=ax;e.ref.cy=ay;}const [wx,wz]=fpCenter(ax,ay,w,h);
+  if(e.type==='road'){e.obj.position.set(wx,0.045,wz);}else{e.obj.position.set(wx,0,wz);autoSeat(e.obj);}
+  if(e.type==='tree'){const t=trees.find(t=>t.obj===e.obj);if(t){t.x=wx;t.z=wz;t.cx=ax;t.cy=ay;}}
+  const dd=decos.find(x=>x.cx===oldAx&&x.cy===oldAy);if(dd){dd.cx=ax;dd.cy=ay;}
+  occupy(ax,ay,w,h,e);nudgeAgentsOff(ax,ay,w,h);moveTarget=null;hl.visible=false;const b=document.getElementById('orderbar');if(b)b.style.display='none';rebuildRoadArea(oldAx,oldAy);rebuildRoadArea(ax,ay);save();toast('Spostato ✔');}
 function removeObj(occ){cityGroup.remove(occ.obj);freeOf(occ);
   if(occ.type==='tree'){const i=trees.findIndex(t=>t.obj===occ.obj);if(i>=0)trees.splice(i,1);R.legna+=5;}
   const di=decos.findIndex(d=>d.cx===occ.ax&&d.cy===occ.ay);if(di>=0)decos.splice(di,1);
@@ -650,7 +663,7 @@ function openMarketScene(b){closeDyn();const d=document.createElement('div');d.c
   }
   ch.querySelectorAll('[data-m]').forEach(x=>x.onclick=()=>render(x.dataset.m));
   d.querySelector('#mkx').onclick=()=>d.remove();
-  d.querySelector('#mkmove').onclick=()=>{moveTarget={entry:grid[key(b.cx,b.cy)]};d.remove();toast('Tocca dove spostare il mercato ✋');};
+  d.querySelector('#mkmove').onclick=()=>{d.remove();startMove(grid[key(b.cx,b.cy)]);};
   d.querySelector('#mkdem').onclick=()=>confirmDemolish('Mercato',()=>demolish(b));
 }
 // ===== pannelli edifici (entra dentro) =====
@@ -684,7 +697,7 @@ function openBuilding(b){
   d2.querySelectorAll('[data-buy]').forEach(x=>x.onclick=()=>{const r=x.dataset.buy;if(R.oro>=9){R.oro-=9;R[r]+=10;drawTop();save();toast('Comprato '+RES[r]+'10');}else toast('Serve 🪙9');});
   const bt=d2.querySelector('#btrain');if(bt)bt.onclick=()=>{trainSoldier();closeDyn();};
   const pb=d2.querySelector('#pboost');if(pb)pb.onclick=()=>{if(prodBoostT>0){toast('⚡ Spinta già attiva!');return;}if((R.oro||0)<60){toast('Serve 🪙60');return;}R.oro-=60;prodBoostT=120;drawTop();save();toast('⚡ Operai motivati! ×2 produzione per 2 minuti',3800);closeDyn();};
-  const mv=d2.querySelector('#pmove');if(mv)mv.onclick=()=>{moveTarget={entry:grid[key(b.cx,b.cy)]};closeDyn();toast('Tocca dove spostarlo ✋');};
+  const mv=d2.querySelector('#pmove');if(mv)mv.onclick=()=>{closeDyn();startMove(grid[key(b.cx,b.cy)]);};
   const dm=d2.querySelector('#pdem');if(dm)dm.onclick=()=>confirmDemolish(d.nome||'Edificio',()=>demolish(b));
   d2.querySelector('#pclose').onclick=closeDyn;
 }
@@ -693,7 +706,7 @@ function openObj(occ){const src=DEF[occ.key]||DECO[occ.key];const nm=occ.key==='
   dialog(em,nm,'','<p style="text-align:left">Puoi girarlo, spostarlo o toglierlo.</p>'+
    `<div class="row">`+(canRot?`<button class="btn alt" id="orot">↻ Ruota</button>`:'')+`<button class="btn alt" id="omove">✋ Sposta</button></div><div class="row"><button class="btn red" id="odel">🗑 Elimina</button><button class="btn" id="oclose">Chiudi</button></div>`);
   const d2=document.getElementById('dyn');const rb=d2.querySelector('#orot');if(rb)rb.onclick=()=>rotateObj(occ);
-  d2.querySelector('#omove').onclick=()=>{moveTarget={entry:occ};closeDyn();toast('Tocca dove spostarlo ✋');};
+  d2.querySelector('#omove').onclick=()=>{closeDyn();startMove(occ);};
   d2.querySelector('#odel').onclick=()=>removeObj(occ);
   d2.querySelector('#oclose').onclick=closeDyn;
 }
@@ -1236,7 +1249,7 @@ function hoverPreview(px,py){const c=cellAt(px,py);if(!c){hl.visible=false;retur
 function showCell(px,py){if(mode!=='city'){hideCell();return;}const c=cellAt(px,py);if(!c){hideCell();return;}const [wx,wz]=cw(c.cx,c.cy);cellHL.position.set(wx,0.058,wz);cellRing.position.set(wx,0.06,wz);const ok=unlockedCell(c.cx,c.cy);cellHL.material.color.set(ok?0x5fe0ff:0xffd24a);cellHL.visible=true;cellRing.visible=true;}
 function hideCell(){cellHL.visible=false;cellRing.visible=false;}
 canvas.addEventListener('pointermove',ev=>{
-  if(pointers.size===0){if(mode==='city'){showCell(ev.clientX,ev.clientY);if(selKey)hoverPreview(ev.clientX,ev.clientY);else hl.visible=false;}else{hl.visible=false;hideCell();}return;}
+  if(pointers.size===0){if(mode==='city'){showCell(ev.clientX,ev.clientY);if(moveTarget){const c=cellAt(ev.clientX,ev.clientY);if(c)showMovePreview(c.cx,c.cy);}else if(selKey)hoverPreview(ev.clientX,ev.clientY);else hl.visible=false;}else{hl.visible=false;hideCell();}return;}
   if(!pointers.has(ev.pointerId))return;pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
   if(pointers.size===2){const p=[...pointers.values()];const nd=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);if(pinchD)setZoom(VZ*pinchD/nd);pinchD=nd;return;}
   if(pointers.size===1){if(downXY&&Math.hypot(ev.clientX-downXY.x,ev.clientY-downXY.y)>9)moved=true;
