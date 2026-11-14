@@ -1466,6 +1466,12 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
 requestAnimationFrame(tick);
+// salvataggio automatico ogni minuto (indipendente dal loop: funziona anche a schermo nascosto, e sincronizza sul cloud)
+let autoSaveShown=false;
+setInterval(()=>{if(!started)return;save();if(!autoSaveShown){autoSaveShown=true;toast('💾 Salvataggio automatico ogni minuto attivo',2800);}},60000);
+// salva anche quando chiudi/metti in pausa la scheda, per non perdere nulla
+window.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&started)save();});
+window.addEventListener('pagehide',()=>{if(started)save();});
 
 // ===== avvio =====
 (async function(){document.getElementById('loadtxt').textContent='Carico il regno…';await preload();const had=loadSave();
