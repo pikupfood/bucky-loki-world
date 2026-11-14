@@ -425,11 +425,23 @@ function soldierDmgBonus(){return (1+heroLvl('capitano')*0.4+(hasRes('tattica')?
 function towerDmgBonus(){return 1+heroLvl('guardiano')*0.5+(hasRes('fortificazioni')?0.3:0);}
 function wallHpMul(){return hasRes('fortificazioni')?1.5:1;}
 function tradeBonus(){return hasRes('commercio')?1.5:1;}
-// ===== livelli degli edifici (potenziamento) =====
+// ===== livelli degli edifici (potenziamento, 30 livelli + evoluzione estetica) =====
+const MAXLVL=30;
 function buildLvl(b){return b.lvl||1;}
-function lvlMul(b){return 1+0.5*(buildLvl(b)-1);}
-function upgradeCost(b){const lv=buildLvl(b),c={};for(const r in(b.def.cost||{}))c[r]=Math.max(1,Math.round(b.def.cost[r]*0.6*lv));return c;}
-function upgradeBuilding(b){const lv=buildLvl(b);if(lv>=3){toast('Già al massimo ⭐⭐⭐');return;}const cost=upgradeCost(b);if(!afford(cost)){toast('Serve '+Object.entries(cost).map(([r,v])=>RES[r]+v).join(' '));return;}pay(cost);b.lvl=lv+1;if(b.obj)b.obj.scale.multiplyScalar(1.07);if(b.def.pop){operai+=b.def.pop;spawnAgent('abitante');}if(b.def.mor){morale=Math.min(100,morale+Math.round(b.def.mor*0.6));}recompute();drawTop();save();toast(b.def.nome+' → Lv'+b.lvl+'! ⭐',3000);closeDyn();}
+function lvlMul(b){return 1+(buildLvl(b)-1)*0.15;}             // resa: Lv30 ≈ 5,35×
+function lvlScale(lv){return 1+Math.min(0.6,(lv-1)*0.022);}    // crescita visiva dolce, cap +60%
+function buildTier(lv){return Math.floor((Math.min(MAXLVL,lv)-1)/5);} // 0..5
+function tierNextLvl(lv){const t=buildTier(lv);return t>=5?null:(t+1)*5+1;}
+function upgradeCost(b){const lv=buildLvl(b),c={};for(const r in(b.def.cost||{}))c[r]=Math.max(2,Math.round(b.def.cost[r]*0.55*Math.pow(1.22,lv-1)));return c;}
+const TIERCOL=[0,0xb87333,0xd8dbe6,0xe7c66a,0xffd24a,0xfff0a0];
+const TIERNAME=['','Bronzo','Argento','Oro','Oro reale','Leggendario'];
+function applyBuildingTier(b){if(!b||!b.obj)return;const tier=buildTier(buildLvl(b));if(b._tier===tier)return;b._tier=tier;if(b._deco){b.obj.remove(b._deco);b._deco.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.material.dispose)o.material.dispose();});b._deco=null;}if(tier<=0)return;const g=new THREE.Group();const rad=Math.max(b.w||1,b.h||1)*CELL*0.5+0.22;const col=TIERCOL[tier];
+  const ring=new THREE.Mesh(new THREE.RingGeometry(rad,rad+0.14+tier*0.03,40),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.92,side:THREE.DoubleSide,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.y=0.045;ring.renderOrder=2;g.add(ring);
+  if(tier>=3){const aura=new THREE.Mesh(new THREE.RingGeometry(rad+0.18,rad+0.52,40),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.26,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));aura.rotation.x=-Math.PI/2;aura.position.y=0.04;aura.renderOrder=2;g.add(aura);}
+  if(tier>=2){const n=4;for(let i=0;i<n;i++){const a=i/n*6.28+0.6;const gem=new THREE.Mesh(new THREE.ConeGeometry(0.07+tier*0.012,0.26+tier*0.05,5),new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:tier>=4?0.55:0.2,metalness:0.7,roughness:0.3}));gem.position.set(Math.cos(a)*rad,0.14,Math.sin(a)*rad);g.add(gem);}}
+  if(tier>=5){const box=new THREE.Box3().setFromObject(b.obj);const topY=(box.max.y-b.obj.position.y)+0.28;const spire=new THREE.Mesh(new THREE.ConeGeometry(0.12,0.5,6),new THREE.MeshStandardMaterial({color:0xfff0a0,emissive:0xffd24a,emissiveIntensity:0.6,metalness:0.8,roughness:0.25}));spire.position.set(0,Math.max(1.2,topY),0);g.add(spire);}
+  b.obj.add(g);b._deco=g;}
+function upgradeBuilding(b){const lv=buildLvl(b);if(lv>=MAXLVL){toast('Già al livello massimo ⭐ Lv'+MAXLVL);return;}const cost=upgradeCost(b);if(!afford(cost)){toast('Serve '+Object.entries(cost).map(([r,v])=>RES[r]+v).join(' '));return;}pay(cost);const prevTier=buildTier(lv);b.lvl=lv+1;if(b.obj)b.obj.scale.multiplyScalar(lvlScale(b.lvl)/lvlScale(lv));if(b.def.pop){operai+=b.def.pop;spawnAgent('abitante');}if(b.def.mor){morale=Math.min(100,morale+Math.round(b.def.mor*0.4));}applyBuildingTier(b);recompute();drawTop();save();const nt=buildTier(b.lvl);if(nt>prevTier){toast('✨ '+b.def.nome+' ora è di rango '+TIERNAME[nt]+'! (Lv'+b.lvl+')',3800);}else{toast(b.def.nome+' → Lv'+b.lvl+' ⭐',2400);}openBuilding(b);}
 function popUsed(){let j=0;buildings.forEach(b=>{if(b.def.job&&b.active)j++;});sites.forEach(s=>{if(s.builder)j++;});return j;}
 function recompute(){let budget=operai;buildings.forEach(b=>{if(b.def.job){if(budget>0){b.active=true;budget--;}else b.active=false;}});}
 
@@ -729,9 +741,9 @@ function openBuilding(b){
     body=`<p>Dà alloggio: <b>+${d.pop}</b> abitanti/operai 👷.</p>`;
   } else if(b.key==='chiesa'){ body=`<p>Alza il morale del popolo 😊.</p>`; }
   else if(b.key==='castle'){ body=`<p>Il cuore del regno dei Chlòri.</p>`; }
-  const canMove=b.key!=='castle';const canUp=b.key!=='castle'&&!d.market;const lv=buildLvl(b);
-  const upInfo=canUp?`<p style="text-align:left;margin-top:4px">Livello <b>${'⭐'.repeat(lv)}</b> (${lv}/3)${lv<3?' — potenzia per +50% resa'+(d.pop?'/alloggi':'')+'':''}</p>`:'';
-  const upBtn=(canUp&&lv<3)?`<button class="btn" id="pup" style="background:#b8860b">⬆️ Potenzia a Lv${lv+1} — ${Object.entries(upgradeCost(b)).map(([r,v])=>RES[r]+v).join(' ')}</button>`:'';
+  const canMove=b.key!=='castle';const canUp=b.key!=='castle'&&!d.market;const lv=buildLvl(b);const tier=buildTier(lv);const tnl=tierNextLvl(lv);const rankTxt=tier>0?` · rango <b style="color:#b8860b">${TIERNAME[tier]}</b>`:'';
+  const upInfo=canUp?`<p style="text-align:left;margin-top:4px">Livello <b>${lv}/${MAXLVL}</b> ${'⭐'.repeat(Math.min(5,tier+1))}${rankTxt}<br><span style="opacity:.82;font-size:12px">resa ×${lvlMul(b).toFixed(2).replace('.',',')}${tnl?` · al Lv${tnl} diventa più maestoso ✨`:' · aspetto massimo 👑'}</span></p>`:'';
+  const upBtn=(canUp&&lv<MAXLVL)?`<button class="btn" id="pup" style="background:#b8860b">⬆️ Potenzia a Lv${lv+1} — ${Object.entries(upgradeCost(b)).map(([r,v])=>RES[r]+v).join(' ')}</button>`:(canUp?`<p style="color:#1f8a56;font-weight:700;text-align:center">⭐ Livello massimo (Lv${MAXLVL})</p>`:'');
   if(b.key==='taverna')extra=(prodBoostT>0?`<p style="color:#1f8a56;font-weight:700;margin-top:4px">⚡ Spinta attiva!</p>`:`<button class="btn" id="pboost" style="background:#8c5a2a;margin-top:4px">⚡ Motiva gli operai: ×2 produzione 2 min — 🪙60</button>`);
   dialog(d.em||'🏛️',d.nome,'',`<div style="text-align:left">${body}</div>${extra}${upInfo}${upBtn}`+
     `<div class="row">${canMove?'<button class="btn alt" id="pmove">✋ Sposta</button><button class="btn red" id="pdem">🗑 Demolisci</button>':''}</div>`+
@@ -1356,7 +1368,7 @@ document.getElementById('zrot').onclick=()=>{placeRot=(placeRot+1)%4;toast('↻ 
 // ===== salvataggio =====
 function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,cs:c.cycleStart,hv:c.harvests,ex:c.exhausted})),he:heroes,sr:soldierRank,rs:research,ach:achieved,fp:firstPlay,ho:Object.keys(hostile),ts:Date.now()}));if(window.TuzuCloud)window.TuzuCloud.scheduleSync();}catch(e){}}
 function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};achieved=s.ach||{};firstPlay=s.fp||0;hostile={};(s.ho||[]).forEach(k=>hostile[k]=1);offlineSince=s.ts||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});(s.lc||[]).forEach(c=>addLake(c.cx,c.cy,c.r));(s.wl||[]).forEach(w=>wildTree(w.cx,w.cy));(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);if(!(s.lc&&s.lc.length))placeLakes();if(!(s.wl&&s.wl.length))placeWildVegetation();placeRivers();placeScatterForests();
-  (s.b||[]).forEach(it=>{const d=BUILD[it.k];if(!d)return;const [w,h]=fpSize(d);const ax=it.cx,ay=it.cy;const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(d.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:it.k,def:d,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true,lvl:it.lv||1};if(b.lvl>1)o.scale.multiplyScalar(Math.pow(1.07,b.lvl-1));buildings.push(b);const e={type:'building',key:it.k,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);});
+  (s.b||[]).forEach(it=>{const d=BUILD[it.k];if(!d)return;const [w,h]=fpSize(d);const ax=it.cx,ay=it.cy;const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(d.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:it.k,def:d,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true,lvl:Math.min(MAXLVL,it.lv||1)};if(b.lvl>1)o.scale.multiplyScalar(lvlScale(b.lvl));buildings.push(b);applyBuildingTier(b);const e={type:'building',key:it.k,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);});
   (s.d||[]).forEach(it=>{if(DECO[it.k])placeDeco(it.cx,it.cy,it.k);});
   (s.df||[]).forEach(it=>{const d=DEF[it.k];if(!d)return;const [w,h]=fpSize(d);const [ax,ay]=fpAnchor(it.cx,it.cy,w,h);if(canPlace(ax,ay,w,h))placeDef(ax,ay,w,h,it.k,it.manual?it.rot:undefined);});
   (s.pn||[]).forEach(it=>{const d=PENS[it.k];if(!d)return;const [w,h]=fpSize(d);const ax=it.ax,ay=it.ay;if(canPlace(ax,ay,w,h)){const pen=placePen(ax,ay,w,h,it.k);(it.an||[]).forEach(ak=>{if(ANIMALS[ak]&&pen.animals.length<pen.cap)spawnAnimal(ak,pen);});}});
