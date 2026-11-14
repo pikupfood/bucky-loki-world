@@ -1251,6 +1251,23 @@ const EVENTS=[
  ()=>{const a=4+Math.floor(builtCount/3);R.ferro+=a;return '⚙️ Giacimento di ferro! +⚙️'+a;}
 ];
 function updEvents(dt){if(builtCount<4)return;eventTimer-=dt;if(eventTimer<=0){eventTimer=95+Math.random()*80;const msg=EVENTS[Math.floor(Math.random()*EVENTS.length)]();drawTop();save();toast(msg,4200);setBubble('Nel regno: '+msg);}}
+// ===== eventi a scelta: ogni tanto arriva un visitatore e TU decidi (c'è sempre un no gratis) =====
+let decisionT=150+Math.random()*120;
+const DECISIONS=[
+ ()=>({em:'🧳',h:'Mercante di passaggio',txt:'«Legname pregiato: 🪵25 in cambio di 🪙14.» Accetti lo scambio?',yes:{lab:'Scambia 🪙14 → 🪵25',cost:{oro:14},gain:{legna:25},morale:0,ok:'🪵 +25 legname dal mercante!',poor:'Ti servono 🪙14'},no:'No, grazie'}),
+ ()=>({em:'🙏',h:'Viandanti affamati',txt:'Alcuni viandanti chiedono cibo alla porta. Li sfami?',yes:{lab:'Dona 🌾10',cost:{cibo:10},gain:{},morale:8,ok:'Hai sfamato i viandanti: +😊 morale!',poor:'Ti servono 🌾10'},no:'Rifiuta'}),
+ ()=>({em:'⛏️',h:'Minatore girovago',txt:'«Ti porto 🪨22 di pietra buona per 🪙12.»',yes:{lab:'Scambia 🪙12 → 🪨22',cost:{oro:12},gain:{pietra:22},morale:0,ok:'🪨 +22 pietra!',poor:'Ti servono 🪙12'},no:'No'}),
+ ()=>({em:'🎻',h:'Bardo errante',txt:'Offre una festa in piazza per 🪙9: il regno sarà più felice.',yes:{lab:'Paga 🪙9 (festa +😊)',cost:{oro:9},gain:{},morale:12,ok:'🎉 Gran festa al villaggio! +😊 morale',poor:'Ti servono 🪙9'},no:'Un’altra volta'}),
+ ()=>({em:'🔨',h:'Fabbro ambulante',txt:'«Dal tuo ⚙️10 di ferro ti forgio 🗡️6 armi.»',yes:{lab:'⚙️10 → 🗡️6',cost:{ferro:10},gain:{armi:6},morale:0,ok:'🗡️ +6 armi forgiate!',poor:'Ti servono ⚙️10'},no:'No'}),
+ ()=>({em:'👵',h:'Vecchia saggia',txt:'«Ti faccio un dono, ma scegli tu: legna o pietra?»',yes:{lab:'🪵 +18 legna',cost:null,gain:{legna:18},morale:0,ok:'🪵 +18 legna in dono!'},no:'🪨 +14 pietra',noGain:{pietra:14},noMsg:'🪨 +14 pietra in dono!'})
+];
+function updDecisions(dt){if(builtCount<5||raidActive)return;if(selKey||moveTarget){decisionT=9;return;}decisionT-=dt;if(decisionT>0)return;decisionT=175+Math.random()*140;if(document.getElementById('dyn'))return;
+ const ev=DECISIONS[Math.floor(Math.random()*DECISIONS.length)]();const y=ev.yes;
+ const html=`<p style="font-size:13.5px;line-height:1.45">${ev.txt}</p><div class="row"><button class="btn" id="decYes">${y.lab}</button><button class="btn alt" id="decNo">${ev.no}</button></div>`;
+ dialog(ev.em,ev.h,'',html);const d=document.getElementById('dyn');if(!d)return;
+ const apply=(gain,morDelta,msg)=>{if(gain)for(const r in gain)R[r]+=gain[r];if(morDelta)morale=Math.max(0,Math.min(100,morale+morDelta));drawTop();save();closeDyn();toast(msg,3600);setBubble(msg);};
+ d.querySelector('#decYes').onclick=()=>{if(y.cost&&!afford(y.cost)){toast(y.poor||'Risorse insufficienti');return;}if(y.cost)pay(y.cost);apply(y.gain,y.morale,y.ok);};
+ d.querySelector('#decNo').onclick=()=>{if(ev.noGain)apply(ev.noGain,0,ev.noMsg);else closeDyn();};}
 // ===== crescita della popolazione (se il regno è felice e ben nutrito, arrivano nuovi Tuzu) =====
 let immigT=55+Math.random()*25;
 function popCap(){return 8+builtCount*2+buildings.filter(b=>b.key==='casa').length*2;}
@@ -1582,7 +1599,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updWeather(dt);
   if(started)updSeason(dt);
   if(started)updSky(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
 requestAnimationFrame(tick);
