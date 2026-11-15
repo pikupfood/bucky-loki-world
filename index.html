@@ -27,6 +27,20 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 #harvestAll{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(62px + env(safe-area-inset-bottom));background:#1f8a56;border:2.5px solid #0f5c38;color:#eafff2;font-size:14px;font-weight:700;padding:9px 18px;border-radius:10px;cursor:pointer;z-index:7;box-shadow:0 4px 14px rgba(0,0,0,.35);font-family:Georgia,'Times New Roman',serif;letter-spacing:.3px;animation:hbp 1.6s ease-in-out infinite}
 @keyframes hbp{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.06)}}
 #muteBtn{position:fixed;left:10px;bottom:calc(14px + env(safe-area-inset-bottom));width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:rgba(40,28,14,.82);border:2px solid #33200c;border-radius:10px;cursor:pointer;z-index:7;font-size:19px;box-shadow:0 3px 10px rgba(0,0,0,.3)}
+.mapcard{max-width:560px;width:94vw}
+.parch{position:relative;width:100%;height:60vh;max-height:560px;margin:8px auto;border-radius:12px;background:radial-gradient(ellipse at 50% 45%,#f4e4ba,#e6ce97 62%,#cdac6c 100%);box-shadow:inset 0 0 46px rgba(120,80,30,.55),inset 0 0 8px rgba(80,50,10,.6);border:3px solid #9f7a3c;overflow:hidden}
+.parch::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(94deg,rgba(150,110,50,.045) 0 2px,transparent 2px 6px),repeating-linear-gradient(2deg,rgba(150,110,50,.04) 0 2px,transparent 2px 7px);pointer-events:none}
+.parch svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.mapnode{position:absolute;transform:translate(-50%,-50%);text-align:center;cursor:pointer;width:80px;z-index:2}
+.mapnode .me{font-size:27px;line-height:1;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35));transition:transform .15s}
+.mapnode .mn{font-size:11px;font-weight:700;color:#4a3415;font-family:Georgia,serif;line-height:1.05;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+.mapnode .ms{font-size:13px;margin-top:-1px}
+.mapnode.mine .mn{color:#1f6e2e}
+.mapnode.mine::after{content:'';position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);width:54px;height:54px;border:2.5px dashed #1f8a56;border-radius:50%;opacity:.6;pointer-events:none;animation:spin 14s linear infinite}
+@keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.mapnode.nyx .me{font-size:34px}
+.mapnode.nyx .mn{color:#5a2a7a;font-weight:800}
+.mapnode:active .me,.mapnode:hover .me{transform:scale(1.18)}
 #fab:active{transform:translateX(-50%) scale(.96)}
 #drawer{position:fixed;left:0;right:0;bottom:0;z-index:7;transform:translateY(110%);transition:.22s;padding:0 0 calc(8px + env(safe-area-inset-bottom))}
 #drawer.open{transform:translateY(0)}
@@ -1739,7 +1753,7 @@ function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if
   Object.keys(heroes).forEach(k=>{if(HEROES[k])spawnHeroUnit(k);});recompute();return true;}catch(e){return false;}}
 
 // ===== MONDO =====
-document.getElementById('btnWorld').onclick=()=>{if(mode==='city')openWorld();};
+document.getElementById('btnWorld').onclick=()=>{if(mode==='city')openMap();};
 document.getElementById('btnMiss').onclick=()=>openMiss();
 document.getElementById('btnHero').onclick=()=>{if(mode==='city')openHeroes();};
 // ===== mini-guida iniziale =====
@@ -1880,6 +1894,38 @@ function openWorld(){closeDyn();const d=document.createElement('div');d.classNam
   d.querySelectorAll('[data-visit]').forEach(b=>b.onclick=()=>{d.remove();visitNeighbor(b.dataset.visit);});
   d.querySelectorAll('[data-walk]').forEach(b=>b.onclick=()=>{d.remove();walkToNeighbor(b.dataset.walk);});
   d.querySelectorAll('[data-enter]').forEach(b=>b.onclick=()=>{d.remove();openNeighbor(b.dataset.enter);});}
+// ===== MAPPA-PERGAMENA: tutti i 9 regni + Nyxar, cliccabili =====
+function kShort(k){const n=kName(k);return n.length>14?n.slice(0,13)+'…':n;}
+function openMap(){closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';
+  const others=POPOLI.map(p=>p.k).filter(k=>k!==myKingdom);const pc={x:50,y:56};let nodes='',lines='';
+  nodes+=`<div class="mapnode mine" data-mk="${myKingdom}" style="left:${pc.x}%;top:${pc.y}%"><div class="me">${KINGDOMS[myKingdom].em}</div><div class="mn">${kShort(myKingdom)}</div><div class="ms">🏰</div></div>`;
+  const n=others.length;others.forEach((k,i)=>{const ang=(i/n)*6.2832-1.5708;const x=50+Math.cos(ang)*35,y=Math.max(17,Math.min(90,56+Math.sin(ang)*33));
+    const st=allied[k]?'🤝':hostile[k]?'⚔️':'';const col=allied[k]?'#2f8a4e':hostile[k]?'#b33b3b':'rgba(120,90,40,.4)';
+    lines+=`<line x1="${pc.x}" y1="${pc.y}" x2="${x}" y2="${y}" stroke="${col}" stroke-width="0.5" stroke-dasharray="${hostile[k]?'2 1.5':allied[k]?'0':'1 1.5'}"/>`;
+    nodes+=`<div class="mapnode" data-mk="${k}" style="left:${x}%;top:${y}%"><div class="me">${KINGDOMS[k].em}</div><div class="mn">${kShort(k)}</div><div class="ms">${st}</div></div>`;});
+  nodes+=`<div class="mapnode nyx" data-mk="__nyxar" style="left:50%;top:7%"><div class="me">⛰️🌑</div><div class="mn">Monte di Nyxar</div></div>`;
+  d.innerHTML=`<div class="card mapcard"><h2>🗺️ Mappa di Dèndoria</h2><p style="font-size:12px;margin-top:-4px;opacity:.85">Tocca un regno: visita, attacca, allèati o commercia. In cima, il Monte di Nyxar.</p>
+    <div class="parch"><svg viewBox="0 0 100 100" preserveAspectRatio="none">${lines}</svg>${nodes}</div>
+    <div class="row"><button class="btn alt" id="mapList" style="margin:0">📋 Lista</button><button class="btn alt" id="mclose" style="margin:0">Chiudi</button></div></div>`;
+  document.body.appendChild(d);armPanel(d);
+  d.querySelectorAll('.mapnode').forEach(el=>el.onclick=()=>{const k=el.dataset.mk;d.remove();if(k==='__nyxar')openHunt();else openKingdomNode(k);});
+  d.querySelector('#mclose').onclick=()=>d.remove();d.querySelector('#mapList').onclick=()=>{d.remove();openWorld();};}
+function openKingdomNode(k){const K=KINGDOMS[k];if(!K)return;const own=k===myKingdom;const nb=neighbors.find(n=>n.k===k);let acts='';
+  if(own){acts='<p style="color:#1f6e2e;font-weight:700">🏰 Questo è il tuo regno — il cuore di Dèndoria.</p>';}
+  else if(nb){const stl=hostile[k]?'In guerra ⚔️':allied[k]?'Alleata 🤝':'Vicina';acts=`<p>Stato: <b>${stl}</b> · 👥${nb.pop} ⚔️${nb.mil}</p>`;
+    if(nb.reached)acts+=`<button class="btn" data-enter="${k}" style="background:#1f8a56">${allied[k]?'🤝 Commercia':'🤝 Entra: commercia / allèati'}</button><button class="btn red" data-attack="${k}">⚔️ Attacca</button><button class="btn alt" data-visit="${k}">👁️ Va' a vedere</button>`;
+    else if(neighborReachable(nb))acts+=`<button class="btn" data-walk="${k}" style="background:#1f8a56">🚶 Cammina fin là</button><button class="btn red" data-attack="${k}">⚔️ Attacca</button>`;
+    else acts+=`<p style="font-size:12px">🌳 Apri la strada tagliando la vegetazione verso il cartello colorato, poi potrai commerciare o attaccare.</p><button class="btn alt" data-visit="${k}">👁️ Guarda da qui</button>`;}
+  else{const lib=liberated[k];acts=`<p>Terra lontana · ${lib?'liberata ✓':'occupata dall’Èrebo'}</p><button class="btn" id="kmHunt" style="background:#6b3b8a">⚔️ Caccia a ${K.monster}</button>`+(lib?'':`<button class="btn red" data-lib="${k}">⚔️ Libera dall’Èrebo</button>`);}
+  dialog(K.em,kName(k),K.strong+' · Dio '+K.god+' · Mostro: '+K.monster,acts+'<button class="btn alt" id="knBack" style="margin-top:8px">◀ Mappa</button>');
+  const d=document.getElementById('dyn');if(!d)return;
+  d.querySelectorAll('[data-enter]').forEach(b=>b.onclick=()=>{closeDyn();openNeighbor(b.dataset.enter);});
+  d.querySelectorAll('[data-attack]').forEach(b=>b.onclick=()=>{closeDyn();nbAttack(b.dataset.attack);});
+  d.querySelectorAll('[data-visit]').forEach(b=>b.onclick=()=>{closeDyn();visitNeighbor(b.dataset.visit);});
+  d.querySelectorAll('[data-walk]').forEach(b=>b.onclick=()=>{closeDyn();walkToNeighbor(b.dataset.walk);});
+  d.querySelectorAll('[data-lib]').forEach(b=>b.onclick=()=>{if(soldiers<1){toast('Non hai soldati: costruisci una Caserma ⚔️');return;}closeDyn();pendingLand=b.dataset.lib;startBattle();});
+  const kh=d.querySelector('#kmHunt');if(kh)kh.onclick=()=>{closeDyn();openHunt();};
+  const kb=d.querySelector('#knBack');if(kb)kb.onclick=()=>{closeDyn();openMap();};}
 let pendingLand=null, battleTarget=null;
 
 // ===== BATTAGLIA =====
