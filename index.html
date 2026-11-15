@@ -460,6 +460,7 @@ const CROPS={
   pomodori:{nome:'Pomodori',em:'🍅',grow:7200, yield:{r:'cibo',a:95}, cost:{}}      // ~2 ore
 };
 const MAX_HARVESTS=10;
+const ECON=0.8; // smorzamento globale della produzione: progressione più lenta e guadagnata
 // difesa: mura, cancelli, torri per la città-fortezza
 const DEF={
   recinto: {nome:'Recinto', em:'🪵', file:'fence_wood_straight', cost:{legna:5}, fence:1, w:1,h:1, mor:0},
@@ -683,7 +684,7 @@ const HALFPI=Math.PI/2;
 function key(x,y){return x+','+y;}
 function inB(x,y){return x>=0&&y>=0&&x<GRID&&y<GRID;}
 function moraleMul(){return 0.7+Math.max(0,Math.min(100,morale))/100*0.6;}
-function consTime(base){return Math.max(4,Math.round(base*(1+0.1*builtCount)*buildSpeedBonus()));}
+function consTime(base){return Math.max(6,Math.round(base*1.5*(1+0.12*builtCount)*buildSpeedBonus()));}
 // ===== EROI (collezionabili, danno bonus) =====
 const HEROES={
  contadina:  {nome:'Contadina', em:'👩‍🌾',desc:'+cibo e +pane, colture più veloci',base:{oro:60}},
@@ -716,7 +717,7 @@ function lvlMul(b){return 1+(buildLvl(b)-1)*0.15;}             // resa: Lv30 ≈
 function lvlScale(lv){return 1+Math.min(0.6,(lv-1)*0.022);}    // crescita visiva dolce, cap +60%
 function buildTier(lv){return Math.floor((Math.min(MAXLVL,lv)-1)/5);} // 0..5
 function tierNextLvl(lv){const t=buildTier(lv);return t>=5?null:(t+1)*5+1;}
-function upgradeCost(b){const lv=buildLvl(b),c={};for(const r in(b.def.cost||{}))c[r]=Math.max(2,Math.round(b.def.cost[r]*0.55*Math.pow(1.22,lv-1)));return c;}
+function upgradeCost(b){const lv=buildLvl(b),c={};for(const r in(b.def.cost||{}))c[r]=Math.max(3,Math.round(b.def.cost[r]*0.75*Math.pow(1.28,lv-1)));return c;}
 const TIERCOL=[0,0xb87333,0xd8dbe6,0xe7c66a,0xffd24a,0xfff0a0];
 const TIERNAME=['','Bronzo','Argento','Oro','Oro reale','Leggendario'];
 function applyBuildingTier(b){if(!b||!b.obj)return;const tier=buildTier(buildLvl(b));if(b._tier===tier)return;b._tier=tier;evolveModel(b);if(b._deco){b.obj.remove(b._deco);b._deco.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.material.dispose)o.material.dispose();});b._deco=null;}if(tier<=0)return;const g=new THREE.Group();const rad=Math.max(b.w||1,b.h||1)*CELL*0.5+0.22;const col=TIERCOL[tier];
@@ -774,7 +775,11 @@ function placeCastle(){const tpl=templates['m_castleR']?'m_castleR':'castle';con
 function fmt(n){return Math.floor(n);}
 const CORE_RES={legna:1,cibo:1,pietra:1,oro:1};
 // ===== Gloria: punteggio del regno (per la competizione e la classifica online) =====
-function kingdomScore(){let s=0;s+=(builtCount||0)*12;s+=(terreLiberate||0)*35;s+=(soldiers||0)*4;s+=(typeof soldierRank!=='undefined'?soldierRank:0)*45;s+=Object.keys(hostile||{}).length*40;s+=Object.keys(allied||{}).length*15;s+=(typeof defenses!=='undefined'?defenses.length:0)*3;s+=Math.round((morale||0)*0.4);s+=cityEra()*80;return Math.round(s);}
+function kingdomScore(){let s=0;s+=(builtCount||0)*12;s+=(terreLiberate||0)*35;s+=(soldiers||0)*4;s+=(typeof soldierRank!=='undefined'?soldierRank:0)*45;s+=Object.keys(hostile||{}).length*40;s+=Object.keys(allied||{}).length*15;s+=(typeof defenses!=='undefined'?defenses.length:0)*3;s+=Math.round((morale||0)*0.4);s+=cityEra()*80;
+  // la Gloria cresce con lo SVILUPPO totale: i livelli degli edifici (la vera fatica) e la campagna
+  if(typeof buildings!=='undefined')s+=buildings.reduce((a,b)=>a+((b.lvl||1)-1),0)*5;
+  s+=(typeof monstersBeaten!=='undefined'?monstersBeaten:0)*60+(typeof nyxarBeaten!=='undefined'?nyxarBeaten:0)*220;
+  return Math.round(s);}
 const TIERS=[{em:'🪵',name:'Villaggio',min:0},{em:'🪨',name:'Borgo',min:200},{em:'🛡️',name:'Contea',min:450},{em:'⚔️',name:'Marca',min:800},{em:'🥈',name:'Ducato',min:1400},{em:'🥇',name:'Regno',min:2400},{em:'💎',name:'Impero',min:4000},{em:'👑',name:'Leggenda',min:6500}];
 function kingdomTier(sc){sc=((sc==null?kingdomScore():sc)|0);let i=0;for(let k=0;k<TIERS.length;k++){if(sc>=TIERS[k].min)i=k;}const t=TIERS[i],nx=TIERS[i+1]||null;return {i,em:t.em,name:t.name,min:t.min,next:nx?nx.min:null,nextName:nx?nx.name:null,nextEm:nx?nx.em:null};}
 function leagueUp(tr){const b=document.createElement('div');b.style.cssText='position:fixed;left:50%;top:27%;transform:translate(-50%,-50%) scale(.6);z-index:9999;pointer-events:none;background:linear-gradient(135deg,#f6d774,#e7a44b);color:#3a2408;padding:13px 24px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35);text-align:center;font-weight:800;opacity:0;transition:opacity .35s ease,transform .35s cubic-bezier(.2,1.4,.5,1)';b.innerHTML='<div style="font-size:32px;line-height:1">'+tr.em+'</div><div style="font-size:11px;letter-spacing:1px;opacity:.75;margin-top:3px">NUOVA LEGA</div><div style="font-size:19px;margin-top:1px">'+tr.name+'</div>';document.body.appendChild(b);requestAnimationFrame(()=>{b.style.opacity='1';b.style.transform='translate(-50%,-50%) scale(1)';});setTimeout(()=>{b.style.opacity='0';b.style.transform='translate(-50%,-55%) scale(.92)';setTimeout(()=>b.remove(),420);},2500);try{toast('🎉 Nuova lega: '+tr.em+' '+tr.name+'!',3400);}catch(e){}}
@@ -1613,8 +1618,8 @@ function produce(dt){if(prodBoostT>0)prodBoostT=Math.max(0,prodBoostT-dt);const 
   // commercio via mare: i porticcioli portano oro ogni tanto
   const nH=decos.filter(x=>x.k==='porticciolo').length;if(nH){harborT+=dt*mul;if(harborT>=24){harborT=0;const g=Math.round(nH*5*boost*kHarbor());R.oro+=g;const pc=decos.find(x=>x.k==='porticciolo');if(pc){const [wx,wz]=cw(pc.cx,pc.cy);floatText(wx,wz,'⚓ 🪙+'+g);}drawTop();}}
   buildings.forEach(b=>{if(!b.active)return;
-  if(b.def.prod){b.timer+=dt*mul;if(b.timer>=b.def.prod.t){b.timer=0;R[b.def.prod.r]+=Math.max(1,Math.round(b.def.prod.a*lvlMul(b)*prodBonus(b.def.prod.r)*boost));}}
-  if(b.def.chain){const c=b.def.chain;b.ctimer=(b.ctimer||0)+dt*mul;if(b.ctimer>=c.t){b.ctimer=0;if(R[c.inR]>=c.inA){R[c.inR]-=c.inA;R[c.outR]+=Math.round(c.outA*lvlMul(b)*boost);}}}
+  if(b.def.prod){b.timer+=dt*mul;if(b.timer>=b.def.prod.t){b.timer=0;R[b.def.prod.r]+=Math.max(1,Math.round(b.def.prod.a*lvlMul(b)*prodBonus(b.def.prod.r)*boost*ECON));}}
+  if(b.def.chain){const c=b.def.chain;b.ctimer=(b.ctimer||0)+dt*mul;if(b.ctimer>=c.t){b.ctimer=0;if(R[c.inR]>=c.inA){R[c.inR]-=c.inA;R[c.outR]+=Math.max(1,Math.round(c.outA*lvlMul(b)*boost*ECON));}}}
 });}
 // la popolazione consuma cibo: se manca cala il morale (campi/animali/pesca lo rimettono)
 let foodT=0,hungry=false,hungerWarnT=0;
