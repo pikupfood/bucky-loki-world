@@ -477,6 +477,16 @@ function updWildlife(dt){for(const w of wildlife){const o=w.obj;w.timer-=dt;
   const dx=w.tx-o.position.x,dz=w.tz-o.position.z,d=Math.hypot(dx,dz);
   if(d>0.2){o.position.x+=dx/d*w.speed*dt;o.position.z+=dz/d*w.speed*dt;o.rotation.y=Math.atan2(dx,dz);w.hop+=dt*8;o.position.y=Math.abs(Math.sin(w.hop))*w.ymax;}
   else{o.position.y=0;w.timer=Math.min(w.timer,0.2);}}}
+// ===== Stendardo del regno: identità visibile della scelta del giocatore, al centro del villaggio =====
+let kingdomBanner=null;
+function makeKingdomBanner(k){const K=KINGDOMS[k]||KINGDOMS.dendra;const g=new THREE.Group();const hex='#'+(K.col>>>0).toString(16).padStart(6,'0');
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.045,1.5,6),new THREE.MeshStandardMaterial({color:0x5a3c20,roughness:1}));pole.position.y=0.75;g.add(pole);
+  const S=128,c=document.createElement('canvas');c.width=c.height=S;const x=c.getContext('2d');x.fillStyle=hex;x.fillRect(0,0,S,S);x.fillStyle='rgba(255,255,255,0.16)';x.fillRect(0,0,S,S*0.2);x.fillStyle='rgba(0,0,0,0.12)';x.fillRect(0,S*0.8,S,S*0.2);x.font='76px serif';x.textAlign='center';x.textBaseline='middle';try{x.fillText(K.em,S/2,S*0.54);}catch(e){}
+  const tex=new THREE.CanvasTexture(c);const cloth=new THREE.Mesh(new THREE.PlaneGeometry(0.52,0.64),new THREE.MeshStandardMaterial({map:tex,roughness:1,metalness:0,side:THREE.DoubleSide}));cloth.position.set(0.28,1.08,0);g.add(cloth);
+  const fin=new THREE.Mesh(new THREE.ConeGeometry(0.055,0.14,6),new THREE.MeshStandardMaterial({color:new THREE.Color(K.col),roughness:.8}));fin.position.y=1.55;g.add(fin);
+  g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
+function freeCellNearCenter(){for(let r=2;r<12;r++)for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++){const cx=HALF+dx,cy=HALF+dy;if(inB(cx,cy)&&!grid[key(cx,cy)])return cw(cx,cy);}return [0,6];}
+function spawnKingdomBanner(){try{if(kingdomBanner){cityGroup.remove(kingdomBanner);kingdomBanner=null;}const [px,pz]=freeCellNearCenter();kingdomBanner=makeKingdomBanner(myKingdom);kingdomBanner.position.set(px,0,pz);kingdomBanner.rotation.y=-0.4;cityGroup.add(kingdomBanner);}catch(e){}}
 // ===== Reskin edifici: Medieval Village Pack (stile carino e coerente) =====
 const VILLAGE_MAP={casa:'fantasy_house',taverna:'fantasy_inn',caserma:'fantasy_barracks',segheria:'fantasy_sawmill',fonderia:'blacksmith',mercato:'market_stand',chiesa:'bell_tower',fattoria:'mill'};
 async function loadVillage(){for(const key in VILLAGE_MAP){try{const model=await loadModel('models/village/'+VILLAGE_MAP[key]+'.glb');let hasMesh=false;model.traverse(m=>{if(m.isMesh)hasMesh=true;});if(!hasMesh)continue;const d=BUILD[key];const footCells=Math.max(d.w||4,d.h||4);const box=new THREE.Box3().setFromObject(model);const sz=box.getSize(new THREE.Vector3());const horiz=Math.max(sz.x,sz.z)||1;const s=(footCells*CELL*0.92)/horiz;model.scale.setScalar(s);model.updateWorldMatrix(true,true);const b2=new THREE.Box3().setFromObject(model);if(isFinite(b2.min.y))model.position.y-=b2.min.y;const wrap=new THREE.Group();wrap.add(model);const tn='v_'+key;templates[tn]=wrap;FP[tn]=measFP(wrap);BUILD[key].file=tn;}catch(e){}}}
@@ -1831,7 +1841,7 @@ window.addEventListener('pagehide',()=>{if(started)save();});
   initNeighbors();
   for(let i=0;i<5;i++)spawnAgent('operaio');for(let i=0;i<2;i++)spawnAgent('milite');
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
-  checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();initFlutters();initFireflies();placeFlora();placeFloraDetail();spawnTuzu();spawnWildlife();if(miniC){miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();}document.getElementById('load').style.display='none';
+  checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();initFlutters();initFireflies();placeFlora();placeFloraDetail();spawnTuzu();spawnWildlife();spawnKingdomBanner();if(miniC){miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();}document.getElementById('load').style.display='none';
 })();
 // ===== Account (login + salvataggio cloud, stesso account dell'app Tuzu) =====
 let cloudUser=null;
