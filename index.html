@@ -672,27 +672,35 @@ function placeCollectNodes(){
 let _tpTarget=null,_tpActCd=0;
 function tpFindTarget(px,pz){let best=null;
   for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(px-m.x,pz-m.z);if(d<4.4&&(!best||d<best.d))best={type:'monster',ref:m,d};}
+  for(const g of roomGuards){if(g.hp<=0)continue;const d=Math.hypot(px-g.x,pz-g.z);if(d<4.4&&(!best||d<best.d))best={type:'monster',ref:g,d};}
   for(const c of collectNodes){if(c.taken)continue;const d=Math.hypot(px-c.x,pz-c.z);if(d<3.6&&(!best||d<best.d))best={type:'collect',ref:c,d};}
   if(typeof neighbors!=='undefined')for(const nb of neighbors){if(!nb.g)continue;const d=Math.hypot(px-nb.g.position.x,pz-nb.g.position.z);if(d<10&&(!best||best.type==='kingdom')&&(!best||d<best.d))best={type:'kingdom',ref:nb,d};}
   if(caveGateLocked){const gx=(GATE_STRIP.x0+GATE_STRIP.x1)/2,gz=(GATE_STRIP.z0+GATE_STRIP.z1)/2,d=Math.hypot(px-gx,pz-gz);if(d<4.5&&!best)best={type:'gate',d};}
   return best;}
 function tpFloat(x,z,txt,col){try{if(typeof floatText==='function')floatText(x,1.8,z,txt,col);}catch(e){}}
+function hitMonster(m){if(!m||m.hp<=0)return;m.hp--;
+  if(m.hp<=0){if(m.obj)m.obj.visible=false;const i=avoid.indexOf(m.av);if(i>=0)avoid.splice(i,1);const rew=30+Math.floor(Math.random()*30);R.oro=(R.oro||0)+rew;if(!m._guard&&typeof monstersBeaten!=='undefined')monstersBeaten++;if(typeof drawTop==='function')drawTop();tpFloat(m.x,m.z,'☠ +'+rew,'#ff9a9a');if(typeof toast==='function')toast((m._guard?'⚔️ Guardia abbattuta! +':'⚔️ Mostro sconfitto! +')+rew+' 🪙');if(typeof save==='function')save();if(m._guard&&typeof guardsLeft==='function'&&guardsLeft(m.room)===0&&typeof onRoomCleared==='function')onRoomCleared(m.room);}
+  else{tpFloat(m.x,m.z,'-1 ❤','#ff5a5a');const mo=m.obj;if(mo){mo.scale.multiplyScalar(0.88);setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/0.88);},100);}}
+}
 function tpDoAction(){if(!_tpTarget)return;const _now=performance.now();if(_now<_tpActCd)return;_tpActCd=_now+320;const t=_tpTarget;
   if(t.type==='collect'){const c=t.ref;c.taken=true;if(c.obj)c.obj.visible=false;if(c.glow)c.glow.visible=false;
     if(c.kind==='chiave'){if(typeof unlockCaveGate==='function')unlockCaveGate();tpFloat(c.x,c.z,'🔑','#ffe27a');}
     else{const g=18+Math.floor(Math.random()*22);R.oro=(R.oro||0)+g;if(typeof drawTop==='function')drawTop();tpFloat(c.x,c.z,'+'+g+' 🪙','#ffd36a');if(typeof toast==='function')toast('✋ Cristalli raccolti: +'+g+' 🪙');c.respawn=performance.now()+45000;}
     if(typeof save==='function')save();}
-  else if(t.type==='monster'){const m=t.ref;m.hp--;if(tpAvatar)tpAvatar.o.rotation.y=Math.atan2(m.x-tpAvatar.o.position.x,m.z-tpAvatar.o.position.z);
-    if(m.hp<=0){if(m.obj)m.obj.visible=false;const i=avoid.indexOf(m.av);if(i>=0)avoid.splice(i,1);const rew=30+Math.floor(Math.random()*30);R.oro=(R.oro||0)+rew;if(typeof monstersBeaten!=='undefined')monstersBeaten++;if(typeof drawTop==='function')drawTop();tpFloat(m.x,m.z,'☠ +'+rew,'#ff9a9a');if(typeof toast==='function')toast('⚔️ Mostro sconfitto! +'+rew+' 🪙');if(typeof save==='function')save();}
-    else{tpFloat(m.x,m.z,'-1 ❤','#ff5a5a');const mo=m.obj;if(mo){mo.scale.multiplyScalar(0.88);setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/0.88);},100);}if(typeof toast==='function')toast('⚔️ Colpito ('+m.hp+'/'+m.maxhp+')');}}
-  else if(t.type==='kingdom'){const nb=t.ref;nb.reached=true;if(typeof reachedNb!=='undefined')reachedNb[nb.k]=1;if(typeof openNeighbor==='function')openNeighbor(nb.k);else if(typeof toast==='function')toast('Sei al regno vicino');}
+  else if(t.type==='monster'){const m=t.ref;if(tpAvatar)tpAvatar.o.rotation.y=Math.atan2(m.x-tpAvatar.o.position.x,m.z-tpAvatar.o.position.z);
+    hitMonster(m);
+    // FENDENTE largo: colpisce anche le altre guardie a tiro (mischia vera, gruppo gestibile)
+    if(tpAvatar){const av=tpAvatar.o.position;for(const g of roomGuards){if(g!==m&&g.hp>0&&g.room===_curRoom&&Math.hypot(g.x-av.x,g.z-av.z)<2.5)hitMonster(g);}}}
+  else if(t.type==='kingdom'){const nb=t.ref;nb.reached=true;if(typeof reachedNb!=='undefined')reachedNb[nb.k]=1;
+    if(typeof allied!=='undefined'&&allied[nb.k]){if(typeof openNeighbor==='function')openNeighbor(nb.k);} // alleato: mercato/parla, in pace
+    else if(typeof toast==='function')toast('⚔️ Regno nemico: entra e combatti le guardie sul posto (niente campo di battaglia)',4200);}
   else if(t.type==='gate'){if(typeof toast==='function')toast('🔒 Cancello chiuso: trova la chiave (nella stanza di Òros)',3600);}
 }
 // BOTTONE A (primario, contestuale): se c'e' un bersaglio fa quello, altrimenti fendente al mostro vicino
 function tpPrimaryAction(){if(!exploreMode)return;
   // modalità costruzione/semina: posa al posto dell'avatar
   if(typeof selKey!=='undefined'&&selKey&&typeof tryPlace==='function'&&typeof cellOfWorld==='function'&&tpAvatar){const c=cellOfWorld(tpAvatar.o.position.x,tpAvatar.o.position.z);try{tryPlace(c[0],c[1]);}catch(e){}return;}
-  if(_tpTarget){tpDoAction();return;}if(tpAvatar){const a=tpAvatar.o.position;let best=null,bd=3.2;for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(a.x-m.x,a.z-m.z);if(d<bd){bd=d;best=m;}}if(best){_tpTarget={type:'monster',ref:best,d:bd};tpDoAction();}}}
+  if(_tpTarget){tpDoAction();return;}if(tpAvatar){const a=tpAvatar.o.position;let best=null,bd=3.2;for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(a.x-m.x,a.z-m.z);if(d<bd){bd=d;best=m;}}for(const g of roomGuards){if(g.hp<=0)continue;const d=Math.hypot(a.x-g.x,a.z-g.z);if(d<bd){bd=d;best=g;}}if(best){_tpTarget={type:'monster',ref:best,d:bd};tpDoAction();}}}
 // apri il menu costruzioni dalla terza persona; scelto un oggetto, chiudo e passo in "posa"
 function tpOpenBuild(){if(!exploreMode)return;if(typeof selKey!=='undefined'&&selKey){selKey=null;if(typeof toast==='function')toast('Costruzione annullata');return;}
   if(typeof drawer==='undefined')return;try{selKey=null;drawer.classList.add('open');if(typeof drawBuild==='function')drawBuild();}catch(e){return;}
@@ -710,7 +718,7 @@ function updTpAction(px,pz){
 // VITA dell'avatar + IA dei mostri (ti inseguono e colpiscono nella tana)
 let tpHp=5,tpMaxHp=5,_tpHurtCd=0;
 function tpUpdHealthUI(){const el=document.getElementById('tphp');if(!el)return;if(!exploreMode){el.style.display='none';return;}el.style.display='flex';let s='';for(let i=0;i<tpMaxHp;i++)s+=(i<tpHp?'❤':'🖤');el.textContent=s;}
-function tpDown(){tpHp=tpMaxHp;if(tpAvatar)tpAvatar.o.position.set(0,0,0);for(const m of caveMonsters){if(m.hp>0&&m._home){m.x=m._home.x;m.z=m._home.z;if(m.obj){m.obj.position.x=m.x;m.obj.position.z=m.z;}if(m.av){m.av.x=m.x;m.av.z=m.z;}}}if(typeof toast==='function')toast('💀 Sei caduto! Torni al covo');tpUpdHealthUI();}
+function tpDown(){tpHp=tpMaxHp;if(tpAvatar)tpAvatar.o.position.set(0,0,0);for(const m of caveMonsters){if(m.hp>0&&m._home){m.x=m._home.x;m.z=m._home.z;if(m.obj){m.obj.position.x=m.x;m.obj.position.z=m.z;}if(m.av){m.av.x=m.x;m.av.z=m.z;}}}for(const g of roomGuards){if(g.hp>0&&g.home){g.x=g.home.x;g.z=g.home.z;if(g.obj){g.obj.position.x=g.x;g.obj.position.z=g.z;}if(g.av){g.av.x=g.x;g.av.z=g.z;}}}if(typeof toast==='function')toast('💀 Sei caduto! Torni al covo');tpUpdHealthUI();}
 function tpHurt(n){const now=performance.now();if(now<_tpHurtCd)return;_tpHurtCd=now+800;tpHp-=n;if(tpAvatar)tpFloat(tpAvatar.o.position.x,tpAvatar.o.position.z,'-'+n+' ❤','#ff5a5a');tpUpdHealthUI();if(tpHp<=0)tpDown();}
 function updCaveMonsters(dt){if(!exploreMode||!tpAvatar)return;if(_curRoom!=='tana'&&_curRoom!=='c_chrysa_tana')return;const a=tpAvatar.o.position;
   for(const m of caveMonsters){if(m.hp<=0||!m.obj)continue;if(!m._home)m._home={x:m.x,z:m.z};
@@ -718,6 +726,47 @@ function updCaveMonsters(dt){if(!exploreMode||!tpAvatar)return;if(_curRoom!=='ta
     if(d<aggro&&d>1.7){const sp=2.6*dt,ux=dx/d,uz=dz/d,nx=m.x+ux*sp,nz=m.z+uz*sp;if(inWalkable(nx,nz)){m.x=nx;m.z=nz;m.obj.position.x=nx;m.obj.position.z=nz;if(m.av){m.av.x=nx;m.av.z=nz;}}m.obj.rotation.y=Math.atan2(ux,uz);}
     if(d<2.0){if(performance.now()>(m.acd||0)){m.acd=performance.now()+1100;tpHurt(1);m.obj.scale.multiplyScalar(1.12);(function(mo){setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/1.12);},110);})(m.obj);}}
   }}
+// ===== INVASIONE DEL REGNO (3ª persona): entri da nemico → le GUARDIE escono e ti attaccano, le combatti sul posto (niente campo di battaglia) =====
+const roomGuards=[]; let _roomConquered={};
+const GUARD_ROOMS=['nefele','chrysa','oros'];
+function spawnRoomGuards(roomId){
+  if(roomGuards.some(g=>g.room===roomId))return false;
+  const Rm=(typeof DROOMS!=='undefined')?DROOMS[roomId]:null; if(!Rm)return false; const N=3;
+  for(let i=0;i<N;i++){
+    const ang=i/N*6.2832+Math.random()*0.5, rr=(Rm.hw||10)-2.4-Math.random()*1.4;
+    const gx=Rm.x+Math.cos(ang)*rr, gz=Rm.z+Math.sin(ang)*rr;
+    let obj,walker=(typeof makeWalker==='function')?makeWalker(1.12):null;
+    if(walker){obj=walker.o;} else {obj=(templates.d_skull&&templates.d_skull.children.length)?inst('d_skull'):new THREE.Group();if(typeof fitHeight==='function'){try{fitHeight(obj,1.5);}catch(e){}}}
+    obj.position.set(gx,0,gz);(typeof rGroup==='function'?rGroup(roomId):cityGroup).add(obj);
+    if(typeof addAvoid==='function')addAvoid(gx,gz,0.55,1.7);
+    roomGuards.push({obj,x:gx,z:gz,hp:3,maxhp:3,av:avoid[avoid.length-1],room:roomId,home:{x:gx,z:gz},acd:0,walker,speed:2.2,_guard:true});
+  }
+  return true;
+}
+function guardsLeft(roomId){let n=0;for(const g of roomGuards)if(g.room===roomId&&g.hp>0)n++;return n;}
+function onRoomCleared(roomId){
+  if(_roomConquered[roomId])return; _roomConquered[roomId]=true;
+  const nbk=(typeof DROOMS!=='undefined'&&DROOMS[roomId])?DROOMS[roomId].nb:null;
+  if(nbk){try{if(typeof hostile!=='undefined')delete hostile[nbk];}catch(e){} if(typeof conquered!=='undefined')conquered[nbk]=1; if(typeof liberated!=='undefined')liberated[nbk]=1;}
+  const rew=120+Math.floor(Math.random()*120); R.oro=(R.oro||0)+rew;
+  if(typeof drawTop==='function')drawTop(); if(typeof save==='function')save();
+  if(typeof toast==='function')toast('🏰 Regno conquistato: '+(nbk&&typeof kName==='function'?kName(nbk):'nemico')+'! +'+rew+' 🪙',4800);
+}
+function updRoomCombat(dt){
+  if(!exploreMode||!tpAvatar)return; const a=tpAvatar.o.position, cur=_curRoom;
+  if(GUARD_ROOMS.indexOf(cur)>=0&&!_roomConquered[cur]){
+    const nbk=(typeof DROOMS!=='undefined'&&DROOMS[cur])?DROOMS[cur].nb:null, al=(typeof allied!=='undefined'&&allied[nbk]);
+    if(!al&&!roomGuards.some(g=>g.room===cur)){if(spawnRoomGuards(cur)&&typeof toast==='function')toast('⚔️ Sei entrato in un regno nemico! Le guardie ti attaccano — difenditi col tasto ⚔️',4600);}
+  }
+  for(const g of roomGuards){
+    if(g.hp<=0||!g.obj)continue;
+    if(g.room!==cur){if(g.walker)setWalkerMoving(g.walker,false);continue;}
+    const dx=a.x-g.x,dz=a.z-g.z,d=Math.hypot(dx,dz)||1; const aggro=(typeof tpCrouch!=='undefined'&&tpCrouch)?4:24;
+    if(d<aggro&&d>1.7){const sp=g.speed*dt,ux=dx/d,uz=dz/d,nx=g.x+ux*sp,nz=g.z+uz*sp;if(typeof inWalkable!=='function'||inWalkable(nx,nz)){g.x=nx;g.z=nz;g.obj.position.x=nx;g.obj.position.z=nz;if(g.av){g.av.x=nx;g.av.z=nz;}}g.obj.rotation.y=Math.atan2(ux,uz);if(g.walker)setWalkerMoving(g.walker,true);}
+    else if(g.walker)setWalkerMoving(g.walker,false);
+    if(d<2.0){if(performance.now()>(g.acd||0)){g.acd=performance.now()+1300;tpHurt(1);g.obj.scale.multiplyScalar(1.1);(function(mo){setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/1.1);},110);})(g.obj);}}
+  }
+}
 (function injectTpAction(){const st=document.createElement('style');
   st.textContent='#tpact{position:fixed;left:50%;bottom:122px;transform:translateX(-50%);z-index:61;display:none;align-items:center;justify-content:center;padding:12px 22px;border-radius:26px;border:2px solid rgba(255,220,150,.6);background:rgba(40,28,16,.93);color:#ffe4a8;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.55);touch-action:none}'+
    '#tphp{position:fixed;left:50%;top:48px;transform:translateX(-50%);z-index:60;display:none;font-size:19px;letter-spacing:3px;text-shadow:0 1px 3px #000;pointer-events:none}'+
@@ -2319,11 +2368,11 @@ function openNeighbor(k,replace){const nb=neighbors.find(n=>n.k===k);const p=POP
    +`<div class="srow" style="display:flex;justify-content:space-between;align-items:center;gap:6px"><span>Compra ${RES[t.sells.r]}${t.sells.qty}</span><button class="btn" style="width:auto;margin:0;padding:7px 10px" id="nbbuy">🪙${buyP}</button></div>`
    +`<div class="srow" style="display:flex;justify-content:space-between;align-items:center;gap:6px"><span>Vendi ${RES[t.buys.r]}${t.buys.qty}</span><button class="btn alt" style="width:auto;margin:0;padding:7px 10px" id="nbsell">+🪙${sellG}</button></div>`
    +(al?`<div style="margin-top:8px;font-size:12px;opacity:.9">🤝 Alleata: sconti al mercato e un dono di ${RES[t.gift.r]} ogni tanto.</div>`:`<button class="btn" id="nbally" style="margin-top:8px;background:#1f8a56">🤝 Allèati (🪙${ALLY_COST.oro} + 🌾${ALLY_COST.cibo})</button>`)
-   +`<button class="btn red" id="nbattack" style="margin-top:8px">⚔️ Attacca il villaggio${al?' (rompe l’alleanza)':''}</button>`
+   +((typeof exploreMode!=='undefined'&&exploreMode)?'':`<button class="btn red" id="nbattack" style="margin-top:8px">⚔️ Attacca il villaggio${al?' (rompe l’alleanza)':''}</button>`)
    +`<button class="btn alt" id="nbwalk">👁 Guarda il villaggio</button><button class="btn alt" id="nbclose">Chiudi</button>`;
   dialog(war?'⚔️':al?'🤝':'🏘️',p.n,'',body);const d=document.getElementById('dyn');
   d.querySelector('#nbbuy').onclick=()=>nbBuy(k);d.querySelector('#nbsell').onclick=()=>nbSell(k);const ab=d.querySelector('#nbally');if(ab)ab.onclick=()=>nbAlly(k);
-  d.querySelector('#nbattack').onclick=()=>nbAttack(k);
+  const atkb=d.querySelector('#nbattack');if(atkb)atkb.onclick=()=>nbAttack(k);
   d.querySelector('#nbwalk').onclick=()=>{closeDyn();visitNeighbor(k);};d.querySelector('#nbclose').onclick=closeDyn;}
 function betray(k){delete allied[k];hostile[k]=1;darkLevel++;soldiers+=3;morale=Math.max(5,morale-18);drawTop();save();bigBanner('🌑','VIA OSCURA','Hai tradito '+kName(k)+'. Nyxar sorride.');setBubble('Hai imboccato la Via Oscura: poteri proibiti crescono (+'+Math.round((darkMul()-1)*100)+'% produzione), ma il morale crolla e la fiducia è perduta.');}
 function nbAttack(k){const nb=neighbors.find(n=>n.k===k);const p=POPOLI.find(p=>p.k===k);if(!nb)return;if(soldiers<1){toast('Non hai soldati ⚔️: costruisci una Caserma e addestrane');return;}
@@ -2901,7 +2950,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updDistantLife(dt);updDistantFX(dt);conquestTribute(dt);updCaravans(dt);updRoadParties(dt);updWalkers(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();darkenBuildings();darkenKingdoms();darkenNeighbors();anchorKingdoms();}checkLeague();drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   updExplore(dt);
-  if(typeof updRoomVisibility==='function'){const _px=(exploreMode&&tpAvatar)?tpAvatar.o.position.x:camTarget.x,_pz=(exploreMode&&tpAvatar)?tpAvatar.o.position.z:camTarget.z;updRoomVisibility(_px,_pz);if(typeof updTpAction==='function')updTpAction(_px,_pz);if(typeof updCaveMonsters==='function')updCaveMonsters(dt);}
+  if(typeof updRoomVisibility==='function'){const _px=(exploreMode&&tpAvatar)?tpAvatar.o.position.x:camTarget.x,_pz=(exploreMode&&tpAvatar)?tpAvatar.o.position.z:camTarget.z;updRoomVisibility(_px,_pz);if(typeof updTpAction==='function')updTpAction(_px,_pz);if(typeof updCaveMonsters==='function')updCaveMonsters(dt);if(typeof updRoomCombat==='function')updRoomCombat(dt);}
   if(composer)composer.render();else renderer.render(scene,exploreMode?tpCam:camera);}
 requestAnimationFrame(tick);
 // salvataggio automatico ogni minuto (indipendente dal loop: funziona anche a schermo nascosto, e sincronizza sul cloud)
