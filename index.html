@@ -326,17 +326,19 @@ try{new THREE.RGBELoader().load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r12
 const GRID=65, CELL=0.5, HALF=(GRID-1)/2, PAR=7;
 const tl=new THREE.TextureLoader();
 // erba STILIZZATA uniforme (procedurale, coerente col low-poly) invece della foto
-const grass=(()=>{const S=256;const c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');g.fillStyle='#79ad5f';g.fillRect(0,0,S,S);
+const grass=(()=>{const S=512;const c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');g.fillStyle='#74a85a';g.fillRect(0,0,S,S);
   const draw=(x,y,s,col)=>{g.fillStyle=col;g.fillRect(x,y,s,s);};
-  // chiazze morbide a grande scala: il prato non è più una lastra piatta
+  // chiazze morbide a più scale (grande + media): niente lastra piatta, meno ripetizione
   const blob=(col,n,rmin,rmax)=>{for(let i=0;i<n;i++){const x=Math.random()*S,y=Math.random()*S,r=rmin+Math.random()*(rmax-rmin);for(const ox of [0,-S,S])for(const oy of [0,-S,S]){const grd=g.createRadialGradient(x+ox,y+oy,0,x+ox,y+oy,r);grd.addColorStop(0,col);grd.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=grd;g.beginPath();g.arc(x+ox,y+oy,r,0,6.283);g.fill();}}};
-  blob('rgba(98,152,78,0.55)',11,32,74); blob('rgba(156,200,126,0.45)',11,26,62);
-  // granuli d'erba fini
-  for(let i=0;i<560;i++){const r=Math.random();const col=r<0.5?'rgba(120,172,92,0.35)':(r<0.82?'rgba(90,146,72,0.35)':'rgba(168,206,132,0.32)');const x=Math.random()*S,y=Math.random()*S,s=1+Math.random()*2.4;for(const ox of [0,-S,S])for(const oy of [0,-S,S])draw(x+ox,y+oy,s,col);}
-  // qualche fiorellino sparso
-  for(let i=0;i<26;i++){const x=Math.random()*S,y=Math.random()*S,fc=['#ecdf74','#ec9ab4','#dadcec'][Math.floor(Math.random()*3)];for(const ox of [0,-S,S])for(const oy of [0,-S,S]){g.fillStyle=fc;g.beginPath();g.arc(x+ox,y+oy,1.3,0,6.283);g.fill();}}
+  blob('rgba(86,140,68,0.5)',14,70,160); blob('rgba(150,198,120,0.42)',14,60,140); blob('rgba(104,162,84,0.4)',12,36,96); blob('rgba(70,120,58,0.3)',9,30,80);
+  // ciuffi d'erba (tratti corti verticali) per dare consistenza
+  for(let i=0;i<620;i++){const x=Math.random()*S,y=Math.random()*S,h=2+Math.random()*5,r=Math.random();const col=r<0.5?'rgba(118,170,90,0.4)':(r<0.82?'rgba(88,144,70,0.4)':'rgba(166,206,130,0.36)');g.strokeStyle=col;g.lineWidth=1+Math.random();for(const ox of [0,-S,S])for(const oy of [0,-S,S]){g.beginPath();g.moveTo(x+ox,y+oy);g.lineTo(x+ox+(Math.random()-0.5)*2,y+oy-h);g.stroke();}}
+  // granuli fini
+  for(let i=0;i<900;i++){const r=Math.random();const col=r<0.5?'rgba(120,172,92,0.3)':(r<0.82?'rgba(90,146,72,0.3)':'rgba(168,206,132,0.28)');const x=Math.random()*S,y=Math.random()*S,s=1+Math.random()*2.2;for(const ox of [0,-S,S])for(const oy of [0,-S,S])draw(x+ox,y+oy,s,col);}
+  // fiorellini sparsi
+  for(let i=0;i<40;i++){const x=Math.random()*S,y=Math.random()*S,fc=['#ecdf74','#ec9ab4','#dadcec','#f0c050'][Math.floor(Math.random()*4)];for(const ox of [0,-S,S])for(const oy of [0,-S,S]){g.fillStyle=fc;g.beginPath();g.arc(x+ox,y+oy,1.4,0,6.283);g.fill();}}
   return new THREE.CanvasTexture(c);})();
-grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(28,28);grass.encoding=THREE.sRGBEncoding;grass.anisotropy=4;
+grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(20,20);grass.encoding=THREE.sRGBEncoding;grass.anisotropy=8;
 const ground=new THREE.Mesh(new THREE.CircleGeometry(175,80),new THREE.MeshStandardMaterial({map:grass,color:0xffffff,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 // anello di terra all'orizzonte (stesso verde, si dissolve nella foschia, niente bordo netto)
 const groundRim=new THREE.Mesh(new THREE.RingGeometry(60,175,80,1),new THREE.MeshStandardMaterial({color:0x5f9150,roughness:1}));groundRim.rotation.x=-Math.PI/2;groundRim.position.y=-0.02;scene.add(groundRim);
@@ -1229,16 +1231,18 @@ const DIRT=new THREE.MeshStandardMaterial({color:0x5e4124,roughness:1,flatShadin
 const TRUNKM=new THREE.MeshStandardMaterial({color:0x4a3620,roughness:1,envMapIntensity:0.15});
 const PINEM=new THREE.MeshStandardMaterial({color:0x386729,roughness:1,flatShading:true,envMapIntensity:0.15});
 function makeConeTree(s){const g=new THREE.Group();const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,0.4,5),TRUNKM);trunk.position.y=0.2;g.add(trunk);const f=new THREE.Mesh(new THREE.ConeGeometry(0.36,0.9,6,1),PINEM);f.position.y=0.8;g.add(f);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.scale.setScalar(s||1);return g;}
-function peak(g,x,z,r,h,snow){const col=new THREE.Mesh(new THREE.ConeGeometry(r,h,5,1),Math.random()<.5?ROCK_LO:ROCK_HI);col.position.set(x,h/2,z);col.rotation.y=Math.random()*6.28;g.add(col);if(snow){const cp=new THREE.Mesh(new THREE.ConeGeometry(r*0.42,h*0.32,5,1),SNOW);cp.position.set(x,h*0.86,z);cp.rotation.y=col.rotation.y;g.add(cp);}}
+function peak(g,x,z,r,h,snow){const rot=Math.random()*6.28;const col=new THREE.Mesh(new THREE.ConeGeometry(r,h,6,1),Math.random()<.5?ROCK_LO:ROCK_HI);col.position.set(x,h/2,z);col.rotation.y=rot;g.add(col);
+  // collare di roccia scura alla base (più massiccio)
+  const collar=new THREE.Mesh(new THREE.ConeGeometry(r*1.12,h*0.4,6,1),ROCK_LO);collar.position.set(x,h*0.2,z);collar.rotation.y=rot+0.4;g.add(collar);
+  if(snow){const cp=new THREE.Mesh(new THREE.ConeGeometry(r*0.42,h*0.36,6,1),SNOW);cp.position.set(x,h*0.83,z);cp.rotation.y=rot;g.add(cp);}}
 function makeMountain(s){const g=new THREE.Group();
-  // base di TERRA
-  const dirt=new THREE.Mesh(new THREE.ConeGeometry(2.7,1.3,7,1),DIRT);dirt.position.y=0.62;g.add(dirt);
-  // manto d'ERBA sulle pendici basse
-  const grassSlope=new THREE.Mesh(new THREE.ConeGeometry(2.35,1.8,7,1),FOOT);grassSlope.position.y=0.95;g.add(grassSlope);
-  // cime di ROCCIA (con neve)
-  peak(g,0,0,1.55,2.7,true);peak(g,1.3,0.5,1.0,1.8,true);peak(g,-1.1,0.7,0.8,1.4,false);
-  // qualche ALBERO sulle pendici
-  [[1.7,-0.9,0.5],[-1.5,-1.0,0.45],[0.5,1.6,0.4]].forEach(([tx,tz,ts])=>{const tr=makeConeTree(ts);tr.position.set(tx,0.35,tz);g.add(tr);});
+  // base di TERRA ampia + manto d'ERBA
+  const dirt=new THREE.Mesh(new THREE.ConeGeometry(3.1,1.2,9,1),DIRT);dirt.position.y=0.55;g.add(dirt);
+  const grassSlope=new THREE.Mesh(new THREE.ConeGeometry(2.7,1.7,9,1),FOOT);grassSlope.position.y=0.88;g.add(grassSlope);
+  // MASSICCIO: 5 cime sfalsate di altezza e posizione (non un cono solo)
+  [[0,0,1.7,3.2,true],[1.25,0.45,1.2,2.25,true],[-1.15,0.6,1.0,1.75,true],[0.55,-1.25,0.9,1.55,false],[-0.95,-0.95,0.72,1.3,false]].forEach(([x,z,r,h,sn])=>peak(g,x,z,r,h,sn));
+  // alberelli sulle pendici
+  [[1.9,-1.0,0.5],[-1.7,-1.1,0.45],[0.6,1.8,0.4],[-0.4,-1.9,0.4]].forEach(([tx,tz,ts])=>{const tr=makeConeTree(ts);tr.position.set(tx,0.35,tz);g.add(tr);});
   g.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.scale.setScalar(s||1);g.rotation.y=Math.random()*6.28;return g;}
 function makeHill(s){const g=new THREE.Group();const d=new THREE.Mesh(new THREE.SphereGeometry(1,10,6,0,6.28,0,Math.PI/2),FOOT);d.scale.set(1.8,0.72,1.8);g.add(d);const d2=new THREE.Mesh(new THREE.SphereGeometry(0.78,9,5,0,6.28,0,Math.PI/2),FOOT);d2.scale.set(1.4,0.68,1.4);d2.position.set(1.1,0,0.6);g.add(d2);const dt=new THREE.Mesh(new THREE.SphereGeometry(1.05,10,6,0,6.28,0,Math.PI/2),DIRT);dt.scale.set(1.7,0.28,1.7);dt.position.y=-0.02;g.add(dt);[[1.0,-0.7,0.5],[-0.8,0.6,0.42]].forEach(([tx,tz,ts])=>{const tr=makeConeTree(ts);tr.position.set(tx,0.15,tz);g.add(tr);});g.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.scale.setScalar(s||1);g.rotation.y=Math.random()*6.28;return g;}
 function placeHills(){/* montagne rimosse su richiesta del titolare */}
