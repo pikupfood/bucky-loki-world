@@ -386,7 +386,7 @@ const KINGDOMS={
 let myKingdom='dendra';
 function kName(k){const p=POPOLI.find(x=>x.k===k);return p?p.n:k;}
 function kEnemies(k){const a=KINGDOMS[k]?KINGDOMS[k].allies:[];return Object.keys(KINGDOMS).filter(x=>x!==k&&a.indexOf(x)<0);}
-function applyKingdom(k){if(!KINGDOMS[k])k='dendra';myKingdom=k;POPOLI.forEach(p=>p.own=(p.k===k?1:0));(KINGDOMS[k].allies||[]).forEach(a=>allied[a]=1);}
+function applyKingdom(k){if(!KINGDOMS[k])k='dendra';myKingdom=k;POPOLI.forEach(p=>p.own=(p.k===k?1:0));for(const a in allied)delete allied[a];(KINGDOMS[k].allies||[]).forEach(a=>allied[a]=1);}
 // ===== Bonus di regno (ogni popolo forte nella sua cosa) =====
 const KBONUS={
  dendra:  {prod:{cibo:1.4},            start:{morale:12},          note:'🌿 +40% cibo, popolo felice'},
