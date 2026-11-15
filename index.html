@@ -1576,6 +1576,8 @@ const DISTANT_SPEC=[{k:'thalassa',x:-80,z:-62,water:true},{k:'metalla',x:84,z:58
 let distantKingdoms=[], distantLife=[];
 const TOWN_COBBLE=new THREE.MeshStandardMaterial({color:0xbcae92,roughness:1});
 const TOWN_DIRT=new THREE.MeshStandardMaterial({color:0xb2976a,roughness:1});
+const PATH_EDGE=new THREE.MeshStandardMaterial({color:0x7e5e3b,roughness:1});
+const PATH_MID=new THREE.MeshStandardMaterial({color:0xcbac79,roughness:1});
 const V_HOUSES=['house_2','house_3','house_4','house_5','house_6','house_7','hut','hut_2','shack'];
 const V_PROPS=['market_stalls_2','market_stalls_compact','storage_hut','logs','crops','rock_2','rock_3','gold_rocks'];
 const V_BUILD=['barracks_2','windmill_2','temple_2','town_center_2','houses','houses_2'];
@@ -1670,6 +1672,23 @@ function placeDistantKingdoms(){if(!window._edgeFadeTex){const cv=document.creat
 // case variate anche nei 3 villaggi vicini
 function enrichNeighbors(){if(typeof neighbors==='undefined')return;neighbors.forEach(nb=>{const g=nb.g,enemy=hostile[nb.k];const pool=enemy?['V_shack','V_hut','V_house_2','V_house_4']:['V_house_2','V_house_3','V_house_4','V_house_5','V_house_6','V_hut','V_hut_2'];const ring=(nb._ring||5)-1.2;
   for(let i=0;i<5;i++){const a=(i/5)*6.2832+0.6,r=ring+((i%2)?0.9:0);const hk=pool[Math.floor(Math.random()*pool.length)];if(!templates[hk])continue;const o=inst(hk);fitHeight(o,1.45+Math.random()*0.4);o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.atan2(-Math.cos(a),-Math.sin(a));o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);}});}
+// ===== collega i regni al mondo: SENTIERI (terra) e FIUMI veri sul terreno =====
+let kingdomsConnected=false;
+function connectKingdoms(){if(kingdomsConnected)return;kingdomsConnected=true;
+  try{placeRivers();}catch(e){}
+  const DK={thalassa:[-80,-62],metalla:[84,58],pyra:[78,-78],krios:[-92,70],selenea:[-70,-98]};
+  const wind=(ax,az,bx,bz,amp,seed,N)=>{N=N||6;const dx=bx-ax,dz=bz-az,L=Math.hypot(dx,dz)||1,px=-dz/L,pz=dx/L,pts=[];for(let i=0;i<=N;i++){const t=i/N,tp=Math.sin(t*Math.PI),off=amp*tp*Math.sin(t*3.1+seed);pts.push([ax+dx*t+px*off,az+dz*t+pz*off]);}return pts;};
+  const addPath=(pts,w)=>{const sd=Math.random()*6.28;const base=new THREE.Mesh(riverRibbon(pts,w,1.5,sd),PATH_EDGE);base.position.y=0.03;base.renderOrder=14;base.receiveShadow=true;cityGroup.add(base);const mid=new THREE.Mesh(riverRibbon(pts,w*0.52,1.7,sd+1),PATH_MID);mid.position.y=0.04;mid.renderOrder=15;cityGroup.add(mid);};
+  // SENTIERI dal centro (fuori dal villaggio) alla porta di ogni regno, serpeggianti
+  for(const k in DK){const p=DK[k],L=Math.hypot(p[0],p[1]),ux=p[0]/L,uz=p[1]/L;addPath(wind(ux*20,uz*20,p[0]-ux*24,p[1]-uz*24,13,Math.random()*6,6),2.1);}
+  // sentiero verso il Monte di Nyxar
+  addPath(wind(0,22,0,-104,11,1.2,6),1.9);
+  // sentiero che collega i due regni dell'ovest (thalassa <-> selenea)
+  {const a=DK.thalassa,b=DK.selenea,dx=b[0]-a[0],dz=b[1]-a[1],L=Math.hypot(dx,dz),ux=dx/L,uz=dz/L;addPath(wind(a[0]+ux*24,a[1]+uz*24,b[0]-ux*24,b[1]-uz*24,9,2.0,5),1.9);}
+  // FIUMI che collegano i monti ai laghi del mondo
+  try{addRiver([[72,50],[60,46],[52,44],[46,42]]);}catch(e){}             // metalla (monti) -> lago L2
+  try{addRiver([[-84,64],[-70,40],[-58,14],[-50,-10],[-46,-28]]);}catch(e){} // krios (nevi) -> lago L1
+}
 // ===== REGNO = CITTA VIVA e FANTASTICA: strade, tanti edifici, recinti, mercato, mulino, giardini =====
 function buildOrganicTown(dk){const g=dk.g,enemy=dk.enemy,k=dk.k,toC=dk.toC,env=dk.env,seed=dk.seed||0;const pick=a=>a[Math.floor(Math.random()*a.length)];
   const sx=Math.cos(toC),sz=Math.sin(toC),px=-sz,pz=sx;
@@ -2483,7 +2502,7 @@ window.addEventListener('pagehide',()=>{if(started)save();});
     placeLakes();placeWildVegetation();placeRivers();placeScatterForests();
   }
   placeCastle();
-  initNeighbors();placeDistantKingdoms();
+  initNeighbors();placeDistantKingdoms();connectKingdoms();
   for(let i=0;i<5;i++)spawnAgent('operaio');for(let i=0;i<2;i++)spawnAgent('milite');
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
   checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();initFlutters();initFireflies();placeFlora();placeFloraDetail();spawnTuzu();spawnWildlife();spawnClouds();initPollen();spawnKingdomBanner();if(miniC){miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();}document.getElementById('load').style.display='none';
