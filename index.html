@@ -665,14 +665,21 @@ function tpDoAction(){if(!_tpTarget)return;const _now=performance.now();if(_now<
   else if(t.type==='kingdom'){const nb=t.ref;nb.reached=true;if(typeof reachedNb!=='undefined')reachedNb[nb.k]=1;if(typeof openNeighbor==='function')openNeighbor(nb.k);else if(typeof toast==='function')toast('Sei al regno vicino');}
 }
 // BOTTONE A (primario, contestuale): se c'e' un bersaglio fa quello, altrimenti fendente al mostro vicino
-function tpPrimaryAction(){if(!exploreMode)return;if(_tpTarget){tpDoAction();return;}if(tpAvatar){const a=tpAvatar.o.position;let best=null,bd=3.2;for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(a.x-m.x,a.z-m.z);if(d<bd){bd=d;best=m;}}if(best){_tpTarget={type:'monster',ref:best,d:bd};tpDoAction();}}}
+function tpPrimaryAction(){if(!exploreMode)return;
+  // modalità costruzione/semina: posa al posto dell'avatar
+  if(typeof selKey!=='undefined'&&selKey&&typeof tryPlace==='function'&&typeof cellOfWorld==='function'&&tpAvatar){const c=cellOfWorld(tpAvatar.o.position.x,tpAvatar.o.position.z);try{tryPlace(c[0],c[1]);}catch(e){}return;}
+  if(_tpTarget){tpDoAction();return;}if(tpAvatar){const a=tpAvatar.o.position;let best=null,bd=3.2;for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(a.x-m.x,a.z-m.z);if(d<bd){bd=d;best=m;}}if(best){_tpTarget={type:'monster',ref:best,d:bd};tpDoAction();}}}
+// apri il menu costruzioni dalla terza persona; scelto un oggetto, chiudo e passo in "posa"
+function tpOpenBuild(){if(!exploreMode)return;if(typeof selKey!=='undefined'&&selKey){selKey=null;if(typeof toast==='function')toast('Costruzione annullata');return;}
+  if(typeof drawer==='undefined')return;try{selKey=null;drawer.classList.add('open');if(typeof drawBuild==='function')drawBuild();}catch(e){return;}
+  const iv=setInterval(()=>{if(!drawer.classList.contains('open')){clearInterval(iv);return;}if(typeof selKey!=='undefined'&&selKey){drawer.classList.remove('open');clearInterval(iv);if(typeof toast==='function')toast('🔨 Vai dove vuoi e premi il tasto azione per posare');}},150);}
 function updTpAction(px,pz){
   const now=performance.now();for(const c of collectNodes){if(c.taken&&c.respawn&&now>c.respawn){c.taken=false;c.respawn=0;if(c.obj)c.obj.visible=true;if(c.glow)c.glow.visible=true;}}
   const old=document.getElementById('tpact');if(old&&old.style.display!=='none')old.style.display='none';
   const A=document.getElementById('tpA');
   if(!exploreMode){_tpTarget=null;return;}
   _tpTarget=tpFindTarget(px,pz);
-  if(A)A.textContent=_tpTarget?({monster:'⚔️',collect:'✋',kingdom:'🤝'}[_tpTarget.type]||'⚔️'):'⚔️';
+  if(A){if(typeof selKey!=='undefined'&&selKey)A.textContent='🔨';else A.textContent=_tpTarget?({monster:'⚔️',collect:'✋',kingdom:'🤝'}[_tpTarget.type]||'⚔️'):'⚔️';}
 }
 // VITA dell'avatar + IA dei mostri (ti inseguono e colpiscono nella tana)
 let tpHp=5,tpMaxHp=5,_tpHurtCd=0;
@@ -687,10 +694,12 @@ function updCaveMonsters(dt){if(!exploreMode||!tpAvatar)return;if(_curRoom!=='ta
   }}
 (function injectTpAction(){const st=document.createElement('style');
   st.textContent='#tpact{position:fixed;left:50%;bottom:122px;transform:translateX(-50%);z-index:61;display:none;align-items:center;justify-content:center;padding:12px 22px;border-radius:26px;border:2px solid rgba(255,220,150,.6);background:rgba(40,28,16,.93);color:#ffe4a8;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.55);touch-action:none}'+
-   '#tphp{position:fixed;left:50%;top:48px;transform:translateX(-50%);z-index:60;display:none;font-size:19px;letter-spacing:3px;text-shadow:0 1px 3px #000;pointer-events:none}';
+   '#tphp{position:fixed;left:50%;top:48px;transform:translateX(-50%);z-index:60;display:none;font-size:19px;letter-spacing:3px;text-shadow:0 1px 3px #000;pointer-events:none}'+
+   '#tpbuildbtn{position:fixed;right:12px;top:112px;z-index:62;width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,220,150,.5);background:rgba(28,22,16,.85);color:#ffdca0;font-size:20px;cursor:pointer;display:none;align-items:center;justify-content:center}.explore #tpbuildbtn{display:flex}';
   document.head.appendChild(st);const b=document.createElement('button');b.id='tpact';document.body.appendChild(b);
   b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(typeof tpDoAction==='function')tpDoAction();});
-  const hp=document.createElement('div');hp.id='tphp';document.body.appendChild(hp);})();
+  const hp=document.createElement('div');hp.id='tphp';document.body.appendChild(hp);
+  const bb=document.createElement('button');bb.id='tpbuildbtn';bb.textContent='🔨';bb.title='Costruisci';document.body.appendChild(bb);bb.addEventListener('click',()=>{if(typeof tpOpenBuild==='function')tpOpenBuild();});})();
 // ===== NUVOLE che scorrono nel cielo =====
 const clouds=[];const CLOUDMAT=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,transparent:true,opacity:0.92,fog:false});
 function makeCloud(){const g=new THREE.Group();const n=4+Math.floor(Math.random()*4);for(let i=0;i<n;i++){const r=3+Math.random()*4.5;const s=new THREE.Mesh(new THREE.SphereGeometry(r,7,5),CLOUDMAT);s.position.set((Math.random()-0.5)*12,(Math.random()-0.5)*2.2,(Math.random()-0.5)*7);s.scale.y=0.5;g.add(s);}return g;}
