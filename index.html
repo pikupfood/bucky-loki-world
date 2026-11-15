@@ -1144,6 +1144,9 @@ const waterShallow=new THREE.MeshStandardMaterial({color:0x79c8e6,roughness:0.85
 const shoreMat=new THREE.MeshStandardMaterial({color:0xdbcb96,roughness:1,metalness:0,side:THREE.DoubleSide});
 function markWater(cx,cy){if(!inB(cx,cy)||grid[key(cx,cy)])return;grid[key(cx,cy)]={type:'water',ax:cx,ay:cy,w:1,h:1,cx,cy};lakes.push({cx,cy});}
 function disc(mat,R,y,rot){const m=new THREE.Mesh(new THREE.CircleGeometry(R,24),mat);m.rotation.x=-Math.PI/2;m.rotation.z=rot||0;m.position.y=y;m.renderOrder=28;return m;}
+// filo di schiuma bianca sul bordo dell'acqua
+const foamMat=new THREE.MeshBasicMaterial({color:0xeef7fc,transparent:true,opacity:0.6,side:THREE.DoubleSide,depthWrite:false});
+function foamRing(R,rot){const f=new THREE.Mesh(new THREE.RingGeometry(R*0.965,R*1.06,42),foamMat);f.rotation.x=-Math.PI/2;f.rotation.z=rot||0;f.position.y=0.05;f.renderOrder=30;return f;}
 // ===== barche, navi e porticcioli =====
 const _woodD=new THREE.MeshStandardMaterial({color:0x7a4a22,roughness:1}),_woodDk=new THREE.MeshStandardMaterial({color:0x5a3c20,roughness:1}),_sailM=new THREE.MeshStandardMaterial({color:0xf0e4c8,roughness:1,side:THREE.DoubleSide});
 function makeBoat(s){const g=new THREE.Group();const hull=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.22,0.42),_woodD);hull.position.y=0.14;g.add(hull);const tip=new THREE.Mesh(new THREE.ConeGeometry(0.22,0.5,4),_woodD);tip.rotation.z=-Math.PI/2;tip.rotation.y=Math.PI/4;tip.position.set(0.6,0.14,0);g.add(tip);const mast=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.72,6),_woodDk);mast.position.set(0,0.5,0);g.add(mast);const sail=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.5),_sailM);sail.position.set(0.02,0.52,0);sail.rotation.y=Math.PI/2;g.add(sail);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.scale.setScalar(s||1);return g;}
@@ -1156,10 +1159,11 @@ function addLake(cx,cy,r){lakeCenters.push({cx,cy,r});
   const sx=1.0+Math.random()*0.55, sz=0.58+Math.random()*0.4, rot0=Math.random()*3;
   const sh=disc(shoreMat,R*1.1,0.03,rot0);sh.scale.set(sx*1.04,1,sz*1.04);g.add(sh);
   const w0=disc(waterShallow,R*1.05,0.045,rot0+0.1);w0.scale.set(sx,1,sz);g.add(w0);
+  const fm=foamRing(R*1.04,rot0);fm.scale.set(sx,1,sz);g.add(fm);
   const w1=disc(waterMid,R*0.96,0.055,rot0+0.2);w1.scale.set(sx*0.98,1,sz*0.98);g.add(w1);
   const w2=disc(waterDeep,R*0.64,0.065,rot0-0.3);w2.scale.set(sx*0.94,1,sz*0.94);w2.position.set(R*(Math.random()-.4)*0.2,0.065,R*(Math.random()-.5)*0.2);g.add(w2);
   // 1-2 insenature/lobi: rompono il profilo e variano la dimensione
-  const lobes=1+Math.floor(Math.random()*2);for(let i=0;i<lobes;i++){const a=Math.random()*6.28,d=R*(0.7+Math.random()*0.5),lr=R*(0.4+Math.random()*0.45),lx=Math.cos(a)*d,lz=Math.sin(a)*d;const ls=disc(shoreMat,lr*1.3,0.032,Math.random()*3);ls.position.set(lx,0.032,lz);g.add(ls);const lw=disc(waterMid,lr*1.0,0.052,Math.random()*3);lw.position.set(lx,0.052,lz);g.add(lw);}
+  const lobes=1+Math.floor(Math.random()*2);for(let i=0;i<lobes;i++){const a=Math.random()*6.28,d=R*(0.7+Math.random()*0.5),lr=R*(0.4+Math.random()*0.45),lx=Math.cos(a)*d,lz=Math.sin(a)*d;const ls=disc(shoreMat,lr*1.3,0.032,Math.random()*3);ls.position.set(lx,0.032,lz);g.add(ls);const lw=disc(waterMid,lr*1.0,0.052,Math.random()*3);lw.position.set(lx,0.052,lz);g.add(lw);const lf=foamRing(lr*1.05);lf.position.set(lx,0.05,lz);g.add(lf);}
   cityGroup.add(g);}
 function placeLakes(){addLake(HALF-13,HALF+13,2+Math.floor(Math.random()*3));addLake(HALF+14,HALF-12,2+Math.floor(Math.random()*2));addLake(HALF+13,HALF+14,2+Math.floor(Math.random()*3));}
 // fiume a larghezza VARIABILE (si allarga e si stringe), costruito come nastro piatto seguendo la curva
@@ -1178,6 +1182,7 @@ let bigLakes=[];
 function addBigLake(wx,wz,R){const g=new THREE.Group();g.position.set(wx,0,wz);const sx=1.0+Math.random()*0.4,sz=0.78+Math.random()*0.3,rot=Math.random()*3;
   const sh=disc(shoreMat,R*1.14,0.03,rot);sh.scale.set(sx*1.04,1,sz*1.04);g.add(sh);
   const w1=disc(waterMid,R*1.04,0.05,rot+0.2);w1.scale.set(sx,1,sz);g.add(w1);
+  const bf=foamRing(R*1.03,rot);bf.scale.set(sx,1,sz);g.add(bf);
   const w2=disc(waterDeep,R*0.74,0.066,rot-0.2);w2.scale.set(sx*0.95,1,sz*0.95);g.add(w2);
   for(let i=0;i<2;i++){const a=Math.random()*6.28,d=R*(0.7+Math.random()*0.4),lr=R*(0.45+Math.random()*0.35),lx=Math.cos(a)*d,lz=Math.sin(a)*d;const ls=disc(shoreMat,lr*1.25,0.032,Math.random()*3);ls.position.set(lx,0.032,lz);g.add(ls);const lw=disc(waterMid,lr,0.052,Math.random()*3);lw.position.set(lx,0.052,lz);g.add(lw);}
   cityGroup.add(g);const L={wx,wz,R};bigLakes.push(L);return L;}
