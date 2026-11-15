@@ -24,6 +24,8 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 .zb.on{background:#1d9e75!important;border-color:#7fdbb7!important;color:#fff!important}
 .zb:active{transform:scale(.92)}
 #fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));background:#6b4a28;border:2.5px solid #33200c;color:#f0dca8;font-size:15px;font-weight:700;padding:11px 22px;border-radius:10px;cursor:pointer;z-index:6;box-shadow:0 4px 14px rgba(0,0,0,.35);font-family:Georgia,'Times New Roman',serif;letter-spacing:.3px}
+#harvestAll{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(62px + env(safe-area-inset-bottom));background:#1f8a56;border:2.5px solid #0f5c38;color:#eafff2;font-size:14px;font-weight:700;padding:9px 18px;border-radius:10px;cursor:pointer;z-index:7;box-shadow:0 4px 14px rgba(0,0,0,.35);font-family:Georgia,'Times New Roman',serif;letter-spacing:.3px;animation:hbp 1.6s ease-in-out infinite}
+@keyframes hbp{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.06)}}
 #fab:active{transform:translateX(-50%) scale(.96)}
 #drawer{position:fixed;left:0;right:0;bottom:0;z-index:7;transform:translateY(110%);transition:.22s;padding:0 0 calc(8px + env(safe-area-inset-bottom))}
 #drawer.open{transform:translateY(0)}
@@ -159,6 +161,7 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 
 <div id="guide"><div id="tuzu"><i></i></div><div id="bubble">Benvenuto! Tocca 🔨 per costruire.</div></div>
 <button id="fab">🔨 Costruisci</button>
+<button id="harvestAll">🧺 Raccogli tutto</button>
 <div id="drawer">
   <div class="hd"><span>Cosa vuoi mettere?</span><button id="dclose">✕</button></div>
   <div id="cats"></div>
@@ -1340,7 +1343,11 @@ function tapCrop(occ){const cr=occ.ref||occ.gridE&&occ.gridE.ref;if(!cr)return;
   if(cr.exhausted){cropRegrow(cr);cr.harvests=0;cr.exhausted=false;save();toast('🌱 Campo ripiantato: '+CROPS[cr.type].nome+'. Pronto fra '+fmtLeft(cr.dur),4000);return;}
   if(cr.ready){harvestCrop(cr);return;}
   const left=Math.max(0,cr.cycleStart+cr.dur-Date.now());toast('🌱 '+CROPS[cr.type].nome+' sta crescendo · pronto fra '+fmtLeft(left)+' ('+cr.harvests+'/'+MAX_HARVESTS+' raccolti)',3600);}
-function growCrops(dt){const now=Date.now();crops.forEach(cr=>{if(cr.ready||cr.exhausted)return;if(now-cr.cycleStart>=cr.dur)cropReady(cr);});}
+function growCrops(dt){const now=Date.now();let changed=false;crops.forEach(cr=>{if(cr.ready||cr.exhausted)return;if(now-cr.cycleStart>=cr.dur){cropReady(cr);changed=true;}});if(changed)updateHarvestBtn();}
+// raccogli TUTTI i campi pronti in un colpo (niente più raccolta uno per uno)
+function harvestAll(){const ready=crops.filter(c=>c.ready&&!c.exhausted);if(!ready.length){updateHarvestBtn();return;}const total={};ready.forEach(cr=>{const y=CROPS[cr.type].yield;total[y.r]=(total[y.r]||0)+y.a;R[y.r]+=y.a;cropsHarvested++;cr.harvests++;const [wx,wz]=cw(cr.cx,cr.cy);floatText(wx,wz,CROPS[cr.type].em+' '+RES[y.r]+'+'+y.a);if(cr.harvests>=MAX_HARVESTS)cropExhaust(cr);else cropRegrow(cr);});drawTop();save();updateHarvestBtn();toast('🧺 Raccolto da '+ready.length+' campi! '+Object.entries(total).map(([r,v])=>RES[r]+'+'+v).join(' '),4200);}
+function updateHarvestBtn(){const btn=document.getElementById('harvestAll');if(!btn)return;const n=(typeof crops!=='undefined'?crops.filter(c=>c.ready&&!c.exhausted).length:0);if(n>0&&started&&mode==='city'){btn.style.display='block';btn.textContent='🧺 Raccogli tutto ('+n+')';}else btn.style.display='none';}
+document.getElementById('harvestAll').onclick=harvestAll;
 function removeCrop(cr){cityGroup.remove(cr.obj);if(cr.badge)cityGroup.remove(cr.badge);delete grid[key(cr.cx,cr.cy)];const i=crops.indexOf(cr);if(i>=0)crops.splice(i,1);}
 function commandHarvest(a,occ){if(a.kind==='milite'){toast('Manda un abitante a raccogliere 🧍');return;}const t=adjWalk(occ.cx,occ.cy,1,1);if(t&&startWalk(a,t[0],t[1],'harvest')){a.harvest=occ.ref;toast('🧺 Vado a raccogliere il '+CROPS[occ.key].nome+'!',3000);}else toast('Non riesco ad arrivarci');}
 function pickAgent(px,py){const r=canvas.getBoundingClientRect();ndc.x=((px-r.left)/r.width)*2-1;ndc.y=-((py-r.top)/r.height)*2+1;ray.setFromCamera(ndc,camera);let best=null,bd=1e9;for(const a of agents){if(!a.obj.children.length)continue;const h=ray.intersectObject(a.obj,true);if(h.length&&h[0].distance<bd){bd=h[0].distance;best=a;}}
@@ -2058,7 +2065,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updWeather(dt);
   if(started)updSeason(dt);
   if(started)updSky(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updCaravans(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}checkLeague();drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updCaravans(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();}checkLeague();drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
 requestAnimationFrame(tick);
