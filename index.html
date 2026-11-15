@@ -1562,7 +1562,18 @@ function placeDistantKingdoms(){DISTANT_SPEC.forEach(s=>{if(s.k===myKingdom||nei
   if(s.water)for(const ang of [0.6,2.4,4.2]){const w=disc(waterMid,5.5,0.04,Math.random()*3);w.position.set(Math.cos(ang)*17.5,0.04,Math.sin(ang)*17.5);g.add(w);const fm=foamRing(5.5);fm.position.set(Math.cos(ang)*17.5,0.05,Math.sin(ang)*17.5);g.add(fm);}
   if(s.night){const glow=new THREE.Mesh(new THREE.CircleGeometry(16.5,40),new THREE.MeshBasicMaterial({color:0x6a3f9a,transparent:true,opacity:0.2}));glow.rotation.x=-Math.PI/2;glow.position.y=0.03;g.add(glow);}
   const sign=makeSign(SIGNCOL[COLORMAP[s.k]]||0x9a7f5a);sign.position.set(Math.cos(toC)*(R+2),0,Math.sin(toC)*(R+2));sign.scale.setScalar(1.7);g.add(sign);
-  distantKingdoms.push({k:s.k,x:s.x,z:s.z,g});});placeNyxarMountain();}
+  distantKingdoms.push({k:s.k,x:s.x,z:s.z,g});});placeNyxarMountain();loadVariety().then(enrichKingdoms).catch(()=>{});}
+// ===== FANTASIA: arricchisce ogni regno con tanti asset del titolare (case variate, props vissuti, strutture a tema) =====
+const V_HOUSES=['house_2','house_3','house_4','house_5','house_6','house_7','hut','hut_2','shack'];
+const V_PROPS=['market_stalls_2','market_stalls_compact','storage_hut','logs','crops','rock_2','rock_3'];
+const V_THEME={thalassa:['dock','port','shipping_port','docks'],metalla:['mine','gold_rocks','mountain','rock'],pyra:['wooden_encampment','trees_cut','logs'],krios:['mountain','mountain_2','pine_trees'],selenea:['wooden_monument','trees_cut','rock_3']};
+function loadVariety(){const all=new Set([...V_HOUSES,...V_PROPS]);Object.values(V_THEME).forEach(a=>a.forEach(x=>all.add(x)));
+  return Promise.all([...all].map(f=>templates['V_'+f]?Promise.resolve():loadModel('models/rts/'+f+'.glb').then(m=>{let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates['V_'+f]=m;}).catch(()=>{})));}
+function enrichKingdoms(){distantKingdoms.forEach(dk=>{const g=dk.g;
+  for(let i=0;i<5;i++){const hk='V_'+V_HOUSES[Math.floor(Math.random()*V_HOUSES.length)];if(!templates[hk])continue;const o=inst(hk);fitHeight(o,1.6+Math.random()*0.7);const a=Math.random()*6.28,r=4+Math.random()*4.5;o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);}
+  for(let i=0;i<5;i++){const pk='V_'+V_PROPS[Math.floor(Math.random()*V_PROPS.length)];if(!templates[pk])continue;const o=inst(pk);fitHeight(o,0.7+Math.random()*0.7);const a=Math.random()*6.28,r=4.5+Math.random()*5.5;o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);}
+  const th=V_THEME[dk.k]||[];th.forEach((f,i)=>{const tk='V_'+f;if(!templates[tk])return;const o=inst(tk);fitHeight(o,1.7+Math.random()*1.2);const a=(i/Math.max(1,th.length))*6.28+0.6,r=8.5+Math.random()*3;o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);});
+});}
 function updDistantLife(dt){for(const L of distantLife){const o=L.o;L.t-=dt;
   if(L.t<=0){L.t=3+Math.random()*4;const a=Math.random()*6.28,rr=Math.random()*L.wander;L.tx=L.bx+Math.cos(a)*rr;L.tz=L.bz+Math.sin(a)*rr;}
   const dx=L.tx-o.position.x,dz=L.tz-o.position.z,d=Math.hypot(dx,dz);
