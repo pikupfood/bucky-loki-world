@@ -646,7 +646,7 @@ async function preload(){
   templates['gate']=await loadModel(B+'buildings/neutral/wall_straight_gate.gltf');setLoad(++d/tot);
   measureWall();
   templates.char=await loadModel(AD+'Rogue.glb');setLoad(++d/tot);
-  for(const nm of ['Knight','Barbarian','Mage','Rogue_Hooded']){try{templates['char_'+nm]=await loadModel(AD+nm+'.glb');}catch(e){}}
+  CHAR_ASSETS=[];for(const nm of ['Rogue','Knight','Barbarian','Mage','Rogue_Hooded']){try{const ca=await loadAnimated(AD+nm+'.glb');if(ca.scene&&ca.scene.children.length){ca.scene.traverse(m=>{if(m.isMesh)m.castShadow=true;});CHAR_ASSETS.push(ca);}}catch(e){}}
   await loadVillage();
   await loadAnimals();
   await loadWildlife();
@@ -1227,7 +1227,7 @@ function allUnlockedCells(pred){const a=[];for(const pk in unlockedPar){const p=
 function pickTargetCell(preferRoad){let pool=preferRoad?allUnlockedCells((x,y)=>{const g=grid[key(x,y)];return g&&g.type==='road';}):[];if(!pool.length)pool=allUnlockedCells(walkable);return pool.length?pool[Math.floor(Math.random()*pool.length)]:null;}
 function adjWalk(ax,ay,w,h){const c=[];for(let x=ax-1;x<=ax+w;x++){c.push([x,ay-1]);c.push([x,ay+h]);}for(let y=ay;y<ay+h;y++){c.push([ax-1,y]);c.push([ax+w,y]);}const ok=c.filter(p=>walkable(p[0],p[1]));return ok.length?ok[Math.floor(Math.random()*ok.length)]:null;}
 function bfsPath(sx,sy,tx,ty){if(!walkable(tx,ty))return null;if(sx===tx&&sy===ty)return [[tx,ty]];const q=[[sx,sy]];const prev={};prev[key(sx,sy)]='S';let it=0;while(q.length&&it<1500){it++;const cur=q.shift();if(cur[0]===tx&&cur[1]===ty)break;for(const d of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=cur[0]+d[0],ny=cur[1]+d[1],k=key(nx,ny);if(prev[k]===undefined&&walkable(nx,ny)){prev[k]=key(cur[0],cur[1]);q.push([nx,ny]);}}}if(prev[key(tx,ty)]===undefined)return null;const path=[];let k=key(tx,ty);while(k!=='S'){path.unshift(k.split(',').map(Number));k=prev[k];}return path;}
-function spawnAgent(kind){const g=new THREE.Group();const c=pickTargetCell(false)||[HALF,HALF];const [wx,wz]=cw(c[0],c[1]);g.position.set(wx,0,wz);cityGroup.add(g);const a={kind,obj:g,state:'idle',timer:Math.random()*2,speed:0.7+Math.random()*0.16,site:null,tree:null,path:null,pi:0,onArrive:'idle',bob:Math.random()*6};agents.push(a);loadModel(AD+(kind==='milite'?'Knight.glb':'Rogue.glb')).then(m=>{m.scale.setScalar(PS);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);});return a;}
+function spawnAgent(kind){const g=new THREE.Group();const c=pickTargetCell(false)||[HALF,HALF];const [wx,wz]=cw(c[0],c[1]);g.position.set(wx,0,wz);cityGroup.add(g);const a={kind,obj:g,state:'idle',timer:Math.random()*2,speed:0.7+Math.random()*0.16,site:null,tree:null,path:null,pi:0,onArrive:'idle',bob:Math.random()*6};agents.push(a);const w=makeWalker(0.42);if(w){a.walker=w;g.add(w.o);}else{loadModel(AD+(kind==='milite'?'Knight.glb':'Rogue.glb')).then(m=>{m.scale.setScalar(PS);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);});}return a;}
 // gli eroi reclutati compaiono come unità in città (girano e combattono nelle incursioni)
 function spawnHeroUnit(k){const g=new THREE.Group();const c=pickTargetCell(false)||[HALF,HALF];const [wx,wz]=cw(c[0],c[1]);g.position.set(wx,0,wz);cityGroup.add(g);const a={kind:'eroe',heroKey:k,obj:g,state:'idle',timer:Math.random()*2,speed:0.75,site:null,tree:null,path:null,pi:0,onArrive:'idle',bob:Math.random()*6};agents.push(a);
   loadModel(AD+((k==='capitano'||k==='guardiano')?'Knight.glb':'Rogue.glb')).then(m=>{m.scale.setScalar(PS*1.18);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);});
@@ -1408,7 +1408,7 @@ function pickTask(a){
   const tc=pickTargetCell(Math.random()<.7);if(tc&&startWalk(a,tc[0],tc[1],'idle'))return;
   a.state='idle';a.timer=.8+Math.random();
 }
-function updAgents(dt){agents.forEach(a=>{const o=a.obj;
+function updAgents(dt){agents.forEach(a=>{const o=a.obj;if(a.walker)setWalkerMoving(a.walker,a.state==='walk');
   if(a.state==='idle'){if(a.held){o.position.y=0;return;}a.timer-=dt;if(a.timer<=0)pickTask(a);return;}
   if(a.state==='build'){const s=a.site;if(!s||sites.indexOf(s)<0){a.state='idle';a.timer=.5;a.site=null;o.position.y=0;return;}s.prog+=dt;const f=Math.min(1,s.prog/s.time);s.bar.fg.scale.x=f;s.bar.fg.position.x=-.52*(1-f);a.bob+=dt*5;o.position.y=Math.abs(Math.sin(a.bob))*.04;if(s.prog>=s.time){finishSite(s);sites.splice(sites.indexOf(s),1);a.site=null;o.position.y=0;a.state='idle';a.timer=.4;}return;}
   if(a.state==='chop'){a.timer-=dt;a.bob+=dt*6;o.position.y=Math.abs(Math.sin(a.bob))*.03;if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=Math.sin(a.bob)*.05;if(a.timer<=0){R.legna+=2;if(a.tree&&a.tree.obj)a.tree.obj.rotation.z=0;o.position.y=0;a.state='idle';a.timer=.4;}return;}
@@ -1423,7 +1423,7 @@ function updAgents(dt){agents.forEach(a=>{const o=a.obj;
     if(a.pi<a.path.length-1&&!walkable(cell[0],cell[1])){a.state='idle';a.timer=.3;a.path=null;if(a.site){a.site.builder=null;a.site=null;}return;}
     const [tx,tz]=cw(cell[0],cell[1]);const dx=tx-o.position.x,dz=tz-o.position.z;const d=Math.hypot(dx,dz);
     if(d<.08){a.pi++;return;}
-    const sp=Math.min(a.speed*dt,d);o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);a.bob+=dt*5;o.position.y=Math.abs(Math.sin(a.bob))*.025;
+    const sp=Math.min(a.speed*dt,d);o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);o.position.y=a.walker?0:Math.abs(Math.sin(a.bob+=dt*5))*.025;
     return;
   }
 });
@@ -1558,7 +1558,7 @@ function updAnimals(dt){animals.forEach(a=>{const o=a.obj;if(a.mixer)a.mixer.upd
 const COLORMAP={nefele:'blue',chrysa:'yellow',oros:'red'};
 const neighbors=[];
 async function nbBuild(nb,file,cx,cz){const o=await loadModel(B+'buildings/'+nb.col+'/building_'+file+'_'+nb.col+'.gltf');o.position.set(cx*1.9,0,cz*1.9);o.rotation.y=Math.random()*.4-.2;nb.g.add(o);autoSeat(o);nb.cells[cx+','+cz]=1;}
-function nbSpawn(nb){const g=new THREE.Group();g.position.set((Math.random()-.5)*4,0,(Math.random()-.5)*4);nb.g.add(g);nb.agents.push({obj:g,tx:g.position.x,tz:g.position.z,state:'idle',timer:Math.random()*3,speed:0.6+Math.random()*.2,bob:Math.random()*6});loadModel(AD+'Rogue.glb').then(m=>{m.scale.setScalar(PS);g.add(m);});}
+function nbSpawn(nb){const g=new THREE.Group();g.position.set((Math.random()-.5)*4,0,(Math.random()-.5)*4);nb.g.add(g);const a={obj:g,tx:g.position.x,tz:g.position.z,state:'idle',timer:Math.random()*3,speed:0.6+Math.random()*.2,bob:Math.random()*6};nb.agents.push(a);const w=makeWalker(0.42);if(w){a.walker=w;g.add(w.o);}else loadModel(AD+'Rogue.glb').then(m=>{m.scale.setScalar(PS);g.add(m);});}
 const SIGNCOL={blue:0x3b6fb0,yellow:0xd9a93a,red:0xb33b3b};
 function makeSign(col){const g=new THREE.Group();const post=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,1.5,6),new THREE.MeshStandardMaterial({color:0x6b4a28,roughness:1}));post.position.y=0.75;g.add(post);const board=new THREE.Mesh(new THREE.BoxGeometry(0.85,0.4,0.1),new THREE.MeshBasicMaterial({color:col}));board.position.set(0.18,1.2,0);g.add(board);const tip=new THREE.Mesh(new THREE.ConeGeometry(0.2,0.3,4),new THREE.MeshBasicMaterial({color:col}));tip.rotation.z=-Math.PI/2;tip.position.set(0.68,1.2,0);g.add(tip);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
 let reachedNb={},allied={};
@@ -1611,8 +1611,16 @@ async function initNeighbors(){const spec=[
     for(let i=0;i<3;i++)nbSpawn(nb);neighbors.push(nb);spawnNbMonster(nb);}}
 // ===== Regni LONTANI: dioramas visivi di tutti gli altri popoli, ambientazioni diverse, visibili scorrendo la mappa =====
 const DISTANT_SPEC=[{k:'thalassa',x:-80,z:-62,water:true},{k:'metalla',x:84,z:58,mount:true},{k:'pyra',x:78,z:-78,ember:true},{k:'krios',x:-92,z:70,snow:true,mount:true},{k:'selenea',x:24,z:112,night:true}];
-// personaggi colorati (KayKit Adventures) invece del cavaliere di pietra grigio
-function pickChar(){const ks=['char','char_Knight','char_Barbarian','char_Mage','char_Rogue_Hooded'].filter(k=>templates[k]&&templates[k].children&&templates[k].children.length);return ks.length?ks[Math.floor(Math.random()*ks.length)]:'char';}
+// personaggi colorati e ANIMATI (KayKit Adventures): camminano davvero, coi piedi a terra
+let CHAR_ASSETS=[],walkers=[];const _wp=new THREE.Vector3();
+function makeWalker(scaleH){if(!CHAR_ASSETS.length||!THREE.SkeletonUtils)return null;const a=CHAR_ASSETS[Math.floor(Math.random()*CHAR_ASSETS.length)];
+  const o=THREE.SkeletonUtils.clone(a.scene);const b=new THREE.Box3().setFromObject(o);const h=(b.max.y-b.min.y)||1;o.scale.setScalar((scaleH||1)/h);
+  o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.frustumCulled=false;}});
+  const mixer=new THREE.AnimationMixer(o);const wc=a.clips.find(c=>c.name==='Walking_A')||a.clips.find(c=>/^walking/i.test(c.name))||a.clips.find(c=>/walk|run/i.test(c.name))||a.clips[0];const ic=a.clips.find(c=>c.name==='Idle')||a.clips.find(c=>/unarmed_idle/i.test(c.name))||a.clips.find(c=>/idle/i.test(c.name))||a.clips[0];
+  const w={o,mixer,walkAct:wc?mixer.clipAction(wc):null,idleAct:ic?mixer.clipAction(ic):null,moving:null};
+  if(w.idleAct)w.idleAct.play();walkers.push(w);return w;}
+function setWalkerMoving(w,mv){if(!w||w.moving===mv)return;w.moving=mv;if(mv){if(w.idleAct)w.idleAct.stop();if(w.walkAct)w.walkAct.reset().play();}else{if(w.walkAct)w.walkAct.stop();if(w.idleAct)w.idleAct.reset().play();}}
+function updWalkers(dt){for(const w of walkers){if(!w.mixer)continue;w.o.getWorldPosition(_wp);if(Math.abs(_wp.x-camTarget.x)>74||Math.abs(_wp.z-camTarget.z)>74)continue;w.mixer.update(dt);}}
 let distantKingdoms=[], distantLife=[];
 const TOWN_COBBLE=new THREE.MeshStandardMaterial({color:0xbcae92,roughness:1});
 const TOWN_DIRT=new THREE.MeshStandardMaterial({color:0xb2976a,roughness:1});
@@ -1749,10 +1757,10 @@ function arcInfo(pts){const cum=[0];let L=0;for(let i=1;i<pts.length;i++){L+=Mat
 function arcAt(P,s){const {pts,cum,L}=P;if(s<0)s=0;if(s>L)s=L;let i=1;while(i<cum.length&&cum[i]<s)i++;if(i>=pts.length)i=pts.length-1;const seg=cum[i]-cum[i-1]||1,t=(s-cum[i-1])/seg;return [pts[i-1][0]+(pts[i][0]-pts[i-1][0])*t, pts[i-1][1]+(pts[i][1]-pts[i-1][1])*t, Math.atan2(pts[i][1]-pts[i-1][1],pts[i][0]-pts[i-1][0])];}
 function spawnRoadParties(){for(const path of pathPaths){const P=arcInfo(path);if(P.L<22)continue;const party={P,lead:Math.random()*P.L,dir:Math.random()<0.5?1:-1,sp:1.5+Math.random()*1.1,mem:[]};
     const specs=[['a_horse',1.1,0],['__crate',0,0.95],['__char',1.1,2.0],['__char',1.1,3.2]];
-    for(const sp of specs){let o;if(sp[0]==='__crate'){o=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.5,0.6),new THREE.MeshStandardMaterial({color:0xb9843f,roughness:1}));o.castShadow=true;}else{const key=sp[0]==='__char'?pickChar():sp[0];if(!templates[key])continue;o=inst(key);fitHeight(o,sp[1]);o.traverse(m=>{if(m.isMesh)m.castShadow=true;});}cityGroup.add(o);party.mem.push({o,gap:sp[2],hop:Math.random()*6,crate:sp[0]==='__crate'});}
+    for(const sp of specs){let o,w=null;if(sp[0]==='__crate'){o=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.5,0.6),new THREE.MeshStandardMaterial({color:0xb9843f,roughness:1}));o.castShadow=true;}else if(sp[0]==='__char'){w=makeWalker(sp[1]);if(!w)continue;o=w.o;setWalkerMoving(w,true);}else{if(!templates[sp[0]])continue;o=inst(sp[0]);fitHeight(o,sp[1]);o.traverse(m=>{if(m.isMesh)m.castShadow=true;});}cityGroup.add(o);party.mem.push({o,gap:sp[2],crate:sp[0]==='__crate',w});}
     if(party.mem.length)roadParties.push(party);}}
 function updRoadParties(dt){for(const p of roadParties){p.lead+=p.sp*p.dir*dt;if(p.lead>p.P.L){p.lead=p.P.L;p.dir=-1;}else if(p.lead<0){p.lead=0;p.dir=1;}
-  for(const m of p.mem){const s=Math.max(0,Math.min(p.P.L,p.lead-m.gap*p.dir)),pt=arcAt(p.P,s),mdx=Math.cos(pt[2])*p.dir,mdz=Math.sin(pt[2])*p.dir;m.o.position.x=pt[0];m.o.position.z=pt[1];m.o.rotation.y=Math.atan2(mdx,mdz);if(m.crate){m.o.position.y=0.3;}else{m.hop+=dt*5;m.o.position.y=Math.abs(Math.sin(m.hop))*0.05;}}}}
+  for(const m of p.mem){const s=Math.max(0,Math.min(p.P.L,p.lead-m.gap*p.dir)),pt=arcAt(p.P,s),mdx=Math.cos(pt[2])*p.dir,mdz=Math.sin(pt[2])*p.dir;m.o.position.x=pt[0];m.o.position.z=pt[1];m.o.rotation.y=Math.atan2(mdx,mdz);m.o.position.y=m.crate?0.3:0;}}}
 // ----- CONFINI dei territori (verde=alleato, rosso=nemico, oro=neutrale) -----
 function drawKingdomBorders(){if(typeof distantKingdoms==='undefined')return;distantKingdoms.forEach(dk=>{const en=!!(typeof hostile!=='undefined'&&hostile[dk.k]),al=!!(typeof allied!=='undefined'&&allied[dk.k]);const col=en?0xe2514a:(al?0x5fcf6a:0xd9b24a);const ring=new THREE.Mesh(new THREE.RingGeometry(20.8,22.6,72),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.6,depthWrite:false,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=0.08;ring.renderOrder=6;dk.g.add(ring);});}
 // ===== REGNO = CITTA VIVA e FANTASTICA: strade, tanti edifici, recinti, mercato, mulino, giardini =====
@@ -1797,7 +1805,7 @@ function buildOrganicTown(dk){const g=dk.g,enemy=dk.enemy,k=dk.k,toC=dk.toC,env=
   // LAMPIONI lungo il viale
   if(templates['p_lantern'])for(const u of [-9,-5,-1,3,7,11]){for(const sgn of [-1,1])put('p_lantern',u,sgn*1.8,0.95,0);}
   // ABITANTI che passeggiano per le vie
-  for(let i=0;i<12;i++){const u=-8+Math.random()*22,v=Math.random()*16-8;const p=W(u,v);const o=townPut(g,pickChar(),p[0],p[1],1.05,null);if(o)distantLife.push({o,bx:o.position.x,bz:o.position.z,tx:o.position.x,tz:o.position.z,t:Math.random()*4,hop:Math.random()*6,sp:0.5,wander:5});}
+  for(let i=0;i<9;i++){const u=-8+Math.random()*22,v=Math.random()*16-8;const p=W(u,v);const w=makeWalker(1.05);if(w){w.o.position.set(p[0],0,p[1]);w.o.rotation.y=Math.random()*6.28;g.add(w.o);distantLife.push({o:w.o,w,bx:p[0],bz:p[1],tx:p[0],tz:p[1],t:Math.random()*4,hop:Math.random()*6,sp:0.5,wander:5});}}
   // MURA grandi e pulite + torri + porta verso la citta
   if(env.walls)smallWall(g,seed,toC,19);
   // MOSTRO simbolo FUORI dalle mura + cartello alla porta
@@ -1805,8 +1813,9 @@ function buildOrganicTown(dk){const g=dk.g,enemy=dk.enemy,k=dk.k,toC=dk.toC,env=
   {const p=W(20,0);const sign=makeSign(SIGNCOL[COLORMAP[k]]||0x9a7f5a);sign.position.set(p[0],0,p[1]);sign.scale.setScalar(1.9);g.add(sign);}}
 function updDistantLife(dt){for(const L of distantLife){const o=L.o;L.t-=dt;
   if(L.t<=0){L.t=3+Math.random()*4;const a=Math.random()*6.28,rr=Math.random()*L.wander;L.tx=L.bx+Math.cos(a)*rr;L.tz=L.bz+Math.sin(a)*rr;}
-  const dx=L.tx-o.position.x,dz=L.tz-o.position.z,d=Math.hypot(dx,dz);
-  if(d>0.15){o.position.x+=dx/d*L.sp*dt;o.position.z+=dz/d*L.sp*dt;o.rotation.y=Math.atan2(dx,dz);L.hop+=dt*5;o.position.y=Math.abs(Math.sin(L.hop))*0.08;}else o.position.y=0;}}
+  const dx=L.tx-o.position.x,dz=L.tz-o.position.z,d=Math.hypot(dx,dz),mv=d>0.15;
+  if(mv){o.position.x+=dx/d*L.sp*dt;o.position.z+=dz/d*L.sp*dt;o.rotation.y=Math.atan2(dx,dz);}
+  if(L.w){o.position.y=0;setWalkerMoving(L.w,mv);}else if(mv){L.hop+=dt*5;o.position.y=Math.abs(Math.sin(L.hop))*0.08;}else o.position.y=0;}}
 function placeNyxarMountain(){const g=new THREE.Group();g.position.set(0,0,-128);cityGroup.add(g);
   const aura=new THREE.Mesh(new THREE.CircleGeometry(24,42),new THREE.MeshBasicMaterial({color:0x2a1240,transparent:true,opacity:0.34}));aura.rotation.x=-Math.PI/2;aura.position.y=0.03;g.add(aura);
   for(const [dx,dz,sc] of [[0,0,3.6],[-9,5,2.6],[9,6,2.4],[0,-8,2.1]]){const mt=makeMountain(sc);mt.position.set(dx,0,dz);g.add(mt);}
@@ -1847,11 +1856,11 @@ function updNeighbors(dt){neighbors.forEach(nb=>{
   if(allied[nb.k]){const t=NB_TRADE[nb.k];nb.giftT=(nb.giftT||40)-dt;if(nb.giftT<=0){nb.giftT=40+Math.random()*20;if(t&&!nb.caravan)spawnCaravan(nb,t.gift);}}
   if(hostile[nb.k]){nb.warT=(nb.warT==null?(60+Math.random()*55):nb.warT)-dt;if(nb.warT<=0){nb.warT=110+Math.random()*100;if(!raidActive&&started&&mode==='city'&&builtCount>=4)startNeighborRaid(nb);}}
   nb.timer-=dt;if(nb.timer<=0){nb.timer=70+Math.random()*60;const nbc=Object.keys(nb.cells).length;if(nbc<13){const spots=[];for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++)if(!nb.cells[x+','+z])spots.push([x,z]);if(spots.length){const [x,z]=spots[Math.floor(Math.random()*spots.length)];const f=['home_A','home_B','tower_B','windmill','church','blacksmith'][Math.floor(Math.random()*6)];nbBuild(nb,f,x,z);nb.pop+=1;if(Math.random()<.3&&nb.mil<10)nb.mil++;if(nb.agents.length<7&&Math.random()<.4)nbSpawn(nb);}}}
-  nb.agents.forEach(a=>{const o=a.obj;const dx=a.tx-o.position.x,dz=a.tz-o.position.z;const d=Math.hypot(dx,dz);if(a.state==='idle'){a.timer-=dt;if(a.timer<=0){a.tx=(Math.random()-.5)*6;a.tz=(Math.random()-.5)*6;a.state='walk';}return;}if(d<.12){a.state='idle';a.timer=.6+Math.random()*2;return;}const sp=a.speed*dt;o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);a.bob+=dt*9;o.position.y=Math.abs(Math.sin(a.bob))*.03;});});}
+  nb.agents.forEach(a=>{const o=a.obj;if(a.walker)setWalkerMoving(a.walker,a.state==='walk');const dx=a.tx-o.position.x,dz=a.tz-o.position.z;const d=Math.hypot(dx,dz);if(a.state==='idle'){a.timer-=dt;if(a.timer<=0){a.tx=(Math.random()-.5)*6;a.tz=(Math.random()-.5)*6;a.state='walk';}return;}if(d<.12){a.state='idle';a.timer=.6+Math.random()*2;return;}const sp=a.speed*dt;o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);o.position.y=a.walker?0:Math.abs(Math.sin(a.bob+=dt*9))*.03;});});}
 // carovane di commercio: i doni degli alleati arrivano con un mercante che viaggia fino in città
 let caravans=[];
-function spawnCaravan(nb,gift){const g=new THREE.Group();g.position.set(nb.g.position.x,0,nb.g.position.z);cityGroup.add(g);loadModel(AD+'Rogue.glb').then(m=>{m.scale.setScalar(PS);g.add(m);});const cargo=new THREE.Mesh(new THREE.BoxGeometry(0.17,0.13,0.14),new THREE.MeshBasicMaterial({color:0xb9843f}));cargo.position.set(0,0.12,-0.17);g.add(cargo);nb.caravan=true;caravans.push({obj:g,gift,nb,bob:0,nm:POPOLI.find(p=>p.k===nb.k).n});}
-function updCaravans(dt){for(let i=caravans.length-1;i>=0;i--){const c=caravans[i],o=c.obj;const dx=-o.position.x,dz=-o.position.z,d=Math.hypot(dx,dz)||1;if(d<2.8){const amt=Math.round(c.gift.a*caravanBonus());R[c.gift.r]+=amt;drawTop();save();floatText(o.position.x,o.position.z,RES[c.gift.r]+'+'+amt);toast('🐫 Carovana da '+c.nm+': '+RES[c.gift.r]+'+'+amt,3000);cityGroup.remove(o);if(c.nb)c.nb.caravan=false;caravans.splice(i,1);continue;}const sp=1.5*dt;o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);c.bob+=dt*5;o.position.y=Math.abs(Math.sin(c.bob))*.03;}}
+function spawnCaravan(nb,gift){const g=new THREE.Group();g.position.set(nb.g.position.x,0,nb.g.position.z);cityGroup.add(g);const w=makeWalker(0.5);if(w){g.add(w.o);setWalkerMoving(w,true);}else loadModel(AD+'Rogue.glb').then(m=>{m.scale.setScalar(PS);g.add(m);});const cargo=new THREE.Mesh(new THREE.BoxGeometry(0.17,0.13,0.14),new THREE.MeshBasicMaterial({color:0xb9843f}));cargo.position.set(0,0.12,-0.17);g.add(cargo);nb.caravan=true;caravans.push({obj:g,gift,nb,bob:0,nm:POPOLI.find(p=>p.k===nb.k).n,walker:w});}
+function updCaravans(dt){for(let i=caravans.length-1;i>=0;i--){const c=caravans[i],o=c.obj;const dx=-o.position.x,dz=-o.position.z,d=Math.hypot(dx,dz)||1;if(d<2.8){const amt=Math.round(c.gift.a*caravanBonus());R[c.gift.r]+=amt;drawTop();save();floatText(o.position.x,o.position.z,RES[c.gift.r]+'+'+amt);toast('🐫 Carovana da '+c.nm+': '+RES[c.gift.r]+'+'+amt,3000);cityGroup.remove(o);if(c.nb)c.nb.caravan=false;caravans.splice(i,1);continue;}const sp=1.5*dt;o.position.x+=dx/d*sp;o.position.z+=dz/d*sp;o.rotation.y=Math.atan2(dx,dz);o.position.y=c.walker?0:Math.abs(Math.sin(c.bob+=dt*5))*.03;}}
 // ===== NAVIGAZIONE NAVALE: manda una nave a commerciare o attaccare via mare =====
 let ships=[];
 function openHarbor(occ){closeDyn();if(!decos.some(x=>x.k==='porticciolo')){dialog('⚓','Porticciolo','Costruisci un Porticciolo (menu 🔨 → Decori) per mandare navi.','<button class="btn" id="hc">Ok</button>');document.getElementById('hc').onclick=closeDyn;return;}
@@ -2536,7 +2545,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updWeather(dt);
   if(started)updSeason(dt);
   if(started)updSky(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updDistantLife(dt);updDistantFX(dt);conquestTribute(dt);updCaravans(dt);updRoadParties(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();}checkLeague();drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updDistantLife(dt);updDistantFX(dt);conquestTribute(dt);updCaravans(dt);updRoadParties(dt);updWalkers(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();}checkLeague();drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   if(composer)composer.render();else renderer.render(scene,camera);}
 requestAnimationFrame(tick);
