@@ -422,10 +422,14 @@ async function preload(){
   await loadEvolutions();
   await loadTuzu();
   await loadForestTrees();
+  await loadFloraDetail();
 }
 // alberi del bosco (nature kit) come template per l'InstancedMesh
 const FOREST_TPL={n_tree:'tree', n_pine:'pine'};
 async function loadForestTrees(){for(const tn in FOREST_TPL){try{const m=await loadModel('models/nature/'+FOREST_TPL[tn]+'.glb');let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[tn]=m;}catch(e){}}}
+// dettaglio-natura leggero (fiori/cespugli/felci/sassi/erba) per un mondo ricco e coerente
+const FLORA_TPL={f_bush:'bush',f_grass:'grass',f_grassw:'grass_wispy',f_fern:'fern',f_flbush:'bush_with_flowers',f_pebble:'pebble_round'};
+async function loadFloraDetail(){for(const tn in FLORA_TPL){try{const m=await loadModel('models/nature/'+FLORA_TPL[tn]+'.glb');let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[tn]=m;}catch(e){}}}
 async function loadTuzu(){const paths=['models/tuzu/tuzu.glb','models/monsters/green_blob.glb'];for(const p of paths){try{const m=await loadModel(p);let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has){templates['tuzu3d']=m;return;}}catch(e){}}}
 // ===== Tuzu in 3D: mascotte verde viva che gira per il regno =====
 let tuzu3d=null;
@@ -889,6 +893,10 @@ function commandChop(a,tree,quiet){if(a.kind==='milite'){if(!quiet)toast('I sold
 // vegetazione selvatica intorno al villaggio (si taglia per recuperare terreno)
 // bosco selvatico con INSTANCING: 350+ alberi = poche draw call (fluido su telefono)
 let forestA=null,forestB=null,forestNA=0,forestNB=0;const FOREST_MAX=2600;const _zeroM=new THREE.Matrix4().makeScale(0,0,0);
+// dettaglio-natura sparso (InstancedMesh, salta celle occupate)
+let floraDetailDone=false;
+function scatterFlora(name,count,targetH,rMin,rMax){const parts=extractTreeParts(name,targetH);if(!parts)return;const ims=parts.map(p=>{const im=new THREE.InstancedMesh(p.geo,p.mat,count);im.castShadow=false;im.receiveShadow=true;im.frustumCulled=false;cityGroup.add(im);return im;});const m=new THREE.Matrix4();let n=0;for(let i=0;i<count;i++){const ang=Math.random()*6.28,r=rMin+Math.random()*(rMax-rMin);const wx=Math.cos(ang)*r,wz=Math.sin(ang)*r;const cx=Math.round(wx/CELL+HALF),cy=Math.round(wz/CELL+HALF);if(grid[key(cx,cy)])continue;const s=(0.75+Math.random()*0.6);const q=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.random()*6.28,0));m.compose(new THREE.Vector3(wx,0,wz),q,new THREE.Vector3(s,s,s));ims.forEach(im=>im.setMatrixAt(n,m));n++;}ims.forEach(im=>{im.count=n;im.instanceMatrix.needsUpdate=true;});}
+function placeFloraDetail(){if(floraDetailDone)return;floraDetailDone=true;scatterFlora('f_grass',360,0.3,2,54);scatterFlora('f_grassw',260,0.36,2,54);scatterFlora('f_bush',110,0.55,3,52);scatterFlora('f_fern',90,0.42,3,52);scatterFlora('f_flbush',70,0.5,3,50);scatterFlora('f_pebble',90,0.3,3,54);}
 // estrae TUTTE le parti (mesh/materiali) di un albero, centrate in XZ, appoggiate a terra e scalate a un'altezza coerente
 function extractTreeParts(name,targetH){const tpl=templates[name];if(!tpl)return null;tpl.updateWorldMatrix(true,true);const raw=[];tpl.traverse(m=>{if(m.isMesh)raw.push({geo:m.geometry.clone().applyMatrix4(m.matrixWorld),mat:m.material});});if(!raw.length)return null;const box=new THREE.Box3();raw.forEach(p=>{p.geo.computeBoundingBox();box.union(p.geo.boundingBox);});const h=(box.max.y-box.min.y)||1,sc=(targetH||3)/h,cx=(box.min.x+box.max.x)/2,cz=(box.min.z+box.max.z)/2;raw.forEach(p=>{p.geo.translate(-cx,-box.min.y,-cz);p.geo.scale(sc,sc,sc);});return raw;}
 function makeForestVariant(name){const parts=extractTreeParts(name,2.8);if(!parts)return null;return parts.map(p=>{const im=new THREE.InstancedMesh(p.geo,p.mat,FOREST_MAX);im.count=0;im.castShadow=true;im.receiveShadow=true;im.frustumCulled=false;cityGroup.add(im);return im;});}
@@ -1752,7 +1760,7 @@ window.addEventListener('pagehide',()=>{if(started)save();});
   initNeighbors();
   for(let i=0;i<5;i++)spawnAgent('operaio');for(let i=0;i<2;i++)spawnAgent('milite');
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
-  checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();initFlutters();initFireflies();placeFlora();spawnTuzu();if(miniC){miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();}document.getElementById('load').style.display='none';
+  checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();initFlutters();initFireflies();placeFlora();placeFloraDetail();spawnTuzu();if(miniC){miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();}document.getElementById('load').style.display='none';
 })();
 // ===== Account (login + salvataggio cloud, stesso account dell'app Tuzu) =====
 let cloudUser=null;
