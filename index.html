@@ -406,12 +406,12 @@ function darkenBuildings(){if(typeof buildings==='undefined')return;for(const b 
 function darkenKingdoms(){if(typeof distantKingdoms==='undefined')return;for(const dk of distantKingdoms){if(!dk.g||dk._dkdone||dk.g.children.length<20)continue;dk.g.traverse(m=>{if(m.isMesh&&m.material&&m.material.isMeshStandardMaterial&&!m._dk){const mm=m.material;m.material=mm.clone();const c=m.material.color;if(c){const l=0.299*c.r+0.587*c.g+0.114*c.b;c.setRGB(l,l,l).lerp(mm.color,0.3);c.multiplyScalar(0.52);}m._dk=true;}});dk._dkdone=true;}}
 // CAVERNA: toglie dal mondo (anche dai salvataggi vecchi) tutto cio' che e' di superficie — case, castelli, villaggi, nuvole, foresta
 function stripSurface(){try{
+  // toglie solo le nuvole e le CASE del giocatore (dai salvataggi vecchi). Gli altri regni restano VISIBILI.
   if(typeof clouds!=='undefined'){clouds.forEach(c=>{if(c.obj&&c.obj.parent)c.obj.parent.remove(c.obj);});clouds.length=0;}
   if(typeof buildings!=='undefined'){for(let i=buildings.length-1;i>=0;i--){const b=buildings[i];if(b&&(b.key==='casa'||b.key==='castle')){if(b.obj&&b.obj.parent)b.obj.parent.remove(b.obj);buildings.splice(i,1);}}}
-  if(typeof fchunks!=='undefined'){for(const k in fchunks){const c=fchunks[k];if(c){if(c.A)c.A.visible=false;if(c.B)c.B.visible=false;}}}
-  if(typeof neighbors!=='undefined')neighbors.forEach(nb=>{if(nb.g)nb.g.visible=false;if(nb.monster&&nb.monster.obj)nb.monster.obj.visible=false;});
-  if(typeof distantKingdoms!=='undefined')distantKingdoms.forEach(dk=>{if(dk.g)dk.g.visible=false;});
 }catch(e){}}
+// scurisce i villaggi vicini per intonarli alla caverna
+function darkenNeighbors(){if(typeof neighbors==='undefined')return;for(const nb of neighbors){if(!nb.g||nb._dkdone||nb.g.children.length<3)continue;nb.g.traverse(m=>{if(m.isMesh&&m.material&&m.material.isMeshStandardMaterial&&!m._dk){const mm=m.material;m.material=mm.clone();const c=m.material.color;if(c){const l=0.299*c.r+0.587*c.g+0.114*c.b;c.setRGB(l,l,l).lerp(mm.color,0.32);c.multiplyScalar(0.58);}m._dk=true;}});nb._dkdone=true;}}
 // scatter di DECORO del Tàrtaro coi modelli dettagliati del titolare (alberi morti/contorti, funghi, cristalli, teschi, ossa, tombe)
 let dungeonDecorDone=false;
 function placeDungeonDecor(){if(dungeonDecorDone)return;dungeonDecorDone=true;const keys=['d_dead','d_dead2','d_twist','d_twist2','d_mush','d_mush2','d_rockmed','d_skull','d_bones','d_bigcrystal','d_grave'];
@@ -1693,9 +1693,17 @@ async function initNeighbors(){const spec=[
     {k:'nefele',x:-30,z:4,ax:HALF-12,ay:HALF+1, build:[['home_A',-1,0],['home_B',1,0],['tower_B',0,1],['market',1,-1]], defense:'stone', ring:5.6, forest:10},
     {k:'chrysa',x:30,z:-5,ax:HALF+12,ay:HALF-1, build:[['market',-1,0],['home_A',1,1],['blacksmith',-1,-1],['home_B',1,-1]], defense:'wood', ring:5.2, forest:14},
     {k:'oros',x:5,z:30,ax:HALF+1,ay:HALF+12, build:[['home_A',-1,-1],['home_B',1,0],['church',0,1],['home_A',-1,1]], defense:'forest', ring:5.0, forest:26}];
-  for(const s of spec){if(s.k===myKingdom)continue;const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);g.visible=false;cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:6,mil:2,timer:40+Math.random()*30,agents:[],ax:s.ax,ay:s.ay,reached:!!reachedNb[s.k],_ring:s.ring};
-    // CAVERNA: nessun villaggio di superficie — teniamo solo i dati del vicino (commercio/battaglia), niente edifici visibili
-    neighbors.push(nb);}}
+  for(const s of spec){if(s.k===myKingdom)continue;const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:6,mil:2,timer:40+Math.random()*30,agents:[],ax:s.ax,ay:s.ay,reached:!!reachedNb[s.k],_ring:s.ring};
+    for(const [f,cx,cz] of s.build)await nbBuild(nb,f,cx,cz);
+    nbPalace(nb);
+    // difesa: muro di pietra, palisade di legno, o fitto bosco (ora stalagmiti)
+    if(s.defense==='stone'){nbRampart(nb,s.ring,true);nbForestRing(nb,s.forest,s.ring+2.6,false);}
+    else if(s.defense==='wood'){nbRampart(nb,s.ring,false);nbForestRing(nb,s.forest,s.ring+2.4,false);}
+    else{nbForestRing(nb,s.forest,s.ring+0.3,true);nbForestRing(nb,Math.round(s.forest*0.6),s.ring+2.4,true);}
+    nbCorruptGrove(nb, hostile[s.k]?1 : (allied[s.k]?0.3:0.65));
+    nbDecor(nb);
+    const sign=makeSign(SIGNCOL[col]||0x888888);const [sx,sz]=cw(s.ax,s.ay);sign.position.set(sx,0,sz);sign.rotation.y=Math.atan2(s.x-sx,s.z-sz);cityGroup.add(sign);nb.sign=sign;
+    for(let i=0;i<3;i++)nbSpawn(nb);neighbors.push(nb);spawnNbMonster(nb);}}
 // ===== Regni LONTANI: dioramas visivi di tutti gli altri popoli, ambientazioni diverse, visibili scorrendo la mappa =====
 const DISTANT_SPEC=[{k:'thalassa',x:-80,z:-62,water:true},{k:'metalla',x:84,z:58,mount:true},{k:'pyra',x:78,z:-78,ember:true},{k:'krios',x:-92,z:70,snow:true,mount:true},{k:'selenea',x:24,z:112,night:true}];
 // personaggi colorati e ANIMATI (KayKit Adventures): camminano davvero, coi piedi a terra
@@ -2631,7 +2639,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updWeather(dt);
   if(started)updSeason(dt);
   if(started)updSky(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updDistantLife(dt);updDistantFX(dt);conquestTribute(dt);updCaravans(dt);updRoadParties(dt);updWalkers(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();darkenBuildings();stripSurface();}checkLeague();drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updDistantLife(dt);updDistantFX(dt);conquestTribute(dt);updCaravans(dt);updRoadParties(dt);updWalkers(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();darkenBuildings();darkenKingdoms();darkenNeighbors();}checkLeague();drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   if(composer)composer.render();else renderer.render(scene,camera);}
 requestAnimationFrame(tick);
