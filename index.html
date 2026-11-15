@@ -274,7 +274,7 @@ document.addEventListener('pointerdown',()=>{Snd.ac();Snd.startMusic();},{once:t
 document.addEventListener('click',e=>{const t=e.target;if(t&&t.closest&&t.closest('button,.sbtn,.bbtn,.cat,.kcard,.land,[data-k]'))Snd.sfx('click');},true);
 (function(){const mb=document.getElementById('muteBtn');if(mb){mb.textContent=Snd.isMuted()?'🔇':'🔊';mb.onclick=()=>{const m=Snd.toggleMute();mb.textContent=m?'🔇':'🔊';};}})();
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.shadowMap.enabled=false;renderer.shadowMap.type=THREE.PCFShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
 const scene=new THREE.Scene();const SKY=0x141b2b;const HORIZON=0x1b2436;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(HORIZON,52,150);
 // CIELO a gradiente (orizzonte chiaro -> zenit blu) con una cupola
@@ -295,7 +295,7 @@ const GradeShader={uniforms:{tDiffuse:{value:null},uSat:{value:0.9},uCon:{value:
   fragmentShader:'uniform sampler2D tDiffuse;uniform float uSat,uCon,uWarm,uVig;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);vec3 col=c.rgb;float l=dot(col,vec3(0.299,0.587,0.114));col=mix(vec3(l),col,uSat);col=(col-0.5)*uCon+0.5;col.r+=uWarm;col.b-=uWarm*0.5;float r=length(vUv-0.5);float vig=smoothstep(0.80,0.34,r);col*=mix(uVig,1.0,vig);gl_FragColor=vec4(clamp(col,0.0,1.0),c.a);}'};
 let composer=null,bloomPass=null,renderPass=null;
 try{if(THREE.EffectComposer&&THREE.RenderPass&&THREE.ShaderPass){composer=new THREE.EffectComposer(renderer);renderPass=new THREE.RenderPass(scene,camera);composer.addPass(renderPass);
-  if(THREE.UnrealBloomPass){bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.32,0.7,0.92);composer.addPass(bloomPass);}
+  // PERF: bloom disattivato (passaggio post pesante su hardware debole); il bagliore resta dai materiali emissivi
   composer.addPass(new THREE.ShaderPass(GradeShader));}}catch(e){composer=null;}
 // ===== MODALITA' ESPLORAZIONE in TERZA PERSONA (commutabile al volo) =====
 const tpCam=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,0.1,400);
@@ -345,8 +345,10 @@ function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
   mf=Math.max(-1,Math.min(1,mf));mr=Math.max(-1,Math.min(1,mr));
   const Fx=-Math.sin(tpYaw),Fz=-Math.cos(tpYaw),Rx=-Math.cos(tpYaw),Rz=Math.sin(tpYaw);
   let dx=Fx*mf+Rx*mr,dz=Fz*mf+Rz*mr;const dl=Math.hypot(dx,dz);
-  if(dl>0.08){dx/=dl;dz/=dl;const SP=5.4;o.position.x+=dx*SP*dt;o.position.z+=dz*SP*dt;
-    const r=Math.hypot(o.position.x,o.position.z),RM=27;if(r>RM){o.position.x*=RM/r;o.position.z*=RM/r;}
+  if(dl>0.08){dx/=dl;dz/=dl;const SP=5.4;const ox=o.position.x,oz=o.position.z,nx=ox+dx*SP*dt,nz=oz+dz*SP*dt;
+    if(inWalkable(nx,nz)){o.position.x=nx;o.position.z=nz;}
+    else if(inWalkable(nx,oz)){o.position.x=nx;}
+    else if(inWalkable(ox,nz)){o.position.z=nz;}
     o.rotation.y=Math.atan2(dx,dz);if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,true);}
   else if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);
   o.position.y=0;
@@ -474,7 +476,7 @@ function darkenNeighbors(){if(typeof neighbors==='undefined')return;for(const nb
 let dungeonDecorDone=false;
 function placeDungeonDecor(){if(dungeonDecorDone)return;dungeonDecorDone=true;const keys=['d_dead','d_dead2','d_twist','d_twist2','d_mush','d_mush2','d_rockmed','d_skull','d_bones','d_bigcrystal','d_grave'];
   const hH={d_skull:0.8,d_bones:0.7,d_rockmed:1.5,d_mush:1.5,d_mush2:0.9,d_bigcrystal:2.4,d_grave:1.9,d_dead:3.0,d_dead2:3.0,d_twist:3.0,d_twist2:3.0};
-  let n=0,tries=0;while(n<66&&tries<560){tries++;const a=Math.random()*6.2832,r=20+Math.random()*100,x=Math.cos(a)*r,z=Math.sin(a)*r;
+  let n=0,tries=0;while(n<22&&tries<240){tries++;const a=Math.random()*6.2832,r=20+Math.random()*38,x=Math.cos(a)*r,z=Math.sin(a)*r;
     if(Math.hypot(x,z)<18)continue;if(typeof DISTANT_SPEC!=='undefined'&&DISTANT_SPEC.some(s=>Math.hypot(x-s.x,z-s.z)<22))continue;if(typeof inAnyLake==='function'&&inAnyLake(x,z,2))continue;
     const k=keys[Math.floor(Math.random()*keys.length)];if(!templates[k]||!templates[k].children.length)continue;const o=inst(k);fitHeight(o,(hH[k]||2.4)*(0.82+Math.random()*0.45));o.position.set(x,0,z);o.rotation.y=Math.random()*6.2832;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});cityGroup.add(o);if(typeof autoSeat==='function')autoSeat(o);n++;}
   if(templates.d_gate&&templates.d_gate.children.length){const o=inst('d_gate');fitHeight(o,4.6);o.position.set(0,0,-19);o.traverse(m=>{if(m.isMesh)m.castShadow=true;});cityGroup.add(o);if(typeof autoSeat==='function')autoSeat(o);}}
@@ -1462,7 +1464,8 @@ function placeWildVegetation(){for(let x=3;x<GRID-3;x++)for(let y=3;y<GRID-3;y++
 function inAnyLake(wx,wz,m){m=m||0;const LC=(typeof lakeCenters!=='undefined')?lakeCenters:[];for(const l of LC){const w=cw(l.cx,l.cy);const R=l.r*CELL+m;if((wx-w[0])*(wx-w[0])+(wz-w[1])*(wz-w[1])<R*R)return true;}const BL=(typeof bigLakes!=='undefined')?bigLakes:[];for(const b of BL){const R=b.R+m;if((wx-b.wx)*(wx-b.wx)+(wz-b.wz)*(wz-b.wz)<R*R)return true;}return false;}
 function addDecoTree(wx,wz){if(inAnyLake(wx,wz,1.2))return;const variant=Math.random()<.8?0:1;const s=0.8+Math.random()*0.5;forestAdd(wx,wz,variant,s);}
 let scatterDone=false;
-function placeScatterForests(){if(scatterDone)return;scatterDone=true;const nbPos=[[-30,4],[30,-5],[5,30]];let placed=0;for(let c=0;c<44&&placed<130;c++){const ang=Math.random()*6.28,rad=17+Math.random()*63;const cx=Math.cos(ang)*rad,cz=Math.sin(ang)*rad;if(nbPos.some(p=>Math.hypot(cx-p[0],cz-p[1])<9))continue;if(DISTANT_SPEC&&DISTANT_SPEC.some(s=>Math.hypot(cx-s.x,cz-s.z)<19))continue;const n=2+Math.floor(Math.random()*4);for(let i=0;i<n&&placed<130;i++){addDecoTree(cx+(Math.random()-.5)*5,cz+(Math.random()-.5)*5);placed++;}}
+function placeScatterForests(){if(scatterDone)return;scatterDone=true;return;/* CAVERNA: niente riempimento a punte (stalagmiti/cristalli) — il titolare non le vuole e pesano */
+  const nbPos=[[-30,4],[30,-5],[5,30]];let placed=0;for(let c=0;c<44&&placed<130;c++){const ang=Math.random()*6.28,rad=17+Math.random()*63;const cx=Math.cos(ang)*rad,cz=Math.sin(ang)*rad;if(nbPos.some(p=>Math.hypot(cx-p[0],cz-p[1])<9))continue;if(DISTANT_SPEC&&DISTANT_SPEC.some(s=>Math.hypot(cx-s.x,cz-s.z)<19))continue;const n=2+Math.floor(Math.random()*4);for(let i=0;i<n&&placed<130;i++){addDecoTree(cx+(Math.random()-.5)*5,cz+(Math.random()-.5)*5);placed++;}}
   // fascia di bosco all'orizzonte, più leggera
   let far=0;for(let c=0;c<70&&far<110;c++){const ang=Math.random()*6.28,rad=56+Math.random()*58;const cx=Math.cos(ang)*rad,cz=Math.sin(ang)*rad;const n=3+Math.floor(Math.random()*3);for(let i=0;i<n&&far<110;i++){addDecoTree(cx+(Math.random()-.5)*7,cz+(Math.random()-.5)*7);far++;}}}
 // colline/montagnette lontane (decoro fisso, fuori dall'area giocabile)
@@ -2301,7 +2304,7 @@ document.getElementById('zrot').onclick=()=>{placeRot=(placeRot+1)%4;toast('↻ 
 
 // ===== salvataggio =====
 function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1,sk:b.skin||0})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,cs:c.cycleStart,hv:c.harvests,ex:c.exhausted})),he:heroes,sr:soldierRank,rs:research,ach:achieved,fp:firstPlay,mk:myKingdom,mb:monstersBeaten,nx:nyxarBeaten,dk:darkLevel,ho:Object.keys(hostile),cq:Object.keys(conquered),ts:Date.now()}));if(window.TuzuCloud)window.TuzuCloud.scheduleSync();}catch(e){}}
-function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};achieved=s.ach||{};firstPlay=s.fp||0;if(s.mk)applyKingdom(s.mk);monstersBeaten=s.mb||0;nyxarBeaten=s.nx||0;darkLevel=s.dk||0;hostile={};(s.ho||[]).forEach(k=>hostile[k]=1);conquered={};(s.cq||[]).forEach(k=>conquered[k]=1);offlineSince=s.ts||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});(s.lc||[]).forEach(c=>addLake(c.cx,c.cy,c.r));(s.wl||[]).forEach(w=>wildTree(w.cx,w.cy));(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);Object.keys(hostile).forEach(k=>{if(hostile[k])delete allied[k];});placeScatterForests();/* CAVERNA: niente laghi/fiumi/vegetazione di superficie; placeScatterForests ora riempie di roccia/stalagmiti */
+function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};achieved=s.ach||{};firstPlay=s.fp||0;if(s.mk)applyKingdom(s.mk);monstersBeaten=s.mb||0;nyxarBeaten=s.nx||0;darkLevel=s.dk||0;hostile={};(s.ho||[]).forEach(k=>hostile[k]=1);conquered={};(s.cq||[]).forEach(k=>conquered[k]=1);offlineSince=s.ts||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});/* CAVERNA: non ripristino i laghi di superficie ne gli alberi selvatici (erano le "punte bianche") */(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);Object.keys(hostile).forEach(k=>{if(hostile[k])delete allied[k];});placeScatterForests();/* CAVERNA: niente laghi/fiumi/vegetazione di superficie; placeScatterForests ora riempie di roccia/stalagmiti */
   _restoring=true;
   (s.b||[]).forEach(it=>restoreBuilding(it));
   (s.d||[]).forEach(it=>{if(DECO[it.k])placeDeco(it.cx,it.cy,it.k);});
@@ -2745,7 +2748,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updWeather(dt);
   if(started)updSeason(dt);
   if(started)updSky(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updDistantLife(dt);updDistantFX(dt);conquestTribute(dt);updCaravans(dt);updRoadParties(dt);updWalkers(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();darkenBuildings();darkenKingdoms();darkenNeighbors();}checkLeague();drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updDistantLife(dt);updDistantFX(dt);conquestTribute(dt);updCaravans(dt);updRoadParties(dt);updWalkers(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();darkenBuildings();darkenKingdoms();darkenNeighbors();anchorKingdoms();}checkLeague();drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   updExplore(dt);
   if(composer)composer.render();else renderer.render(scene,exploreMode?tpCam:camera);}
@@ -2773,7 +2776,7 @@ window.addEventListener('pagehide',()=>{if(started)save();});
     placeScatterForests(); // riempie la caverna di roccia/stalagmiti/cristalli
   }
   // CAVERNA: niente castello ne regni di superficie; i villaggi vicini restano come dati ma invisibili (stripSurface li nasconde)
-  initNeighbors();placeDungeonTorches();placeDungeonDecor();placeCavern();placeCovoProps();placeLurkers();placeCaveWater();placeCaveStairs();stripSurface();darkenBuildings();
+  initNeighbors();buildDungeonRooms();placeDungeonTorches();placeDungeonDecor();placeCovoProps();placeCaveWater();placeCaveStairs();stripSurface();darkenBuildings();
   for(let i=0;i<5;i++)spawnAgent('operaio');for(let i=0;i<2;i++)spawnAgent('milite');
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
   checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();initFlutters();initFireflies();placeFlora();placeFloraDetail();spawnTuzu();spawnWildlife();initPollen();if(miniC){miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();}document.getElementById('load').style.display='none';
