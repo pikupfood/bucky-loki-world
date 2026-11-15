@@ -335,6 +335,11 @@ const DECO={
   giardinoroccia:{nome:'Giardino roccioso',em:'🪨', files:['p_giardino'], mor:1},
   rocciamuschio:{nome:'Roccia muschiosa',em:'🟢', files:['p_mossy'], mor:0},
   oggettomagico:{nome:'Oggetto magico',em:'✨', files:['p_magico'], mor:2},
+  ossa:    {nome:'Ossa',    em:'🦴', files:['p_bone'], mor:0},
+  spadamagica:{nome:'Spada magica',em:'🗡️', files:['p_fweapon'], mor:1},
+  lanternamuro:{nome:'Lanterna da muro',em:'🏮', files:['p_walllantern'], mor:1},
+  cristalloscuro:{nome:'Cristallo oscuro',em:'🟣', files:['p_dcrystal'], mor:1},
+  scale:   {nome:'Scalinata',em:'🪜', files:['p_stairs'], mor:0},
   porticciolo:{nome:'Porticciolo',em:'⚓', build:'makeHarbor', mor:3, cost:{legna:30,pietra:10}},
   strada:  {nome:'Strada',  em:'🟫', road:true, mor:0},
   bandiera:{nome:'Bandiera',em:'🚩', files:['flag_'+col], mor:1}
@@ -353,7 +358,13 @@ const MON={
   officina:{nome:'Officina',em:'🔨',file:'m_workshop', cost:{legna:40,ferro:10}, mor:6, time:20, deco:1, w:4,h:4},
   casastregata:{nome:'Casa stregata',em:'👻',file:'m_haunted', cost:{oro:60}, mor:7, time:24, deco:1, w:5,h:5},
   cancello:{nome:'Cancello gotico',em:'⛩️',file:'m_gate', cost:{pietra:40,ferro:10}, mor:6, time:22, deco:1, w:4,h:4},
-  caverna:{nome:'Caverna',em:'🕳️',file:'m_cavern', cost:{pietra:30}, mor:4, time:20, deco:1, w:5,h:5}
+  caverna:{nome:'Caverna',em:'🕳️',file:'m_cavern', cost:{pietra:30}, mor:4, time:20, deco:1, w:5,h:5},
+  casafantasy:{nome:'Casa fantasy',em:'🏘️',file:'m_fhouse', cost:{legna:35,pietra:12}, mor:6, time:18, deco:1, w:4,h:4},
+  torremagica:{nome:'Torre magica',em:'🗼',file:'m_ftower', cost:{oro:70,pietra:30}, mor:10, time:26, deco:1, w:4,h:4},
+  casavolante:{nome:'Casa volante',em:'🎈',file:'m_floathouse', cost:{oro:80}, mor:12, time:28, deco:1, w:4,h:4},
+  isolavolante:{nome:'Isola volante',em:'☁️',file:'m_floatisland', cost:{oro:120}, mor:16, time:32, deco:1, w:5,h:5},
+  portale: {nome:'Portale',em:'🌀',file:'m_portal', cost:{oro:90,ferro:20}, mor:11, time:28, deco:1, w:4,h:4},
+  rovine:  {nome:'Rovine antiche',em:'🏛️',file:'m_ruins', cost:{pietra:50}, mor:8, time:24, deco:1, w:5,h:5}
 };
 const RES={legna:'🪵',cibo:'🌾',pietra:'🪨',ferro:'⚙️',pane:'🍞',armi:'🗡️',oro:'🪙'};
 // ingombri di riserva (se la misura del modello non è pronta) — quadratini fini da 0.5
@@ -508,8 +519,10 @@ async function loadMonProps(){for(const key in MON_PROPS){const [file,foot]=MON_
 const TPL_SRC={
   // decorazioni (avvolte, altezza target)
   p_cristallo:{file:'crystal-sphere.glb',h:0.6}, p_libro:{file:'ancient-book.glb',h:0.4}, p_fungo:{file:'fantasy-mushroom.glb',h:0.95}, p_podio:{file:'podium.glb',h:0.55}, p_giardino:{file:'rock-garden.glb',h:0.5}, p_mossy:{file:'mossy-rock.glb',h:0.6}, p_magico:{file:'magical.glb',h:0.6},
+  p_bone:{file:'bone-weapon.glb',h:0.6}, p_fweapon:{file:'fantasy-weapon.glb',h:0.7}, p_walllantern:{file:'wall-lantern.glb',h:0.8}, p_dcrystal:{file:'dark-crystal.glb',h:0.65}, p_stairs:{file:'stairs.glb',h:0.45},
   // strutture (normalizzate sull'ingombro)
-  m_haunted:{file:'haunted-house.glb',foot:5}, m_medhouse:{file:'medieval-house.glb',foot:4}, m_cottage:{file:'fantasy-cottage.glb',foot:4}, m_treehouse:{file:'fantasy-treehouse.glb',foot:4}, m_gate:{file:'gothic-gate.glb',foot:4}, m_workshop:{file:'blacksmith-workshop.glb',foot:4}, m_cavern:{file:'cavern.glb',foot:5}
+  m_haunted:{file:'haunted-house.glb',foot:5}, m_medhouse:{file:'medieval-house.glb',foot:4}, m_cottage:{file:'fantasy-cottage.glb',foot:4}, m_treehouse:{file:'fantasy-treehouse.glb',foot:4}, m_gate:{file:'gothic-gate.glb',foot:4}, m_workshop:{file:'blacksmith-workshop.glb',foot:4}, m_cavern:{file:'cavern.glb',foot:5},
+  m_fhouse:{file:'fantasy-house.glb',foot:4}, m_ftower:{file:'fantasy-tower.glb',foot:4}, m_floathouse:{file:'floating-house.glb',foot:4}, m_floatisland:{file:'floating-island.glb',foot:5}, m_portal:{file:'underwater-portal.glb',foot:4}, m_ruins:{file:'medieval-architecture.glb',foot:5}
 };
 const _tplLoading={};
 function ensureTpl(key){if(templates[key])return Promise.resolve(true);if(_tplLoading[key])return _tplLoading[key];const src=TPL_SRC[key];if(!src)return Promise.resolve(false);
