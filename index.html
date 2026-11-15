@@ -281,8 +281,21 @@ const sun=new THREE.DirectionalLight(0xfff1dc,2.0);sun.position.set(-16,30,12);s
 sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.near=1;sun.shadow.camera.far=120;sun.shadow.camera.left=-34;sun.shadow.camera.right=34;sun.shadow.camera.top=34;sun.shadow.camera.bottom=-34;sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;scene.add(sun);
 // ciclo giorno/notte dolce
 const C_DAY=new THREE.Color(0x8fc3e6),C_NIGHT=new THREE.Color(0x44568a),C_DUSK=new THREE.Color(0xf0a96c);
-let dayTime=0.18,dayLight=0.5;
-function updDayNight(dt){const nw=new Date();const f=(nw.getHours()+nw.getMinutes()/60+nw.getSeconds()/3600)/24;const d=-Math.cos(f*Math.PI*2);const day=Math.max(0,Math.min(1,d*1.4+0.45));dayLight=day;sun.intensity=0.4+day*1.6;renderer.toneMappingExposure=0.4+day*0.68;const col=C_NIGHT.clone().lerp(C_DAY,day);const dusk=Math.max(0,1-Math.abs(d)*3);col.lerp(C_DUSK,dusk*0.3);if(raining){col.lerp(new THREE.Color(0x5d6b7e),0.55);renderer.toneMappingExposure*=0.78;}scene.background.copy(col);scene.fog.color.copy(col);
+let dayTime=0.18,dayLight=0.5,dayClock=0.28;
+const C_SUNSET=new THREE.Color(0xff9a52),C_SUNSKY=new THREE.Color(0xffb067),C_NIGHTSKY=new THREE.Color(0x4a5a93);
+function updDayNight(dt){dayClock=(dayClock+dt/330)%1; // ciclo giorno/notte di ~5,5 min, così si vedono alba e TRAMONTO
+  const ang=dayClock*Math.PI*2;const d=-Math.cos(ang);const day=Math.max(0.2,Math.min(1,d*1.25+0.62));dayLight=day;
+  sun.intensity=0.35+day*1.7;renderer.toneMappingExposure=0.42+day*0.66;
+  const dusk=Math.max(0,1-Math.abs(d)*2.4); // forte all'alba e al tramonto
+  // sole caldo e basso al tramonto
+  sun.color.setRGB(1,1-dusk*0.32,1-dusk*0.58);
+  const col=C_NIGHT.clone().lerp(C_DAY,day);col.lerp(C_SUNSET,dusk*0.7);
+  if(raining){col.lerp(new THREE.Color(0x5d6b7e),0.55);renderer.toneMappingExposure*=0.78;}
+  scene.background.copy(col);scene.fog.color.copy(col);
+  // cupola del cielo: bianca di giorno, arancio al tramonto, blu scuro di notte
+  if(typeof skyDome!=='undefined'&&skyDome){const t=new THREE.Color(0xffffff).lerp(C_SUNSKY,dusk*0.8).lerp(C_NIGHTSKY,(1-day)*0.6);skyDome.material.color.copy(t);}
+  // nuvole tinte di caldo al tramonto, grigie di notte
+  if(typeof CLOUDMAT!=='undefined'){CLOUDMAT.color.setRGB(0.5+day*0.5+dusk*0.1,0.5+day*0.5-dusk*0.08,0.5+day*0.5-dusk*0.22);}
   if(typeof lampGlows!=='undefined'&&lampGlows.length){const glow=Math.min(0.85,Math.max(0,(1-day)-0.25)*1.3);for(const h of lampGlows){if(h&&h.material){h.material.opacity=glow;h.visible=glow>0.02;}}}}
 // ===== meteo: pioggia (accelera le colture) =====
 let raining=false,rainTimer=130+Math.random()*120;const RN=700;
@@ -328,7 +341,7 @@ try{new THREE.RGBELoader().load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r12
 const GRID=65, CELL=0.5, HALF=(GRID-1)/2, PAR=7;
 const tl=new THREE.TextureLoader();
 // erba STILIZZATA uniforme (procedurale, coerente col low-poly) invece della foto
-const grass=(()=>{const S=512;const c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');g.fillStyle='#74a85a';g.fillRect(0,0,S,S);
+const grass=(()=>{const S=512;const c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');g.fillStyle='#5f9647';g.fillRect(0,0,S,S);
   const draw=(x,y,s,col)=>{g.fillStyle=col;g.fillRect(x,y,s,s);};
   // chiazze morbide a più scale (grande + media): niente lastra piatta, meno ripetizione
   const blob=(col,n,rmin,rmax)=>{for(let i=0;i<n;i++){const x=Math.random()*S,y=Math.random()*S,r=rmin+Math.random()*(rmax-rmin);for(const ox of [0,-S,S])for(const oy of [0,-S,S]){const grd=g.createRadialGradient(x+ox,y+oy,0,x+ox,y+oy,r);grd.addColorStop(0,col);grd.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=grd;g.beginPath();g.arc(x+ox,y+oy,r,0,6.283);g.fill();}}};
@@ -345,7 +358,7 @@ const ground=new THREE.Mesh(new THREE.CircleGeometry(175,80),new THREE.MeshStand
 // ===== NUVOLE che scorrono nel cielo =====
 const clouds=[];const CLOUDMAT=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,transparent:true,opacity:0.92,fog:false});
 function makeCloud(){const g=new THREE.Group();const n=4+Math.floor(Math.random()*4);for(let i=0;i<n;i++){const r=3+Math.random()*4.5;const s=new THREE.Mesh(new THREE.SphereGeometry(r,7,5),CLOUDMAT);s.position.set((Math.random()-0.5)*12,(Math.random()-0.5)*2.2,(Math.random()-0.5)*7);s.scale.y=0.5;g.add(s);}return g;}
-function spawnClouds(){if(clouds.length)return;for(let i=0;i<14;i++){const c=makeCloud();c.position.set((Math.random()-0.5)*200,20+Math.random()*10,(Math.random()-0.5)*200);c.scale.setScalar(0.85+Math.random()*0.9);scene.add(c);clouds.push({obj:c,sp:0.9+Math.random()*1.8});}}
+function spawnClouds(){if(clouds.length)return;for(let i=0;i<13;i++){const sc=0.55+Math.random()*0.6;const c=makeCloud();c.position.set((Math.random()-0.5)*210,26+Math.random()*12,(Math.random()-0.5)*210);c.scale.setScalar(sc);scene.add(c);clouds.push({obj:c,sp:0.9+Math.random()*1.8});}}
 function updClouds(dt){for(const c of clouds){c.obj.position.x+=c.sp*dt;if(c.obj.position.x>120)c.obj.position.x=-120;}}
 // ===== POLLINE/pulviscolo luminoso nell'aria (effetto atmosfera) =====
 let pollen=null;
@@ -1571,11 +1584,11 @@ function loadVariety(){const all=new Set([...V_HOUSES,...V_PROPS,...V_BUILD,...V
   return Promise.all([...all].map(f=>templates['V_'+f]?Promise.resolve():loadModel('models/rts/'+f+'.glb').then(m=>{let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates['V_'+f]=m;}).catch(()=>{})));}
 // ogni regno un ambiente diverso: lago, montagna, lava, neve, foresta notturna
 const KENV={
-  thalassa:{g:0x8fb7c0,tree:'n_pine',feat:'lake',walls:false},
+  thalassa:{g:0x8fb7c0,tree:'n_pine',feat:'lake',walls:true},
   metalla: {g:0x9a9280,tree:'n_pine',feat:'mountain',walls:true},
   pyra:    {g:0x5f463c,tree:'deco_dead',feat:'lava',glow:0xff5522,walls:true},
   krios:   {g:0xdbe7ef,tree:'n_pine',feat:'snow',walls:true},
-  selenea: {g:0x574f6e,tree:'deco_twisted',feat:'night',glow:0x7a4fd0,walls:false}
+  selenea: {g:0x574f6e,tree:'deco_twisted',feat:'night',glow:0x7a4fd0,walls:true}
 };
 // posizioni organiche (disco uniforme) con distanza minima, evitando le zone occupate — NIENTE cerchi
 function townSpots(n,rMax,minD,avoid){const out=[];let t=0;while(out.length<n&&t<n*40){t++;const a=Math.random()*6.2832,rr=Math.sqrt(Math.random())*rMax;const x=Math.cos(a)*rr,z=Math.sin(a)*rr;if((avoid||[]).some(p=>Math.hypot(p.x-x,p.z-z)<p.r))continue;if(out.some(s=>Math.hypot(s.x-x,s.z-z)<minD))continue;out.push({x,z});}return out;}
@@ -1585,6 +1598,14 @@ function fxCloud(g,count,color,size,R,H,additive){const pos=new Float32Array(cou
 function updDistantFX(dt){for(const fx of distantFX){const pos=fx.geo.attributes.position;for(let i=0;i<pos.count;i++){let y=pos.getY(i)+fx.vy*dt;if(fx.vy<0&&y<0)y+=fx.H;else if(fx.vy>0&&y>fx.H)y-=fx.H;pos.setY(i,y);}pos.needsUpdate=true;}}
 function townPut(g,key,x,z,h,faceA,extra){if(!templates[key])return null;const o=inst(key);if(h)fitHeight(o,h);if(extra)o.scale.multiplyScalar(extra);o.position.set(x,0,z);o.rotation.y=(faceA!=null)?faceA:Math.random()*6.2832;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);if(typeof autoSeat==='function')autoSeat(o);return o;}
 function townRoad(g,a,len,w){const road=new THREE.Mesh(new THREE.PlaneGeometry(len,w),TOWN_DIRT);road.rotation.x=-Math.PI/2;road.receiveShadow=true;const rg=new THREE.Group();rg.add(road);rg.rotation.y=-a;rg.position.set(Math.cos(a)*len/2,0.028,Math.sin(a)*len/2);g.add(rg);}
+// raggio IRREGOLARE per angolo (così i regni NON sono rotondi)
+function blobRad(a,seed,rBase,amp){return rBase*(1+amp*(Math.sin(a*3+seed)*0.5+Math.sin(a*5+seed*1.7)*0.28+Math.sin(a*2+seed*0.5)*0.42));}
+// disco di terreno deformato a blob (mantiene le UV per la texture erba)
+function blobGround(seed,rBase,amp,mat){const geo=new THREE.CircleGeometry(rBase,80);const pos=geo.attributes.position;for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i),d=Math.hypot(x,y);if(d>0.01){const a=Math.atan2(y,x),nr=blobRad(a,seed,rBase,amp)/rBase;pos.setX(i,x*nr);pos.setY(i,y*nr);}}pos.needsUpdate=true;geo.computeVertexNormals();const m=new THREE.Mesh(geo,mat);m.rotation.x=-Math.PI/2;m.receiveShadow=true;return m;}
+// MONUMENTO: obelisco di pietra con cima dorata (ogni regno ne ha uno)
+const OBEL_STONE=new THREE.MeshStandardMaterial({color:0xb9b2a2,roughness:1,flatShading:true});
+const OBEL_GOLD=new THREE.MeshStandardMaterial({color:0xe8c24a,roughness:0.5,metalness:0.3});
+function makeObelisk(){const g=new THREE.Group();const base=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.5,1.4),OBEL_STONE);base.position.y=0.25;g.add(base);const base2=new THREE.Mesh(new THREE.BoxGeometry(1.0,0.4,1.0),OBEL_STONE);base2.position.y=0.65;g.add(base2);const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.42,3.6,4),OBEL_STONE);shaft.position.y=2.7;shaft.rotation.y=Math.PI/4;g.add(shaft);const cap=new THREE.Mesh(new THREE.ConeGeometry(0.3,0.7,4),OBEL_GOLD);cap.position.y=4.8;cap.rotation.y=Math.PI/4;g.add(cap);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
 function townPen(g,cx,cz,enemy){const W=4.6,D=3.4,fh=0.95,segL=2*(fh/1.1);
   if(templates['fence_wood_straight']){const side=(x,z,ry,len)=>{const n=Math.max(1,Math.round(len/segL));for(let i=0;i<n;i++){const t=(i+0.5)/n;const px=ry===0?x-len/2+t*len:x,pz=ry===0?z:z-len/2+t*len;const f=inst('fence_wood_straight');f.scale.setScalar(fh/1.1);f.position.set(px,0,pz);f.rotation.y=ry;f.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(f);autoSeat(f);}};
     side(cx,cz-D/2,0,W);side(cx,cz+D/2,0,W);side(cx-W/2,cz,Math.PI/2,D);side(cx+W/2,cz,Math.PI/2,D);}
@@ -1597,8 +1618,8 @@ function placeDistantKingdoms(){DISTANT_SPEC.forEach(s=>{if(s.k===myKingdom||nei
   else if(env.feat==='snow'){gm=new THREE.MeshStandardMaterial({color:0xeef4f8,roughness:1});}
   else if(typeof grass!=='undefined'&&grass){const gt=grass.clone();gt.needsUpdate=true;gt.wrapS=gt.wrapT=THREE.RepeatWrapping;gt.repeat.set(9,9);gm=new THREE.MeshStandardMaterial({map:gt,color:env.g,roughness:1});}
   else gm=new THREE.MeshStandardMaterial({color:env.g,roughness:1});
-  const patch=new THREE.Mesh(new THREE.CircleGeometry(19,54),gm);patch.rotation.x=-Math.PI/2;patch.position.y=0.02;patch.receiveShadow=true;g.add(patch);
-  distantKingdoms.push({k:s.k,x:s.x,z:s.z,g,enemy,toC,env});});placeNyxarMountain();
+  const seed=(s.x*0.13+s.z*0.07+s.k.length)%6.283;const patch=blobGround(seed,19,0.14,gm);patch.position.y=0.02;g.add(patch);
+  distantKingdoms.push({k:s.k,x:s.x,z:s.z,g,enemy,toC,env,seed});});placeNyxarMountain();
   // i paesi lontani si costruiscono DOPO l'avvio, uno alla volta e distanziati nel tempo, così il tutorio/gioco non si blocca
   loadVariety().then(()=>{distantKingdoms.forEach((dk,i)=>{setTimeout(()=>{if(dk._built)return;dk._built=true;try{buildOrganicTown(dk);}catch(e){}},2200+i*700);});setTimeout(()=>{try{enrichNeighbors();}catch(e){}},2200+distantKingdoms.length*700);}).catch(()=>{});}
 // case variate anche nei 3 villaggi vicini
@@ -1657,19 +1678,23 @@ function buildOrganicTown(dk){const g=dk.g,enemy=dk.enemy,k=dk.k,toC=dk.toC,env=
   const px=Math.cos(toC+Math.PI)*3.4,pz=Math.sin(toC+Math.PI)*3.4;townPut(g,NB_PALACE[k]||'m_castle',px,pz,0,toC,2.4);avoid.push({x:px,z:pz,r:4.6});
   const plaza=new THREE.Mesh(new THREE.CircleGeometry(4.4,30),TOWN_COBBLE);plaza.rotation.x=-Math.PI/2;plaza.position.set(px*0.45,0.033,pz*0.45);plaza.scale.set(1.15,1,0.82);g.add(plaza);
   townPut(g,'well',px*0.2,pz*0.2,1.0,0);
+  // ---- MONUMENTO del regno (obelisco) ben in vista sulla piazza, davanti al palazzo ----
+  {const mx=Math.cos(toC)*5.2,mz=Math.sin(toC)*5.2;const ob=makeObelisk();ob.scale.setScalar(1.15);ob.position.set(mx,0,mz);g.add(ob);avoid.push({x:mx,z:mz,r:2.2});}
   // ---- EDIFICI CIVICI vicino alla piazza (tipi diversi) ----
   const civic=[templates['market']?'market':'V_market_stalls_2','tavern','church','blacksmith','V_barracks_2'];
   civic.forEach((c,i)=>{const a=toC+0.5+i*0.72,r=5.4+Math.random()*0.8;if(!templates[c])return;townPut(g,c,Math.cos(a)*r,Math.sin(a)*r,2.0,faceC(Math.cos(a)*r,Math.sin(a)*r));avoid.push({x:Math.cos(a)*r,z:Math.sin(a)*r,r:2.5});dirt(Math.cos(a)*r,Math.sin(a)*r,1.6);});
   // ---- CASE E ALTRO sparsi ORGANICAMENTE (no cerchio), tipi misti ----
   const housePool=enemy?['home_B','V_shack','V_hut','V_hut_2','V_house_2','V_house_4','V_house_6']:['home_A','home_B','v_casa','V_house_2','V_house_3','V_house_4','V_house_5','V_house_6','V_house_7','V_hut','V_hut_2','V_shack','V_houses','V_houses_2'];
   const mixPool=['V_barracks_2','V_windmill_2','V_temple_2','V_storage_hut','tavern','church'];
-  townSpots(28,13,2.6,avoid).forEach(sp=>{const tk=Math.random()<0.24?pick(mixPool):pick(housePool);const o=townPut(g,tk,sp.x,sp.z,1.5+Math.random()*0.7,faceC(sp.x,sp.z));if(o&&Math.random()<0.55)dirt(sp.x,sp.z,1.2+Math.random()*0.7);});
+  townSpots(20,12,2.9,avoid).forEach(sp=>{const tk=Math.random()<0.24?pick(mixPool):pick(housePool);const o=townPut(g,tk,sp.x,sp.z,1.5+Math.random()*0.7,faceC(sp.x,sp.z));if(o&&Math.random()<0.55)dirt(sp.x,sp.z,1.2+Math.random()*0.7);});
   // sentieri tortuosi sparsi
-  for(let i=0;i<20;i++){const a=Math.random()*6.28,r=Math.random()*12;dirt(Math.cos(a)*r,Math.sin(a)*r,0.8+Math.random()*0.6);}
-  // ---- RAMPART PARZIALE sul fronte (non un cerchio) + 2 torri + porta ----
-  if(env.walls){const R=14;if(templates['wall'])for(let i=-5;i<=5;i++){const a=toC+i*0.15;const w=inst('wall');w.scale.setScalar(1.85);w.position.set(Math.cos(a)*R,0,Math.sin(a)*R);w.rotation.y=Math.atan2(-Math.sin(a),Math.cos(a));w.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(w);autoSeat(w);}
-    const twk=templates['tower_new']?'tower_new':'tower_A';for(const dd of [-0.86,0.86])townPut(g,twk,Math.cos(toC+dd)*R,Math.sin(toC+dd)*R,3.8);
-    if(templates['gate'])townPut(g,'gate',Math.cos(toC)*R,Math.sin(toC)*R,0,Math.atan2(-Math.sin(toC),Math.cos(toC)),1.85/1.1*1.2);}
+  for(let i=0;i<16;i++){const a=Math.random()*6.28,r=Math.random()*11;dirt(Math.cos(a)*r,Math.sin(a)*r,0.8+Math.random()*0.6);}
+  // ---- MURA COMPLETE che seguono il perimetro IRREGOLARE (non un cerchio) + torri + porta ----
+  if(env.walls&&templates['wall']){const seed=dk.seed||0,rW=13.2,segs=Math.max(26,Math.round(2*Math.PI*rW/2.8));
+    for(let i=0;i<segs;i++){const a=(i/segs)*6.2832;if(Math.abs(Math.atan2(Math.sin(a-toC),Math.cos(a-toC)))<0.24)continue; // varco per la porta
+      const R=blobRad(a,seed,rW,0.13),w=inst('wall');w.scale.setScalar(1.7);w.position.set(Math.cos(a)*R,0,Math.sin(a)*R);w.rotation.y=Math.atan2(-Math.sin(a),Math.cos(a));w.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(w);autoSeat(w);}
+    const twk=templates['tower_new']?'tower_new':'tower_A';for(const ta of [toC+1.15,toC+2.4,toC+Math.PI,toC-2.4,toC-1.15]){const R=blobRad(ta,seed,rW,0.13);townPut(g,twk,Math.cos(ta)*R,Math.sin(ta)*R,4.0);}
+    if(templates['gate']){const R=blobRad(toC,seed,rW,0.13);townPut(g,'gate',Math.cos(toC)*R,Math.sin(toC)*R,0,Math.atan2(-Math.sin(toC),Math.cos(toC)),1.7/1.1*1.2);}}
   // ---- RECINTO con animali ----
   townPen(g,Math.cos(toC-2.4)*9.5,Math.sin(toC-2.4)*9.5,enemy);
   // ---- ALBERI del bioma, attorno e nei varchi (naturali, non in fila) ----
