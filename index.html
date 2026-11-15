@@ -274,7 +274,7 @@ document.addEventListener('pointerdown',()=>{Snd.ac();Snd.startMusic();},{once:t
 document.addEventListener('click',e=>{const t=e.target;if(t&&t.closest&&t.closest('button,.sbtn,.bbtn,.cat,.kcard,.land,[data-k]'))Snd.sfx('click');},true);
 (function(){const mb=document.getElementById('muteBtn');if(mb){mb.textContent=Snd.isMuted()?'🔇':'🔊';mb.onclick=()=>{const m=Snd.toggleMute();mb.textContent=m?'🔇':'🔊';};}})();
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
 const scene=new THREE.Scene();const SKY=0x141b2b;const HORIZON=0x1b2436;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(HORIZON,52,150);
 // CIELO a gradiente (orizzonte chiaro -> zenit blu) con una cupola
@@ -286,7 +286,7 @@ updateCam();
 const hemi=new THREE.HemisphereLight(0x46587e,0x1a140d,0.52);scene.add(hemi);
 const SUN_OFF={x:-24,y:46,z:17};
 const sun=new THREE.DirectionalLight(0xfff1dc,2.0);sun.position.set(SUN_OFF.x,SUN_OFF.y,SUN_OFF.z);sun.castShadow=true;
-sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.near=1;sun.shadow.camera.far=140;sun.shadow.camera.left=-46;sun.shadow.camera.right=46;sun.shadow.camera.top=46;sun.shadow.camera.bottom=-46;sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;scene.add(sun);scene.add(sun.target);sunReady=true;updateCam();
+sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.near=1;sun.shadow.camera.far=140;sun.shadow.camera.left=-46;sun.shadow.camera.right=46;sun.shadow.camera.top=46;sun.shadow.camera.bottom=-46;sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;scene.add(sun);scene.add(sun.target);sunReady=true;updateCam();
 // luce di riempimento fredda dal lato opposto per dare volume (niente ombre)
 const fill=new THREE.DirectionalLight(0xbfd4f0,0.32);fill.position.set(26,20,-18);scene.add(fill);
 // ===== post-processing: color grade + vignette (resa piu ricca) + bloom lieve (solo zone molto luminose) =====
@@ -435,15 +435,17 @@ const dungeonFloor=(()=>{const s=512,c=document.createElement('canvas');c.width=
 dungeonFloor.wrapS=dungeonFloor.wrapT=THREE.RepeatWrapping;dungeonFloor.repeat.set(30,30);dungeonFloor.encoding=THREE.sRGBEncoding;dungeonFloor.anisotropy=8;
 const ground=new THREE.Mesh(new THREE.CircleGeometry(175,80),new THREE.MeshStandardMaterial({map:dungeonFloor,color:0x8a847c,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 // TORCE/BRACIERI del covo: fuoco caldo che palpita contro il buio
-let _ft=0,dungeonFires=[];
+let _ft=0,dungeonFires=[],_fireLights=0;const FIRE_LIGHT_CAP=5;
 function makeBrazier(x,z){const gg=new THREE.Group();gg.position.set(x,0,z);const SM=new THREE.MeshStandardMaterial({color:0x2a2420,roughness:1});
-  const post=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.17,1.2,8),SM);post.position.y=0.6;post.castShadow=true;gg.add(post);
-  const bowl=new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.2,0.3,12),SM);bowl.position.y=1.3;gg.add(bowl);
-  const core=new THREE.Mesh(new THREE.SphereGeometry(0.17,10,10),new THREE.MeshBasicMaterial({color:0xffd27a}));core.position.y=1.45;gg.add(core);
-  const halo=new THREE.Mesh(new THREE.SphereGeometry(0.4,12,12),new THREE.MeshBasicMaterial({color:0xff7a24,transparent:true,opacity:0.45}));halo.position.y=1.45;gg.add(halo);
-  const l=new THREE.PointLight(0xff7a24,2.1,17,2);l.position.set(x,1.7,z);const G=(typeof cityGroup!=='undefined'?cityGroup:scene);G.add(gg);G.add(l);dungeonFires.push({l,base:2.1,x});}
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.17,1.2,6),SM);post.position.y=0.6;gg.add(post);
+  const bowl=new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.2,0.3,8),SM);bowl.position.y=1.3;gg.add(bowl);
+  const core=new THREE.Mesh(new THREE.SphereGeometry(0.17,8,8),new THREE.MeshBasicMaterial({color:0xffd27a}));core.position.y=1.45;gg.add(core);
+  const halo=new THREE.Mesh(new THREE.SphereGeometry(0.4,10,8),new THREE.MeshBasicMaterial({color:0xff7a24,transparent:true,opacity:0.45}));halo.position.y=1.45;gg.add(halo);
+  const G=(typeof cityGroup!=='undefined'?cityGroup:scene);G.add(gg);
+  let l=null;if(_fireLights<FIRE_LIGHT_CAP){l=new THREE.PointLight(0xff7a24,2.0,15,2);l.position.set(x,1.7,z);G.add(l);_fireLights++;}
+  dungeonFires.push({l,halo,base:2.0,x});}
 function placeDungeonTorches(){if(dungeonFires.length)return;const n=8;for(let i=0;i<n;i++){const a=i/n*6.2832+0.2,r=11.5+Math.random()*1.5;makeBrazier(Math.cos(a)*r,Math.sin(a)*r);}}
-function updDungeonFires(dt){_ft+=dt;for(const f of dungeonFires){f.l.intensity=f.base*(0.8+Math.sin(_ft*9+f.x)*0.14+Math.sin(_ft*22+f.x*1.7)*0.07);}}
+function updDungeonFires(dt){_ft+=dt;const fl=0.8+Math.sin(_ft*9)*0.14;for(const f of dungeonFires){const k=fl+Math.sin(_ft*22+f.x*1.7)*0.07;if(f.l)f.l.intensity=f.base*k;if(f.halo)f.halo.material.opacity=0.35+k*0.18;}}
 // formazioni della CAVERNA: stalagmiti di pietra e cristalli di corruzione luminosi (sostituiscono il bosco)
 function makeStalagT(){const g=new THREE.Group();const M=new THREE.MeshStandardMaterial({color:0x4c4842,roughness:1,flatShading:true});
   const a=new THREE.Mesh(new THREE.ConeGeometry(0.4,1.7,6,1),M);a.position.y=0.85;g.add(a);
@@ -524,6 +526,54 @@ function placeCaveStairs(){if(caveStairsDone)return;caveStairsDone=true;const G=
   try{makeBrazier(sx,sz-steps*sd-1.9);}catch(e){}
   for(let i=0;i<3;i++){const k=Math.random()<0.5?'d_rockmed':'stalag';if(!templates[k]||!templates[k].children.length)continue;const o=inst(k);fitHeight(o,1.1+Math.random());o.position.set(sx+(Math.random()-0.5)*2.4,topY,sz-steps*sd-1.3+(Math.random()-0.5)*2);o.traverse(m=>{if(m.isMesh)m.castShadow=true;});G.add(o);}
 }
+// ===== GROTTA A STANZE: stanze chiuse di roccia + corridoi =====
+const DROOMS={
+ covo:  {x:0,  z:0,  hw:15,hd:15,kind:'base'},
+ nefele:{x:-46,z:0,  hw:10,hd:10,kind:'kingdom',nb:'nefele'},
+ chrysa:{x:46, z:0,  hw:10,hd:10,kind:'kingdom',nb:'chrysa'},
+ oros:  {x:0,  z:46, hw:10,hd:10,kind:'kingdom',nb:'oros'},
+ vuota: {x:0,  z:-46,hw:9, hd:9, kind:'empty'},
+ tana:  {x:46, z:-34,hw:9, hd:9, kind:'monsters'}
+};
+const DCORR=[['covo','nefele'],['covo','chrysa'],['covo','oros'],['covo','vuota'],['chrysa','tana']];
+const CORRW=7;
+const WALK_RECTS=[];
+let dungeonRoomsDone=false;
+function inWalkable(x,z){if(!WALK_RECTS.length)return (x*x+z*z)<27*27;for(const r of WALK_RECTS){if(x>r.x0+1.1&&x<r.x1-1.1&&z>r.z0+1.1&&z<r.z1-1.1)return true;}return false;}
+function buildDungeonRooms(){if(dungeonRoomsDone)return;dungeonRoomsDone=true;const G=cityGroup;const H=7,T=1.1;
+  const wt=dungeonFloor.clone();wt.wrapS=wt.wrapT=THREE.RepeatWrapping;wt.repeat.set(3,1.5);wt.needsUpdate=true;
+  const wmat=new THREE.MeshStandardMaterial({map:wt,color:0x443f38,roughness:1});
+  const wallBox=(cx,cz,lx,lz)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(lx,H,lz),wmat);m.position.set(cx,H/2-0.3,cz);m.castShadow=m.receiveShadow=true;G.add(m);};
+  const subtract=(a,b,opens)=>{let cur=[[a,b]];for(const [o0,o1] of opens){const nx=[];for(const [s0,s1] of cur){if(o1<=s0||o0>=s1)nx.push([s0,s1]);else{if(o0>s0)nx.push([s0,o0]);if(o1<s1)nx.push([o1,s1]);}}cur=nx;}return cur;};
+  const open={};for(const k in DROOMS)open[k]={N:[],S:[],E:[],W:[]};
+  for(const k in DROOMS){const R=DROOMS[k];WALK_RECTS.push({x0:R.x-R.hw,x1:R.x+R.hw,z0:R.z-R.hd,z1:R.z+R.hd});}
+  for(const [a,b] of DCORR){const A=DROOMS[a],B=DROOMS[b],dx=B.x-A.x,dz=B.z-A.z;
+    if(Math.abs(dx)>=Math.abs(dz)){const left=dx>0?A:B,right=dx>0?B:A,lk=dx>0?a:b,rk=dx>0?b:a;
+      const x0w=left.x+left.hw,x1w=right.x-right.hw,zc=A.z,zlo=zc-CORRW/2,zhi=zc+CORRW/2;
+      WALK_RECTS.push({x0:x0w-2.5,x1:x1w+2.5,z0:zlo,z1:zhi});open[lk].E.push([zlo,zhi]);open[rk].W.push([zlo,zhi]);
+      wallBox((x0w+x1w)/2,zlo,(x1w-x0w)+T,T);wallBox((x0w+x1w)/2,zhi,(x1w-x0w)+T,T);
+      try{makeBrazier(x0w+2.2,zc);makeBrazier(x1w-2.2,zc);}catch(e){}
+    } else {const near=dz>0?A:B,far=dz>0?B:A,nk=dz>0?a:b,fk=dz>0?b:a;
+      const z0w=near.z+near.hd,z1w=far.z-far.hd,xc=A.x,xlo=xc-CORRW/2,xhi=xc+CORRW/2;
+      WALK_RECTS.push({x0:xlo,x1:xhi,z0:z0w-2.5,z1:z1w+2.5});open[nk].S.push([xlo,xhi]);open[fk].N.push([xlo,xhi]);
+      wallBox(xlo,(z0w+z1w)/2,T,(z1w-z0w)+T);wallBox(xhi,(z0w+z1w)/2,T,(z1w-z0w)+T);
+      try{makeBrazier(xc,z0w+2.2);makeBrazier(xc,z1w-2.2);}catch(e){}
+    }
+  }
+  for(const k in DROOMS){const R=DROOMS[k],o=open[k];
+    for(const [s0,s1] of subtract(R.x-R.hw,R.x+R.hw,o.N))wallBox((s0+s1)/2,R.z-R.hd,(s1-s0)+T,T);
+    for(const [s0,s1] of subtract(R.x-R.hw,R.x+R.hw,o.S))wallBox((s0+s1)/2,R.z+R.hd,(s1-s0)+T,T);
+    for(const [s0,s1] of subtract(R.z-R.hd,R.z+R.hd,o.W))wallBox(R.x-R.hw,(s0+s1)/2,T,(s1-s0)+T);
+    for(const [s0,s1] of subtract(R.z-R.hd,R.z+R.hd,o.E))wallBox(R.x+R.hw,(s0+s1)/2,T,(s1-s0)+T);
+  }
+  // trono in fondo al covo
+  if(templates.d_throne&&templates.d_throne.children.length){const t=inst('d_throne');fitHeight(t,2.8);t.position.set(0,0,-DROOMS.covo.hd+2.6);t.traverse(m=>{if(m.isMesh)m.castShadow=true;});G.add(t);if(typeof autoSeat==='function')autoSeat(t);}
+  // mostri nella Tana
+  const mons=['d_undead','d_skel','d_ghost','d_demon'].filter(k=>templates[k]&&templates[k].children&&templates[k].children.length);
+  if(mons.length){const Tn=DROOMS.tana;for(let i=0;i<5;i++){const k=mons[Math.floor(Math.random()*mons.length)];const o=inst(k);fitHeight(o,2.3);o.position.set(Tn.x+(Math.random()-0.5)*Tn.hw*1.1,0,Tn.z+(Math.random()-0.5)*Tn.hd*1.1);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});G.add(o);if(typeof autoSeat==='function')autoSeat(o);}}
+}
+// i regni vicini si costruiscono in async: appena pronti li ancoro nella loro stanza
+function anchorKingdoms(){if(typeof neighbors==='undefined')return;for(const k in DROOMS){const R=DROOMS[k];if(R.kind!=='kingdom'||!R.nb)continue;const nb=neighbors.find(n=>n.k===R.nb);if(nb&&nb.g&&(Math.abs(nb.g.position.x-R.x)>0.5||Math.abs(nb.g.position.z-R.z)>0.5))nb.g.position.set(R.x,0,R.z);}}
 // ===== NUVOLE che scorrono nel cielo =====
 const clouds=[];const CLOUDMAT=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,transparent:true,opacity:0.92,fog:false});
 function makeCloud(){const g=new THREE.Group();const n=4+Math.floor(Math.random()*4);for(let i=0;i<n;i++){const r=3+Math.random()*4.5;const s=new THREE.Mesh(new THREE.SphereGeometry(r,7,5),CLOUDMAT);s.position.set((Math.random()-0.5)*12,(Math.random()-0.5)*2.2,(Math.random()-0.5)*7);s.scale.y=0.5;g.add(s);}return g;}
@@ -2711,7 +2761,8 @@ window.addEventListener('pagehide',()=>{if(started)save();});
 (async function(){document.getElementById('loadtxt').textContent='Carico il regno…';await preload();
   const dungMods=['d_rock|models/nature/mossy-rock.glb','d_crystal|models/props/dark-crystal.glb','d_bigcrystal|models/props/magical-crystals.glb','d_crystball|models/props/crystal-sphere.glb','d_dead|models/nature/dead_tree.glb','d_dead2|models/nature/dead_tree_3.glb','d_twist|models/nature/twisted_tree.glb','d_twist2|models/nature/twisted_tree_4.glb','d_mush|models/props/fantasy-mushroom.glb','d_mush2|models/nature/mushroom.glb','d_skull|models/props/skull.glb','d_bones|models/props/bone-weapon.glb','d_rockmed|models/nature/rock_medium.glb','d_grave|models/props/graveyard.glb','d_throne|models/props/skull-throne.glb','d_gate|models/props/gothic-gate.glb','d_walllamp|models/props/wall-lantern.glb','d_forge|models/props/forge.glb','d_ritual|models/props/magic-ritual.glb','d_book|models/props/ancient-book.glb','d_podium|models/props/podium.glb','d_undead|models/props/undead.glb','d_skel|models/props/skel-warrior.glb','d_ghost|models/props/ghost.glb','d_demon|models/props/demon.glb','d_chest|models/props/chest-ornate.glb','d_barrels|models/props/barrels.glb','d_mine|models/props/mine.glb'];
   for(const s of dungMods){const [k,u]=s.split('|');try{templates[k]=await loadModel(u);}catch(e){}}
-  templates.stalag=(templates.d_rock&&templates.d_rock.children.length)?templates.d_rock:makeStalagT();templates.crystal=(templates.d_crystal&&templates.d_crystal.children.length)?templates.d_crystal:makeCrystalT();
+  // PERF: il riempimento della caverna (forest instancing, 360/chunk) DEVE usare geometria low-poly, MAI i modelli dettagliati (esplodevano a 176M triangoli)
+  templates.stalag=makeStalagT();templates.crystal=makeCrystalT();
   const had=loadSave();computeWorldHills();buildWorldHills();
   if(!had){setupTerritory();
     const put=(fk,ccx,ccy)=>{const [w,h]=fpSize(fk.def);const [ax,ay]=fpAnchor(ccx,ccy,w,h);const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(fk.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:fk.key,def:fk.def,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true};buildings.push(b);const e={type:'building',key:fk.key,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);if(fk.def.pop)operai+=fk.def.pop;builtCount++;};
