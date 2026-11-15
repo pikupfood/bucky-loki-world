@@ -276,21 +276,21 @@ document.addEventListener('click',e=>{const t=e.target;if(t&&t.closest&&t.closes
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
-const scene=new THREE.Scene();const SKY=0x8fc3e6;const HORIZON=0x9fcbe8;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(HORIZON,88,230);
+const scene=new THREE.Scene();const SKY=0x141b2b;const HORIZON=0x1b2436;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(HORIZON,52,150);
 // CIELO a gradiente (orizzonte chiaro -> zenit blu) con una cupola
-const skyDome=(()=>{const sc=document.createElement('canvas');sc.width=16;sc.height=256;const sg=sc.getContext('2d');const grd=sg.createLinearGradient(0,0,0,256);grd.addColorStop(0,'#3f86cf');grd.addColorStop(0.45,'#79b6e6');grd.addColorStop(0.72,'#a8d3ee');grd.addColorStop(1,'#d2eafa');sg.fillStyle=grd;sg.fillRect(0,0,16,256);const tex=new THREE.CanvasTexture(sc);tex.magFilter=THREE.LinearFilter;const dome=new THREE.Mesh(new THREE.SphereGeometry(520,24,16),new THREE.MeshBasicMaterial({map:tex,side:THREE.BackSide,depthWrite:false,fog:false}));dome.renderOrder=-10;scene.add(dome);return dome;})();
+const skyDome=(()=>{const sc=document.createElement('canvas');sc.width=16;sc.height=256;const sg=sc.getContext('2d');const grd=sg.createLinearGradient(0,0,0,256);grd.addColorStop(0,'#0c1024');grd.addColorStop(0.5,'#241f3a');grd.addColorStop(0.78,'#3a2a44');grd.addColorStop(1,'#4a3048');sg.fillStyle=grd;sg.fillRect(0,0,16,256);const tex=new THREE.CanvasTexture(sc);tex.magFilter=THREE.LinearFilter;const dome=new THREE.Mesh(new THREE.SphereGeometry(520,24,16),new THREE.MeshBasicMaterial({map:tex,side:THREE.BackSide,depthWrite:false,fog:false}));dome.renderOrder=-10;scene.add(dome);return dome;})();
 let VZ=8.5;const camera=new THREE.OrthographicCamera(-VZ,VZ,VZ,-VZ,0.1,260);
 const camTarget={x:0,z:0};const CAMK=24;let sunReady=false;
 function updateCam(){camera.position.set(camTarget.x+CAMK,CAMK*1.18,camTarget.z+CAMK);camera.lookAt(camTarget.x,0,camTarget.z);if(sunReady){sun.position.set(camTarget.x+SUN_OFF.x,SUN_OFF.y,camTarget.z+SUN_OFF.z);sun.target.position.set(camTarget.x,0,camTarget.z);sun.target.updateMatrixWorld();}}
 updateCam();
-scene.add(new THREE.HemisphereLight(0xdceeff,0x5a5240,0.55));
+const hemi=new THREE.HemisphereLight(0x46587e,0x1a140d,0.52);scene.add(hemi);
 const SUN_OFF={x:-24,y:46,z:17};
 const sun=new THREE.DirectionalLight(0xfff1dc,2.0);sun.position.set(SUN_OFF.x,SUN_OFF.y,SUN_OFF.z);sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.near=1;sun.shadow.camera.far=140;sun.shadow.camera.left=-46;sun.shadow.camera.right=46;sun.shadow.camera.top=46;sun.shadow.camera.bottom=-46;sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;scene.add(sun);scene.add(sun.target);sunReady=true;updateCam();
 // luce di riempimento fredda dal lato opposto per dare volume (niente ombre)
 const fill=new THREE.DirectionalLight(0xbfd4f0,0.32);fill.position.set(26,20,-18);scene.add(fill);
 // ===== post-processing: color grade + vignette (resa piu ricca) + bloom lieve (solo zone molto luminose) =====
-const GradeShader={uniforms:{tDiffuse:{value:null},uSat:{value:1.14},uCon:{value:1.07},uWarm:{value:0.018},uVig:{value:0.82}},
+const GradeShader={uniforms:{tDiffuse:{value:null},uSat:{value:0.9},uCon:{value:1.12},uWarm:{value:-0.012},uVig:{value:0.66}},
   vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
   fragmentShader:'uniform sampler2D tDiffuse;uniform float uSat,uCon,uWarm,uVig;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);vec3 col=c.rgb;float l=dot(col,vec3(0.299,0.587,0.114));col=mix(vec3(l),col,uSat);col=(col-0.5)*uCon+0.5;col.r+=uWarm;col.b-=uWarm*0.5;float r=length(vUv-0.5);float vig=smoothstep(0.80,0.34,r);col*=mix(uVig,1.0,vig);gl_FragColor=vec4(clamp(col,0.0,1.0),c.a);}'};
 let composer=null,bloomPass=null;
@@ -301,20 +301,17 @@ try{if(THREE.EffectComposer&&THREE.RenderPass&&THREE.ShaderPass){composer=new TH
 const C_DAY=new THREE.Color(0x8fc3e6),C_NIGHT=new THREE.Color(0x44568a),C_DUSK=new THREE.Color(0xf0a96c);
 let dayTime=0.18,dayLight=0.5,dayClock=0.28;
 const C_SUNSET=new THREE.Color(0xff9a52),C_SUNSKY=new THREE.Color(0xffb067),C_NIGHTSKY=new THREE.Color(0x4a5a93);
-function updDayNight(dt){dayClock=(dayClock+dt/330)%1; // ciclo giorno/notte di ~5,5 min, così si vedono alba e TRAMONTO
-  const ang=dayClock*Math.PI*2;const d=-Math.cos(ang);const day=Math.max(0.2,Math.min(1,d*1.25+0.62));dayLight=day;
-  sun.intensity=0.3+day*1.15;renderer.toneMappingExposure=0.5+day*0.36;
-  const dusk=Math.max(0,1-Math.abs(d)*2.4); // forte all'alba e al tramonto
-  // sole caldo e basso al tramonto
-  sun.color.setRGB(1,1-dusk*0.32,1-dusk*0.58);
-  const col=C_NIGHT.clone().lerp(C_DAY,day);col.lerp(C_SUNSET,dusk*0.7);
-  if(raining){col.lerp(new THREE.Color(0x5d6b7e),0.55);renderer.toneMappingExposure*=0.78;}
+const C_GLOOM=new THREE.Color(0x111726),C_DUSKR=new THREE.Color(0x35203a);
+function updDayNight(dt){dayClock=(dayClock+dt/520)%1; // NOTTE PERPETUA CUPA (dark fantasy): oscilla lenta fra notte fonda e crepuscolo gramo
+  const ang=dayClock*Math.PI*2;const d=Math.max(0,-Math.cos(ang));const day=0.30+d*0.22;dayLight=day;
+  sun.intensity=0.42+day*0.5;renderer.toneMappingExposure=0.78+day*0.16;
+  sun.color.setRGB(0.70+day*0.18,0.76+day*0.12,0.96); // luce lunare fredda
+  const col=C_GLOOM.clone().lerp(C_DUSKR,d*0.6);
+  if(raining){col.lerp(new THREE.Color(0x0c111c),0.5);renderer.toneMappingExposure*=0.8;}
   scene.background.copy(col);scene.fog.color.copy(col);
-  // cupola del cielo: bianca di giorno, arancio al tramonto, blu scuro di notte
-  if(typeof skyDome!=='undefined'&&skyDome){const t=new THREE.Color(0xffffff).lerp(C_SUNSKY,dusk*0.8).lerp(C_NIGHTSKY,(1-day)*0.6);skyDome.material.color.copy(t);}
-  // nuvole tinte di caldo al tramonto, grigie di notte
-  if(typeof CLOUDMAT!=='undefined'){CLOUDMAT.color.setRGB(0.5+day*0.5+dusk*0.1,0.5+day*0.5-dusk*0.08,0.5+day*0.5-dusk*0.22);}
-  if(typeof lampGlows!=='undefined'&&lampGlows.length){const glow=Math.min(0.85,Math.max(0,(1-day)-0.25)*1.3);for(const h of lampGlows){if(h&&h.material){h.material.opacity=glow;h.visible=glow>0.02;}}}}
+  if(typeof skyDome!=='undefined'&&skyDome){skyDome.material.color.copy(new THREE.Color(0x2a2440).lerp(new THREE.Color(0x4a2f46),d*0.5));}
+  if(typeof CLOUDMAT!=='undefined'){CLOUDMAT.color.setRGB(0.26,0.24,0.32);}
+  if(typeof lampGlows!=='undefined')for(const h of lampGlows){if(h&&h.material){h.material.opacity=0.9;h.visible=true;}}}
 // ===== meteo: pioggia (accelera le colture) =====
 let raining=false,rainTimer=130+Math.random()*120;const RN=700;
 const rainGeo=new THREE.BufferGeometry();{const p=new Float32Array(RN*3);for(let i=0;i<RN;i++){p[i*3]=(Math.random()-.5)*70;p[i*3+1]=Math.random()*22;p[i*3+2]=(Math.random()-.5)*70;}rainGeo.setAttribute('position',new THREE.BufferAttribute(p,3));}
@@ -372,7 +369,25 @@ const grass=(()=>{const S=512;const c=document.createElement('canvas');c.width=c
   for(let i=0;i<40;i++){const x=Math.random()*S,y=Math.random()*S,fc=['#ecdf74','#ec9ab4','#dadcec','#f0c050'][Math.floor(Math.random()*4)];for(const ox of [0,-S,S])for(const oy of [0,-S,S]){g.fillStyle=fc;g.beginPath();g.arc(x+ox,y+oy,1.4,0,6.283);g.fill();}}
   return new THREE.CanvasTexture(c);})();
 grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(20,20);grass.encoding=THREE.sRGBEncoding;grass.anisotropy=8;
-const ground=new THREE.Mesh(new THREE.CircleGeometry(175,80),new THREE.MeshStandardMaterial({map:grass,color:0xffffff,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+// PAVIMENTO di PIETRA del Tàrtaro (lastre + malta + crepe) — ambientazione sottosuolo
+const dungeonFloor=(()=>{const s=512,c=document.createElement('canvas');c.width=c.height=s;const g=c.getContext('2d');g.fillStyle='#38352f';g.fillRect(0,0,s,s);
+  const bh=58;for(let y=0,row=0;y<s+bh;y+=bh,row++){const off=(row%2)?64:0;for(let x=-128;x<s;x+=124){const bx=x+off,bw=124-10,hh=bh-10,v=Math.floor(Math.random()*34-17);g.fillStyle='rgb('+(58+v)+','+(54+v)+','+(48+v)+')';g.fillRect(bx+5,y+5,bw,hh);g.strokeStyle='rgba(0,0,0,0.4)';g.lineWidth=2;g.strokeRect(bx+5,y+5,bw,hh);}}
+  for(let i=0;i<9000;i++){g.fillStyle='rgba(0,0,0,'+(Math.random()*0.13)+')';g.fillRect(Math.random()*s,Math.random()*s,1,1);}
+  for(let i=0;i<3200;i++){g.fillStyle='rgba(130,118,100,'+(Math.random()*0.06)+')';g.fillRect(Math.random()*s,Math.random()*s,1,1);}
+  for(let i=0;i<24;i++){g.strokeStyle='rgba(0,0,0,0.32)';g.lineWidth=0.8+Math.random();g.beginPath();let x=Math.random()*s,y=Math.random()*s;g.moveTo(x,y);for(let k=0;k<6;k++){x+=(Math.random()-.5)*62;y+=(Math.random()-.5)*62;g.lineTo(x,y);}g.stroke();}
+  return new THREE.CanvasTexture(c);})();
+dungeonFloor.wrapS=dungeonFloor.wrapT=THREE.RepeatWrapping;dungeonFloor.repeat.set(30,30);dungeonFloor.encoding=THREE.sRGBEncoding;dungeonFloor.anisotropy=8;
+const ground=new THREE.Mesh(new THREE.CircleGeometry(175,80),new THREE.MeshStandardMaterial({map:dungeonFloor,color:0x8a847c,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+// TORCE/BRACIERI del covo: fuoco caldo che palpita contro il buio
+let _ft=0,dungeonFires=[];
+function makeBrazier(x,z){const gg=new THREE.Group();gg.position.set(x,0,z);const SM=new THREE.MeshStandardMaterial({color:0x2a2420,roughness:1});
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.17,1.2,8),SM);post.position.y=0.6;post.castShadow=true;gg.add(post);
+  const bowl=new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.2,0.3,12),SM);bowl.position.y=1.3;gg.add(bowl);
+  const core=new THREE.Mesh(new THREE.SphereGeometry(0.17,10,10),new THREE.MeshBasicMaterial({color:0xffd27a}));core.position.y=1.45;gg.add(core);
+  const halo=new THREE.Mesh(new THREE.SphereGeometry(0.4,12,12),new THREE.MeshBasicMaterial({color:0xff7a24,transparent:true,opacity:0.45}));halo.position.y=1.45;gg.add(halo);
+  const l=new THREE.PointLight(0xff7a24,2.1,17,2);l.position.set(x,1.7,z);const G=(typeof cityGroup!=='undefined'?cityGroup:scene);G.add(gg);G.add(l);dungeonFires.push({l,base:2.1,x});}
+function placeDungeonTorches(){if(dungeonFires.length)return;const n=8;for(let i=0;i<n;i++){const a=i/n*6.2832+0.2,r=11.5+Math.random()*1.5;makeBrazier(Math.cos(a)*r,Math.sin(a)*r);}}
+function updDungeonFires(dt){_ft+=dt;for(const f of dungeonFires){f.l.intensity=f.base*(0.8+Math.sin(_ft*9+f.x)*0.14+Math.sin(_ft*22+f.x*1.7)*0.07);}}
 // ===== NUVOLE che scorrono nel cielo =====
 const clouds=[];const CLOUDMAT=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,transparent:true,opacity:0.92,fog:false});
 function makeCloud(){const g=new THREE.Group();const n=4+Math.floor(Math.random()*4);for(let i=0;i<n;i++){const r=3+Math.random()*4.5;const s=new THREE.Mesh(new THREE.SphereGeometry(r,7,5),CLOUDMAT);s.position.set((Math.random()-0.5)*12,(Math.random()-0.5)*2.2,(Math.random()-0.5)*7);s.scale.y=0.5;g.add(s);}return g;}
@@ -2541,7 +2556,7 @@ if(miniC){miniC.addEventListener('pointerdown',ev=>{ev.preventDefault();ev.stopP
 let last=performance.now(),saveT=0,missT=0,started=false;
 function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000,.1);last=now;
   if(waterNrm){waterNrm.offset.x=(waterNrm.offset.x+dt*0.013)%1;waterNrm.offset.y=(waterNrm.offset.y+dt*0.009)%1;}
-  updClouds(dt);updPollen(dt);
+  updClouds(dt);updPollen(dt);updDungeonFires(dt);
   if(started)updDayNight(dt);
   if(started)updWeather(dt);
   if(started)updSeason(dt);
@@ -2578,7 +2593,7 @@ window.addEventListener('pagehide',()=>{if(started)save();});
     placeLakes();placeWildVegetation();placeRivers();placeScatterForests();
   }
   placeCastle();
-  initNeighbors();placeDistantKingdoms();connectKingdoms();
+  initNeighbors();placeDistantKingdoms();connectKingdoms();placeDungeonTorches();
   for(let i=0;i<5;i++)spawnAgent('operaio');for(let i=0;i<2;i++)spawnAgent('milite');
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
   checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();initFlutters();initFireflies();placeFlora();placeFloraDetail();spawnTuzu();spawnWildlife();spawnClouds();initPollen();spawnKingdomBanner();if(miniC){miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();}document.getElementById('load').style.display='none';
