@@ -404,6 +404,14 @@ function makeCrystalT(){const g=new THREE.Group();const M=new THREE.MeshStandard
 function darkenBuildings(){if(typeof buildings==='undefined')return;for(const b of buildings){if(!b.obj)continue;b.obj.traverse(m=>{if(m.isMesh&&m.material&&!m._dk){const mm=m.material;m.material=mm.clone();const c=m.material.color;if(c){const l=0.299*c.r+0.587*c.g+0.114*c.b;c.setRGB(l,l,l).lerp(mm.color,0.32);c.multiplyScalar(0.6);}m._dk=true;}});}}
 // scurisce i 9 regni lontani verso la pietra del Tàrtaro (una volta per regno, quando e costruito). Salta i materiali luminosi (Basic: cristalli/lava/acqua/fuoco)
 function darkenKingdoms(){if(typeof distantKingdoms==='undefined')return;for(const dk of distantKingdoms){if(!dk.g||dk._dkdone||dk.g.children.length<20)continue;dk.g.traverse(m=>{if(m.isMesh&&m.material&&m.material.isMeshStandardMaterial&&!m._dk){const mm=m.material;m.material=mm.clone();const c=m.material.color;if(c){const l=0.299*c.r+0.587*c.g+0.114*c.b;c.setRGB(l,l,l).lerp(mm.color,0.3);c.multiplyScalar(0.52);}m._dk=true;}});dk._dkdone=true;}}
+// CAVERNA: toglie dal mondo (anche dai salvataggi vecchi) tutto cio' che e' di superficie — case, castelli, villaggi, nuvole, foresta
+function stripSurface(){try{
+  if(typeof clouds!=='undefined'){clouds.forEach(c=>{if(c.obj&&c.obj.parent)c.obj.parent.remove(c.obj);});clouds.length=0;}
+  if(typeof buildings!=='undefined'){for(let i=buildings.length-1;i>=0;i--){const b=buildings[i];if(b&&(b.key==='casa'||b.key==='castle')){if(b.obj&&b.obj.parent)b.obj.parent.remove(b.obj);buildings.splice(i,1);}}}
+  if(typeof fchunks!=='undefined'){for(const k in fchunks){const c=fchunks[k];if(c){if(c.A)c.A.visible=false;if(c.B)c.B.visible=false;}}}
+  if(typeof neighbors!=='undefined')neighbors.forEach(nb=>{if(nb.g)nb.g.visible=false;if(nb.monster&&nb.monster.obj)nb.monster.obj.visible=false;});
+  if(typeof distantKingdoms!=='undefined')distantKingdoms.forEach(dk=>{if(dk.g)dk.g.visible=false;});
+}catch(e){}}
 // scatter di DECORO del Tàrtaro coi modelli dettagliati del titolare (alberi morti/contorti, funghi, cristalli, teschi, ossa, tombe)
 let dungeonDecorDone=false;
 function placeDungeonDecor(){if(dungeonDecorDone)return;dungeonDecorDone=true;const keys=['d_dead','d_dead2','d_twist','d_twist2','d_mush','d_mush2','d_rockmed','d_skull','d_bones','d_bigcrystal','d_grave'];
@@ -438,7 +446,7 @@ let pollen=null;
 function initPollen(){if(pollen)return;const N=130;const pos=new Float32Array(N*3);for(let i=0;i<N;i++){pos[i*3]=(Math.random()-0.5)*62;pos[i*3+1]=Math.random()*20;pos[i*3+2]=(Math.random()-0.5)*62;}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));const mat=new THREE.PointsMaterial({color:0xfff0bf,size:0.17,transparent:true,opacity:0.55,depthWrite:false,fog:false,blending:THREE.AdditiveBlending});pollen=new THREE.Points(geo,mat);pollen.frustumCulled=false;scene.add(pollen);}
 function updPollen(dt){if(!pollen)return;pollen.position.x=camTarget.x;pollen.position.z=camTarget.z;const p=pollen.geometry.attributes.position;for(let i=0;i<p.count;i++){let y=p.getY(i)+dt*0.45;if(y>20)y-=20;p.setY(i,y);p.setX(i,p.getX(i)+Math.sin((y+i*0.7))*dt*0.25);}p.needsUpdate=true;}
 // anello di terra all'orizzonte (stesso verde, si dissolve nella foschia, niente bordo netto)
-const groundRim=new THREE.Mesh(new THREE.RingGeometry(60,175,80,1),new THREE.MeshStandardMaterial({color:0x5f9150,roughness:1}));groundRim.rotation.x=-Math.PI/2;groundRim.position.y=-0.02;scene.add(groundRim);
+const groundRim=new THREE.Mesh(new THREE.RingGeometry(60,175,80,1),new THREE.MeshStandardMaterial({map:dungeonFloor,color:0x3a342e,roughness:1}));groundRim.rotation.x=-Math.PI/2;groundRim.position.y=-0.02;scene.add(groundRim);
 function cw(cx,cy){return [(cx-HALF)*CELL,(cy-HALF)*CELL];}
 const cityGroup=new THREE.Group();scene.add(cityGroup);
 let lockMesh={};const lockMat=new THREE.MeshBasicMaterial({color:0x101018,transparent:true,opacity:0.4});
@@ -470,7 +478,7 @@ const ROAD_ERAS=[
  {n:'Cemento', edge:'#8e8e8b', mid:'#bcbcb6', g1:'rgba(120,120,115,0.22)',g2:'rgba(228,228,224,0.30)'},
  {n:'Asfalto', edge:'#2f2f35', mid:'#4c4c57', g1:'rgba(18,18,22,0.45)',  g2:'rgba(236,214,96,0.28)'}
 ];
-const roadEdge=new THREE.MeshBasicMaterial();const roadMid=new THREE.MeshBasicMaterial();
+const roadEdge=new THREE.MeshStandardMaterial({color:0x7c746c,roughness:1});const roadMid=new THREE.MeshStandardMaterial({color:0x8a827a,roughness:1});
 // stadi del regno (ere) — legati a quanti edifici hai costruito
 const ERAS=[{n:'Villaggio',em:'🏕️'},{n:'Borgo',em:'🏘️'},{n:'Città',em:'🏙️'},{n:'Metropoli',em:'🏛️'}];
 const ERA_NEED=[0,6,12,20];
@@ -1297,7 +1305,7 @@ let forestA=null,forestB=null,forestNA=0,forestNB=0;const FOREST_MAX=2600;const 
 // dettaglio-natura sparso (InstancedMesh, salta celle occupate)
 let floraDetailDone=false;
 function scatterFlora(name,count,targetH,rMin,rMax){const parts=extractTreeParts(name,targetH);if(!parts)return;const ims=parts.map(p=>{const im=new THREE.InstancedMesh(p.geo,p.mat,count);im.castShadow=false;im.receiveShadow=true;im.frustumCulled=false;cityGroup.add(im);return im;});const m=new THREE.Matrix4();let n=0;for(let i=0;i<count;i++){const ang=Math.random()*6.28,r=rMin+Math.random()*(rMax-rMin);const wx=Math.cos(ang)*r,wz=Math.sin(ang)*r;const cx=Math.round(wx/CELL+HALF),cy=Math.round(wz/CELL+HALF);if(grid[key(cx,cy)])continue;const s=(0.75+Math.random()*0.6);const q=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.random()*6.28,0));m.compose(new THREE.Vector3(wx,(typeof hillY==='function'?hillY(wx,wz):0),wz),q,new THREE.Vector3(s,s,s));ims.forEach(im=>im.setMatrixAt(n,m));n++;}ims.forEach(im=>{im.count=n;im.instanceMatrix.needsUpdate=true;});}
-function placeFloraDetail(){if(floraDetailDone)return;floraDetailDone=true;scatterFlora('f_grass',360,0.3,2,54);scatterFlora('f_grassw',260,0.36,2,54);scatterFlora('f_clover',150,0.3,2,46);scatterFlora('f_bush',110,0.55,3,52);scatterFlora('f_fern',90,0.42,3,52);scatterFlora('f_flbush',70,0.5,3,50);scatterFlora('f_flgrp',60,0.5,3,46);scatterFlora('f_pebble',90,0.3,3,54);scatterFlora('f_mush',60,0.55,18,54);}
+function placeFloraDetail(){if(floraDetailDone)return;floraDetailDone=true;/* CAVERNA: solo funghi e ciottoli, niente erba/felci/fiori di superficie */scatterFlora('f_pebble',130,0.3,3,54);scatterFlora('f_mush',180,0.6,12,54);}
 // estrae TUTTE le parti (mesh/materiali) di un albero, centrate in XZ, appoggiate a terra e scalate a un'altezza coerente
 function extractTreeParts(name,targetH){const tpl=templates[name];if(!tpl)return null;tpl.updateWorldMatrix(true,true);const raw=[];tpl.traverse(m=>{if(m.isMesh)raw.push({geo:m.geometry.clone().applyMatrix4(m.matrixWorld),mat:m.material});});if(!raw.length)return null;const box=new THREE.Box3();raw.forEach(p=>{p.geo.computeBoundingBox();box.union(p.geo.boundingBox);});const h=(box.max.y-box.min.y)||1,sc=(targetH||3)/h,cx=(box.min.x+box.max.x)/2,cz=(box.min.z+box.max.z)/2;raw.forEach(p=>{p.geo.translate(-cx,-box.min.y,-cz);p.geo.scale(sc,sc,sc);});return raw;}
 function makeForestVariant(name,cap,bs){const parts=extractTreeParts(name,1.9);if(!parts)return null;return parts.map(p=>{const im=new THREE.InstancedMesh(p.geo,p.mat,cap||FOREST_MAX);im.count=0;im.castShadow=true;im.receiveShadow=true;if(bs){p.geo.boundingSphere=bs.clone();im.frustumCulled=true;}else im.frustumCulled=false;cityGroup.add(im);return im;});}
@@ -1360,9 +1368,9 @@ function computeWorldHills(){worldHills=[];const DKpos=[[0,-128]];if(typeof DIST
     if(typeof bigLakes!=='undefined')for(const L of bigLakes){if(Math.hypot(x-L.wx,z-L.wz)<L.R+clr)return true;}
     return false;};
   let tries=0;while(worldHills.length<13&&tries<340){tries++;const a=Math.random()*6.2832,r=44+Math.random()*92,x=Math.cos(a)*r,z=Math.sin(a)*r;if(Math.hypot(x,z)>164)continue;const R=15+Math.random()*12,H=4.2+Math.random()*3.4;if(blocked(x,z,R+8))continue;worldHills.push({x,z,R,H,rot:Math.random()*6.2832});}}
-function buildWorldHills(){if(typeof grass==='undefined'||!grass)return;const gt=grass.clone();gt.wrapS=gt.wrapT=THREE.RepeatWrapping;gt.repeat.set(2.4,2.4);gt.needsUpdate=true;const HILL_MAT=new THREE.MeshStandardMaterial({map:gt,color:0xffffff,roughness:1,side:THREE.DoubleSide});const treeK=['n_pine','n_tree','tree_single','deco_pine'].filter(t=>templates[t]);
-  for(const h of worldHills){const hill=makeHill(h.R,h.H,HILL_MAT);hill.position.set(h.x,0,h.z);hill.rotation.y=h.rot;hill.renderOrder=1;cityGroup.add(hill);
-    for(let t=0;t<3&&treeK.length;t++){const ta=Math.random()*6.2832,td=Math.random()*h.R*0.62,hy=h.H*0.5*(1+Math.cos((td/h.R)*Math.PI));const o=inst(treeK[Math.floor(Math.random()*treeK.length)]);fitHeight(o,2.1+Math.random()*1.1);o.position.set(h.x+Math.cos(ta)*td,hy-0.1,h.z+Math.sin(ta)*td);o.rotation.y=Math.random()*6.2832;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});cityGroup.add(o);}}}
+function buildWorldHills(){const rt=dungeonFloor.clone();rt.wrapS=rt.wrapT=THREE.RepeatWrapping;rt.repeat.set(3,3);rt.needsUpdate=true;const HILL_MAT=new THREE.MeshStandardMaterial({map:rt,color:0x4a443d,roughness:1,side:THREE.DoubleSide});const rockK=['d_rockmed','stalag','d_rock'].filter(t=>templates[t]&&templates[t].children&&templates[t].children.length);
+  for(const h of worldHills){const hill=makeHill(h.R,h.H,HILL_MAT);hill.position.set(h.x,0,h.z);hill.rotation.y=h.rot;hill.renderOrder=1;hill.receiveShadow=true;cityGroup.add(hill);
+    for(let t=0;t<3&&rockK.length;t++){const ta=Math.random()*6.2832,td=Math.random()*h.R*0.62,hy=h.H*0.5*(1+Math.cos((td/h.R)*Math.PI));const o=inst(rockK[Math.floor(Math.random()*rockK.length)]);fitHeight(o,1.6+Math.random()*1.8);o.position.set(h.x+Math.cos(ta)*td,hy-0.1,h.z+Math.sin(ta)*td);o.rotation.y=Math.random()*6.2832;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});cityGroup.add(o);}}}
 function placeHills(){computeWorldHills();buildWorldHills();}
 // laghi/acqua (oltre la vegetazione): si pesca dopo aver aperto un passaggio
 let lakes=[], lakeCenters=[];
@@ -1653,19 +1661,9 @@ async function initNeighbors(){const spec=[
     {k:'nefele',x:-30,z:4,ax:HALF-12,ay:HALF+1, build:[['home_A',-1,0],['home_B',1,0],['tower_B',0,1],['market',1,-1]], defense:'stone', ring:5.6, forest:10},
     {k:'chrysa',x:30,z:-5,ax:HALF+12,ay:HALF-1, build:[['market',-1,0],['home_A',1,1],['blacksmith',-1,-1],['home_B',1,-1]], defense:'wood', ring:5.2, forest:14},
     {k:'oros',x:5,z:30,ax:HALF+1,ay:HALF+12, build:[['home_A',-1,-1],['home_B',1,0],['church',0,1],['home_A',-1,1]], defense:'forest', ring:5.0, forest:26}];
-  for(const s of spec){if(s.k===myKingdom)continue;const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:6,mil:2,timer:40+Math.random()*30,agents:[],ax:s.ax,ay:s.ay,reached:!!reachedNb[s.k],_ring:s.ring};
-    for(const [f,cx,cz] of s.build)await nbBuild(nb,f,cx,cz);
-    nbPalace(nb);
-    // difesa: muro di pietra, palisade di legno, o fitto bosco
-    if(s.defense==='stone'){nbRampart(nb,s.ring,true);nbForestRing(nb,s.forest,s.ring+2.6,false);}
-    else if(s.defense==='wood'){nbRampart(nb,s.ring,false);nbForestRing(nb,s.forest,s.ring+2.4,false);}
-    else{nbForestRing(nb,s.forest,s.ring+0.3,true);nbForestRing(nb,Math.round(s.forest*0.6),s.ring+2.4,true);}
-    // la corruzione del mostro sul territorio: forte sui nemici, lieve sugli alleati
-    nbCorruptGrove(nb, hostile[s.k]?1 : (allied[s.k]?0.3:0.65));
-    nbDecor(nb);
-    // cartello indicatore all'imbocco della strada
-    const sign=makeSign(SIGNCOL[col]||0x888888);const [sx,sz]=cw(s.ax,s.ay);sign.position.set(sx,0,sz);sign.rotation.y=Math.atan2(s.x-sx,s.z-sz);cityGroup.add(sign);nb.sign=sign;
-    for(let i=0;i<3;i++)nbSpawn(nb);neighbors.push(nb);spawnNbMonster(nb);}}
+  for(const s of spec){if(s.k===myKingdom)continue;const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);g.visible=false;cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:6,mil:2,timer:40+Math.random()*30,agents:[],ax:s.ax,ay:s.ay,reached:!!reachedNb[s.k],_ring:s.ring};
+    // CAVERNA: nessun villaggio di superficie — teniamo solo i dati del vicino (commercio/battaglia), niente edifici visibili
+    neighbors.push(nb);}}
 // ===== Regni LONTANI: dioramas visivi di tutti gli altri popoli, ambientazioni diverse, visibili scorrendo la mappa =====
 const DISTANT_SPEC=[{k:'thalassa',x:-80,z:-62,water:true},{k:'metalla',x:84,z:58,mount:true},{k:'pyra',x:78,z:-78,ember:true},{k:'krios',x:-92,z:70,snow:true,mount:true},{k:'selenea',x:24,z:112,night:true}];
 // personaggi colorati e ANIMATI (KayKit Adventures): camminano davvero, coi piedi a terra
@@ -1679,10 +1677,10 @@ function makeWalker(scaleH){if(!CHAR_ASSETS.length||!THREE.SkeletonUtils)return 
 function setWalkerMoving(w,mv){if(!w||w.moving===mv)return;w.moving=mv;if(mv){if(w.idleAct)w.idleAct.stop();if(w.walkAct)w.walkAct.reset().play();}else{if(w.walkAct)w.walkAct.stop();if(w.idleAct)w.idleAct.reset().play();}}
 function updWalkers(dt){for(const w of walkers){if(!w.mixer)continue;w.o.getWorldPosition(_wp);if(Math.abs(_wp.x-camTarget.x)>74||Math.abs(_wp.z-camTarget.z)>74)continue;w.mixer.update(dt);}}
 let distantKingdoms=[], distantLife=[];
-const TOWN_COBBLE=new THREE.MeshStandardMaterial({color:0xbcae92,roughness:1});
-const TOWN_DIRT=new THREE.MeshStandardMaterial({color:0xb2976a,roughness:1});
-const PATH_EDGE=new THREE.MeshStandardMaterial({color:0x7e5e3b,roughness:1});
-const PATH_MID=new THREE.MeshStandardMaterial({color:0xcbac79,roughness:1});
+const TOWN_COBBLE=new THREE.MeshStandardMaterial({color:0x58544c,roughness:1});
+const TOWN_DIRT=new THREE.MeshStandardMaterial({color:0x4e463a,roughness:1});
+const PATH_EDGE=new THREE.MeshStandardMaterial({color:0x3a3024,roughness:1});
+const PATH_MID=new THREE.MeshStandardMaterial({color:0x564b3b,roughness:1});
 const V_HOUSES=['house_2','house_3','house_4','house_5','house_6','house_7','hut','hut_2','shack'];
 const V_PROPS=['market_stalls_2','market_stalls_compact','storage_hut','logs','crops','rock_2','rock_3','gold_rocks'];
 const V_BUILD=['barracks_2','windmill_2','temple_2','town_center_2','houses','houses_2'];
@@ -2157,7 +2155,7 @@ document.getElementById('zrot').onclick=()=>{placeRot=(placeRot+1)%4;toast('↻ 
 
 // ===== salvataggio =====
 function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1,sk:b.skin||0})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,cs:c.cycleStart,hv:c.harvests,ex:c.exhausted})),he:heroes,sr:soldierRank,rs:research,ach:achieved,fp:firstPlay,mk:myKingdom,mb:monstersBeaten,nx:nyxarBeaten,dk:darkLevel,ho:Object.keys(hostile),cq:Object.keys(conquered),ts:Date.now()}));if(window.TuzuCloud)window.TuzuCloud.scheduleSync();}catch(e){}}
-function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};achieved=s.ach||{};firstPlay=s.fp||0;if(s.mk)applyKingdom(s.mk);monstersBeaten=s.mb||0;nyxarBeaten=s.nx||0;darkLevel=s.dk||0;hostile={};(s.ho||[]).forEach(k=>hostile[k]=1);conquered={};(s.cq||[]).forEach(k=>conquered[k]=1);offlineSince=s.ts||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});(s.lc||[]).forEach(c=>addLake(c.cx,c.cy,c.r));(s.wl||[]).forEach(w=>wildTree(w.cx,w.cy));(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);Object.keys(hostile).forEach(k=>{if(hostile[k])delete allied[k];});if(!(s.lc&&s.lc.length))placeLakes();if(s.wl===undefined)placeWildVegetation();placeRivers();placeScatterForests();
+function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};achieved=s.ach||{};firstPlay=s.fp||0;if(s.mk)applyKingdom(s.mk);monstersBeaten=s.mb||0;nyxarBeaten=s.nx||0;darkLevel=s.dk||0;hostile={};(s.ho||[]).forEach(k=>hostile[k]=1);conquered={};(s.cq||[]).forEach(k=>conquered[k]=1);offlineSince=s.ts||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});(s.lc||[]).forEach(c=>addLake(c.cx,c.cy,c.r));(s.wl||[]).forEach(w=>wildTree(w.cx,w.cy));(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);Object.keys(hostile).forEach(k=>{if(hostile[k])delete allied[k];});placeScatterForests();/* CAVERNA: niente laghi/fiumi/vegetazione di superficie; placeScatterForests ora riempie di roccia/stalagmiti */
   _restoring=true;
   (s.b||[]).forEach(it=>restoreBuilding(it));
   (s.d||[]).forEach(it=>{if(DECO[it.k])placeDeco(it.cx,it.cy,it.k);});
@@ -2549,7 +2547,7 @@ function initBirds(){if(birdsInit)return;birdsInit=true;for(let i=0;i<7;i++){con
 function updBirds(dt){birds.forEach(b=>{b.a+=b.sp*dt;const x=b.cx+Math.cos(b.a)*b.r,z=b.cz+Math.sin(b.a)*b.r;b.g.position.set(x,b.h+Math.sin(b.a*2)*0.6,z);b.g.rotation.y=-b.a;b.flap+=dt*11;const f=Math.sin(b.flap)*0.6;b.g.userData.wL.rotation.z=f;b.g.userData.wR.rotation.z=-f;});}
 // ===== fioritura: fiori + ciuffi d'erba sparsi (instanced, leggeri) =====
 let floraDone=false;
-function placeFlora(){if(floraDone)return;floraDone=true;
+function placeFlora(){if(floraDone)return;floraDone=true;return;/* CAVERNA: niente campo di fiori di superficie */
   const BIG=[[-44,-30,8],[46,42,9],[48,-34,7]];
   function onWater(wx,wz){for(const l of BIG){if(Math.hypot(wx-l[0],wz-l[1])<l[2]+1.5)return true;}if(typeof lakeCenters!=='undefined'&&lakeCenters){for(const c of lakeCenters){const p=cw(c.cx,c.cy);if(Math.hypot(wx-p[0],wz-p[1])<(c.r||2)*CELL+0.8)return true;}}return false;}
   const m=new THREE.Matrix4(),q=new THREE.Quaternion(),s=new THREE.Vector3(),p=new THREE.Vector3(),col=new THREE.Color();
@@ -2601,7 +2599,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updWeather(dt);
   if(started)updSeason(dt);
   if(started)updSky(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updDistantLife(dt);updDistantFX(dt);conquestTribute(dt);updCaravans(dt);updRoadParties(dt);updWalkers(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();darkenBuildings();darkenKingdoms();}checkLeague();drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updDistantLife(dt);updDistantFX(dt);conquestTribute(dt);updCaravans(dt);updRoadParties(dt);updWalkers(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();darkenBuildings();stripSurface();}checkLeague();drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   if(composer)composer.render();else renderer.render(scene,camera);}
 requestAnimationFrame(tick);
@@ -2620,27 +2618,17 @@ window.addEventListener('pagehide',()=>{if(started)save();});
   const had=loadSave();computeWorldHills();buildWorldHills();
   if(!had){setupTerritory();
     const put=(fk,ccx,ccy)=>{const [w,h]=fpSize(fk.def);const [ax,ay]=fpAnchor(ccx,ccy,w,h);const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(fk.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:fk.key,def:fk.def,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true};buildings.push(b);const e={type:'building',key:fk.key,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);if(fk.def.pop)operai+=fk.def.pop;builtCount++;};
-    // villaggio di partenza (centrato sul municipio)
+    // CAVERNA: nessuna casa, nessun castello, nessun sentiero, nessuna natura di superficie. Solo un paio di strutture per l'economia.
     const H=HALF;
-    placeCastle();
     put({key:'mercato',file:'market',def:BUILD.mercato},H-9,H);
     put({key:'chiesa',file:'church',def:BUILD.chiesa},H+7,H);
-    put({key:'casa',file:'home_A',def:BUILD.casa},H-7,H-7);
-    put({key:'casa',file:'home_B',def:BUILD.casa},H+5,H-7);
-    put({key:'casa',file:'home_A',def:BUILD.casa},H,H+7);
-    // sentieri sottili che collegano
-    const sp=[[H-5,H],[H-4,H],[H-3,H],[H+4,H],[H+5,H],[H,H+4],[H,H+5]];
-    sp.forEach(([x,y])=>{if(!grid[key(x,y)]&&unlockedCell(x,y)){const g=newRoad(x,y);const e={type:'road',key:'strada',obj:g,ax:x,ay:y,w:1,h:1,cx:x,cy:y};occupy(x,y,1,1,e);decos.push({k:'strada',cx:x,cy:y});}});
-    sp.forEach(([x,y])=>rebuildRoad(x,y));
-    // qualche albero agli angoli
-    [[H-10,H-10],[H+9,H-10],[H-10,H+9],[H+9,H+9]].forEach(([x,y])=>{if(!grid[key(x,y)]&&unlockedCell(x,y))placeDeco(x,y,'albero');});
-    placeLakes();placeWildVegetation();placeRivers();placeScatterForests();
+    placeScatterForests(); // riempie la caverna di roccia/stalagmiti/cristalli
   }
-  placeCastle();
-  initNeighbors();placeDistantKingdoms();connectKingdoms();placeDungeonTorches();placeDungeonDecor();placeCavern();placeCovoProps();placeLurkers();darkenBuildings();
+  // CAVERNA: niente castello ne regni di superficie; i villaggi vicini restano come dati ma invisibili (stripSurface li nasconde)
+  initNeighbors();placeDungeonTorches();placeDungeonDecor();placeCavern();placeCovoProps();placeLurkers();stripSurface();darkenBuildings();
   for(let i=0;i<5;i++)spawnAgent('operaio');for(let i=0;i<2;i++)spawnAgent('milite');
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
-  checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();initFlutters();initFireflies();placeFlora();placeFloraDetail();spawnTuzu();spawnWildlife();spawnClouds();initPollen();spawnKingdomBanner();if(miniC){miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();}document.getElementById('load').style.display='none';
+  checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();initFlutters();initFireflies();placeFlora();placeFloraDetail();spawnTuzu();spawnWildlife();initPollen();if(miniC){miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();}document.getElementById('load').style.display='none';
 })();
 // ===== Account (login + salvataggio cloud, stesso account dell'app Tuzu) =====
 let cloudUser=null;
