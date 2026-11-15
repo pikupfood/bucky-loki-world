@@ -334,13 +334,12 @@ function enterExplore(){if(exploreMode)return;if(typeof mode!=='undefined'&&mode
   if(!tpAvatar){if(typeof toast==='function')toast('Personaggio non disponibile');return;}
   exploreMode=true;tpAvatar.o.position.set(camTarget.x,0,camTarget.z);if(renderPass)renderPass.camera=tpCam;
   document.body.classList.add('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='block';const b=document.getElementById('tpbtn');if(b)b.textContent='🗺️';
-  if(typeof toast==='function')toast('🚶 Esplora: joystick per muoverti, ◀▶ per girare',3200);resize();}
+  if(typeof toast==='function')toast('🚶 Esplora: muoviti col joystick, la camera ti segue da sola',3600);resize();}
 function exitExplore(){if(!exploreMode)return;exploreMode=false;if(renderPass)renderPass.camera=camera;if(tpAvatar&&typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);
   document.body.classList.remove('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='none';const b=document.getElementById('tpbtn');if(b)b.textContent='🚶';const ta=document.getElementById('tpact');if(ta)ta.style.display='none';
   if(tpAvatar){camTarget.x=tpAvatar.o.position.x;camTarget.z=tpAvatar.o.position.z;}updateCam();resize();}
 function toggleExplore(){exploreMode?exitExplore():enterExplore();}
 function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
-  if(tpInput.rotL)tpYaw+=dt*1.9;if(tpInput.rotR)tpYaw-=dt*1.9;
   let mf=(tpInput.f-tpInput.b)+(tpJoy.active?-tpJoy.dy:0);let mr=(tpInput.r-tpInput.l)+(tpJoy.active?tpJoy.dx:0);
   mf=Math.max(-1,Math.min(1,mf));mr=Math.max(-1,Math.min(1,mr));
   const Fx=-Math.sin(tpYaw),Fz=-Math.cos(tpYaw),Rx=-Math.cos(tpYaw),Rz=Math.sin(tpYaw);
@@ -349,8 +348,10 @@ function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
     if(canStep(nx,nz)){o.position.x=nx;o.position.z=nz;}
     else if(canStep(nx,oz)){o.position.x=nx;}
     else if(canStep(ox,nz)){o.position.z=nz;}
-    o.rotation.y=Math.atan2(dx,dz);if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,true);}
-  else if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);
+    o.rotation.y=Math.atan2(dx,dz);if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,true);
+    // LA CAMERA SEGUE DA SOLA: si porta dietro la direzione di marcia
+    const target=Math.atan2(-dx,-dz);let d2=target-tpYaw;while(d2>Math.PI)d2-=2*Math.PI;while(d2<-Math.PI)d2+=2*Math.PI;tpYaw+=d2*Math.min(1,dt*3.2);}
+  else{if(tpInput.rotL)tpYaw+=dt*1.9;if(tpInput.rotR)tpYaw-=dt*1.9;if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);}
   const ty=(typeof stepHeightAt==='function')?stepHeightAt(o.position.x,o.position.z):0;o.position.y+=(ty-o.position.y)*Math.min(1,dt*10);
   const D=6.8,H=4.4;tpCam.position.set(o.position.x+Math.sin(tpYaw)*D,H+o.position.y,o.position.z+Math.cos(tpYaw)*D);tpCam.lookAt(o.position.x,1.2+o.position.y,o.position.z);
   camTarget.x=o.position.x;camTarget.z=o.position.z;
