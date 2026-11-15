@@ -220,6 +220,13 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/RGBELoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script>
 // ===== 3D =====
 const canvas=document.getElementById('c');
@@ -273,12 +280,23 @@ const scene=new THREE.Scene();const SKY=0x8fc3e6;const HORIZON=0x9fcbe8;scene.ba
 // CIELO a gradiente (orizzonte chiaro -> zenit blu) con una cupola
 const skyDome=(()=>{const sc=document.createElement('canvas');sc.width=16;sc.height=256;const sg=sc.getContext('2d');const grd=sg.createLinearGradient(0,0,0,256);grd.addColorStop(0,'#3f86cf');grd.addColorStop(0.45,'#79b6e6');grd.addColorStop(0.72,'#a8d3ee');grd.addColorStop(1,'#d2eafa');sg.fillStyle=grd;sg.fillRect(0,0,16,256);const tex=new THREE.CanvasTexture(sc);tex.magFilter=THREE.LinearFilter;const dome=new THREE.Mesh(new THREE.SphereGeometry(520,24,16),new THREE.MeshBasicMaterial({map:tex,side:THREE.BackSide,depthWrite:false,fog:false}));dome.renderOrder=-10;scene.add(dome);return dome;})();
 let VZ=8.5;const camera=new THREE.OrthographicCamera(-VZ,VZ,VZ,-VZ,0.1,260);
-const camTarget={x:0,z:0};const CAMK=24;
-function updateCam(){camera.position.set(camTarget.x+CAMK,CAMK*1.18,camTarget.z+CAMK);camera.lookAt(camTarget.x,0,camTarget.z);}
+const camTarget={x:0,z:0};const CAMK=24;let sunReady=false;
+function updateCam(){camera.position.set(camTarget.x+CAMK,CAMK*1.18,camTarget.z+CAMK);camera.lookAt(camTarget.x,0,camTarget.z);if(sunReady){sun.position.set(camTarget.x+SUN_OFF.x,SUN_OFF.y,camTarget.z+SUN_OFF.z);sun.target.position.set(camTarget.x,0,camTarget.z);sun.target.updateMatrixWorld();}}
 updateCam();
 scene.add(new THREE.HemisphereLight(0xdceeff,0x5a5240,0.55));
-const sun=new THREE.DirectionalLight(0xfff1dc,2.0);sun.position.set(-16,30,12);sun.castShadow=true;
-sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.near=1;sun.shadow.camera.far=120;sun.shadow.camera.left=-34;sun.shadow.camera.right=34;sun.shadow.camera.top=34;sun.shadow.camera.bottom=-34;sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;scene.add(sun);
+const SUN_OFF={x:-24,y:46,z:17};
+const sun=new THREE.DirectionalLight(0xfff1dc,2.0);sun.position.set(SUN_OFF.x,SUN_OFF.y,SUN_OFF.z);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.near=1;sun.shadow.camera.far=140;sun.shadow.camera.left=-46;sun.shadow.camera.right=46;sun.shadow.camera.top=46;sun.shadow.camera.bottom=-46;sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;scene.add(sun);scene.add(sun.target);sunReady=true;updateCam();
+// luce di riempimento fredda dal lato opposto per dare volume (niente ombre)
+const fill=new THREE.DirectionalLight(0xbfd4f0,0.32);fill.position.set(26,20,-18);scene.add(fill);
+// ===== post-processing: color grade + vignette (resa piu ricca) + bloom lieve (solo zone molto luminose) =====
+const GradeShader={uniforms:{tDiffuse:{value:null},uSat:{value:1.14},uCon:{value:1.07},uWarm:{value:0.018},uVig:{value:0.82}},
+  vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+  fragmentShader:'uniform sampler2D tDiffuse;uniform float uSat,uCon,uWarm,uVig;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);vec3 col=c.rgb;float l=dot(col,vec3(0.299,0.587,0.114));col=mix(vec3(l),col,uSat);col=(col-0.5)*uCon+0.5;col.r+=uWarm;col.b-=uWarm*0.5;float r=length(vUv-0.5);float vig=smoothstep(0.80,0.34,r);col*=mix(uVig,1.0,vig);gl_FragColor=vec4(clamp(col,0.0,1.0),c.a);}'};
+let composer=null,bloomPass=null;
+try{if(THREE.EffectComposer&&THREE.RenderPass&&THREE.ShaderPass){composer=new THREE.EffectComposer(renderer);composer.addPass(new THREE.RenderPass(scene,camera));
+  if(THREE.UnrealBloomPass){bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.32,0.7,0.92);composer.addPass(bloomPass);}
+  composer.addPass(new THREE.ShaderPass(GradeShader));}}catch(e){composer=null;}
 // ciclo giorno/notte dolce
 const C_DAY=new THREE.Color(0x8fc3e6),C_NIGHT=new THREE.Color(0x44568a),C_DUSK=new THREE.Color(0xf0a96c);
 let dayTime=0.18,dayLight=0.5,dayClock=0.28;
@@ -331,7 +349,7 @@ function updSeason(dt){seasonT-=dt;if(seasonT<=0){seasonT=130;season=(season+1)%
   if(snow.visible){const p=snowGeo.attributes.position;for(let i=0;i<SN;i++){p.array[i*3+1]-=dt*3.6;p.array[i*3]+=Math.sin((p.array[i*3+1]+i)*0.7)*dt*0.35;if(p.array[i*3+1]<0){p.array[i*3+1]=22;p.array[i*3]=camTarget.x+(Math.random()-.5)*60;p.array[i*3+2]=camTarget.z+(Math.random()-.5)*60;}}p.needsUpdate=true;}
   if(leaves.visible){const p=leavesGeo.attributes.position;for(let i=0;i<LN;i++){p.array[i*3+1]-=dt*2.2;p.array[i*3]+=Math.sin((p.array[i*3+1]+i)*0.9)*dt*0.7;if(p.array[i*3+1]<0){p.array[i*3+1]=20;p.array[i*3]=camTarget.x+(Math.random()-.5)*60;p.array[i*3+2]=camTarget.z+(Math.random()-.5)*60;}}p.needsUpdate=true;}
   if(petals.visible){const p=petalsGeo.attributes.position;for(let i=0;i<PN;i++){p.array[i*3+1]-=dt*1.7;p.array[i*3]+=Math.sin((p.array[i*3+1]+i)*0.8)*dt*0.9;p.array[i*3+2]+=Math.cos((p.array[i*3+1]+i)*0.6)*dt*0.4;if(p.array[i*3+1]<0){p.array[i*3+1]=20;p.array[i*3]=camTarget.x+(Math.random()-.5)*60;p.array[i*3+2]=camTarget.z+(Math.random()-.5)*60;}}p.needsUpdate=true;}}
-function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);const a=w/h;camera.left=-VZ*a;camera.right=VZ*a;camera.top=VZ;camera.bottom=-VZ;camera.updateProjectionMatrix();layoutHud();}
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);if(composer){composer.setSize(w,h);if(bloomPass&&bloomPass.resolution)bloomPass.resolution.set(w,h);}const a=w/h;camera.left=-VZ*a;camera.right=VZ*a;camera.top=VZ;camera.bottom=-VZ;camera.updateProjectionMatrix();layoutHud();}
 // Spinge mascotte (#guide) e colonna laterale (#side) SOTTO l'HUD, qualunque sia il numero di righe: niente bottoni sovrapposti su telefoni stretti
 function layoutHud(){const top=document.getElementById('top');if(!top)return;const y=Math.round(Math.max(top.getBoundingClientRect().bottom+8,56));const g=document.getElementById('guide');const s=document.getElementById('side');if(g)g.style.top=y+'px';if(s)s.style.top=y+'px';}
 addEventListener('resize',resize);resize();
@@ -2520,7 +2538,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updSky(dt);
   if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updDistantLife(dt);updDistantFX(dt);conquestTribute(dt);updCaravans(dt);updRoadParties(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();}checkLeague();drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
-  renderer.render(scene,camera);}
+  if(composer)composer.render();else renderer.render(scene,camera);}
 requestAnimationFrame(tick);
 // salvataggio automatico ogni minuto (indipendente dal loop: funziona anche a schermo nascosto, e sincronizza sul cloud)
 let autoSaveShown=false;
