@@ -538,7 +538,7 @@ async function loadNatureDecos(){const mk=async(key,srcTpl,file,hh)=>{try{let sr
   await mk('deco_mush','f_mush','mushroom',0.95);await mk('deco_flowers','f_flgrp','flower_group',0.55);
   await mk('deco_twisted',null,'twisted_tree',2.8);await mk('deco_dead',null,'dead_tree',2.6);await mk('deco_rock','f_pebble','pebble_round',0.55);}
 // props pixellabs (ottimizzati) come decorazioni piazzabili nei villaggi
-const PROP_DECO={p_lantern:['lantern.glb',0.9],p_torch:['torch.glb',1.05],p_signpost:['signpost.glb',1.2],p_barrels:['barrels.glb',0.6],p_potion:['potion.glb',0.32],p_chest:['treasure-chest.glb',0.5],p_skull:['skull.glb',0.4],p_knight:['knight.glb',0.78],p_axe:['axe.glb',0.6],p_baxe:['battle-axe.glb',0.7],p_pickaxe:['pickaxe.glb',0.6],p_crane:['crane.glb',1.7],p_scroll:['scroll.glb',0.32]};
+const PROP_DECO={p_lantern:['lantern.glb',0.85],p_torch:['torch.glb',0.9],p_signpost:['signpost.glb',0.9],p_barrels:['barrels.glb',0.55],p_potion:['potion.glb',0.3],p_chest:['treasure-chest.glb',0.5],p_skull:['skull.glb',0.38],p_knight:['knight.glb',0.64],p_axe:['axe.glb',0.55],p_baxe:['battle-axe.glb',0.62],p_pickaxe:['pickaxe.glb',0.55],p_crane:['crane.glb',1.6],p_scroll:['scroll.glb',0.3]};
 async function loadPropDecos(){for(const key in PROP_DECO){try{const m=await loadModel('models/props/'+PROP_DECO[key][0]);let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[key]=wrapScaled(m,PROP_DECO[key][1]);}catch(e){}}}
 // strutture grandi pixellabs (mulino ad acqua, castelli, fortezza) normalizzate sull'ingombro, come monumenti
 const MON_PROPS={m_watermill:['watermill.glb',4],m_castle:['castle.glb',6],m_castleR:['castle-royal.glb',6],m_fortress:['fortress.glb',5],m_watchtower:['watchtower.glb',4]};
@@ -551,7 +551,7 @@ const TPL_SRC={
   // decorazioni (avvolte, altezza target)
   p_cristallo:{file:'crystal-sphere.glb',h:0.6}, p_libro:{file:'ancient-book.glb',h:0.4}, p_fungo:{file:'fantasy-mushroom.glb',h:0.95}, p_podio:{file:'podium.glb',h:0.55}, p_giardino:{file:'rock-garden.glb',h:0.5}, p_mossy:{file:'mossy-rock.glb',h:0.6}, p_magico:{file:'magical.glb',h:0.6},
   p_bone:{file:'bone-weapon.glb',h:0.6}, p_fweapon:{file:'fantasy-weapon.glb',h:0.7}, p_walllantern:{file:'wall-lantern.glb',h:0.8}, p_dcrystal:{file:'dark-crystal.glb',h:0.65}, p_stairs:{file:'stairs.glb',h:0.45},
-  p_mago:{file:'mago.glb',h:0.75}, p_oracle:{file:'oracle.glb',h:0.75}, p_chestO:{file:'chest-ornate.glb',h:0.55}, p_well:{file:'well.glb',h:0.9},
+  p_mago:{file:'mago.glb',h:0.64}, p_oracle:{file:'oracle.glb',h:0.64}, p_chestO:{file:'chest-ornate.glb',h:0.5}, p_well:{file:'well.glb',h:0.8},
   p_jlantern:{file:'japanese-lantern.glb',h:0.95}, p_mcrystals:{file:'magical-crystals.glb',h:0.6}, p_mushroom:{file:'mushroom-prop.glb',h:0.7}, p_plant:{file:'plant.glb',h:0.55},
   m_fort:{file:'fort.glb',foot:4}, m_darkhut:{file:'dark-hut.glb',foot:4},
   m_mushhouse:{file:'mushroom-house.glb',foot:4}, m_graveyard:{file:'graveyard.glb',foot:5}, m_medgate:{file:'medieval-gate.glb',foot:4},
@@ -693,7 +693,7 @@ function applyBuildingTier(b){if(!b||!b.obj)return;const tier=buildTier(buildLvl
   if(tier>=2){const n=4;for(let i=0;i<n;i++){const a=i/n*6.28+0.6;const gem=new THREE.Mesh(new THREE.ConeGeometry(0.07+tier*0.012,0.26+tier*0.05,5),new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:tier>=4?0.55:0.2,metalness:0.7,roughness:0.3}));gem.position.set(Math.cos(a)*rad,0.14,Math.sin(a)*rad);g.add(gem);}}
   if(tier>=5){const box=new THREE.Box3().setFromObject(b.obj);const topY=(box.max.y-b.obj.position.y)+0.28;const spire=new THREE.Mesh(new THREE.ConeGeometry(0.12,0.5,6),new THREE.MeshStandardMaterial({color:0xfff0a0,emissive:0xffd24a,emissiveIntensity:0.6,metalness:0.8,roughness:0.25}));spire.position.set(0,Math.max(1.2,topY),0);g.add(spire);}
   b.obj.add(g);b._deco=g;}
-function upgradeBuilding(b){const lv=buildLvl(b);if(lv>=MAXLVL){toast('Già al livello massimo ⭐ Lv'+MAXLVL);return;}const cost=upgradeCost(b);if(!afford(cost)){toast('Serve '+Object.entries(cost).map(([r,v])=>RES[r]+v).join(' '));return;}pay(cost);const prevTier=buildTier(lv);b.lvl=lv+1;if(b.obj)b.obj.scale.multiplyScalar(lvlScale(b.lvl)/lvlScale(lv));if(b.def.pop){operai+=b.def.pop;spawnAgent('abitante');}if(b.def.mor){morale=Math.min(100,morale+Math.round(b.def.mor*0.4));}applyBuildingTier(b);recompute();drawTop();save();const nt=buildTier(b.lvl);if(nt>prevTier){toast('✨ '+b.def.nome+' ora è di rango '+TIERNAME[nt]+'! (Lv'+b.lvl+')',3800);}else{toast(b.def.nome+' → Lv'+b.lvl+' ⭐',2400);}openBuilding(b);}
+function upgradeBuilding(b){const lv=buildLvl(b);if(lv>=MAXLVL){toast('Già al livello massimo ⭐ Lv'+MAXLVL);return;}const cost=upgradeCost(b);if(!afford(cost)){toast('Serve '+Object.entries(cost).map(([r,v])=>RES[r]+v).join(' '));return;}pay(cost);const prevTier=buildTier(lv);b.lvl=lv+1;if(b.obj)b.obj.scale.multiplyScalar(lvlScale(b.lvl)/lvlScale(lv));if(b.def.mor){morale=Math.min(100,morale+Math.round(b.def.mor*0.4));}applyBuildingTier(b);recompute();drawTop();save();const nt=buildTier(b.lvl);if(nt>prevTier){toast('✨ '+b.def.nome+' ora è di rango '+TIERNAME[nt]+'! (Lv'+b.lvl+')',3800);}else{toast(b.def.nome+' → Lv'+b.lvl+' ⭐',2400);}openBuilding(b);}
 function popUsed(){let j=0;buildings.forEach(b=>{if(b.def.job&&b.active)j++;});sites.forEach(s=>{if(s.builder)j++;});return j;}
 function recompute(){let budget=operai;buildings.forEach(b=>{if(b.def.job){if(budget>0){b.active=true;budget--;}else b.active=false;}});}
 
@@ -858,6 +858,7 @@ function isPath(cx,cy){const g=grid[key(cx,cy)];return !!(g&&(g.type==='road'||g
 function newRoad(cx,cy){const [wx,wz]=cw(cx,cy);const g=new THREE.Group();g.position.set(wx,0.045,wz);cityGroup.add(g);return g;}
 function rebuildRoad(cx,cy){const e=grid[key(cx,cy)];if(!e||e.type!=='road'||!e.obj)return;const g=e.obj;while(g.children.length)g.remove(g.children[0]);const w=isPath(cx-1,cy),ea=isPath(cx+1,cy),n=isPath(cx,cy-1),s=isPath(cx,cy+1);const put=(sx,sz,mat,y)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(sx,sz),mat);m.rotation.x=-Math.PI/2;m.position.y=y;m.receiveShadow=true;g.add(m);};const We=CELL*0.6,Wc=CELL*0.3;let any=false;if(w||ea){put(CELL*1.02,We,roadEdge,0);put(CELL*1.02,Wc,roadMid,0.003);any=true;}if(n||s){put(We,CELL*1.02,roadEdge,0);put(Wc,CELL*1.02,roadMid,0.003);any=true;}if(!any){put(We,We,roadEdge,0);put(Wc,Wc,roadMid,0.003);}}
 function rebuildRoadArea(cx,cy){rebuildRoad(cx,cy);rebuildRoad(cx-1,cy);rebuildRoad(cx+1,cy);rebuildRoad(cx,cy-1);rebuildRoad(cx,cy+1);}
+let _restoring=false;
 function placeDeco(cx,cy,kk){const sk=kk||selKey;const d=DECO[sk];
   // lazy: se il modello non è ancora caricato, caricalo e poi piazza (copre anche il ricarico dal salvataggio)
   if(d.files){const miss=d.files.find(f=>!templates[f]&&TPL_SRC[f]);if(miss){ensureTpl(miss).then(()=>placeDeco(cx,cy,sk));return;}}
@@ -869,7 +870,7 @@ function placeDeco(cx,cy,kk){const sk=kk||selKey;const d=DECO[sk];
   if(placeRot&&o)o.rotation.y=placeRot*HALFPI;
   cityGroup.add(o);autoSeat(o);const e={type:(sk==='albero'?'tree':'deco'),key:sk,obj:o,ax:cx,ay:cy,w:1,h:1,cx,cy};occupy(cx,cy,1,1,e);decos.push({k:sk,cx,cy});
   if(sk==='albero')trees.push({x:wx,z:wz,obj:o,cx,cy});
-  if(d.mor){morale=Math.min(100,morale+d.mor);drawTop();}
+  if(d.mor&&!_restoring){morale=Math.min(100,morale+d.mor);drawTop();}
 }
 function mkBar3(){const g=new THREE.Group();const bgM=new THREE.MeshBasicMaterial({color:0x111111});bgM.depthTest=false;const fgM=new THREE.MeshBasicMaterial({color:0xffd23f});fgM.depthTest=false;const bg=new THREE.Mesh(new THREE.PlaneGeometry(1.1,0.18),bgM);const fg=new THREE.Mesh(new THREE.PlaneGeometry(1.04,0.12),fgM);fg.position.z=0.01;g.add(bg);g.add(fg);g.renderOrder=999;return {g,fg};}
 function startBuildAt(ax,ay,w,h,src){const d=src[selKey];if(d.cost&&!afford(d.cost)){toast('Risorse insufficienti');return;}if(d.cost)pay(d.cost);
@@ -1071,7 +1072,7 @@ function placeDef(ax,ay,w,h,k,rot){const d=DEF[k];const [wx,wz]=fpCenter(ax,ay,w
   if(type==='wall'||type==='fence'){rebuildBarrierArea(ax,ay);}
   else if(type==='gate'){if(manual)o.rotation.y=(WALL_ALONG==='x'?0:HALFPI)+e.rot;else o.rotation.y=gateRot(ax,ay);rebuildBarrierArea(ax,ay);}
   else{o.rotation.y=e.rot;rebuildBarrierArea(ax,ay);}
-  if(d.mor){morale=Math.min(100,morale+d.mor);}
+  if(d.mor&&!_restoring){morale=Math.min(100,morale+d.mor);}
   return e;
 }
 function allUnlockedCells(pred){const a=[];for(const pk in unlockedPar){const p=pk.split(',').map(Number);for(let dx=0;dx<PAR;dx++)for(let dy=0;dy<PAR;dy++){const x=p[0]*PAR+dx,y=p[1]*PAR+dy;if(inB(x,y)&&pred(x,y))a.push([x,y]);}}return a;}
@@ -1225,7 +1226,7 @@ function dispatchSel(cx,cy){const occ=grid[key(cx,cy)];const workers=selAgents.f
   else if(!occ&&!unlockedCell(cx,cy)&&adjacentWalkable(cx,cy)){if(!workers.length){toast('Servono operai 🧍');return;}assignToLeast(workers,{kind:'clear',cx,cy});floatText(...cw(cx,cy),'🛣️');}
   else{selAgents.forEach(a=>{a.held=false;commandGuard(a,cx,cy,true);});clearSel();toast('🧍 In marcia');}}
 function pickTask(a){
-  const worker=(a.kind!=='abitante'&&a.kind!=='eroe');
+  const worker=(a.kind!=='milite'&&a.kind!=='eroe');
   if(worker){const s=sites.find(s=>!s.builder);if(s){const t=adjWalk(s.ax,s.ay,s.w,s.h);if(t&&startWalk(a,t[0],t[1],'build')){s.builder=a;a.site=s;return;}}}
   if(worker&&trees.length&&Math.random()<.35){const tr=trees[Math.floor(Math.random()*trees.length)];const t=adjWalk(tr.cx,tr.cy,1,1);if(t&&startWalk(a,t[0],t[1],'chop')){a.tree=tr;return;}}
   const tc=pickTargetCell(Math.random()<.7);if(tc&&startWalk(a,tc[0],tc[1],'idle'))return;
@@ -1560,7 +1561,7 @@ function openNeighbor(k,replace){const nb=neighbors.find(n=>n.k===k);const p=POP
   d.querySelector('#nbbuy').onclick=()=>nbBuy(k);d.querySelector('#nbsell').onclick=()=>nbSell(k);const ab=d.querySelector('#nbally');if(ab)ab.onclick=()=>nbAlly(k);
   d.querySelector('#nbattack').onclick=()=>nbAttack(k);
   d.querySelector('#nbwalk').onclick=()=>{closeDyn();visitNeighbor(k);};d.querySelector('#nbclose').onclick=closeDyn;}
-function betray(k){allied[k]=0;hostile[k]=1;darkLevel++;soldiers+=3;morale=Math.max(5,morale-18);drawTop();save();bigBanner('🌑','VIA OSCURA','Hai tradito '+kName(k)+'. Nyxar sorride.');setBubble('Hai imboccato la Via Oscura: poteri proibiti crescono (+'+Math.round((darkMul()-1)*100)+'% produzione), ma il morale crolla e la fiducia è perduta.');}
+function betray(k){delete allied[k];hostile[k]=1;darkLevel++;soldiers+=3;morale=Math.max(5,morale-18);drawTop();save();bigBanner('🌑','VIA OSCURA','Hai tradito '+kName(k)+'. Nyxar sorride.');setBubble('Hai imboccato la Via Oscura: poteri proibiti crescono (+'+Math.round((darkMul()-1)*100)+'% produzione), ma il morale crolla e la fiducia è perduta.');}
 function nbAttack(k){const nb=neighbors.find(n=>n.k===k);const p=POPOLI.find(p=>p.k===k);if(!nb)return;if(soldiers<1){toast('Non hai soldati ⚔️: costruisci una Caserma e addestrane');return;}
   if(allied[k]){closeDyn();dialog('🌑','Tradire '+p.n+'?','Sono tuoi <b>alleati</b>. Attaccarli è la <b>Via Oscura</b>: poteri proibiti (+produzione) ma il morale crolla e nessuno si fiderà più di te.',`<button class="btn red" id="nay">🌑 Tradisci e attacca</button><button class="btn alt" id="nan">Annulla</button>`);const d=document.getElementById('dyn');d.querySelector('#nan').onclick=closeDyn;d.querySelector('#nay').onclick=()=>{closeDyn();betray(k);battleTarget={kind:'neighbor',k,mil:nb.mil,pop:nb.pop};startBattle();};return;}
   closeDyn();dialog('⚔️','Attaccare '+p.n+'?','Difesa nemica: ⚔️ '+nb.mil+'. Se vinci saccheggi risorse, ma diventate <b>nemici</b> e potranno attaccarti.',`<button class="btn red" id="nay">⚔️ Attacca ora</button><button class="btn alt" id="nan">Annulla</button>`);
@@ -1686,10 +1687,12 @@ document.getElementById('zrot').onclick=()=>{placeRot=(placeRot+1)%4;toast('↻ 
 
 // ===== salvataggio =====
 function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,cs:c.cycleStart,hv:c.harvests,ex:c.exhausted})),he:heroes,sr:soldierRank,rs:research,ach:achieved,fp:firstPlay,mk:myKingdom,mb:monstersBeaten,nx:nyxarBeaten,dk:darkLevel,ho:Object.keys(hostile),ts:Date.now()}));if(window.TuzuCloud)window.TuzuCloud.scheduleSync();}catch(e){}}
-function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};achieved=s.ach||{};firstPlay=s.fp||0;if(s.mk)applyKingdom(s.mk);monstersBeaten=s.mb||0;nyxarBeaten=s.nx||0;darkLevel=s.dk||0;hostile={};(s.ho||[]).forEach(k=>hostile[k]=1);offlineSince=s.ts||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});(s.lc||[]).forEach(c=>addLake(c.cx,c.cy,c.r));(s.wl||[]).forEach(w=>wildTree(w.cx,w.cy));(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);if(!(s.lc&&s.lc.length))placeLakes();if(!(s.wl&&s.wl.length))placeWildVegetation();placeRivers();placeScatterForests();
+function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};achieved=s.ach||{};firstPlay=s.fp||0;if(s.mk)applyKingdom(s.mk);monstersBeaten=s.mb||0;nyxarBeaten=s.nx||0;darkLevel=s.dk||0;hostile={};(s.ho||[]).forEach(k=>hostile[k]=1);offlineSince=s.ts||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});(s.lc||[]).forEach(c=>addLake(c.cx,c.cy,c.r));(s.wl||[]).forEach(w=>wildTree(w.cx,w.cy));(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);Object.keys(hostile).forEach(k=>{if(hostile[k])delete allied[k];});if(!(s.lc&&s.lc.length))placeLakes();if(s.wl===undefined)placeWildVegetation();placeRivers();placeScatterForests();
+  _restoring=true;
   (s.b||[]).forEach(it=>restoreBuilding(it));
   (s.d||[]).forEach(it=>{if(DECO[it.k])placeDeco(it.cx,it.cy,it.k);});
   (s.df||[]).forEach(it=>{const d=DEF[it.k];if(!d)return;const [w,h]=fpSize(d);const [ax,ay]=fpAnchor(it.cx,it.cy,w,h);if(canPlace(ax,ay,w,h))placeDef(ax,ay,w,h,it.k,it.manual?it.rot:undefined);});
+  _restoring=false;
   (s.pn||[]).forEach(it=>{const d=PENS[it.k];if(!d)return;const [w,h]=fpSize(d);const ax=it.ax,ay=it.ay;if(canPlace(ax,ay,w,h)){const pen=placePen(ax,ay,w,h,it.k);(it.an||[]).forEach(ak=>{if(ANIMALS[ak]&&pen.animals.length<pen.cap)spawnAnimal(ak,pen);});}});
   (s.cr||[]).forEach(it=>{if(CROPS[it.t]&&!grid[key(it.cx,it.cy)])plantCrop(it.cx,it.cy,it.t,it);});
   Object.keys(heroes).forEach(k=>{if(HEROES[k])spawnHeroUnit(k);});recompute();return true;}catch(e){return false;}}
@@ -1937,7 +1940,7 @@ async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');retu
   const ne=nbA?Math.max(3,Math.min(BGRID-2,Math.round(battleTarget.mil*0.8)+2)):3+Math.min(terreLiberate,4);
   const ehp=nbA?20+Math.round(battleTarget.mil*1.6):18, eatk=nbA?8:7;
   const foe=nbA?['Knight.glb','Barbarian.glb','Rogue.glb']:['Skeleton_Warrior.glb','Skeleton_Minion.glb','Skeleton_Rogue.glb'];const foeDir=nbA?AD:SK;
-  for(let i=0;i<ne;i++){const o=await loadModel(foeDir+foe[i%foe.length]);o.scale.setScalar(.42);o.rotation.y=-Math.PI/2;const e={x:BGRID-1,y:1+(i%(BGRID-2)),hp:ehp,max:ehp,atk:eatk,obj:o,enemy:true,bar:mkBarB()};batGroup.add(o);batGroup.add(e.bar.g);place(e);enemies.push(e);}
+  const eys=[3,1,5,2,4,0,6];for(let i=0;i<ne;i++){const o=await loadModel(foeDir+foe[i%foe.length]);o.scale.setScalar(.42);o.rotation.y=-Math.PI/2;const e={x:BGRID-1,y:eys[i%eys.length],hp:ehp,max:ehp,atk:eatk,obj:o,enemy:true,bar:mkBarB()};batGroup.add(o);batGroup.add(e.bar.g);place(e);enemies.push(e);}
   turn='player';units.forEach(u=>u.done=false);batInfo();HINT.style.display='block';HINT.textContent=(arenaLabel?'📍 '+arenaLabel+' — ':'')+(nbA?('Attacchi '+foeName+'! '):'')+'Tocca un soldato, poi una casella verde o un nemico rosso.';}
 let batRestore=null;
 function mkBarB(){const g=new THREE.Group();const b=new THREE.MeshBasicMaterial({color:0x111111});b.depthTest=false;const f=new THREE.MeshBasicMaterial({color:0x4ade80});f.depthTest=false;const bg=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.2),b);const fg=new THREE.Mesh(new THREE.PlaneGeometry(1.14,.14),f);fg.position.z=.01;g.add(bg);g.add(fg);g.renderOrder=999;return {g,fg};}
@@ -1965,13 +1968,13 @@ function batInfo(){document.getElementById('batInfo').textContent=turn==='player
 function checkEnd(){if(enemies.every(e=>e.hp<=0))endBattle(true);else if(units.every(u=>u.hp<=0))endBattle(false);}
 function endBattle(win){if(mode!=='battle')return;mode='ended';HINT.style.display='none';BG.style.display='none';const tgt=battleTarget;
   if(win){
-    if(tgt&&tgt.kind==='dungeon'){soldiers=units.filter(u=>u.hp>0&&!u.hero).length;const era=(typeof cityEra==='function'?cityEra():1);const rare=!!tgt.rare;const mul=rare?3:1;const gold=(120+era*60+Math.floor(Math.random()*80))*mul;R.oro=(R.oro||0)+gold;let drops='🪙+'+gold;
+    if(tgt&&tgt.kind==='dungeon'){soldiers=Math.max(0,soldiers-units.filter(u=>!u.hero&&u.hp<=0).length);const era=(typeof cityEra==='function'?cityEra():1);const rare=!!tgt.rare;const mul=rare?3:1;const gold=(120+era*60+Math.floor(Math.random()*80))*mul;R.oro=(R.oro||0)+gold;let drops='🪙+'+gold;
       if(rare){['legna','pietra','ferro'].forEach(r=>{const q=40+era*20;R[r]=(R[r]||0)+q;drops+=' '+RES[r]+'+'+q;});R.armi=(R.armi||0)+5;drops+=' 🗡️+5';morale=Math.min(100,morale+14);}
       else{const bonusR=['legna','pietra','ferro'][Math.floor(Math.random()*3)];const bq=30+era*15;R[bonusR]=(R[bonusR]||0)+bq;drops+=' '+RES[bonusR]+'+'+bq;morale=Math.min(100,morale+6);}
       save();bigBanner('💎',rare?'NON-MORTO ANTICO SCONFITTO':'CAVERNA CONQUISTATA',rare?'Tesoro leggendario!':'Hai preso il tesoro!');
       dialog('💎',rare?'Tesoro Leggendario!':'Tesoro della Caverna!','','<p>Hai sconfitto '+(rare?('<b>'+(tgt._rareName||'il Boss Raro')+'</b>'):'il Guardiano')+'! Bottino: '+drops+'.</p><button class="btn" id="d1b">Torna al regno</button>');
       document.getElementById('d1b').onclick=backToCity;pendingLand=null;battleTarget=null;return;}
-    if(tgt&&(tgt.kind==='hunt'||tgt.kind==='nyxar')){soldiers=units.filter(u=>u.hp>0&&!u.hero).length;
+    if(tgt&&(tgt.kind==='hunt'||tgt.kind==='nyxar')){soldiers=Math.max(0,soldiers-units.filter(u=>!u.hero&&u.hp<=0).length);
       if(tgt.kind==='nyxar'){nyxarBeaten++;monstersBeaten=0;_huntReadyAt=-1;R.oro=(R.oro||0)+2500;morale=Math.min(100,morale+20);save();bigBanner('🌑','NYXAR È CADUTO','La luce torna a Dèndoria…');neighbors.forEach(nb=>{if(nb.monster){cityGroup.remove(nb.monster.obj);nb.monster=null;}spawnNbMonster(nb);});
         dialog('🌑','NYXAR sconfitto!','','<p>Il mondo respira… ma il ciclo non finisce: nasce un Male nuovo e 9 nuovi mostri. Sei più forte che mai (<b>+25% produzione</b> permanente). 🪙+2500.</p><button class="btn" id="d1b">Torna al regno</button>');
       }else{const K=KINGDOMS[tgt.k]||{};const hi=monstersBeaten;const hero=HUNT_HEROES[hi]||'un Eroe';const hb=(CAMPAIGN_HEROES[hi]||{}).desc||'+5% produzione';monstersBeaten++;_huntReadyAt=-1;const rew=220+monstersBeaten*130;R.oro=(R.oro||0)+rew;morale=Math.min(100,morale+8);save();bigBanner(K.em||'🏆',(K.monster||'Il mostro')+' è caduto!','Un eroe si unisce a te');
@@ -1980,10 +1983,10 @@ function endBattle(win){if(mode!=='battle')return;mode='ended';HINT.style.displa
     if(tgt&&tgt.kind==='neighbor'){const nb=neighbors.find(n=>n.k===tgt.k);const p=POPOLI.find(x=>x.k===tgt.k)||{n:'il villaggio'};const t=NB_TRADE[tgt.k];
       const loot={oro:30+(tgt.pop||6)*5,legna:20+(tgt.pop||6)*3};if(t&&t.sells)loot[t.sells.r]=(loot[t.sells.r]||0)+t.sells.qty*2;
       for(const r in loot)R[r]=(R[r]||0)+loot[r];if(allied[tgt.k])delete allied[tgt.k];hostile[tgt.k]=1;if(nb){nb.pop=Math.max(3,nb.pop-3);nb.mil=Math.max(1,nb.mil-2);}
-      soldiers=units.filter(u=>u.hp>0&&!u.hero).length;morale=Math.min(100,morale+4);save();
+      soldiers=Math.max(0,soldiers-units.filter(u=>!u.hero&&u.hp<=0).length);morale=Math.min(100,morale+4);save();
       dialog('🏆','Villaggio saccheggiato!','','<p>Hai sconfitto '+p.n+'! Bottino: '+Object.entries(loot).map(([r,v])=>RES[r]+'+'+v).join(' ')+'.</p><p style="color:#b33b3b;font-weight:700">⚔️ Ora siete nemici: le incursioni saranno più dure.</p><button class="btn" id="d1b">Torna al regno</button>');
-    }else{terreLiberate++;if(pendingLand)liberated[pendingLand]=1;R.oro+=45;R.legna+=50;soldiers=units.filter(u=>u.hp>0&&!u.hero).length;morale=Math.min(100,morale+6);const up=soldierRank<5;if(up)soldierRank++;save();dialog('🏆','Terra liberata!','','<p>Hai respinto l’Èrebo! 🪙45 🪵50 e morale in festa.</p>'+(up?'<p style="color:#b8860b;font-weight:700">⬆️ L’esercito sale di grado: '+rankStars()+' (soldati più forti)</p>':'<p style="opacity:.85">Esercito al grado massimo '+rankStars()+'</p>')+'<button class="btn" id="d1b">Torna al regno</button>');}
-  }else{soldiers=0;save();dialog('🛡️','Ritirata','','<p>I soldati si ritirano. Ricostruisci e riprova: il regno non è perduto.</p><button class="btn" id="d1b">Torna al regno</button>');}
+    }else{terreLiberate++;if(pendingLand)liberated[pendingLand]=1;R.oro+=45;R.legna+=50;soldiers=Math.max(0,soldiers-units.filter(u=>!u.hero&&u.hp<=0).length);morale=Math.min(100,morale+6);const up=soldierRank<5;if(up)soldierRank++;save();dialog('🏆','Terra liberata!','','<p>Hai respinto l’Èrebo! 🪙45 🪵50 e morale in festa.</p>'+(up?'<p style="color:#b8860b;font-weight:700">⬆️ L’esercito sale di grado: '+rankStars()+' (soldati più forti)</p>':'<p style="opacity:.85">Esercito al grado massimo '+rankStars()+'</p>')+'<button class="btn" id="d1b">Torna al regno</button>');}
+  }else{soldiers=Math.max(0,soldiers-units.filter(u=>!u.hero&&u.hp<=0).length);save();dialog('🛡️','Ritirata','','<p>I soldati caduti sono persi, ma i soldati di riserva restano. Ricostruisci e riprova: il regno non è perduto.</p><button class="btn" id="d1b">Torna al regno</button>');}
   document.getElementById('d1b').onclick=backToCity;pendingLand=null;battleTarget=null;}
 function backToCity(){closeDyn();mode='city';batGroup.visible=false;cityGroup.visible=true;['top','side','zoom','guide','fab'].forEach(id=>document.getElementById(id).style.display='');if(miniC){miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();}if(batRestore){VZ=batRestore.svz;camTarget.x=batRestore.stx;camTarget.z=batRestore.stz;updateCam();}resize();drawSide();drawTop();setBubble(tip());}
 
