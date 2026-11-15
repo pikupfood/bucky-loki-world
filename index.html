@@ -212,7 +212,7 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 
 <div class="panel" id="intro"><div class="card">
   <div class="em">🌿</div><h2>I Regni di Tuzu</h2>
-  <p>Un male antico, l'<b>Èrebo</b>, divora le terre. Guidi i <b>Chlòri</b> delle Valli di Dèndora. Hai già un piccolo villaggio: fallo crescere, abbellisci, addestra soldati e respingi l'Ombra. Il piccolo Tuzu 🟢 ti guiderà.</p>
+  <p>Un male antico, l'<b>Èrebo</b>, ha inghiottito il mondo nel sottosuolo. Guidi i <b>Chlòri</b> nelle profondità del <b>Tàrtaro</b>. Hai un piccolo <b>covo</b>: fallo crescere, esplora le stanze della grotta, stringi alleanze o combatti gli altri regni. Il piccolo Tuzu 🟢 ti guiderà.</p>
   <button class="btn" id="startBtn">Entra nel regno</button>
   <div id="introAcc" style="margin-top:10px;font-size:12.5px;opacity:.9"></div>
 </div></div>
@@ -348,12 +348,15 @@ function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
     if(canStep(nx,nz)){o.position.x=nx;o.position.z=nz;}
     else if(canStep(nx,oz)){o.position.x=nx;}
     else if(canStep(ox,nz)){o.position.z=nz;}
-    o.rotation.y=Math.atan2(dx,dz);if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,true);
-    // LA CAMERA SEGUE DA SOLA: si porta dietro la direzione di marcia
-    const target=Math.atan2(-dx,-dz);let d2=target-tpYaw;while(d2>Math.PI)d2-=2*Math.PI;while(d2<-Math.PI)d2+=2*Math.PI;tpYaw+=d2*Math.min(1,dt*3.2);}
-  else{if(tpInput.rotL)tpYaw+=dt*1.9;if(tpInput.rotR)tpYaw-=dt*1.9;if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);}
+    const fa=Math.atan2(dx,dz);let fd=fa-o.rotation.y;while(fd>Math.PI)fd-=2*Math.PI;while(fd<-Math.PI)fd+=2*Math.PI;o.rotation.y+=fd*Math.min(1,dt*9);if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,true);
+    // LA CAMERA SEGUE DA SOLA, morbida: si porta dietro la direzione di marcia
+    const target=Math.atan2(-dx,-dz);let d2=target-tpYaw;while(d2>Math.PI)d2-=2*Math.PI;while(d2<-Math.PI)d2+=2*Math.PI;tpYaw+=d2*Math.min(1,dt*1.8);}
+  else{if(tpInput.rotL)tpYaw+=dt*1.6;if(tpInput.rotR)tpYaw-=dt*1.6;if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);}
   const ty=(typeof stepHeightAt==='function')?stepHeightAt(o.position.x,o.position.z):0;o.position.y+=(ty-o.position.y)*Math.min(1,dt*10);
-  const D=6.8,H=4.4;tpCam.position.set(o.position.x+Math.sin(tpYaw)*D,H+o.position.y,o.position.z+Math.cos(tpYaw)*D);tpCam.lookAt(o.position.x,1.2+o.position.y,o.position.z);
+  const D=6.8,H=4.4,dcx=o.position.x+Math.sin(tpYaw)*D,dcy=H+o.position.y,dcz=o.position.z+Math.cos(tpYaw)*D;
+  const far=((tpCam.position.x-dcx)**2+(tpCam.position.z-dcz)**2)>400,ck=far?1:Math.min(1,dt*4.2);
+  tpCam.position.x+=(dcx-tpCam.position.x)*ck;tpCam.position.y+=(dcy-tpCam.position.y)*ck;tpCam.position.z+=(dcz-tpCam.position.z)*ck;
+  tpCam.lookAt(o.position.x,1.2+o.position.y,o.position.z);
   camTarget.x=o.position.x;camTarget.z=o.position.z;
   if(sunReady){sun.position.set(o.position.x+SUN_OFF.x,SUN_OFF.y,o.position.z+SUN_OFF.z);sun.target.position.set(o.position.x,0,o.position.z);sun.target.updateMatrixWorld();}}
 // ciclo giorno/notte dolce
@@ -691,7 +694,7 @@ const ROAD_ERAS=[
 ];
 const roadEdge=new THREE.MeshStandardMaterial({color:0x7c746c,roughness:1});const roadMid=new THREE.MeshStandardMaterial({color:0x8a827a,roughness:1});
 // stadi del regno (ere) — legati a quanti edifici hai costruito
-const ERAS=[{n:'Villaggio',em:'🏕️'},{n:'Borgo',em:'🏘️'},{n:'Città',em:'🏙️'},{n:'Metropoli',em:'🏛️'}];
+const ERAS=[{n:'Covo',em:'🕳️'},{n:'Antro',em:'🦇'},{n:'Rocca',em:'⚔️'},{n:'Reame',em:'👑'}];
 const ERA_NEED=[0,6,12,20];
 function eraInfo(){const e=cityEra();return {e,name:ERAS[e].n,em:ERAS[e].em,cur:builtCount,next:e>=3?null:ERA_NEED[e+1]};}
 let roadEraIdx=-1;
@@ -1165,7 +1168,7 @@ function kingdomScore(){let s=0;s+=(builtCount||0)*12;s+=(terreLiberate||0)*35;s
   if(typeof buildings!=='undefined')s+=buildings.reduce((a,b)=>a+((b.lvl||1)-1),0)*5;
   s+=(typeof monstersBeaten!=='undefined'?monstersBeaten:0)*60+(typeof nyxarBeaten!=='undefined'?nyxarBeaten:0)*220;
   return Math.round(s);}
-const TIERS=[{em:'🪵',name:'Villaggio',min:0},{em:'🪨',name:'Borgo',min:200},{em:'🛡️',name:'Contea',min:450},{em:'⚔️',name:'Marca',min:800},{em:'🥈',name:'Ducato',min:1400},{em:'🥇',name:'Regno',min:2400},{em:'💎',name:'Impero',min:4000},{em:'👑',name:'Leggenda',min:6500}];
+const TIERS=[{em:'🕳️',name:'Covo',min:0},{em:'🦇',name:'Antro',min:200},{em:'⛏️',name:'Tana',min:450},{em:'☠️',name:'Cripta',min:800},{em:'⚰️',name:'Catacombe',min:1400},{em:'🕸️',name:'Abisso',min:2400},{em:'🔥',name:'Inferi',min:4000},{em:'👑',name:'Leggenda',min:6500}];
 function kingdomTier(sc){sc=((sc==null?kingdomScore():sc)|0);let i=0;for(let k=0;k<TIERS.length;k++){if(sc>=TIERS[k].min)i=k;}const t=TIERS[i],nx=TIERS[i+1]||null;return {i,em:t.em,name:t.name,min:t.min,next:nx?nx.min:null,nextName:nx?nx.name:null,nextEm:nx?nx.em:null};}
 function leagueUp(tr){const b=document.createElement('div');b.style.cssText='position:fixed;left:50%;top:27%;transform:translate(-50%,-50%) scale(.6);z-index:9999;pointer-events:none;background:linear-gradient(135deg,#f6d774,#e7a44b);color:#3a2408;padding:13px 24px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35);text-align:center;font-weight:800;opacity:0;transition:opacity .35s ease,transform .35s cubic-bezier(.2,1.4,.5,1)';b.innerHTML='<div style="font-size:32px;line-height:1">'+tr.em+'</div><div style="font-size:11px;letter-spacing:1px;opacity:.75;margin-top:3px">NUOVA LEGA</div><div style="font-size:19px;margin-top:1px">'+tr.name+'</div>';document.body.appendChild(b);requestAnimationFrame(()=>{b.style.opacity='1';b.style.transform='translate(-50%,-50%) scale(1)';});setTimeout(()=>{b.style.opacity='0';b.style.transform='translate(-50%,-55%) scale(.92)';setTimeout(()=>b.remove(),420);},2500);try{toast('🎉 Nuova lega: '+tr.em+' '+tr.name+'!',3400);}catch(e){}}
 let _lastTierI=-1;function checkLeague(){const i=kingdomTier().i;if(_lastTierI<0){_lastTierI=i;return;}if(i!==_lastTierI){const up=i>_lastTierI;_lastTierI=i;if(up)leagueUp(kingdomTier());}}
@@ -1227,7 +1230,7 @@ document.getElementById('tuzu').onclick=()=>{if(typeof openChat==='function')ope
 let achieved={};
 const ACHIEVEMENTS=[
  {id:'b10',txt:'🏘️ Fai crescere il Borgo (10 edifici)',done:()=>builtCount>=10,rew:{oro:60}},
- {id:'b20',txt:'🏛️ Diventa Metropoli (20 edifici)',done:()=>builtCount>=20,rew:{oro:150,ferro:30}},
+ {id:'b20',txt:'👑 Domina il Reame (20 edifici)',done:()=>builtCount>=20,rew:{oro:150,ferro:30}},
  {id:'pop20',txt:'👥 Popolo numeroso (20 lavoratori)',done:()=>operai>=20,rew:{cibo:100}},
  {id:'lib3',txt:'🌍 Liberatore (3 terre liberate)',done:()=>terreLiberate>=3,rew:{oro:120}},
  {id:'rank3',txt:'🛡️ Esercito veterano (grado ⭐⭐⭐)',done:()=>soldierRank>=3,rew:{ferro:40}},
@@ -2391,15 +2394,15 @@ document.getElementById('btnMiss').onclick=()=>openMiss();
 document.getElementById('btnHero').onclick=()=>{if(mode==='city')openHeroes();};
 // ===== mini-guida iniziale =====
 const GUIDE=[
- {em:'🏰',t:'Benvenuto nel tuo regno',x:'Guidi i <b>Chlòri</b>, un popolo di piccoli Tuzu 🟢. Fai crescere il villaggio, difendilo dall’<b>Èrebo</b> (l’Ombra) e portalo a diventare una grande <b>Metropoli</b>.'},
+ {em:'🕳️',t:'Benvenuto nel tuo covo',x:'Guidi i <b>Chlòri</b>, un popolo di piccoli Tuzu 🟢 nel sottosuolo. Fai crescere il tuo <b>covo</b>, esplora le stanze della grotta, alleati o combatti gli altri regni, fino a dominare il <b>Reame</b> del <b>Tàrtaro</b>.'},
  {em:'🔨',t:'Costruisci',x:'Tocca <b>🔨 Costruisci</b> in basso, scegli un edificio e tocca un <b>quadratino libero</b>. Inizia con <b>Segheria</b> 🪵, <b>Fattoria</b> 🌾 e <b>Case</b> 🏠.'},
  {em:'👷',t:'I Tuzu lavorano da soli',x:'Gli abitanti raccolgono e costruiscono da soli. Più <b>Case</b> = più lavoratori 👷. Tocca un abitante per dargli un ordine: tagliare legna 🪓, pescare 🎣 o raccogliere 🧺.'},
  {em:'🌾',t:'Nutri il popolo',x:'I Tuzu mangiano 🌾 cibo. Se manca, il morale 😊 cala. Fai <b>Fattorie</b>, semina nei <b>Campi</b> 🌱, alleva nei <b>Recinti</b> 🐑 o manda a pescare.'},
  {em:'⚔️',t:'Come ci si difende',x:'Ogni tanto l’Èrebo attacca. <b>I tuoi soldati e le torri si difendono DA SOLI</b> — non devi fare nulla durante l’attacco. Il tuo compito è <b>prepararti prima</b>: addestra <b>Soldati</b> (Caserma ⚔️) e, nel menu <b>🛡️ Difesa</b>, metti <b>Torri</b> 🏹 e <b>Mura</b> 🧱. Più giochi, più gli attacchi diventano forti.'},
  {em:'🗡️',t:'Come si attacca',x:'Due modi: <b>1)</b> apri <b>🌍 Mondo</b> → una terra dell’Èrebo → <b>⚔️ Libera</b>: parte una battaglia a turni. <b>2)</b> apri un <b>villaggio vicino</b> → <b>⚔️ Attacca</b>: lo saccheggi, ma diventate nemici. In battaglia tocchi un soldato, poi una casella verde per muoverti o un nemico rosso per colpirlo.'},
  {em:'🌍',t:'Esplora e alleati',x:'Apri <b>🌍 Mondo</b>: allèati coi vicini (ti mandano doni 🐫 e rinforzi), commercia, o <b>attacca</b> per saccheggiarli. Puoi anche <b>liberare le terre</b> dall’Èrebo.'},
- {em:'🦸',t:'Eroi, ere e stagioni',x:'Recluta <b>🦸 Eroi</b> per bonus permanenti. Costruendo sali di era: <b>Villaggio→Borgo→Città→Metropoli</b>. Le <b>stagioni</b> cambiano la crescita delle colture.'},
- {em:'🎯',t:'Il tuo obiettivo',x:'Completa le <b>📜 Missioni</b>, fai prosperare il regno, respingi l’Èrebo e portalo a <b>Metropoli</b>. Se ti serve aiuto, tocca <b>💬 Tuzu</b> e chiedimi un consiglio. Buon divertimento! 🎉'}
+ {em:'🦸',t:'Eroi, ere e stagioni',x:'Recluta <b>🦸 Eroi</b> per bonus permanenti. Costruendo sali di stadio: <b>Covo→Antro→Rocca→Reame</b>. Le <b>stagioni</b> cambiano la crescita delle colture.'},
+ {em:'🎯',t:'Il tuo obiettivo',x:'Completa le <b>📜 Missioni</b>, fai prosperare il covo, respingi l’Èrebo e domina il <b>Reame</b> del Tàrtaro. Se ti serve aiuto, tocca <b>💬 Tuzu</b> e chiedimi un consiglio. Buon divertimento! 🎉'}
 ];
 function openGuide(i){i=i||0;const p=GUIDE[i];const last=i>=GUIDE.length-1;dialog(p.em,p.t,'',`<div style="text-align:left;font-size:13.5px;line-height:1.55">${p.x}</div><div style="margin-top:8px;font-size:11px;opacity:.6">${i+1} / ${GUIDE.length}</div><div class="row">${i>0?'<button class="btn alt" id="gprev">◀ Indietro</button>':''}<button class="btn" id="gnext">${last?'Inizia! 🎉':'Avanti ▶'}</button></div><button class="btn alt" id="gskip" style="margin-top:4px">${last?'':'Salta'}</button>`);const d=document.getElementById('dyn');const pv=d.querySelector('#gprev');if(pv)pv.onclick=()=>openGuide(i-1);d.querySelector('#gnext').onclick=()=>{if(last){closeDyn();try{localStorage.setItem('tuzu_guide_seen','1');}catch(e){}}else openGuide(i+1);};const sk=d.querySelector('#gskip');if(sk)sk.onclick=()=>{closeDyn();try{localStorage.setItem('tuzu_guide_seen','1');}catch(e){}};}
 // ===== Tuzu AI: chat di consigli (locale, conosce il gioco) =====
@@ -2421,8 +2424,8 @@ const TUZU_KB=[
  {k:['pesca','pesce','acqua','lago','fiume'],a:'Tocca un abitante 🧍 e poi l’<b>acqua</b> 💧 (laghi/fiumi) per mandarlo a pescare: porta 🌾 cibo. Serve un passaggio libero fino all’acqua.'},
  {k:['mercato','vendi','vender','compra','comprar','commerci'],a:'Il <b>Mercato</b> vende risorse per oro o compra ciò che ti manca. Anche i villaggi vicini 🌍 commerciano (più conveniente se alleati 🤝).'},
  {k:['alleanz','alleat','vicino','vicini','amici','carovan'],a:'Apri <b>🌍 Mondo</b> e visita un vicino per allearti (serve oro e cibo). Gli alleati mandano <b>doni</b> con le carovane 🐫 e <b>rinforzi</b> nelle incursioni. L’Esploratore 🦸 rende le alleanze più economiche.'},
- {k:['era','ere','stadio','villaggio','borgo','citta','metropoli','avanz','crescere'],a:'Costruendo edifici sali di <b>stadio</b>: Villaggio 🏕️ → Borgo 🏘️ → Città 🏙️ → Metropoli 🏛️. Ogni salto porta una festa con ricompense e strade nuove. Lo vedi nel badge in alto.'},
- {k:['mission','obiettiv','obbiettiv','scopo','devo fare','cosa fare','come inizi','iniziare','da dove','comincio'],a:'Apri <b>📜 Missioni</b> per gli obiettivi passo-passo (danno materiali). In breve: fai crescere il regno, tienilo nutrito e felice 😊, difenditi dall’Èrebo e <b>libera le terre</b> 🌍 fino a diventare Metropoli. Un buon inizio: Segheria → Fattoria → 2 Case → Caserma.'},
+ {k:['era','ere','stadio','villaggio','covo','antro','rocca','reame','borgo','citta','metropoli','avanz','crescere'],a:'Costruendo edifici sali di <b>stadio</b>: Covo 🕳️ → Antro 🦇 → Rocca ⚔️ → Reame 👑. Ogni salto porta una festa con ricompense. Lo vedi nel badge in alto.'},
+ {k:['mission','obiettiv','obbiettiv','scopo','devo fare','cosa fare','come inizi','iniziare','da dove','comincio'],a:'Apri <b>📜 Missioni</b> per gli obiettivi passo-passo (danno materiali). In breve: fai crescere il regno, tienilo nutrito e felice 😊, difenditi dall’Èrebo e <b>esplora le stanze</b> 🌍 fino a dominare il Reame. Un buon inizio: Segheria → Fattoria → Caserma.'},
  {k:['libera','battaglia','turni','terra','terre'],a:'In <b>🌍 Mondo</b> scegli una terra occupata e premi <b>⚔️ Libera</b>: parte una battaglia a <b>turni</b> su griglia (muovi i soldati e colpisci gli scheletri). Vincere libera la terra, dà premi e <b>alza il grado</b> dell’esercito.'},
  {k:['forzier','tesoro','regalo','baule'],a:'Quando sconfiggi un <b>boss</b> ☠️ in un’incursione, lascia un <b>forziere</b> 🎁 in città: toccalo per raccogliere oro, ferro e legna (o si apre da solo dopo un po’).'},
  {k:['stagion','inverno','neve','primavera','estate','autunno','meteo','pioggia','piove'],a:'Le <b>stagioni</b> cambiano da sole: in <b>Primavera</b> 🌸 le colture crescono in fretta, in <b>Inverno</b> ❄️ nevica, rallentano e serve più cibo. Anche la <b>pioggia</b> 🌧️ accelera le colture. Vedi la stagione nel badge in alto.'},
@@ -2738,7 +2741,7 @@ function endBattle(win){if(mode!=='battle')return;mode='ended';HINT.style.displa
       const loot={oro:30+(tgt.pop||6)*5,legna:20+(tgt.pop||6)*3};if(t&&t.sells)loot[t.sells.r]=(loot[t.sells.r]||0)+t.sells.qty*2;
       for(const r in loot)R[r]=(R[r]||0)+loot[r];if(allied[tgt.k])delete allied[tgt.k];hostile[tgt.k]=1;if(nb){nb.pop=Math.max(3,nb.pop-3);nb.mil=Math.max(1,nb.mil-2);}
       soldiers=Math.max(0,soldiers-units.filter(u=>!u.hero&&u.hp<=0).length);morale=Math.min(100,morale+4);save();
-      dialog('🏆','Villaggio saccheggiato!','','<p>Hai sconfitto '+p.n+'! Bottino: '+Object.entries(loot).map(([r,v])=>RES[r]+'+'+v).join(' ')+'.</p><p style="color:#b33b3b;font-weight:700">⚔️ Ora siete nemici: le incursioni saranno più dure.</p><button class="btn" id="d1b">Torna al regno</button>');
+      dialog('🏆','Regno nemico saccheggiato!','','<p>Hai sconfitto '+p.n+'! Bottino: '+Object.entries(loot).map(([r,v])=>RES[r]+'+'+v).join(' ')+'.</p><p style="color:#b33b3b;font-weight:700">⚔️ Ora siete nemici: le incursioni saranno più dure.</p><button class="btn" id="d1b">Torna al regno</button>');
     }else if(tgt&&tgt.kind==='conquest'){const k=tgt.k;conquered[k]=1;delete hostile[k];const dk=distantKingdoms.find(x=>x.k===k);if(dk)plantConquestFlags(dk);
       soldiers=Math.max(0,soldiers-units.filter(u=>!u.hero&&u.hp<=0).length);const era=(typeof cityEra==='function'?cityEra():1);const gold=300+era*120+terreLiberate*20;R.oro=(R.oro||0)+gold;
       const loot={};['legna','pietra','ferro','cibo'].forEach(r=>{const q=60+era*25;R[r]=(R[r]||0)+q;loot[r]=q;});R.armi=(R.armi||0)+6;morale=Math.min(100,morale+12);const up2=soldierRank<5;if(up2)soldierRank++;save();
