@@ -425,6 +425,19 @@ const NYXAR_SOGLIA=4600;
 const HUNT_HEROES=['Guardiano della Pietra','Signore dei Venti',"Mercante d'Ombra",'Re delle Maree','Druido Antico','Arcimago Senza Nome','Colosso Spezzato','Domatore del Gelo','Cavaliere del Drago'];
 let monstersBeaten=0, nyxarBeaten=0, darkLevel=0, _huntReadyAt=-1;
 function huntProd(){return 1+monstersBeaten*0.05+nyxarBeaten*0.25;}
+// Eroi della campagna: ogni mostro domato dà un eroe con MODELLO proprio e un BONUS permanente a tema (ordine = HUNT)
+const CAMPAIGN_HEROES=[
+ {model:'hero_warrior',   res:'pietra',mult:1.20,desc:'+20% pietra 🪨'},
+ {model:'AD:Rogue.glb',   res:'legna', mult:1.18,desc:'+18% legna 🪵'},
+ {model:'hero_plague',    res:'cibo',  mult:1.15,desc:'+15% cibo 🌾'},
+ {model:'hero_knight',    res:'cibo',  mult:1.20,desc:'+20% cibo 🌾'},
+ {model:'AD:Mage.glb',    res:'legna', mult:1.20,desc:'+20% legna 🪵'},
+ {model:'hero_dknight',   res:'ferro', mult:1.18,desc:'+18% ferro ⚙️'},
+ {model:'AD:Barbarian.glb',res:'ferro',mult:1.22,desc:'+22% ferro ⚙️'},
+ {model:'AD:Knight.glb',  res:'pietra',mult:1.18,desc:'+18% pietra 🪨'},
+ {model:'hero_warrior',   res:'ferro', mult:1.25,desc:'+25% ferro ⚙️'}
+];
+function campHeroProd(r){let m=1;for(let i=0;i<monstersBeaten&&i<9;i++){const h=CAMPAIGN_HEROES[i];if(h&&h.res===r)m*=h.mult;}return m;}
 // Via Oscura: tradire gli alleati avvicina a Nyxar e dà poteri proibiti (+produzione) ma distrugge il morale
 function darkMul(){return 1+darkLevel*0.12;}
 function huntTarget(){return monstersBeaten<9?HUNT[monstersBeaten]:null;}
@@ -453,6 +466,7 @@ async function preload(){
   await loadNatureDecos();
   await loadPropDecos();
   await loadMonProps();
+  await loadHeroModels();
   await loadKingdomMonsters();
 }
 // alberi del bosco (nature kit) come template per l'InstancedMesh
@@ -472,6 +486,9 @@ const PROP_DECO={p_lantern:['lantern.glb',0.9],p_torch:['torch.glb',1.05],p_sign
 async function loadPropDecos(){for(const key in PROP_DECO){try{const m=await loadModel('models/props/'+PROP_DECO[key][0]);let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[key]=wrapScaled(m,PROP_DECO[key][1]);}catch(e){}}}
 // strutture grandi pixellabs (mulino ad acqua, castelli, fortezza) normalizzate sull'ingombro, come monumenti
 const MON_PROPS={m_watermill:['watermill.glb',4],m_castle:['castle.glb',6],m_castleR:['castle-royal.glb',6],m_fortress:['fortress.glb',5],m_watchtower:['watchtower.glb',4]};
+// modelli-personaggio pixellabs per gli eroi della campagna (grezzi: fitHeight a runtime in battaglia)
+const HERO_MODELS={hero_warrior:'warrior.glb',hero_knight:'knight2.glb',hero_plague:'plague-doctor.glb',hero_dknight:'knight.glb',enemy_archer:'skeleton-archer.glb'};
+async function loadHeroModels(){for(const key in HERO_MODELS){try{const m=await loadModel('models/props/'+HERO_MODELS[key]);let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[key]=m;}catch(e){}}}
 async function loadMonProps(){for(const key in MON_PROPS){const [file,foot]=MON_PROPS[key];try{const m=await loadModel('models/props/'+file);let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(!has)continue;const box=new THREE.Box3().setFromObject(m);const sz=box.getSize(new THREE.Vector3());const horiz=Math.max(sz.x,sz.z)||1;m.scale.setScalar((foot*CELL*0.9)/horiz);m.updateWorldMatrix(true,true);const b2=new THREE.Box3().setFromObject(m);if(isFinite(b2.min.y))m.position.y-=b2.min.y;m.position.x-=(b2.min.x+b2.max.x)/2;m.position.z-=(b2.min.z+b2.max.z)/2;m.traverse(o=>{if(o.isMesh)o.castShadow=true;});const wrap=new THREE.Group();wrap.add(m);templates[key]=wrap;FP[key]=measFP(wrap);}catch(e){}}}
 // mostro simbolo di ogni regno (per i villaggi e la Caccia ai 9 Mostri) + Nyxar
 const KMONSTER={dendra:'mushroom_king',nefele:'armabee',chrysa:'ghost',selenea:'wizard',oros:'goleling_evolved',thalassa:'squidle',pyra:'dragon',krios:'yeti',metalla:'goleling'};
@@ -575,7 +592,7 @@ let research={};
 function hasRes(id){return !!research[id];}
 function heroLvl(k){return heroes[k]||0;}
 function heroCost(k){const b=HEROES[k].base,l=heroLvl(k)+1;const c={};for(const r in b)c[r]=b[r]*l;return c;}
-function prodBonus(r){let b=1;if(r==='cibo'||r==='pane')b=1+heroLvl('contadina')*0.25+(hasRes('agricoltura')?0.3:0);else if(r==='pietra'||r==='ferro')b=1+heroLvl('minatore')*0.25+(hasRes('estrazione')?0.3:0);return b*kProd(r)*huntProd()*darkMul();}
+function prodBonus(r){let b=1;if(r==='cibo'||r==='pane')b=1+heroLvl('contadina')*0.25+(hasRes('agricoltura')?0.3:0);else if(r==='pietra'||r==='ferro')b=1+heroLvl('minatore')*0.25+(hasRes('estrazione')?0.3:0);return b*kProd(r)*huntProd()*darkMul()*campHeroProd(r);}
 function allyCostMul(){return 1-Math.min(0.45,heroLvl('esploratore')*0.15);}
 function caravanBonus(){return 1+heroLvl('esploratore')*0.2;}
 function buildSpeedBonus(){return 1-Math.min(0.6,heroLvl('costruttore')*0.16+(hasRes('edilizia')?0.15:0));}
@@ -1781,8 +1798,13 @@ async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');retu
   const arenaLabel=buildBattleArena(bkey);
   const n=Math.min(soldiers,4);const he=['Knight.glb','Barbarian.glb','Mage.glb','Rogue.glb'];for(let i=0;i<n;i++){const o=await loadModel(AD+he[i%he.length]);o.scale.setScalar(.42);o.rotation.y=Math.PI/2;const uhp=30+soldierRank*8;const u={x:0,y:1+i,hp:uhp,max:uhp,atk:12+soldierRank*3,obj:o,done:false,enemy:false,bar:mkBarB()};batGroup.add(o);batGroup.add(u.bar.g);place(u);units.push(u);}
   // EROI della campagna: ogni mostro domato manda un eroe (più forte) a combattere al tuo fianco
-  const nh=Math.min(monstersBeaten,4),hm=['Knight.glb','Mage.glb','Barbarian.glb','Rogue.glb'];
-  for(let i=0;i<nh;i++){const o=await loadModel(AD+hm[i%4]);o.scale.setScalar(.5);o.rotation.y=Math.PI/2;const hhp=50+soldierRank*8;const u={x:1,y:1+i,hp:hhp,max:hhp,atk:18+soldierRank*3,obj:o,done:false,enemy:false,hero:true,bar:mkBarB()};batGroup.add(o);batGroup.add(u.bar.g);place(u);units.push(u);}
+  const nh=Math.min(monstersBeaten,4);
+  for(let i=0;i<nh;i++){const h=CAMPAIGN_HEROES[i]||{};const mdl=h.model||'AD:Knight.glb';let o;
+    if(mdl.indexOf('AD:')===0){o=await loadModel(AD+mdl.slice(3));o.scale.setScalar(.5);}
+    else if(templates[mdl]){o=inst(mdl);if(typeof fitHeight==='function')fitHeight(o,1.05);}
+    else{o=await loadModel(AD+'Knight.glb');o.scale.setScalar(.5);}
+    o.rotation.y=Math.PI/2;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});
+    const hhp=50+soldierRank*8;const u={x:1,y:1+i,hp:hhp,max:hhp,atk:18+soldierRank*3,obj:o,done:false,enemy:false,hero:true,bar:mkBarB()};batGroup.add(o);batGroup.add(u.bar.g);place(u);units.push(u);}
   // ===== BOSS: Caccia ai Mostri / Nyxar (riusa il motore battaglia) =====
   const huntA=battleTarget&&(battleTarget.kind==='hunt'||battleTarget.kind==='nyxar');
   if(huntA){const isNyx=battleTarget.kind==='nyxar';const k=battleTarget.k;const K=KINGDOMS[k]||{};const tplName=isNyx?'nyxar':('km_'+k);
@@ -1823,8 +1845,8 @@ function endBattle(win){if(mode!=='battle')return;mode='ended';HINT.style.displa
     if(tgt&&(tgt.kind==='hunt'||tgt.kind==='nyxar')){soldiers=units.filter(u=>u.hp>0&&!u.hero).length;
       if(tgt.kind==='nyxar'){nyxarBeaten++;monstersBeaten=0;_huntReadyAt=-1;R.oro=(R.oro||0)+2500;morale=Math.min(100,morale+20);save();bigBanner('🌑','NYXAR È CADUTO','La luce torna a Dèndoria…');neighbors.forEach(nb=>{if(nb.monster){cityGroup.remove(nb.monster.obj);nb.monster=null;}spawnNbMonster(nb);});
         dialog('🌑','NYXAR sconfitto!','','<p>Il mondo respira… ma il ciclo non finisce: nasce un Male nuovo e 9 nuovi mostri. Sei più forte che mai (<b>+25% produzione</b> permanente). 🪙+2500.</p><button class="btn" id="d1b">Torna al regno</button>');
-      }else{const K=KINGDOMS[tgt.k]||{};const hero=HUNT_HEROES[monstersBeaten]||'un Eroe';monstersBeaten++;_huntReadyAt=-1;const rew=220+monstersBeaten*130;R.oro=(R.oro||0)+rew;morale=Math.min(100,morale+8);save();bigBanner(K.em||'🏆',(K.monster||'Il mostro')+' è caduto!','Un eroe si unisce a te');
-        dialog(K.em||'🏆',(K.monster||'Mostro')+' sconfitto!','','<p>L\'eroe <b>«'+hero+'»</b> 🦸 si unisce a te! <b>+5% produzione</b>, 🪙+'+rew+'.</p>'+(monstersBeaten>=9?'<p style="color:#b8860b;font-weight:800">I 9 Mostri sono caduti: ora puoi sfidare NYXAR 🌑!</p>':'<p style="opacity:.85">Mostri abbattuti: '+monstersBeaten+'/9</p>')+'<button class="btn" id="d1b">Torna al regno</button>');}
+      }else{const K=KINGDOMS[tgt.k]||{};const hi=monstersBeaten;const hero=HUNT_HEROES[hi]||'un Eroe';const hb=(CAMPAIGN_HEROES[hi]||{}).desc||'+5% produzione';monstersBeaten++;_huntReadyAt=-1;const rew=220+monstersBeaten*130;R.oro=(R.oro||0)+rew;morale=Math.min(100,morale+8);save();bigBanner(K.em||'🏆',(K.monster||'Il mostro')+' è caduto!','Un eroe si unisce a te');
+        dialog(K.em||'🏆',(K.monster||'Mostro')+' sconfitto!','','<p>L\'eroe <b>«'+hero+'»</b> 🦸 combatte al tuo fianco e porta un dono permanente: <b>'+hb+'</b>. 🪙+'+rew+'.</p>'+(monstersBeaten>=9?'<p style="color:#b8860b;font-weight:800">I 9 Mostri sono caduti: ora puoi sfidare NYXAR 🌑!</p>':'<p style="opacity:.85">Mostri abbattuti: '+monstersBeaten+'/9</p>')+'<button class="btn" id="d1b">Torna al regno</button>');}
       document.getElementById('d1b').onclick=backToCity;pendingLand=null;battleTarget=null;return;}
     if(tgt&&tgt.kind==='neighbor'){const nb=neighbors.find(n=>n.k===tgt.k);const p=POPOLI.find(x=>x.k===tgt.k)||{n:'il villaggio'};const t=NB_TRADE[tgt.k];
       const loot={oro:30+(tgt.pop||6)*5,legna:20+(tgt.pop||6)*3};if(t&&t.sells)loot[t.sells.r]=(loot[t.sells.r]||0)+t.sells.qty*2;
