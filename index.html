@@ -310,7 +310,7 @@ const BUILD={
   armeria: {nome:'Armeria', em:'🗡️', file:'tower_catapult',cost:{legna:50,pietra:30,ferro:15}, time:30, chain:{inR:'ferro',inA:3,outR:'armi',outA:2,t:26},job:1}
 };
 const DECO={
-  albero:  {nome:'Albero',  em:'🌳', files:['tree_single_A','tree_single_B'], mor:1},
+  albero:  {nome:'Albero',  em:'🌳', files:['deco_tree','deco_pine'], mor:1},
   fiori:   {nome:'Fiori',   em:'🌸', flower:true, mor:1},
   siepe:   {nome:'Siepe',   em:'🌿', build:'makeHedge', mor:1},
   lampione:{nome:'Lampione',em:'🏮', build:'makeLamp',  mor:1},
@@ -432,14 +432,21 @@ async function preload(){
   await loadTuzu();
   await loadForestTrees();
   await loadFloraDetail();
+  await loadNatureDecos();
   await loadKingdomMonsters();
 }
 // alberi del bosco (nature kit) come template per l'InstancedMesh
 const FOREST_TPL={n_tree:'tree', n_pine:'pine'};
 async function loadForestTrees(){for(const tn in FOREST_TPL){try{const m=await loadModel('models/nature/'+FOREST_TPL[tn]+'.glb');let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[tn]=m;}catch(e){}}}
 // dettaglio-natura leggero (fiori/cespugli/felci/sassi/erba) per un mondo ricco e coerente
-const FLORA_TPL={f_bush:'bush',f_grass:'grass',f_grassw:'grass_wispy',f_fern:'fern',f_flbush:'bush_with_flowers',f_pebble:'pebble_round'};
+const FLORA_TPL={f_bush:'bush',f_grass:'grass',f_grassw:'grass_wispy',f_fern:'fern',f_flbush:'bush_with_flowers',f_pebble:'pebble_round',f_mush:'mushroom',f_clover:'clover',f_flgrp:'flower_group'};
 async function loadFloraDetail(){for(const tn in FLORA_TPL){try{const m=await loadModel('models/nature/'+FLORA_TPL[tn]+'.glb');let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[tn]=m;}catch(e){}}}
+// decorazioni-natura 3D (alberi piazzabili + boschetti corrotti dei mostri): template avvolti e normalizzati in altezza
+function wrapScaled(src,targetH){const m=src.clone(true);m.position.set(0,0,0);m.rotation.set(0,0,0);m.scale.setScalar(1);m.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(m);const h=(box.max.y-box.min.y)||1;const sc=targetH/h;m.scale.setScalar(sc);m.updateMatrixWorld(true);const b2=new THREE.Box3().setFromObject(m);m.position.set(-(b2.min.x+b2.max.x)/2,-b2.min.y,-(b2.min.z+b2.max.z)/2);m.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});const g=new THREE.Group();g.add(m);return g;}
+async function loadNatureDecos(){const mk=async(key,srcTpl,file,hh)=>{try{let src=srcTpl&&templates[srcTpl];if(!src){const m=await loadModel('models/nature/'+file+'.glb');let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(!has)return;src=m;}templates[key]=wrapScaled(src,hh);}catch(e){}};
+  await mk('deco_tree','n_tree','tree',2.6);await mk('deco_pine','n_pine','pine',2.9);
+  await mk('deco_mush','f_mush','mushroom',0.95);await mk('deco_flowers','f_flgrp','flower_group',0.55);
+  await mk('deco_twisted',null,'twisted_tree',2.8);}
 // mostro simbolo di ogni regno (per i villaggi e la Caccia ai 9 Mostri) + Nyxar
 const KMONSTER={dendra:'mushroom_king',nefele:'armabee',chrysa:'ghost',selenea:'wizard',oros:'goleling_evolved',thalassa:'squidle',pyra:'dragon',krios:'yeti',metalla:'goleling'};
 const NYXAR_MODEL='blue_demon';
@@ -910,7 +917,7 @@ let forestA=null,forestB=null,forestNA=0,forestNB=0;const FOREST_MAX=2600;const 
 // dettaglio-natura sparso (InstancedMesh, salta celle occupate)
 let floraDetailDone=false;
 function scatterFlora(name,count,targetH,rMin,rMax){const parts=extractTreeParts(name,targetH);if(!parts)return;const ims=parts.map(p=>{const im=new THREE.InstancedMesh(p.geo,p.mat,count);im.castShadow=false;im.receiveShadow=true;im.frustumCulled=false;cityGroup.add(im);return im;});const m=new THREE.Matrix4();let n=0;for(let i=0;i<count;i++){const ang=Math.random()*6.28,r=rMin+Math.random()*(rMax-rMin);const wx=Math.cos(ang)*r,wz=Math.sin(ang)*r;const cx=Math.round(wx/CELL+HALF),cy=Math.round(wz/CELL+HALF);if(grid[key(cx,cy)])continue;const s=(0.75+Math.random()*0.6);const q=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.random()*6.28,0));m.compose(new THREE.Vector3(wx,0,wz),q,new THREE.Vector3(s,s,s));ims.forEach(im=>im.setMatrixAt(n,m));n++;}ims.forEach(im=>{im.count=n;im.instanceMatrix.needsUpdate=true;});}
-function placeFloraDetail(){if(floraDetailDone)return;floraDetailDone=true;scatterFlora('f_grass',360,0.3,2,54);scatterFlora('f_grassw',260,0.36,2,54);scatterFlora('f_bush',110,0.55,3,52);scatterFlora('f_fern',90,0.42,3,52);scatterFlora('f_flbush',70,0.5,3,50);scatterFlora('f_pebble',90,0.3,3,54);}
+function placeFloraDetail(){if(floraDetailDone)return;floraDetailDone=true;scatterFlora('f_grass',360,0.3,2,54);scatterFlora('f_grassw',260,0.36,2,54);scatterFlora('f_clover',150,0.3,2,46);scatterFlora('f_bush',110,0.55,3,52);scatterFlora('f_fern',90,0.42,3,52);scatterFlora('f_flbush',70,0.5,3,50);scatterFlora('f_flgrp',60,0.5,3,46);scatterFlora('f_pebble',90,0.3,3,54);scatterFlora('f_mush',60,0.55,18,54);}
 // estrae TUTTE le parti (mesh/materiali) di un albero, centrate in XZ, appoggiate a terra e scalate a un'altezza coerente
 function extractTreeParts(name,targetH){const tpl=templates[name];if(!tpl)return null;tpl.updateWorldMatrix(true,true);const raw=[];tpl.traverse(m=>{if(m.isMesh)raw.push({geo:m.geometry.clone().applyMatrix4(m.matrixWorld),mat:m.material});});if(!raw.length)return null;const box=new THREE.Box3();raw.forEach(p=>{p.geo.computeBoundingBox();box.union(p.geo.boundingBox);});const h=(box.max.y-box.min.y)||1,sc=(targetH||3)/h,cx=(box.min.x+box.max.x)/2,cz=(box.min.z+box.max.z)/2;raw.forEach(p=>{p.geo.translate(-cx,-box.min.y,-cz);p.geo.scale(sc,sc,sc);});return raw;}
 function makeForestVariant(name){const parts=extractTreeParts(name,2.8);if(!parts)return null;return parts.map(p=>{const im=new THREE.InstancedMesh(p.geo,p.mat,FOREST_MAX);im.count=0;im.castShadow=true;im.receiveShadow=true;im.frustumCulled=false;cityGroup.add(im);return im;});}
@@ -1201,6 +1208,11 @@ const ALLY_COST={oro:80,cibo:30};
 function nbForestRing(nb,count,rad,dense){const toCity=Math.atan2(-nb.g.position.x,-nb.g.position.z);let done=0,tries=0;
   while(done<count&&tries<count*4){tries++;const a=Math.random()*6.28;const da=Math.atan2(Math.sin(a-toCity),Math.cos(a-toCity));if(Math.abs(da)<0.95)continue; // varco verso la città
     const r=rad+(Math.random()-.5)*(dense?1.8:2.6);const t=makeConeTree(2.0+Math.random()*1.3);t.position.set(Math.sin(a)*r,0,Math.cos(a)*r);t.rotation.y=Math.random()*6.28;nb.g.add(t);done++;}}
+// il mostro corrompe la terra attorno: alberi contorti + funghi (nemici tanto, alleati poco che resistono con i fiori)
+function nbCorruptGrove(nb,intensity){const ring=nb._ring||5;const put=(tpl,count,smin,smax,rmin,rmax)=>{if(!templates[tpl]||count<=0)return;for(let i=0;i<count;i++){const a=Math.random()*6.28,r=rmin+Math.random()*(rmax-rmin);const o=inst(tpl);o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.random()*6.28;o.scale.setScalar(smin+Math.random()*(smax-smin));nb.g.add(o);autoSeat(o);}};
+  put('deco_twisted',Math.round(2+intensity*4),0.8,1.15,ring+1.4,ring+3.6);
+  put('deco_mush',Math.round(4+intensity*7),0.8,1.4,ring+0.6,ring+3.4);
+  if(intensity<0.5)put('deco_flowers',6,0.9,1.4,ring+1.2,ring+3.2);}
 // cinta: palisade di legno o muro di pietra, con porta verso la città
 function nbRampart(nb,rad,stone){const toCity=Math.atan2(-nb.g.position.x,-nb.g.position.z);const N=stone?26:34;
   const wood=new THREE.MeshStandardMaterial({color:0x6b4a28,roughness:1});const stoneM=new THREE.MeshStandardMaterial({color:0x8a8f99,roughness:1,flatShading:true});const cap=new THREE.MeshStandardMaterial({color:0x5a3c20,roughness:1});
@@ -1219,6 +1231,8 @@ async function initNeighbors(){const spec=[
     if(s.defense==='stone'){nbRampart(nb,s.ring,true);nbForestRing(nb,s.forest,s.ring+2.6,false);}
     else if(s.defense==='wood'){nbRampart(nb,s.ring,false);nbForestRing(nb,s.forest,s.ring+2.4,false);}
     else{nbForestRing(nb,s.forest,s.ring+0.3,true);nbForestRing(nb,Math.round(s.forest*0.6),s.ring+2.4,true);}
+    // la corruzione del mostro sul territorio: forte sui nemici, lieve sugli alleati
+    nbCorruptGrove(nb, hostile[s.k]?1 : (allied[s.k]?0.3:0.65));
     // cartello indicatore all'imbocco della strada
     const sign=makeSign(SIGNCOL[col]||0x888888);const [sx,sz]=cw(s.ax,s.ay);sign.position.set(sx,0,sz);sign.rotation.y=Math.atan2(s.x-sx,s.z-sz);cityGroup.add(sign);nb.sign=sign;
     for(let i=0;i<3;i++)nbSpawn(nb);neighbors.push(nb);spawnNbMonster(nb);}}
