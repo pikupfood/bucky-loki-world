@@ -385,6 +385,23 @@ let myKingdom='dendra';
 function kName(k){const p=POPOLI.find(x=>x.k===k);return p?p.n:k;}
 function kEnemies(k){const a=KINGDOMS[k]?KINGDOMS[k].allies:[];return Object.keys(KINGDOMS).filter(x=>x!==k&&a.indexOf(x)<0);}
 function applyKingdom(k){if(!KINGDOMS[k])k='dendra';myKingdom=k;POPOLI.forEach(p=>p.own=(p.k===k?1:0));(KINGDOMS[k].allies||[]).forEach(a=>allied[a]=1);}
+// ===== Bonus di regno (ogni popolo forte nella sua cosa) =====
+const KBONUS={
+ dendra:  {prod:{cibo:1.4},            start:{morale:12},          note:'🌿 +40% cibo, popolo felice'},
+ nefele:  {prod:{legna:1.35},          start:{oro:50,legna:40},    note:'🌬️ +35% legna, ricco d\'oro'},
+ chrysa:  {prod:{oro:1.5},   trade:1.5,start:{oro:150},            note:'🪙 +50% oro, commercio ×1.5'},
+ selenea: {prod:{oro:1.2,pane:1.3},    start:{morale:10,oro:40},   note:'🌙 ricerca potente, mistica'},
+ oros:    {prod:{ferro:1.35},          start:{soldiers:3,ferro:30},note:'⚔️ soldati in più, +35% ferro'},
+ thalassa:{prod:{cibo:1.3}, harbor:1.9,start:{cibo:50,oro:30},     note:'🌊 porti ×1.9, mare generoso'},
+ pyra:    {prod:{armi:1.45,ferro:1.2}, start:{ferro:25,armi:4},    note:'🔥 +45% armi, forgia ardente'},
+ krios:   {prod:{pietra:1.3}, defense:1.4,start:{pietra:50},       note:'🐉 difesa +40%, gelo tenace'},
+ metalla: {prod:{pietra:1.45,ferro:1.4},start:{pietra:60,ferro:25},note:'⛏️ +45% pietra, +40% ferro'}
+};
+function kProd(r){const K=KBONUS[myKingdom];return (K&&K.prod&&K.prod[r])||1;}
+function kHarbor(){const K=KBONUS[myKingdom];return (K&&K.harbor)||1;}
+function kTrade(){const K=KBONUS[myKingdom];return (K&&K.trade)||1;}
+function kDefense(){const K=KBONUS[myKingdom];return (K&&K.defense)||1;}
+function grantKingdomStart(){const K=KBONUS[myKingdom];if(!K||!K.start)return;for(const r in K.start){if(r==='soldiers')soldiers+=K.start.soldiers;else if(r==='morale')morale=Math.min(100,morale+K.start.morale);else R[r]=(R[r]||0)+K.start[r];}}
 let templates={};
 async function preload(){
   const names=['home_A','home_B','lumbermill','windmill','mine','blacksmith','market','church','barracks','castle','tower_A','tower_B','well','watermill','tavern','archeryrange','tower_catapult'];
@@ -477,7 +494,7 @@ let research={};
 function hasRes(id){return !!research[id];}
 function heroLvl(k){return heroes[k]||0;}
 function heroCost(k){const b=HEROES[k].base,l=heroLvl(k)+1;const c={};for(const r in b)c[r]=b[r]*l;return c;}
-function prodBonus(r){if(r==='cibo'||r==='pane')return 1+heroLvl('contadina')*0.25+(hasRes('agricoltura')?0.3:0);if(r==='pietra'||r==='ferro')return 1+heroLvl('minatore')*0.25+(hasRes('estrazione')?0.3:0);return 1;}
+function prodBonus(r){let b=1;if(r==='cibo'||r==='pane')b=1+heroLvl('contadina')*0.25+(hasRes('agricoltura')?0.3:0);else if(r==='pietra'||r==='ferro')b=1+heroLvl('minatore')*0.25+(hasRes('estrazione')?0.3:0);return b*kProd(r);}
 function allyCostMul(){return 1-Math.min(0.45,heroLvl('esploratore')*0.15);}
 function caravanBonus(){return 1+heroLvl('esploratore')*0.2;}
 function buildSpeedBonus(){return 1-Math.min(0.6,heroLvl('costruttore')*0.16+(hasRes('edilizia')?0.15:0));}
@@ -485,7 +502,7 @@ function cropBonus(){return 1+heroLvl('contadina')*0.3+(hasRes('agricoltura')?0.
 function soldierDmgBonus(){return (1+heroLvl('capitano')*0.4+(hasRes('tattica')?0.25:0)+(hasRes('fabbri')?0.2:0))*(R.armi>0?1.4:1);}
 function towerDmgBonus(){return 1+heroLvl('guardiano')*0.5+(hasRes('fortificazioni')?0.3:0);}
 function wallHpMul(){return hasRes('fortificazioni')?1.5:1;}
-function tradeBonus(){return hasRes('commercio')?1.5:1;}
+function tradeBonus(){return (hasRes('commercio')?1.5:1)*kTrade();}
 // ===== livelli degli edifici (potenziamento, 30 livelli + evoluzione estetica) =====
 const MAXLVL=30;
 function buildLvl(b){return b.lvl||1;}
@@ -1324,7 +1341,7 @@ let prodBoostT=0;
 let harborT=0;
 function produce(dt){if(prodBoostT>0)prodBoostT=Math.max(0,prodBoostT-dt);const boost=prodBoostT>0?2:1;const mul=moraleMul();
   // commercio via mare: i porticcioli portano oro ogni tanto
-  const nH=decos.filter(x=>x.k==='porticciolo').length;if(nH){harborT+=dt*mul;if(harborT>=24){harborT=0;const g=nH*5*boost;R.oro+=g;const pc=decos.find(x=>x.k==='porticciolo');if(pc){const [wx,wz]=cw(pc.cx,pc.cy);floatText(wx,wz,'⚓ 🪙+'+g);}drawTop();}}
+  const nH=decos.filter(x=>x.k==='porticciolo').length;if(nH){harborT+=dt*mul;if(harborT>=24){harborT=0;const g=Math.round(nH*5*boost*kHarbor());R.oro+=g;const pc=decos.find(x=>x.k==='porticciolo');if(pc){const [wx,wz]=cw(pc.cx,pc.cy);floatText(wx,wz,'⚓ 🪙+'+g);}drawTop();}}
   buildings.forEach(b=>{if(!b.active)return;
   if(b.def.prod){b.timer+=dt*mul;if(b.timer>=b.def.prod.t){b.timer=0;R[b.def.prod.r]+=Math.max(1,Math.round(b.def.prod.a*lvlMul(b)*prodBonus(b.def.prod.r)*boost));}}
   if(b.def.chain){const c=b.def.chain;b.ctimer=(b.ctimer||0)+dt*mul;if(b.ctimer>=c.t){b.ctimer=0;if(R[c.inR]>=c.inA){R[c.inR]-=c.inA;R[c.outR]+=Math.round(c.outA*lvlMul(b)*boost);}}}
@@ -1792,10 +1809,11 @@ function openKingdomChoice(onDone){closeDyn();const d=document.createElement('di
   const cards=POPOLI.map(p=>{const K=KINGDOMS[p.k];const own=p.k===myKingdom;return `<div class="kcard" data-k="${p.k}" style="background:#fff;border:2px solid ${own?'#e0a23a':'rgba(0,0,0,.14)'};border-radius:12px;padding:9px 10px;cursor:pointer;text-align:left">
     <div style="font-size:24px;line-height:1">${K.em}</div><div style="font-weight:800;font-size:12.5px;line-height:1.15;margin-top:2px">${p.n}</div>
     <div style="font-size:11px;opacity:.85;margin-top:3px">Forte in: <b>${K.strong}</b></div>
-    <div style="font-size:10.5px;opacity:.65;margin-top:2px">Dio ${K.god} · Mostro: ${K.monster}</div></div>`;}).join('');
+    <div style="font-size:10.5px;color:#2f7a3f;margin-top:2px">${(KBONUS[p.k]&&KBONUS[p.k].note)||''}</div>
+    <div style="font-size:10px;opacity:.6;margin-top:2px">Dio ${K.god} · Mostro: ${K.monster}</div></div>`;}).join('');
   d.innerHTML=`<div class="card" style="max-width:580px;max-height:90vh;overflow:auto"><div class="em">🗺️</div><h2>Scegli il tuo Regno</h2><p style="font-size:12px;opacity:.9">Ogni popolo ha la sua forza, il suo dio protettore e il suo mostro. Alleati e nemici sono già scritti dalla storia. La scelta è per sempre in questa partita.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">${cards}</div></div>`;
   document.body.appendChild(d);armPanel(d);
-  d.querySelectorAll('.kcard').forEach(c=>c.onclick=()=>{const k=c.dataset.k;applyKingdom(k);save();closeDyn();toast('🏰 Hai scelto '+kName(k)+' — '+KINGDOMS[k].strong,4600);if(onDone)onDone();});}
+  d.querySelectorAll('.kcard').forEach(c=>c.onclick=()=>{const k=c.dataset.k;applyKingdom(k);grantKingdomStart();drawTop();save();closeDyn();toast('🏰 Hai scelto '+kName(k)+' — '+KINGDOMS[k].strong,4600);if(onDone)onDone();});}
 document.getElementById('startBtn').onclick=()=>{ if(!firstPlay) openKingdomChoice(beginGame); else beginGame(); };
 </script>
 <script type="module">
