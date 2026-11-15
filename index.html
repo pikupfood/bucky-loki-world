@@ -1076,15 +1076,15 @@ async function loadMonsters(){for(const tn in MONSTER_TPL){try{const m=await loa
 const EVOLVE={
   casa:    [{t:0,tpl:'v_casa',skins:['house_2','house_3','house_4','hut','hut_2'],fill:1.0},{t:2,file:'house',skins:['house','house_5','house_6','house_7','houses','houses_2','houses_3'],fill:1.0},{t:4,file:'town_center_second_age',skins:['town_center_second_age','town_center_2','town_center_3','town_center_4'],fill:1.14}],
   caserma: [{t:0,tpl:'v_caserma',skins:['barracks_2','barracks_3','wooden_encampment'],fill:1.0},{t:2,file:'barracks',skins:['barracks','barracks_4','barracks_5','barracks_6'],fill:1.0},{t:4,file:'fortress',skins:['fortress','castle_fortress','castle','castle_2'],fill:1.15}],
-  chiesa:  [{t:0,tpl:'v_chiesa',skins:['temple_2','temple_3','wodden_temple'],fill:1.0},{t:2,file:'temple',skins:['temple','temple_4','temple_first_age_leve'],fill:1.0},{t:4,file:'wonder_first_age_leve',fill:1.15}],
-  mercato: [{t:0,tpl:'v_mercato',skins:['market_stalls_2','market_stalls_3','market_stalls_4'],fill:1.0},{t:2,file:'market_stalls',skins:['market_stalls','market_stalls_compact'],fill:1.0},{t:4,file:'village_market',       fill:1.12}],
+  chiesa:  [{t:0,file:'magic-ritual',dir:'models/props/',fill:1.25}],
+  mercato: [{t:0,file:'forge',dir:'models/props/',fill:1.35}],
   taverna: [{t:0,tpl:'v_taverna'}, {t:2,file:'tower_house',         fill:1.0},{t:4,file:'town_center',          fill:1.14}],
   segheria:[{t:0,tpl:'v_segheria'},{t:2,file:'storage_house',       fill:1.0},{t:4,file:'wooden_fortress',      fill:1.14}],
   fonderia:[{t:0,tpl:'v_fonderia'},{t:2,file:'business_building',   fill:1.0},{t:4,file:'stone_tower',          fill:1.14}],
   fattoria:[{t:0,tpl:'v_fattoria',skins:['farm_2','farm_3','small_farm','farm_dirt'],fill:1.0},{t:2,file:'farm',skins:['farm','farm_2','windmill_2'],fill:1.0},{t:4,file:'windmill',skins:['windmill','windmill_2'],fill:1.14}]
 };
 async function loadEvolutions(){for(const key in EVOLVE){const stages=EVOLVE[key];const d=BUILD[key];const footCells=Math.max(d.w||4,d.h||4);for(let i=0;i<stages.length;i++){const s=stages[i];const files=s.skins?s.skins.slice():(s.file?[s.file]:null);if(!files)continue;s.tpls=[];
-  for(let j=0;j<files.length;j++){try{const model=await loadModel('models/rts/'+files[j]+'.glb');let has=false;model.traverse(m=>{if(m.isMesh)has=true;});if(!has)continue;const box=new THREE.Box3().setFromObject(model);const sz=box.getSize(new THREE.Vector3());const horiz=Math.max(sz.x,sz.z)||1;const sc=(footCells*CELL*(s.fill||1))/horiz;model.scale.setScalar(sc);model.updateWorldMatrix(true,true);const b2=new THREE.Box3().setFromObject(model);if(isFinite(b2.min.y))model.position.y-=b2.min.y;const wrap=new THREE.Group();wrap.add(model);const tn='e_'+key+'_'+i+'_'+j;templates[tn]=wrap;s.tpls.push(tn);}catch(e){}}
+  for(let j=0;j<files.length;j++){try{const model=await loadModel((s.dir||'models/rts/')+files[j]+'.glb');let has=false;model.traverse(m=>{if(m.isMesh)has=true;});if(!has)continue;const box=new THREE.Box3().setFromObject(model);const sz=box.getSize(new THREE.Vector3());const horiz=Math.max(sz.x,sz.z)||1;const sc=(footCells*CELL*(s.fill||1))/horiz;model.scale.setScalar(sc);model.updateWorldMatrix(true,true);const b2=new THREE.Box3().setFromObject(model);if(isFinite(b2.min.y))model.position.y-=b2.min.y;const wrap=new THREE.Group();wrap.add(model);const tn='e_'+key+'_'+i+'_'+j;templates[tn]=wrap;s.tpls.push(tn);}catch(e){}}
   if(s.tpls.length)s.tpl=s.tpls[0];else delete s.tpls;}}}
 // scambia il modello dell'edificio nello stadio giusto per il suo rango (con skin casuale per varietà)
 function evolveModel(b){const EV=EVOLVE[b.key];if(!EV||!b.obj)return;const tier=buildTier(buildLvl(b));let stage=EV[0];for(const s of EV){if(tier>=s.t&&(s.tpl||s.tpls))stage=s;}
@@ -2881,7 +2881,7 @@ window.addEventListener('pagehide',()=>{if(started)save();});
   templates.stalag=makeStalagT();templates.crystal=makeCrystalT();
   const had=loadSave();computeWorldHills();buildWorldHills();
   if(!had){setupTerritory();
-    const put=(fk,ccx,ccy)=>{const [w,h]=fpSize(fk.def);const [ax,ay]=fpAnchor(ccx,ccy,w,h);const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(fk.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:fk.key,def:fk.def,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true};buildings.push(b);const e={type:'building',key:fk.key,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);if(fk.def.pop)operai+=fk.def.pop;builtCount++;};
+    const put=(fk,ccx,ccy)=>{const [w,h]=fpSize(fk.def);const [ax,ay]=fpAnchor(ccx,ccy,w,h);const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(fk.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:fk.key,def:fk.def,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true};buildings.push(b);const e={type:'building',key:fk.key,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);if(fk.def.pop)operai+=fk.def.pop;builtCount++;if(typeof applyBuildingTier==='function'&&typeof EVOLVE!=='undefined'&&EVOLVE[fk.key])applyBuildingTier(b);};
     // CAVERNA: nessuna casa, nessun castello, nessun sentiero, nessuna natura di superficie. Solo un paio di strutture per l'economia.
     const H=HALF;
     put({key:'mercato',file:'market',def:BUILD.mercato},H-9,H);
