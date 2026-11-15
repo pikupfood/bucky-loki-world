@@ -285,7 +285,7 @@ let dayTime=0.18,dayLight=0.5,dayClock=0.28;
 const C_SUNSET=new THREE.Color(0xff9a52),C_SUNSKY=new THREE.Color(0xffb067),C_NIGHTSKY=new THREE.Color(0x4a5a93);
 function updDayNight(dt){dayClock=(dayClock+dt/330)%1; // ciclo giorno/notte di ~5,5 min, così si vedono alba e TRAMONTO
   const ang=dayClock*Math.PI*2;const d=-Math.cos(ang);const day=Math.max(0.2,Math.min(1,d*1.25+0.62));dayLight=day;
-  sun.intensity=0.35+day*1.7;renderer.toneMappingExposure=0.42+day*0.66;
+  sun.intensity=0.3+day*1.15;renderer.toneMappingExposure=0.5+day*0.36;
   const dusk=Math.max(0,1-Math.abs(d)*2.4); // forte all'alba e al tramonto
   // sole caldo e basso al tramonto
   sun.color.setRGB(1,1-dusk*0.32,1-dusk*0.58);
@@ -1609,8 +1609,8 @@ function makeObelisk(){const g=new THREE.Group();const base=new THREE.Mesh(new T
 function townPen(g,cx,cz,enemy){const W=4.6,D=3.4,fh=0.95,segL=2*(fh/1.1);
   if(templates['fence_wood_straight']){const side=(x,z,ry,len)=>{const n=Math.max(1,Math.round(len/segL));for(let i=0;i<n;i++){const t=(i+0.5)/n;const px=ry===0?x-len/2+t*len:x,pz=ry===0?z:z-len/2+t*len;const f=inst('fence_wood_straight');f.scale.setScalar(fh/1.1);f.position.set(px,0,pz);f.rotation.y=ry;f.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(f);autoSeat(f);}};
     side(cx,cz-D/2,0,W);side(cx,cz+D/2,0,W);side(cx-W/2,cz,Math.PI/2,D);side(cx+W/2,cz,Math.PI/2,D);}
-  const anSet=enemy?['a_sheep']:['a_sheep','a_cow','a_chicken'];
-  for(let i=0;i<3;i++){const o=townPut(g,anSet[i%anSet.length],cx+(Math.random()-.5)*W*0.5,cz+(Math.random()-.5)*D*0.5,0,null,1.45);if(o)distantLife.push({o,bx:o.position.x,bz:o.position.z,tx:o.position.x,tz:o.position.z,t:Math.random()*4,hop:Math.random()*6,sp:0.28,wander:1.3});}}
+  const anSet=enemy?['a_sheep']:['a_sheep','a_cow','a_chicken'];const anH={a_cow:0.95,a_sheep:0.62,a_chicken:0.42};
+  for(let i=0;i<3;i++){const ak=anSet[i%anSet.length];const o=townPut(g,ak,cx+(Math.random()-.5)*W*0.5,cz+(Math.random()-.5)*D*0.5,anH[ak]||0.7,null);if(o)distantLife.push({o,bx:o.position.x,bz:o.position.z,tx:o.position.x,tz:o.position.z,t:Math.random()*4,hop:Math.random()*6,sp:0.28,wander:1.1});}}
 function placeDistantKingdoms(){DISTANT_SPEC.forEach(s=>{if(s.k===myKingdom||neighbors.find(n=>n.k===s.k))return;const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const toC=Math.atan2(-s.x,-s.z);const env=KENV[s.k]||{g:0x8fb56f,tree:'n_tree',feat:'plain',walls:true};const enemy=!!hostile[s.k];
   // terreno del bioma: erba texturizzata, oppure terra bruciata/neve piena
   let gm;
