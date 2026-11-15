@@ -269,7 +269,7 @@ document.addEventListener('click',e=>{const t=e.target;if(t&&t.closest&&t.closes
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
-const scene=new THREE.Scene();const SKY=0x8fc3e6;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,60,150);
+const scene=new THREE.Scene();const SKY=0x8fc3e6;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,82,215);
 let VZ=8.5;const camera=new THREE.OrthographicCamera(-VZ,VZ,VZ,-VZ,0.1,260);
 const camTarget={x:0,z:0};const CAMK=24;
 function updateCam(){camera.position.set(camTarget.x+CAMK,CAMK*1.18,camTarget.z+CAMK);camera.lookAt(camTarget.x,0,camTarget.z);}
@@ -1208,7 +1208,7 @@ function placeWildVegetation(){for(let x=3;x<GRID-3;x++)for(let y=3;y<GRID-3;y++
 function inAnyLake(wx,wz,m){m=m||0;const LC=(typeof lakeCenters!=='undefined')?lakeCenters:[];for(const l of LC){const w=cw(l.cx,l.cy);const R=l.r*CELL+m;if((wx-w[0])*(wx-w[0])+(wz-w[1])*(wz-w[1])<R*R)return true;}const BL=(typeof bigLakes!=='undefined')?bigLakes:[];for(const b of BL){const R=b.R+m;if((wx-b.wx)*(wx-b.wx)+(wz-b.wz)*(wz-b.wz)<R*R)return true;}return false;}
 function addDecoTree(wx,wz){if(inAnyLake(wx,wz,1.2))return;if(!forestA)initForest();if(!forestA)return;const variant=Math.random()<.5?0:1;const n=variant?forestNB:forestNA;if(n>=FOREST_MAX)return;const s=0.8+Math.random()*0.5;const mtx=new THREE.Matrix4().compose(new THREE.Vector3(wx,0,wz),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.random()*6.28,0)),new THREE.Vector3(s,s,s));forestSetMtx(variant,n,mtx);if(variant)forestNB++;else forestNA++;}
 let scatterDone=false;
-function placeScatterForests(){if(scatterDone)return;scatterDone=true;const nbPos=[[-30,4],[30,-5],[5,30]];let placed=0;for(let c=0;c<40&&placed<340;c++){const ang=Math.random()*6.28,rad=17+Math.random()*34;const cx=Math.cos(ang)*rad,cz=Math.sin(ang)*rad;if(nbPos.some(p=>Math.hypot(cx-p[0],cz-p[1])<9))continue;const n=3+Math.floor(Math.random()*7);for(let i=0;i<n&&placed<340;i++){addDecoTree(cx+(Math.random()-.5)*5,cz+(Math.random()-.5)*5);placed++;}}
+function placeScatterForests(){if(scatterDone)return;scatterDone=true;const nbPos=[[-30,4],[30,-5],[5,30]];let placed=0;for(let c=0;c<66&&placed<520;c++){const ang=Math.random()*6.28,rad=17+Math.random()*63;const cx=Math.cos(ang)*rad,cz=Math.sin(ang)*rad;if(nbPos.some(p=>Math.hypot(cx-p[0],cz-p[1])<9))continue;if(DISTANT_SPEC&&DISTANT_SPEC.some(s=>Math.hypot(cx-s.x,cz-s.z)<19))continue;const n=3+Math.floor(Math.random()*7);for(let i=0;i<n&&placed<520;i++){addDecoTree(cx+(Math.random()-.5)*5,cz+(Math.random()-.5)*5);placed++;}}
   // fascia di bosco all'orizzonte: la terra sfuma fra gli alberi e la foschia, niente taglio netto verde→blu
   let far=0;for(let c=0;c<120&&far<480;c++){const ang=Math.random()*6.28,rad=56+Math.random()*58;const cx=Math.cos(ang)*rad,cz=Math.sin(ang)*rad;const n=4+Math.floor(Math.random()*6);for(let i=0;i<n&&far<480;i++){addDecoTree(cx+(Math.random()-.5)*7,cz+(Math.random()-.5)*7);far++;}}}
 // colline/montagnette lontane (decoro fisso, fuori dall'area giocabile)
@@ -1534,7 +1534,7 @@ async function initNeighbors(){const spec=[
     const sign=makeSign(SIGNCOL[col]||0x888888);const [sx,sz]=cw(s.ax,s.ay);sign.position.set(sx,0,sz);sign.rotation.y=Math.atan2(s.x-sx,s.z-sz);cityGroup.add(sign);nb.sign=sign;
     for(let i=0;i<3;i++)nbSpawn(nb);neighbors.push(nb);spawnNbMonster(nb);}}
 // ===== Regni LONTANI: dioramas visivi di tutti gli altri popoli, ambientazioni diverse, visibili scorrendo la mappa =====
-const DISTANT_SPEC=[{k:'thalassa',x:-62,z:-48,water:true},{k:'metalla',x:66,z:46,mount:true},{k:'pyra',x:60,z:-60,ember:true},{k:'krios',x:-72,z:54,snow:true,mount:true},{k:'selenea',x:-54,z:-76,night:true}];
+const DISTANT_SPEC=[{k:'thalassa',x:-80,z:-62,water:true},{k:'metalla',x:84,z:58,mount:true},{k:'pyra',x:78,z:-78,ember:true},{k:'krios',x:-92,z:70,snow:true,mount:true},{k:'selenea',x:-70,z:-98,night:true}];
 let distantKingdoms=[], distantLife=[];
 function placeDistantKingdoms(){DISTANT_SPEC.forEach(s=>{if(s.k===myKingdom||neighbors.find(n=>n.k===s.k))return;const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const T=BATTLE_THEME[s.k]||{};const enemy=!!hostile[s.k];
   const patch=new THREE.Mesh(new THREE.CircleGeometry(16.5,40),new THREE.MeshStandardMaterial({color:T.floor||0x8fb56f,roughness:1}));patch.rotation.x=-Math.PI/2;patch.position.y=0.02;g.add(patch);
@@ -1567,15 +1567,15 @@ function updDistantLife(dt){for(const L of distantLife){const o=L.o;L.t-=dt;
   if(L.t<=0){L.t=3+Math.random()*4;const a=Math.random()*6.28,rr=Math.random()*L.wander;L.tx=L.bx+Math.cos(a)*rr;L.tz=L.bz+Math.sin(a)*rr;}
   const dx=L.tx-o.position.x,dz=L.tz-o.position.z,d=Math.hypot(dx,dz);
   if(d>0.15){o.position.x+=dx/d*L.sp*dt;o.position.z+=dz/d*L.sp*dt;o.rotation.y=Math.atan2(dx,dz);L.hop+=dt*5;o.position.y=Math.abs(Math.sin(L.hop))*0.08;}else o.position.y=0;}}
-function placeNyxarMountain(){const g=new THREE.Group();g.position.set(0,0,-98);cityGroup.add(g);
+function placeNyxarMountain(){const g=new THREE.Group();g.position.set(0,0,-128);cityGroup.add(g);
   const aura=new THREE.Mesh(new THREE.CircleGeometry(24,42),new THREE.MeshBasicMaterial({color:0x2a1240,transparent:true,opacity:0.34}));aura.rotation.x=-Math.PI/2;aura.position.y=0.03;g.add(aura);
   for(const [dx,dz,sc] of [[0,0,3.6],[-9,5,2.6],[9,6,2.4],[0,-8,2.1]]){const mt=makeMountain(sc);mt.position.set(dx,0,dz);g.add(mt);}
   if(templates['m_castleR']){const o=inst('m_castleR');o.scale.setScalar(3.2);o.position.set(0,9,0);o.traverse(m=>{if(m.isMesh&&m.material){m.material=m.material.clone();if(m.material.color)m.material.color.multiplyScalar(0.42);m.castShadow=true;}});g.add(o);}
   if(templates['nyxar']){const m=inst('nyxar');if(typeof fitHeight==='function')fitHeight(m,5);m.position.set(5,9,5);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);}
-  nyxarWorld={x:0,z:-98,g};}
+  nyxarWorld={x:0,z:-128,g};}
 let nyxarWorld=null;
 function gotoKingdom(k){let pos=null;const nb=neighbors.find(n=>n.k===k);if(nb)pos=[nb.g.position.x,nb.g.position.z];else{const dk=distantKingdoms.find(x=>x.k===k);if(dk)pos=[dk.x,dk.z];else if(k==='__nyxar'&&nyxarWorld)pos=[nyxarWorld.x,nyxarWorld.z];else if(k===myKingdom)pos=[0,0];}
-  if(!pos){toast('Regno troppo lontano');return;}camTarget.x=Math.max(-110,Math.min(110,pos[0]));camTarget.z=Math.max(-110,Math.min(110,pos[1]));setZoom(k==='__nyxar'?14:9);updateCam();toast('🧭 Guardi '+(k==='__nyxar'?'il Monte di Nyxar':kName(k)),3000);}
+  if(!pos){toast('Regno troppo lontano');return;}camTarget.x=Math.max(-145,Math.min(145,pos[0]));camTarget.z=Math.max(-145,Math.min(145,pos[1]));setZoom(k==='__nyxar'?14:9);updateCam();toast('🧭 Guardi '+(k==='__nyxar'?'il Monte di Nyxar':kName(k)),3000);}
 // ogni villaggio nemico ha il SUO mostro che si aggira lì attorno
 function spawnNbMonster(nb){if(!templates['km_'+nb.k])return;const g=new THREE.Group();const m=inst('km_'+nb.k);fitHeight(m,1.5);m.rotation.y=Math.random()*6.28;m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);const ang=Math.random()*6.28,rr=(nb._ring||5)+2.5;g.position.set(nb.g.position.x+Math.cos(ang)*rr,0,nb.g.position.z+Math.sin(ang)*rr);cityGroup.add(g);nb.monster={obj:g,tx:g.position.x,tz:g.position.z,timer:2+Math.random()*3,hop:Math.random()*6};}
 function updNbMonsters(dt){for(const nb of neighbors){const mo=nb.monster;if(!mo)continue;const o=mo.obj;mo.timer-=dt;if(mo.timer<=0){mo.timer=4+Math.random()*4;const ang=Math.random()*6.28,rr=(nb._ring||5)+1.5+Math.random()*3.5;mo.tx=nb.g.position.x+Math.cos(ang)*rr;mo.tz=nb.g.position.z+Math.sin(ang)*rr;}const dx=mo.tx-o.position.x,dz=mo.tz-o.position.z,d=Math.hypot(dx,dz);if(d>0.2){o.position.x+=dx/d*0.5*dt;o.position.z+=dz/d*0.5*dt;o.rotation.y=Math.atan2(dx,dz);mo.hop+=dt*4.5;o.position.y=Math.abs(Math.sin(mo.hop))*0.09;}else{o.position.y=0.02;}}}
@@ -1630,7 +1630,7 @@ function spawnChest(x,z,rew){const g=makeChest();g.position.set(x,0,z);cityGroup
 function openChest(c){for(const r in c.rew)R[r]=(R[r]||0)+c.rew[r];drawTop();save();toast('🎁 Forziere del boss! '+Object.entries(c.rew).map(([r,v])=>RES[r]+'+'+v).join(' '),4200);cityGroup.remove(c.obj);const i=chests.indexOf(c);if(i>=0)chests.splice(i,1);}
 function updChests(dt){for(let i=chests.length-1;i>=0;i--){const c=chests[i],o=c.obj;c.bob+=dt*3;o.position.y=Math.abs(Math.sin(c.bob))*0.05;o.rotation.y+=dt*0.6;c.life-=dt;if(c.life<=0)openChest(c);}}
 function pickChest(px,py){const r=canvas.getBoundingClientRect();ndc.x=((px-r.left)/r.width)*2-1;ndc.y=-((py-r.top)/r.height)*2+1;ray.setFromCamera(ndc,camera);let best=null,bd=1e9;for(const c of chests){const h=ray.intersectObject(c.obj,true);if(h.length&&h[0].distance<bd){bd=h[0].distance;best=c;}}return best;}
-function visitNeighbor(k){const nb=neighbors.find(n=>n.k===k);const p=POPOLI.find(p=>p.k===k);if(!nb){toast('Troppo lontana per ora');return;}camTarget.x=Math.max(-110,Math.min(110,nb.g.position.x));camTarget.z=Math.max(-110,Math.min(110,nb.g.position.z));setZoom(7);updateCam();toast('Guardi '+p.n+' · 👥'+nb.pop+' ⚔️'+nb.mil,3200);}
+function visitNeighbor(k){const nb=neighbors.find(n=>n.k===k);const p=POPOLI.find(p=>p.k===k);if(!nb){toast('Troppo lontana per ora');return;}camTarget.x=Math.max(-145,Math.min(145,nb.g.position.x));camTarget.z=Math.max(-145,Math.min(145,nb.g.position.z));setZoom(7);updateCam();toast('Guardi '+p.n+' · 👥'+nb.pop+' ⚔️'+nb.mil,3200);}
 // ===== incursioni dell'Èrebo (difendi la città) =====
 let raiders=[],allyTroops=[],arrows=[],raidTimer=100+Math.random()*60,raidActive=false;
 // difficoltà crescente nel tempo: più giorni giochi / più grande sei / più nemici ti sei fatto, più forti sono le incursioni
@@ -1782,7 +1782,7 @@ const ray=new THREE.Raycaster();const ndc=new THREE.Vector2();
 function groundPt(cx,cy){const r=canvas.getBoundingClientRect();ndc.x=((cx-r.left)/r.width)*2-1;ndc.y=-((cy-r.top)/r.height)*2+1;ray.setFromCamera(ndc,camera);const h=ray.intersectObject(ground)[0];return h?h.point:null;}
 function cellAt(cx,cy){const p=groundPt(cx,cy);if(!p)return null;const gx=Math.round(p.x/CELL+HALF),gy=Math.round(p.z/CELL+HALF);if(!inB(gx,gy))return null;return {cx:gx,cy:gy};}
 let pointers=new Map(),dragStart=null,moved=false,downXY=null,pinchD=0;
-function setZoom(v){VZ=Math.max(4,Math.min(30,v));resize();}
+function setZoom(v){VZ=Math.max(4,Math.min(38,v));resize();}
 canvas.addEventListener('pointerdown',ev=>{canvas.setPointerCapture(ev.pointerId);pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
   if(pointers.size===1){moved=false;downXY={x:ev.clientX,y:ev.clientY};if(boxMode&&mode==='city'){boxActive=true;boxStart={x:ev.clientX,y:ev.clientY};dragStart=null;}else{dragStart=mode==='city'?groundPt(ev.clientX,ev.clientY):null;if(mode==='city'){showCell(ev.clientX,ev.clientY);if(selKey)hoverPreview(ev.clientX,ev.clientY);else if(moveTarget){const c=cellAt(ev.clientX,ev.clientY);if(c)showMovePreview(c.cx,c.cy);}}}}
   if(pointers.size===2){const p=[...pointers.values()];pinchD=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);dragStart=null;hideCell();}});
@@ -1798,7 +1798,7 @@ canvas.addEventListener('pointermove',ev=>{
     if(mode==='city')showCell(ev.clientX,ev.clientY);
     if(mode==='city'&&selKey)hoverPreview(ev.clientX,ev.clientY);
     else if(mode==='city'&&moveTarget){const c=cellAt(ev.clientX,ev.clientY);if(c)showMovePreview(c.cx,c.cy);}
-    if(mode==='city'&&moved&&dragStart){const cur=groundPt(ev.clientX,ev.clientY);if(cur){camTarget.x+=dragStart.x-cur.x;camTarget.z+=dragStart.z-cur.z;camTarget.x=Math.max(-110,Math.min(110,camTarget.x));camTarget.z=Math.max(-110,Math.min(110,camTarget.z));updateCam();}}}});
+    if(mode==='city'&&moved&&dragStart){const cur=groundPt(ev.clientX,ev.clientY);if(cur){camTarget.x+=dragStart.x-cur.x;camTarget.z+=dragStart.z-cur.z;camTarget.x=Math.max(-145,Math.min(145,camTarget.x));camTarget.z=Math.max(-145,Math.min(145,camTarget.z));updateCam();}}}});
 function endPtr(ev){const was=pointers.size;pointers.delete(ev.pointerId);
   if(boxActive&&was===1){boxActive=false;hideSelBox();if(moved)finishBox(boxStart,{x:ev.clientX,y:ev.clientY});else if(mode==='city')cityTap(ev.clientX,ev.clientY);boxStart=null;}
   else if(was===1&&!moved){if(mode==='city')cityTap(ev.clientX,ev.clientY);else if(mode==='battle')battleTapXY(ev.clientX,ev.clientY);}
@@ -2260,7 +2260,7 @@ function drawMiniMap(){if(!miniG)return;const S=miniC.width;miniG.clearRect(0,0,
   {const[a,b]=w2s(0,0,S);miniG.fillStyle='#ffd34e';miniG.beginPath();miniG.arc(a,b,3.2,0,6.28);miniG.fill();}
   if(typeof neighbors!=='undefined')neighbors.forEach(nb=>{if(!nb.g)return;const[a,b]=w2s(nb.g.position.x,nb.g.position.z,S);miniG.fillStyle=(typeof hostile!=='undefined'&&hostile[nb.k])?'#e2514a':(typeof allied!=='undefined'&&allied[nb.k])?'#4a90e2':'#caa94e';miniG.beginPath();miniG.arc(a,b,2.8,0,6.28);miniG.fill();});
   {const[a,b]=w2s(camTarget.x,camTarget.z,S);const vs=(VZ/MAPR)*(S*0.5)*1.05;miniG.strokeStyle='rgba(255,255,255,.92)';miniG.lineWidth=1.6;miniG.strokeRect(a-vs,b-vs*0.72,vs*2,vs*1.44);}}
-if(miniC){miniC.addEventListener('pointerdown',ev=>{ev.preventDefault();ev.stopPropagation();if(mode!=='city')return;const r=miniC.getBoundingClientRect();const wx=((ev.clientX-r.left)/r.width-0.5)*2*MAPR;const wz=((ev.clientY-r.top)/r.height-0.5)*2*MAPR;camTarget.x=Math.max(-110,Math.min(110,wx));camTarget.z=Math.max(-110,Math.min(110,wz));updateCam();});}
+if(miniC){miniC.addEventListener('pointerdown',ev=>{ev.preventDefault();ev.stopPropagation();if(mode!=='city')return;const r=miniC.getBoundingClientRect();const wx=((ev.clientX-r.left)/r.width-0.5)*2*MAPR;const wz=((ev.clientY-r.top)/r.height-0.5)*2*MAPR;camTarget.x=Math.max(-145,Math.min(145,wx));camTarget.z=Math.max(-145,Math.min(145,wz));updateCam();});}
 {const zmapBtn=document.getElementById('zmap');if(zmapBtn)zmapBtn.onclick=()=>{miniOn=!miniOn;if(miniC)miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();zmapBtn.style.opacity=miniOn?'1':'';toast(miniOn?'🗺️ Minimappa accesa':'🗺️ Minimappa nascosta',1300);};}
 // ===== loop =====
 let last=performance.now(),saveT=0,missT=0,started=false;
