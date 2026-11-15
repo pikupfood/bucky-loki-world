@@ -2881,7 +2881,7 @@ window.addEventListener('pagehide',()=>{if(started)save();});
   templates.stalag=makeStalagT();templates.crystal=makeCrystalT();
   const had=loadSave();computeWorldHills();buildWorldHills();
   if(!had){setupTerritory();
-    const put=(fk,ccx,ccy)=>{const [w,h]=fpSize(fk.def);const [ax,ay]=fpAnchor(ccx,ccy,w,h);const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(fk.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:fk.key,def:fk.def,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true};buildings.push(b);const e={type:'building',key:fk.key,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);if(fk.def.pop)operai+=fk.def.pop;builtCount++;if(typeof applyBuildingTier==='function'&&typeof EVOLVE!=='undefined'&&EVOLVE[fk.key])applyBuildingTier(b);};
+    const put=(fk,ccx,ccy)=>{const [w,h]=fpSize(fk.def);const [ax,ay]=fpAnchor(ccx,ccy,w,h);const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(fk.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:fk.key,def:fk.def,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true};buildings.push(b);const e={type:'building',key:fk.key,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);if(fk.def.pop)operai+=fk.def.pop;builtCount++;try{if(typeof applyBuildingTier==='function'&&typeof EVOLVE!=='undefined'&&EVOLVE[fk.key])applyBuildingTier(b);}catch(e){}};
     // CAVERNA: nessuna casa, nessun castello, nessun sentiero, nessuna natura di superficie. Solo un paio di strutture per l'economia.
     const H=HALF;
     put({key:'mercato',file:'market',def:BUILD.mercato},H-9,H);
