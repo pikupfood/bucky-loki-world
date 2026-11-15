@@ -681,10 +681,9 @@ function spawnWildlife(){if(wildlife.length||!templates['w_deer'])return;
   const mk=(tpl,h,rng,sp,ymax)=>{if(!templates[tpl])return;let px,pz,tries=0;do{const a=Math.random()*6.28,r=16+Math.random()*32;px=Math.cos(a)*r;pz=Math.sin(a)*r;tries++;}while(tries<24&&avoid.some(v=>Math.hypot(px-v[0],pz-v[1])<v[2]));
     const g=new THREE.Group();const m=inst(tpl);if(typeof fitHeight==='function')fitHeight(m,h);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);g.position.set(px,0,pz);g.rotation.y=Math.random()*6.28;cityGroup.add(g);
     wildlife.push({obj:g,hx:px,hz:pz,tx:px,tz:pz,timer:1+Math.random()*4,hop:Math.random()*6,speed:sp,range:rng,ymax:ymax,idle:0});};
-  for(let i=0;i<4;i++)mk(Math.random()<.5?'w_deer':'w_deer2',0.55,7,0.5,0.10);
-  for(let i=0;i<3;i++)mk('w_fox',0.3,6,0.62,0.09);
-  for(let i=0;i<2;i++)mk('w_frog',0.14,3,0.4,0.16);
-  mk('w_bear',0.62,5,0.3,0.06);}
+  // niente più animali che vagano liberi vicino al villaggio: solo 2 cerbiatti nel bosco lontano (fuori campo normale)
+  const mkFar=(tpl,h,rng,sp,ymax)=>{if(!templates[tpl])return;let px,pz,tries=0;do{const a=Math.random()*6.28,r=40+Math.random()*12;px=Math.cos(a)*r;pz=Math.sin(a)*r;tries++;}while(tries<24&&avoid.some(v=>Math.hypot(px-v[0],pz-v[1])<v[2]));const g=new THREE.Group();const m=inst(tpl);if(typeof fitHeight==='function')fitHeight(m,h);m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);g.position.set(px,0,pz);g.rotation.y=Math.random()*6.28;cityGroup.add(g);wildlife.push({obj:g,hx:px,hz:pz,tx:px,tz:pz,timer:1+Math.random()*4,hop:Math.random()*6,speed:sp,range:rng,ymax:ymax,idle:0});};
+  for(let i=0;i<2;i++)mkFar(Math.random()<.5?'w_deer':'w_deer2',0.55,5,0.4,0.10);}
 function updWildlife(dt){for(const w of wildlife){const o=w.obj;w.timer-=dt;
   if(w.timer<=0){w.timer=3+Math.random()*5;const a=Math.random()*6.28,r=Math.random()*w.range;w.tx=w.hx+Math.cos(a)*r;w.tz=w.hz+Math.sin(a)*r;w.idle=Math.random()<0.4?1.2+Math.random()*2:0;}
   if(w.idle>0){w.idle-=dt;o.position.y=0;continue;}
@@ -1248,9 +1247,9 @@ let lakes=[], lakeCenters=[];
 // acqua realistica: riflette l'HDR (metalness) e ha increspature animate (normalMap che scorre)
 const waterNrm=tl.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/waternormals.jpg');
 waterNrm.wrapS=waterNrm.wrapT=THREE.RepeatWrapping;waterNrm.repeat.set(5,5);
-const waterDeep=new THREE.MeshStandardMaterial({color:0x2278b5,roughness:0.85,metalness:0,transparent:true,opacity:1,normalMap:waterNrm,normalScale:new THREE.Vector2(0.14,0.14),envMapIntensity:0.12,side:THREE.DoubleSide});
-const waterMid=new THREE.MeshStandardMaterial({color:0x3fa0d8,roughness:0.85,metalness:0,transparent:true,opacity:1,normalMap:waterNrm,normalScale:new THREE.Vector2(0.12,0.12),envMapIntensity:0.12,side:THREE.DoubleSide});
-const waterShallow=new THREE.MeshStandardMaterial({color:0x79c8e6,roughness:0.85,metalness:0,transparent:true,opacity:0.96,normalMap:waterNrm,normalScale:new THREE.Vector2(0.1,0.1),envMapIntensity:0.12,side:THREE.DoubleSide});
+const waterDeep=new THREE.MeshStandardMaterial({color:0x14598f,roughness:0.6,metalness:0.2,transparent:true,opacity:0.97,normalMap:waterNrm,normalScale:new THREE.Vector2(0.3,0.3),envMapIntensity:0.28,side:THREE.DoubleSide});
+const waterMid=new THREE.MeshStandardMaterial({color:0x2384bf,roughness:0.55,metalness:0.2,transparent:true,opacity:0.94,normalMap:waterNrm,normalScale:new THREE.Vector2(0.28,0.28),envMapIntensity:0.3,side:THREE.DoubleSide});
+const waterShallow=new THREE.MeshStandardMaterial({color:0x4fb3dd,roughness:0.5,metalness:0.15,transparent:true,opacity:0.9,normalMap:waterNrm,normalScale:new THREE.Vector2(0.26,0.26),envMapIntensity:0.32,side:THREE.DoubleSide});
 const shoreMat=new THREE.MeshStandardMaterial({color:0xdbcb96,roughness:1,metalness:0,side:THREE.DoubleSide});
 function markWater(cx,cy){if(!inB(cx,cy)||grid[key(cx,cy)])return;grid[key(cx,cy)]={type:'water',ax:cx,ay:cy,w:1,h:1,cx,cy};lakes.push({cx,cy});}
 function disc(mat,R,y,rot){const m=new THREE.Mesh(new THREE.CircleGeometry(R,24),mat);m.rotation.x=-Math.PI/2;m.rotation.z=rot||0;m.position.y=y;m.renderOrder=28;return m;}
@@ -1663,7 +1662,8 @@ function buildOrganicTown(dk){const g=dk.g,enemy=dk.enemy,k=dk.k,toC=dk.toC,env=
   for(let i=0;i<14;i++){const a=Math.random()*6.28,r=3+Math.random()*10;const x=Math.cos(a)*r,z=Math.sin(a)*r;if(avoid.some(p=>Math.hypot(p.x-x,p.z-z)<p.r*0.8))continue;townPut(g,pick(enemy?['deco_mush','p_skull','deco_dead']:['deco_flowers','f_bush','f_flgrp','f_flbush']),x,z,0.4+Math.random()*0.6);}
   // ---- ABITANTI + ANIMALI vivi ----
   for(let i=0;i<7;i++){const a=Math.random()*6.28,r=3+Math.random()*8;const o=townPut(g,'p_knight',Math.cos(a)*r,Math.sin(a)*r,0,null,1.7);if(o)distantLife.push({o,bx:o.position.x,bz:o.position.z,tx:o.position.x,tz:o.position.z,t:Math.random()*4,hop:Math.random()*6,sp:0.6,wander:7});}
-  const anSet=enemy?['a_sheep']:['a_sheep','a_cow','a_chicken'];for(let i=0;i<4;i++){const a=Math.random()*6.28,r=5+Math.random()*7,x=Math.cos(a)*r,z=Math.sin(a)*r;if(avoid.some(p=>Math.hypot(p.x-x,p.z-z)<p.r))continue;const o=townPut(g,anSet[i%anSet.length],x,z,0,null,1.4);if(o)distantLife.push({o,bx:x,bz:z,tx:x,tz:z,t:Math.random()*4,hop:Math.random()*6,sp:0.4,wander:5});}
+  // un secondo recinto (animali confinati, niente animali a spasso per il paese)
+  townPen(g,Math.cos(toC-1.5)*8.5,Math.sin(toC-1.5)*8.5,enemy);
   // ---- MOSTRO simbolo + cartello ----
   townPut(g,'km_'+k,Math.cos(toC+2.7)*16.5,Math.sin(toC+2.7)*16.5,3.2);
   const sign=makeSign(SIGNCOL[COLORMAP[k]]||0x9a7f5a);sign.position.set(Math.cos(toC)*16,0,Math.sin(toC)*16);sign.scale.setScalar(1.8);g.add(sign);}
