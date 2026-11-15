@@ -244,8 +244,17 @@ try{new THREE.RGBELoader().load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r12
 const GRID=65, CELL=0.5, HALF=(GRID-1)/2, PAR=7;
 const tl=new THREE.TextureLoader();
 // erba STILIZZATA uniforme (procedurale, coerente col low-poly) invece della foto
-const grass=(()=>{const S=128;const c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');g.fillStyle='#6fa85a';g.fillRect(0,0,S,S);const draw=(x,y,s,col)=>{g.fillStyle=col;g.fillRect(x,y,s,s);};for(let i=0;i<420;i++){const r=Math.random();const col=r<0.5?'rgba(124,176,96,0.4)':(r<0.82?'rgba(92,150,74,0.4)':'rgba(150,198,120,0.36)');const x=Math.random()*S,y=Math.random()*S,s=1+Math.random()*2;for(const ox of [0,-S,S])for(const oy of [0,-S,S])draw(x+ox,y+oy,s,col);}return new THREE.CanvasTexture(c);})();
-grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(42,42);grass.encoding=THREE.sRGBEncoding;grass.anisotropy=4;
+const grass=(()=>{const S=256;const c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');g.fillStyle='#79ad5f';g.fillRect(0,0,S,S);
+  const draw=(x,y,s,col)=>{g.fillStyle=col;g.fillRect(x,y,s,s);};
+  // chiazze morbide a grande scala: il prato non è più una lastra piatta
+  const blob=(col,n,rmin,rmax)=>{for(let i=0;i<n;i++){const x=Math.random()*S,y=Math.random()*S,r=rmin+Math.random()*(rmax-rmin);for(const ox of [0,-S,S])for(const oy of [0,-S,S]){const grd=g.createRadialGradient(x+ox,y+oy,0,x+ox,y+oy,r);grd.addColorStop(0,col);grd.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=grd;g.beginPath();g.arc(x+ox,y+oy,r,0,6.283);g.fill();}}};
+  blob('rgba(98,152,78,0.55)',11,32,74); blob('rgba(156,200,126,0.45)',11,26,62);
+  // granuli d'erba fini
+  for(let i=0;i<560;i++){const r=Math.random();const col=r<0.5?'rgba(120,172,92,0.35)':(r<0.82?'rgba(90,146,72,0.35)':'rgba(168,206,132,0.32)');const x=Math.random()*S,y=Math.random()*S,s=1+Math.random()*2.4;for(const ox of [0,-S,S])for(const oy of [0,-S,S])draw(x+ox,y+oy,s,col);}
+  // qualche fiorellino sparso
+  for(let i=0;i<26;i++){const x=Math.random()*S,y=Math.random()*S,fc=['#ecdf74','#ec9ab4','#dadcec'][Math.floor(Math.random()*3)];for(const ox of [0,-S,S])for(const oy of [0,-S,S]){g.fillStyle=fc;g.beginPath();g.arc(x+ox,y+oy,1.3,0,6.283);g.fill();}}
+  return new THREE.CanvasTexture(c);})();
+grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(28,28);grass.encoding=THREE.sRGBEncoding;grass.anisotropy=4;
 const ground=new THREE.Mesh(new THREE.CircleGeometry(175,80),new THREE.MeshStandardMaterial({map:grass,color:0xffffff,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 // anello di terra all'orizzonte (stesso verde, si dissolve nella foschia, niente bordo netto)
 const groundRim=new THREE.Mesh(new THREE.RingGeometry(60,175,80,1),new THREE.MeshStandardMaterial({color:0x5f9150,roughness:1}));groundRim.rotation.x=-Math.PI/2;groundRim.position.y=-0.02;scene.add(groundRim);
@@ -263,7 +272,16 @@ const selRings=[];for(let i=0;i<5;i++){const rr=new THREE.Mesh(agentRing.geometr
 // griglia fine visibile (quadratini)
 const fineGrid=new THREE.GridHelper(GRID*CELL,GRID,0x2d3f1c,0x2d3f1c);fineGrid.position.y=0.028;fineGrid.material.transparent=true;fineGrid.material.opacity=0.33;fineGrid.material.depthWrite=false;fineGrid.visible=false;cityGroup.add(fineGrid);
 // sentiero di terra vero (texture marrone con granuli)
-function makeDirt(base,g1,g2){const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle=base;g.fillRect(0,0,64,64);for(let i=0;i<800;i++){const x=Math.random()*64,y=Math.random()*64,r=Math.random()*1.8+0.3;g.fillStyle=Math.random()<0.5?g1:g2;g.beginPath();g.arc(x,y,r,0,6.283);g.fill();}const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,2);t.anisotropy=4;t.encoding=THREE.sRGBEncoding;return t;}
+function makeDirt(base,g1,g2){const S=128;const c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');g.fillStyle=base;g.fillRect(0,0,S,S);
+  // ciottoli definiti (stile low-poly) con un filo d'ombra: la strada non è più fango granuloso
+  for(let i=0;i<46;i++){const x=Math.random()*S,y=Math.random()*S,r=5+Math.random()*7,rot=Math.random()*3;
+    g.save();g.translate(x,y);g.rotate(rot);
+    g.fillStyle='rgba(0,0,0,0.12)';g.beginPath();g.ellipse(0.8,1,r,r*0.72,0,0,6.283);g.fill(); // ombra
+    g.fillStyle=Math.random()<0.5?g1:g2;g.beginPath();g.ellipse(0,0,r,r*0.72,0,0,6.283);g.fill();
+    g.restore();}
+  // grana fine sopra, per non farli troppo lisci
+  for(let i=0;i<260;i++){const x=Math.random()*S,y=Math.random()*S,r=Math.random()*1.2+0.3;g.fillStyle=Math.random()<0.5?g1:g2;g.globalAlpha=0.5;g.beginPath();g.arc(x,y,r,0,6.283);g.fill();g.globalAlpha=1;}
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1.4,1.4);t.anisotropy=4;t.encoding=THREE.sRGBEncoding;return t;}
 // le strade evolvono con le ere: terra -> pietra -> cemento -> asfalto
 const ROAD_ERAS=[
  {n:'Terra',   edge:'#9c7a4c', mid:'#cfb080', g1:'rgba(80,58,28,0.30)',  g2:'rgba(240,224,184,0.30)'},
@@ -1074,10 +1092,11 @@ function initForest(){if(forestA)return;forestA=makeForestVariant('n_tree')||mak
 // forestA/forestB sono ARRAY di InstancedMesh (tronco+chioma): la matrice va impostata su tutte le parti
 function forestSetMtx(variant,n,mtx){const ims=variant?forestB:forestA;if(!ims)return;ims.forEach(im=>{im.setMatrixAt(n,mtx);if(im.count<n+1)im.count=n+1;im.instanceMatrix.needsUpdate=true;});}
 function hideInstance(t){const ims=t.variant?forestB:forestA;if(ims&&t.inst!=null)ims.forEach(im=>{im.setMatrixAt(t.inst,_zeroM);im.instanceMatrix.needsUpdate=true;});}
-function wildTree(cx,cy){if(!inB(cx,cy)||grid[key(cx,cy)])return;if(!forestA)initForest();if(!forestA)return;const variant=Math.random()<.5?0:1;const n=variant?forestNB:forestNA;if(n>=FOREST_MAX)return;const [wx,wz]=cw(cx,cy);const s=0.85+Math.random()*0.35;const mtx=new THREE.Matrix4().compose(new THREE.Vector3(wx,0,wz),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.random()*6.28,0)),new THREE.Vector3(s,s,s));forestSetMtx(variant,n,mtx);if(variant)forestNB++;else forestNA++;const e={type:'tree',key:'albero',ax:cx,ay:cy,w:1,h:1,cx,cy,wild:true,inst:n,variant};grid[key(cx,cy)]=e;trees.push({x:wx,z:wz,cx,cy,wild:true,inst:n,variant});wilds.push({cx,cy});}
+function wildTree(cx,cy){if(!inB(cx,cy)||grid[key(cx,cy)])return;const [wx,wz]=cw(cx,cy);if(typeof inAnyLake==='function'&&inAnyLake(wx,wz,0.9))return;if(!forestA)initForest();if(!forestA)return;const variant=Math.random()<.5?0:1;const n=variant?forestNB:forestNA;if(n>=FOREST_MAX)return;const s=0.85+Math.random()*0.35;const mtx=new THREE.Matrix4().compose(new THREE.Vector3(wx,0,wz),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.random()*6.28,0)),new THREE.Vector3(s,s,s));forestSetMtx(variant,n,mtx);if(variant)forestNB++;else forestNA++;const e={type:'tree',key:'albero',ax:cx,ay:cy,w:1,h:1,cx,cy,wild:true,inst:n,variant};grid[key(cx,cy)]=e;trees.push({x:wx,z:wz,cx,cy,wild:true,inst:n,variant});wilds.push({cx,cy});}
 function placeWildVegetation(){for(let x=3;x<GRID-3;x++)for(let y=3;y<GRID-3;y++){if(!inB(x,y)||unlockedCell(x,y)||grid[key(x,y)])continue;let dmin=9;for(let dx=-5;dx<=5&&dmin>1;dx++)for(let dy=-5;dy<=5;dy++){if(unlockedCell(x+dx,y+dy)){const dd=Math.abs(dx)+Math.abs(dy);if(dd<dmin)dmin=dd;}}const prob=dmin<=5?[0,1.0,1.0,0.85,0.62,0.42][dmin]:0.1;if(Math.random()<prob)wildTree(x,y);}}
 // alberi decorativi (istanziati) sparsi su tutta la mappa, qua e là
-function addDecoTree(wx,wz){if(!forestA)initForest();if(!forestA)return;const variant=Math.random()<.5?0:1;const n=variant?forestNB:forestNA;if(n>=FOREST_MAX)return;const s=0.8+Math.random()*0.5;const mtx=new THREE.Matrix4().compose(new THREE.Vector3(wx,0,wz),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.random()*6.28,0)),new THREE.Vector3(s,s,s));forestSetMtx(variant,n,mtx);if(variant)forestNB++;else forestNA++;}
+function inAnyLake(wx,wz,m){m=m||0;const LC=(typeof lakeCenters!=='undefined')?lakeCenters:[];for(const l of LC){const w=cw(l.cx,l.cy);const R=l.r*CELL+m;if((wx-w[0])*(wx-w[0])+(wz-w[1])*(wz-w[1])<R*R)return true;}const BL=(typeof bigLakes!=='undefined')?bigLakes:[];for(const b of BL){const R=b.R+m;if((wx-b.wx)*(wx-b.wx)+(wz-b.wz)*(wz-b.wz)<R*R)return true;}return false;}
+function addDecoTree(wx,wz){if(inAnyLake(wx,wz,1.2))return;if(!forestA)initForest();if(!forestA)return;const variant=Math.random()<.5?0:1;const n=variant?forestNB:forestNA;if(n>=FOREST_MAX)return;const s=0.8+Math.random()*0.5;const mtx=new THREE.Matrix4().compose(new THREE.Vector3(wx,0,wz),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.random()*6.28,0)),new THREE.Vector3(s,s,s));forestSetMtx(variant,n,mtx);if(variant)forestNB++;else forestNA++;}
 let scatterDone=false;
 function placeScatterForests(){if(scatterDone)return;scatterDone=true;const nbPos=[[-30,4],[30,-5],[5,30]];let placed=0;for(let c=0;c<40&&placed<340;c++){const ang=Math.random()*6.28,rad=17+Math.random()*34;const cx=Math.cos(ang)*rad,cz=Math.sin(ang)*rad;if(nbPos.some(p=>Math.hypot(cx-p[0],cz-p[1])<9))continue;const n=3+Math.floor(Math.random()*7);for(let i=0;i<n&&placed<340;i++){addDecoTree(cx+(Math.random()-.5)*5,cz+(Math.random()-.5)*5);placed++;}}
   // fascia di bosco all'orizzonte: la terra sfuma fra gli alberi e la foschia, niente taglio netto verde→blu
@@ -1110,9 +1129,10 @@ let lakes=[], lakeCenters=[];
 // acqua realistica: riflette l'HDR (metalness) e ha increspature animate (normalMap che scorre)
 const waterNrm=tl.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/waternormals.jpg');
 waterNrm.wrapS=waterNrm.wrapT=THREE.RepeatWrapping;waterNrm.repeat.set(5,5);
-const waterDeep=new THREE.MeshStandardMaterial({color:0x16466a,roughness:0.22,metalness:0.18,transparent:true,opacity:0.97,normalMap:waterNrm,normalScale:new THREE.Vector2(0.5,0.5),envMapIntensity:0.8,side:THREE.DoubleSide});
-const waterMid=new THREE.MeshStandardMaterial({color:0x2470a0,roughness:0.28,metalness:0.15,transparent:true,opacity:0.93,normalMap:waterNrm,normalScale:new THREE.Vector2(0.45,0.45),envMapIntensity:0.8,side:THREE.DoubleSide});
-const shoreMat=new THREE.MeshStandardMaterial({color:0xcfbc8e,roughness:1,metalness:0,side:THREE.DoubleSide});
+const waterDeep=new THREE.MeshStandardMaterial({color:0x2278b5,roughness:0.85,metalness:0,transparent:true,opacity:1,normalMap:waterNrm,normalScale:new THREE.Vector2(0.14,0.14),envMapIntensity:0.12,side:THREE.DoubleSide});
+const waterMid=new THREE.MeshStandardMaterial({color:0x3fa0d8,roughness:0.85,metalness:0,transparent:true,opacity:1,normalMap:waterNrm,normalScale:new THREE.Vector2(0.12,0.12),envMapIntensity:0.12,side:THREE.DoubleSide});
+const waterShallow=new THREE.MeshStandardMaterial({color:0x79c8e6,roughness:0.85,metalness:0,transparent:true,opacity:0.96,normalMap:waterNrm,normalScale:new THREE.Vector2(0.1,0.1),envMapIntensity:0.12,side:THREE.DoubleSide});
+const shoreMat=new THREE.MeshStandardMaterial({color:0xdbcb96,roughness:1,metalness:0,side:THREE.DoubleSide});
 function markWater(cx,cy){if(!inB(cx,cy)||grid[key(cx,cy)])return;grid[key(cx,cy)]={type:'water',ax:cx,ay:cy,w:1,h:1,cx,cy};lakes.push({cx,cy});}
 function disc(mat,R,y,rot){const m=new THREE.Mesh(new THREE.CircleGeometry(R,24),mat);m.rotation.x=-Math.PI/2;m.rotation.z=rot||0;m.position.y=y;m.renderOrder=28;return m;}
 // ===== barche, navi e porticcioli =====
@@ -1125,11 +1145,12 @@ function addLake(cx,cy,r){lakeCenters.push({cx,cy,r});
   const [wx,wz]=cw(cx,cy);const R=r*CELL;const g=new THREE.Group();g.position.set(wx,0,wz);
   // forma irregolare, diversa per ogni lago (niente cerchi tutti uguali)
   const sx=1.0+Math.random()*0.55, sz=0.58+Math.random()*0.4, rot0=Math.random()*3;
-  const sh=disc(shoreMat,R*1.16,0.03,rot0);sh.scale.set(sx*1.05,1,sz*1.05);g.add(sh);
-  const w1=disc(waterMid,R*1.05,0.05,rot0+0.2);w1.scale.set(sx,1,sz);g.add(w1);
-  const w2=disc(waterDeep,R*0.72,0.065,rot0-0.3);w2.scale.set(sx*0.95,1,sz*0.95);w2.position.set(R*(Math.random()-.4)*0.3,0.065,R*(Math.random()-.5)*0.3);g.add(w2);
+  const sh=disc(shoreMat,R*1.1,0.03,rot0);sh.scale.set(sx*1.04,1,sz*1.04);g.add(sh);
+  const w0=disc(waterShallow,R*1.05,0.045,rot0+0.1);w0.scale.set(sx,1,sz);g.add(w0);
+  const w1=disc(waterMid,R*0.96,0.055,rot0+0.2);w1.scale.set(sx*0.98,1,sz*0.98);g.add(w1);
+  const w2=disc(waterDeep,R*0.64,0.065,rot0-0.3);w2.scale.set(sx*0.94,1,sz*0.94);w2.position.set(R*(Math.random()-.4)*0.2,0.065,R*(Math.random()-.5)*0.2);g.add(w2);
   // 1-2 insenature/lobi: rompono il profilo e variano la dimensione
-  const lobes=1+Math.floor(Math.random()*2);for(let i=0;i<lobes;i++){const a=Math.random()*6.28,d=R*(0.7+Math.random()*0.5),lr=R*(0.4+Math.random()*0.45),lx=Math.cos(a)*d,lz=Math.sin(a)*d;const ls=disc(shoreMat,lr*1.3,0.032,Math.random()*3);ls.position.set(lx,0.032,lz);g.add(ls);const lw=disc(waterMid,lr*1.05,0.052,Math.random()*3);lw.position.set(lx,0.052,lz);g.add(lw);}
+  const lobes=1+Math.floor(Math.random()*2);for(let i=0;i<lobes;i++){const a=Math.random()*6.28,d=R*(0.7+Math.random()*0.5),lr=R*(0.4+Math.random()*0.45),lx=Math.cos(a)*d,lz=Math.sin(a)*d;const ls=disc(shoreMat,lr*1.3,0.032,Math.random()*3);ls.position.set(lx,0.032,lz);g.add(ls);const lw=disc(waterMid,lr*1.0,0.052,Math.random()*3);lw.position.set(lx,0.052,lz);g.add(lw);}
   cityGroup.add(g);}
 function placeLakes(){addLake(HALF-13,HALF+13,2+Math.floor(Math.random()*3));addLake(HALF+14,HALF-12,2+Math.floor(Math.random()*2));addLake(HALF+13,HALF+14,2+Math.floor(Math.random()*3));}
 // fiume a larghezza VARIABILE (si allarga e si stringe), costruito come nastro piatto seguendo la curva
