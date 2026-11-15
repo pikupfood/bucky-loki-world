@@ -465,7 +465,7 @@ async function loadNatureDecos(){const mk=async(key,srcTpl,file,hh)=>{try{let sr
 const PROP_DECO={p_lantern:['lantern.glb',0.9],p_torch:['torch.glb',1.05],p_signpost:['signpost.glb',1.2],p_barrels:['barrels.glb',0.6],p_potion:['potion.glb',0.32],p_chest:['treasure-chest.glb',0.5],p_skull:['skull.glb',0.4]};
 async function loadPropDecos(){for(const key in PROP_DECO){try{const m=await loadModel('models/props/'+PROP_DECO[key][0]);let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[key]=wrapScaled(m,PROP_DECO[key][1]);}catch(e){}}}
 // strutture grandi pixellabs (mulino ad acqua, castelli, fortezza) normalizzate sull'ingombro, come monumenti
-const MON_PROPS={m_watermill:['watermill.glb',4],m_castle:['castle.glb',6],m_castleR:['castle-royal.glb',6],m_fortress:['fortress.glb',5]};
+const MON_PROPS={m_watermill:['watermill.glb',4],m_castle:['castle.glb',6],m_castleR:['castle-royal.glb',6],m_fortress:['fortress.glb',5],m_watchtower:['watchtower.glb',4]};
 async function loadMonProps(){for(const key in MON_PROPS){const [file,foot]=MON_PROPS[key];try{const m=await loadModel('models/props/'+file);let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(!has)continue;const box=new THREE.Box3().setFromObject(m);const sz=box.getSize(new THREE.Vector3());const horiz=Math.max(sz.x,sz.z)||1;m.scale.setScalar((foot*CELL*0.9)/horiz);m.updateWorldMatrix(true,true);const b2=new THREE.Box3().setFromObject(m);if(isFinite(b2.min.y))m.position.y-=b2.min.y;m.position.x-=(b2.min.x+b2.max.x)/2;m.position.z-=(b2.min.z+b2.max.z)/2;m.traverse(o=>{if(o.isMesh)o.castShadow=true;});const wrap=new THREE.Group();wrap.add(m);templates[key]=wrap;FP[key]=measFP(wrap);}catch(e){}}}
 // mostro simbolo di ogni regno (per i villaggi e la Caccia ai 9 Mostri) + Nyxar
 const KMONSTER={dendra:'mushroom_king',nefele:'armabee',chrysa:'ghost',selenea:'wizard',oros:'goleling_evolved',thalassa:'squidle',pyra:'dragon',krios:'yeti',metalla:'goleling'};
@@ -637,7 +637,7 @@ function doUnlock(px,py,cost){if(cost)R.oro-=cost;unlockedPar[parKey(px,py)]=1;r
 function openUnlock(px,py){const c=terrCost();const fl=freeLeft();
   dialog('🔓','Annettere la terra?','',`<p>Vuoi aggiungere questa zona al regno dei Chlòri?</p><p style="margin-top:4px;font-size:12.5px"><b>Sblocchi ${PAR}×${PAR} = ${PAR*PAR} quadratini</b> dove costruire.</p><p style="margin-top:4px;font-size:12px;opacity:.85">Gratis oggi: <b>${fl}/2</b> rimaste.</p>`+(fl>0?`<button class="btn" id="uf">Sblocca gratis (${fl} oggi)</button>`:'')+`<button class="btn alt" id="up">Sblocca per 🪙${c}</button><button class="btn alt" id="uc">Annulla</button>`);
   const d=document.getElementById('dyn');const uf=d.querySelector('#uf');if(uf)uf.onclick=()=>{useFree();doUnlock(px,py,0);closeDyn();};d.querySelector('#up').onclick=()=>{if(R.oro>=c){doUnlock(px,py,c);closeDyn();}else toast('Serve 🪙'+c);};d.querySelector('#uc').onclick=closeDyn;}
-function placeCastle(){const [w,h]=FP['castle']||[6,6];const [ax,ay]=fpAnchor(HALF,HALF,w,h);if(grid[key(ax,ay)])return;const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst('castle');o.position.set(wx,0,wz);cityGroup.add(o);autoSeat(o);const ref={key:'castle',def:{nome:'Municipio',em:'🏰'},cx:ax,cy:ay,obj:o};const e={type:'building',key:'castle',ref,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);}
+function placeCastle(){const tpl=templates['m_castleR']?'m_castleR':'castle';const [w,h]=FP[tpl]||FP['castle']||[6,6];const [ax,ay]=fpAnchor(HALF,HALF,w,h);if(grid[key(ax,ay)])return;const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(tpl);o.position.set(wx,0,wz);cityGroup.add(o);autoSeat(o);const ref={key:'castle',def:{nome:'Municipio',em:'🏰'},cx:ax,cy:ay,obj:o};const e={type:'building',key:'castle',ref,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);}
 
 // ===== HUD =====
 function fmt(n){return Math.floor(n);}
@@ -1271,6 +1271,9 @@ function nbForestRing(nb,count,rad,dense){const toCity=Math.atan2(-nb.g.position
   while(done<count&&tries<count*4){tries++;const a=Math.random()*6.28;const da=Math.atan2(Math.sin(a-toCity),Math.cos(a-toCity));if(Math.abs(da)<0.95)continue; // varco verso la città
     const r=rad+(Math.random()-.5)*(dense?1.8:2.6);const t=makeConeTree(2.0+Math.random()*1.3);t.position.set(Math.sin(a)*r,0,Math.cos(a)*r);t.rotation.y=Math.random()*6.28;nb.g.add(t);done++;}}
 // il mostro corrompe la terra attorno: alberi contorti + funghi (nemici tanto, alleati poco che resistono con i fiori)
+// ogni villaggio vicino ha il SUO castello pixellabs al centro
+const NB_PALACE={nefele:'m_watchtower',chrysa:'m_castle',oros:'m_fortress',thalassa:'m_castleR',pyra:'m_fortress',krios:'m_castle',selenea:'m_fortress',metalla:'m_castle',dendra:'m_castleR'};
+function nbPalace(nb){const tpl=NB_PALACE[nb.k]||'m_castle';if(!templates[tpl])return;const o=inst(tpl);o.scale.setScalar(1.7);o.position.set(0,0,0);o.rotation.y=Math.random()*0.6-0.3;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});nb.g.add(o);if(typeof autoSeat==='function')autoSeat(o);nb.cells['0,0']=1;}
 // arredo del villaggio vicino con props già caricati (lanterne, botti, torce, cartello): carattere senza peso extra
 function nbDecor(nb){const ring=(nb._ring||5);const items=['p_lantern','p_barrels','p_torch','p_signpost','p_chest','p_lantern'];const n=4+Math.floor(Math.random()*3);
   for(let i=0;i<n;i++){const tpl=items[i%items.length];if(!templates[tpl])continue;const o=inst(tpl);const a=(i/n)*6.28+Math.random()*0.5,r=ring*0.55+Math.random()*(ring*0.3);o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});nb.g.add(o);if(typeof autoSeat==='function')autoSeat(o);}}
@@ -1287,11 +1290,12 @@ function nbRampart(nb,rad,stone){const toCity=Math.atan2(-nb.g.position.x,-nb.g.
     else{p=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.13,1.2,6),wood);p.position.set(x,0.6,z);p.rotation.set((Math.random()-.5)*0.12,Math.random()*0.5,(Math.random()-.5)*0.12);const tip=new THREE.Mesh(new THREE.ConeGeometry(0.13,0.22,6),cap);tip.position.set(x,1.25,z);nb.g.add(tip);}
     p.castShadow=true;nb.g.add(p);}}
 async function initNeighbors(){const spec=[
-    {k:'nefele',x:-30,z:4,ax:HALF-12,ay:HALF+1, build:[['castle',0,0],['home_A',-1,0],['home_B',1,0],['tower_B',0,1],['market',1,-1]], defense:'stone', ring:5.6, forest:10},
-    {k:'chrysa',x:30,z:-5,ax:HALF+12,ay:HALF-1, build:[['castle',0,0],['market',-1,0],['home_A',1,1],['blacksmith',-1,-1],['home_B',1,-1]], defense:'wood', ring:5.2, forest:14},
-    {k:'oros',x:5,z:30,ax:HALF+1,ay:HALF+12, build:[['castle',0,0],['home_A',-1,-1],['home_B',1,0],['church',0,1],['home_A',-1,1]], defense:'forest', ring:5.0, forest:26}];
+    {k:'nefele',x:-30,z:4,ax:HALF-12,ay:HALF+1, build:[['home_A',-1,0],['home_B',1,0],['tower_B',0,1],['market',1,-1]], defense:'stone', ring:5.6, forest:10},
+    {k:'chrysa',x:30,z:-5,ax:HALF+12,ay:HALF-1, build:[['market',-1,0],['home_A',1,1],['blacksmith',-1,-1],['home_B',1,-1]], defense:'wood', ring:5.2, forest:14},
+    {k:'oros',x:5,z:30,ax:HALF+1,ay:HALF+12, build:[['home_A',-1,-1],['home_B',1,0],['church',0,1],['home_A',-1,1]], defense:'forest', ring:5.0, forest:26}];
   for(const s of spec){if(s.k===myKingdom)continue;const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:6,mil:2,timer:40+Math.random()*30,agents:[],ax:s.ax,ay:s.ay,reached:!!reachedNb[s.k],_ring:s.ring};
     for(const [f,cx,cz] of s.build)await nbBuild(nb,f,cx,cz);
+    nbPalace(nb);
     // difesa: muro di pietra, palisade di legno, o fitto bosco
     if(s.defense==='stone'){nbRampart(nb,s.ring,true);nbForestRing(nb,s.forest,s.ring+2.6,false);}
     else if(s.defense==='wood'){nbRampart(nb,s.ring,false);nbForestRing(nb,s.forest,s.ring+2.4,false);}
