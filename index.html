@@ -628,6 +628,7 @@ async function preload(){
   templates['gate']=await loadModel(B+'buildings/neutral/wall_straight_gate.gltf');setLoad(++d/tot);
   measureWall();
   templates.char=await loadModel(AD+'Rogue.glb');setLoad(++d/tot);
+  for(const nm of ['Knight','Barbarian','Mage','Rogue_Hooded']){try{templates['char_'+nm]=await loadModel(AD+nm+'.glb');}catch(e){}}
   await loadVillage();
   await loadAnimals();
   await loadWildlife();
@@ -1279,13 +1280,15 @@ function makeHill(R,H,mat){const rings=7,seg=26,pos=[0,H,0],uv=[0.5,0.5],idx=[];
 function placeHills(){if(typeof grass==='undefined'||!grass)return;
   const gt=grass.clone();gt.wrapS=gt.wrapT=THREE.RepeatWrapping;gt.repeat.set(2.4,2.4);gt.needsUpdate=true;
   const HILL_MAT=new THREE.MeshStandardMaterial({map:gt,color:0xffffff,roughness:1,side:THREE.DoubleSide});
-  const DKpos=[[-80,-62],[84,58],[78,-78],[-92,70],[-70,-98],[0,-128]];
+  const DKpos=[[0,-128]];if(typeof distantKingdoms!=='undefined')distantKingdoms.forEach(dk=>DKpos.push([dk.x,dk.z]));
   const segD=(px,pz,ax,az,bx,bz)=>{const dx=bx-ax,dz=bz-az,L2=dx*dx+dz*dz||1;let t=((px-ax)*dx+(pz-az)*dz)/L2;t=Math.max(0,Math.min(1,t));return Math.hypot(px-(ax+dx*t),pz-(az+dz*t));};
   const blocked=(x,z,clr)=>{if(Math.hypot(x,z)<36)return true;for(const p of DKpos){if(Math.hypot(x-p[0],z-p[1])<34)return true;if(segD(x,z,0,0,p[0],p[1])<clr)return true;}
     if(typeof bigLakes!=='undefined')for(const L of bigLakes){if(Math.hypot(x-L.wx,z-L.wz)<L.R+clr)return true;}
     if(typeof riverPaths!=='undefined')for(const rv of riverPaths)for(let i=0;i<rv.length-1;i++){if(segD(x,z,rv[i][0],rv[i][1],rv[i+1][0],rv[i+1][1])<clr*0.7)return true;}
     return false;};
-  let placed=0,tries=0;while(placed<13&&tries<300){tries++;const a=Math.random()*6.2832,r=44+Math.random()*92,x=Math.cos(a)*r,z=Math.sin(a)*r;if(Math.hypot(x,z)>164)continue;const R=15+Math.random()*12,H=4.2+Math.random()*3.4;if(blocked(x,z,R+8))continue;const hill=makeHill(R,H,HILL_MAT);hill.position.set(x,0,z);hill.rotation.y=Math.random()*6.2832;hill.renderOrder=1;cityGroup.add(hill);placed++;}}
+  let placed=0,tries=0;while(placed<13&&tries<300){tries++;const a=Math.random()*6.2832,r=44+Math.random()*92,x=Math.cos(a)*r,z=Math.sin(a)*r;if(Math.hypot(x,z)>164)continue;const R=15+Math.random()*12,H=4.2+Math.random()*3.4;if(blocked(x,z,R+8))continue;const hill=makeHill(R,H,HILL_MAT);hill.position.set(x,0,z);hill.rotation.y=Math.random()*6.2832;hill.renderOrder=1;cityGroup.add(hill);
+    const treeK=['n_pine','n_tree','tree_single','deco_pine'].filter(t=>templates[t]);for(let t=0;t<3&&treeK.length;t++){const ta=Math.random()*6.2832,td=Math.random()*R*0.62,hy=H*0.5*(1+Math.cos((td/R)*Math.PI));const o=inst(treeK[Math.floor(Math.random()*treeK.length)]);fitHeight(o,2.1+Math.random()*1.1);o.position.set(x+Math.cos(ta)*td,hy-0.1,z+Math.sin(ta)*td);o.rotation.y=Math.random()*6.2832;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});cityGroup.add(o);}
+    placed++;}}
 // laghi/acqua (oltre la vegetazione): si pesca dopo aver aperto un passaggio
 let lakes=[], lakeCenters=[];
 // acqua realistica: riflette l'HDR (metalness) e ha increspature animate (normalMap che scorre)
@@ -1589,7 +1592,9 @@ async function initNeighbors(){const spec=[
     const sign=makeSign(SIGNCOL[col]||0x888888);const [sx,sz]=cw(s.ax,s.ay);sign.position.set(sx,0,sz);sign.rotation.y=Math.atan2(s.x-sx,s.z-sz);cityGroup.add(sign);nb.sign=sign;
     for(let i=0;i<3;i++)nbSpawn(nb);neighbors.push(nb);spawnNbMonster(nb);}}
 // ===== Regni LONTANI: dioramas visivi di tutti gli altri popoli, ambientazioni diverse, visibili scorrendo la mappa =====
-const DISTANT_SPEC=[{k:'thalassa',x:-80,z:-62,water:true},{k:'metalla',x:84,z:58,mount:true},{k:'pyra',x:78,z:-78,ember:true},{k:'krios',x:-92,z:70,snow:true,mount:true},{k:'selenea',x:-70,z:-98,night:true}];
+const DISTANT_SPEC=[{k:'thalassa',x:-80,z:-62,water:true},{k:'metalla',x:84,z:58,mount:true},{k:'pyra',x:78,z:-78,ember:true},{k:'krios',x:-92,z:70,snow:true,mount:true},{k:'selenea',x:24,z:112,night:true}];
+// personaggi colorati (KayKit Adventures) invece del cavaliere di pietra grigio
+function pickChar(){const ks=['char','char_Knight','char_Barbarian','char_Mage','char_Rogue_Hooded'].filter(k=>templates[k]&&templates[k].children&&templates[k].children.length);return ks.length?ks[Math.floor(Math.random()*ks.length)]:'char';}
 let distantKingdoms=[], distantLife=[];
 const TOWN_COBBLE=new THREE.MeshStandardMaterial({color:0xbcae92,roughness:1});
 const TOWN_DIRT=new THREE.MeshStandardMaterial({color:0xb2976a,roughness:1});
@@ -1693,15 +1698,16 @@ function enrichNeighbors(){if(typeof neighbors==='undefined')return;neighbors.fo
 let kingdomsConnected=false,pathPaths=[];
 function connectKingdoms(){if(kingdomsConnected)return;kingdomsConnected=true;
   try{placeRivers();}catch(e){}
-  const DK={thalassa:[-80,-62],metalla:[84,58],pyra:[78,-78],krios:[-92,70],selenea:[-70,-98]};
+  const DK={};if(typeof distantKingdoms!=='undefined')distantKingdoms.forEach(dk=>{DK[dk.k]=[dk.x,dk.z];});
   const wind=(ax,az,bx,bz,amp,seed,N)=>{N=N||6;const dx=bx-ax,dz=bz-az,L=Math.hypot(dx,dz)||1,px=-dz/L,pz=dx/L,pts=[];for(let i=0;i<=N;i++){const t=i/N,tp=Math.sin(t*Math.PI),off=amp*tp*Math.sin(t*3.1+seed);pts.push([ax+dx*t+px*off,az+dz*t+pz*off]);}return pts;};
   const addPath=(pts,w)=>{pathPaths.push(pts);const sd=Math.random()*6.28;const base=new THREE.Mesh(riverRibbon(pts,w,1.5,sd),PATH_EDGE);base.position.y=0.03;base.renderOrder=14;base.receiveShadow=true;cityGroup.add(base);const mid=new THREE.Mesh(riverRibbon(pts,w*0.52,1.7,sd+1),PATH_MID);mid.position.y=0.04;mid.renderOrder=15;cityGroup.add(mid);};
   // SENTIERI dal centro (fuori dal villaggio) alla porta di ogni regno, serpeggianti
   for(const k in DK){const p=DK[k],L=Math.hypot(p[0],p[1]),ux=p[0]/L,uz=p[1]/L;addPath(wind(ux*20,uz*20,p[0]-ux*24,p[1]-uz*24,13,Math.random()*6,6),2.1);}
   // sentiero verso il Monte di Nyxar
   addPath(wind(0,22,0,-104,11,1.2,6),1.9);
-  // ANELLO che collega i regni fra loro (porta -> porta, non solo dal centro)
-  {const ring=[[64,44],[-73,55],[-61,-47],[-56,-78],[61,-61]];const rr=ring.map((p,i)=>{const n=ring[(i+1)%ring.length];return [[p[0],p[1]],[(p[0]+n[0])/2+(Math.random()-0.5)*10,(p[1]+n[1])/2+(Math.random()-0.5)*10]];}).flat();addPath(rr.concat([rr[0]]),1.7);}
+  // ANELLO che collega le PORTE dei regni fra loro (ordinate per angolo, non solo dal centro)
+  {const gates=Object.values(DK).map(p=>{const L=Math.hypot(p[0],p[1])||1;return [p[0]*(1-24/L),p[1]*(1-24/L)];}).sort((a,b)=>Math.atan2(a[1],a[0])-Math.atan2(b[1],b[0]));
+   if(gates.length>=3){const rr=gates.map((p,i)=>{const n=gates[(i+1)%gates.length];return [[p[0],p[1]],[(p[0]+n[0])/2+(Math.random()-0.5)*10,(p[1]+n[1])/2+(Math.random()-0.5)*10]];}).flat();addPath(rr.concat([rr[0]]),1.7);}}
   // FIUMI che collegano i monti ai laghi del mondo
   try{addRiver([[72,50],[60,46],[52,44],[46,42]]);}catch(e){}             // metalla (monti) -> lago L2
   try{addRiver([[-84,64],[-70,40],[-58,14],[-50,-10],[-46,-28]]);}catch(e){} // krios (nevi) -> lago L1
@@ -1724,8 +1730,8 @@ let roadParties=[];
 function arcInfo(pts){const cum=[0];let L=0;for(let i=1;i<pts.length;i++){L+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);cum.push(L);}return {pts,cum,L};}
 function arcAt(P,s){const {pts,cum,L}=P;if(s<0)s=0;if(s>L)s=L;let i=1;while(i<cum.length&&cum[i]<s)i++;if(i>=pts.length)i=pts.length-1;const seg=cum[i]-cum[i-1]||1,t=(s-cum[i-1])/seg;return [pts[i-1][0]+(pts[i][0]-pts[i-1][0])*t, pts[i-1][1]+(pts[i][1]-pts[i-1][1])*t, Math.atan2(pts[i][1]-pts[i-1][1],pts[i][0]-pts[i-1][0])];}
 function spawnRoadParties(){for(const path of pathPaths){const P=arcInfo(path);if(P.L<22)continue;const party={P,lead:Math.random()*P.L,dir:Math.random()<0.5?1:-1,sp:1.5+Math.random()*1.1,mem:[]};
-    const specs=[['a_horse',1.0,0],['__crate',0,0.9],['p_knight',1.5,1.9],['p_knight',1.5,3.1]];
-    for(const sp of specs){let o;if(sp[0]==='__crate'){o=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.6,0.7),new THREE.MeshStandardMaterial({color:0xb9843f,roughness:1}));o.castShadow=true;}else{if(!templates[sp[0]])continue;o=inst(sp[0]);fitHeight(o,sp[1]);o.traverse(m=>{if(m.isMesh)m.castShadow=true;});}cityGroup.add(o);party.mem.push({o,gap:sp[2],hop:Math.random()*6,crate:sp[0]==='__crate'});}
+    const specs=[['a_horse',1.1,0],['__crate',0,0.95],['__char',1.1,2.0],['__char',1.1,3.2]];
+    for(const sp of specs){let o;if(sp[0]==='__crate'){o=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.5,0.6),new THREE.MeshStandardMaterial({color:0xb9843f,roughness:1}));o.castShadow=true;}else{const key=sp[0]==='__char'?pickChar():sp[0];if(!templates[key])continue;o=inst(key);fitHeight(o,sp[1]);o.traverse(m=>{if(m.isMesh)m.castShadow=true;});}cityGroup.add(o);party.mem.push({o,gap:sp[2],hop:Math.random()*6,crate:sp[0]==='__crate'});}
     if(party.mem.length)roadParties.push(party);}}
 function updRoadParties(dt){for(const p of roadParties){p.lead+=p.sp*p.dir*dt;if(p.lead>p.P.L){p.lead=p.P.L;p.dir=-1;}else if(p.lead<0){p.lead=0;p.dir=1;}
   for(const m of p.mem){const s=Math.max(0,Math.min(p.P.L,p.lead-m.gap*p.dir)),pt=arcAt(p.P,s),mdx=Math.cos(pt[2])*p.dir,mdz=Math.sin(pt[2])*p.dir;m.o.position.x=pt[0];m.o.position.z=pt[1];m.o.rotation.y=Math.atan2(mdx,mdz);if(m.crate){m.o.position.y=0.3;}else{m.hop+=dt*5;m.o.position.y=Math.abs(Math.sin(m.hop))*0.05;}}}}
@@ -1773,7 +1779,7 @@ function buildOrganicTown(dk){const g=dk.g,enemy=dk.enemy,k=dk.k,toC=dk.toC,env=
   // LAMPIONI lungo il viale
   if(templates['p_lantern'])for(const u of [-9,-5,-1,3,7,11]){for(const sgn of [-1,1])put('p_lantern',u,sgn*1.8,0.95,0);}
   // ABITANTI che passeggiano per le vie
-  for(let i=0;i<12;i++){const u=-8+Math.random()*22,v=Math.random()*16-8;const p=W(u,v);const o=townPut(g,'p_knight',p[0],p[1],0,null,1.6);if(o)distantLife.push({o,bx:o.position.x,bz:o.position.z,tx:o.position.x,tz:o.position.z,t:Math.random()*4,hop:Math.random()*6,sp:0.5,wander:5});}
+  for(let i=0;i<12;i++){const u=-8+Math.random()*22,v=Math.random()*16-8;const p=W(u,v);const o=townPut(g,pickChar(),p[0],p[1],1.05,null);if(o)distantLife.push({o,bx:o.position.x,bz:o.position.z,tx:o.position.x,tz:o.position.z,t:Math.random()*4,hop:Math.random()*6,sp:0.5,wander:5});}
   // MURA grandi e pulite + torri + porta verso la citta
   if(env.walls)smallWall(g,seed,toC,19);
   // MOSTRO simbolo FUORI dalle mura + cartello alla porta
