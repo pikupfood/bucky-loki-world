@@ -310,19 +310,28 @@ function tpJump(){if(exploreMode&&tpAvatar&&tpJumpY<=0.02&&tpJumpV===0){tpJumpV=
   st.textContent='.explore #fab,.explore #side,.explore #build,.explore #cats,.explore #zoom,.explore #guide{display:none!important}'+
    '#tpbtn{position:fixed;right:12px;top:58px;z-index:62;width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,220,150,.5);background:rgba(28,22,16,.85);color:#ffdca0;font-size:20px;cursor:pointer;display:none;align-items:center;justify-content:center}'+
    '.explore #tpbtn{display:flex}'+
-   '#tpjoy,#tplook{position:fixed;bottom:22px;z-index:60;border-radius:50%;background:rgba(20,16,12,.5);border:2px solid rgba(255,220,150,.3);display:none;touch-action:none}'+
-   '#tpjoy{left:20px;width:116px;height:116px}'+
-   '#tplook{right:16px;width:100px;height:100px;border-color:rgba(150,200,255,.32)}'+
+   '.explore #tpenter{display:none!important}'+
+   '#tpjoy,#tplook{position:fixed;z-index:60;border-radius:50%;background:rgba(20,16,12,.5);border:2px solid rgba(255,220,150,.3);display:none;touch-action:none}'+
+   '#tpjoy{left:20px;bottom:22px;width:118px;height:118px}'+
+   '#tplook{right:20px;bottom:230px;width:82px;height:82px;border-color:rgba(150,200,255,.32)}'+
    '.explore #tpjoy,.explore #tplook{display:block}'+
    '#tpjoy .nub,#tplook .nub{position:absolute;width:38px;height:38px;border-radius:50%;background:rgba(255,220,150,.85);pointer-events:none}'+
-   '#tplook .nub{background:rgba(170,210,255,.85)}'+
-   '#tpacts{position:fixed;right:128px;bottom:20px;z-index:61;display:none;flex-direction:column;gap:11px}'+
-   '.explore #tpacts{display:flex}'+
-   '#tpacts button{width:56px;height:56px;border-radius:50%;border:2px solid rgba(255,220,150,.45);background:rgba(40,28,16,.9);color:#ffe4a8;font-size:23px;cursor:pointer;touch-action:none;box-shadow:0 3px 10px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}'+
-   '#tpA{border-color:rgba(255,190,130,.85);width:62px;height:62px;font-size:26px}';
+   '#tplook .nub{background:rgba(170,210,255,.85);width:30px;height:30px}'+
+   '#tpA,#tpB,#tpC{position:fixed;z-index:61;border-radius:50%;border:2px solid rgba(255,220,150,.45);background:rgba(40,28,16,.9);color:#ffe4a8;cursor:pointer;touch-action:none;box-shadow:0 3px 10px rgba(0,0,0,.5);display:none;align-items:center;justify-content:center}'+
+   '.explore #tpA,.explore #tpB,.explore #tpC{display:flex}'+
+   '#tpA{right:60px;bottom:120px;width:66px;height:66px;font-size:28px;border-color:rgba(255,190,130,.9)}'+
+   '#tpB{right:116px;bottom:36px;width:56px;height:56px;font-size:23px}'+
+   '#tpC{right:18px;bottom:36px;width:56px;height:56px;font-size:23px}'+
+   '@media (orientation:landscape){'+
+     '#tpjoy{width:104px;height:104px;bottom:16px;left:18px}'+
+     '#tplook{width:74px;height:74px;bottom:124px;right:18px}'+
+     '#tpA{right:66px;bottom:80px;width:58px;height:58px;font-size:25px}'+
+     '#tpB{right:118px;bottom:16px;width:52px;height:52px;font-size:21px}'+
+     '#tpC{right:16px;bottom:16px;width:52px;height:52px;font-size:21px}'+
+   '}';
   document.head.appendChild(st);
   function wireStick(el,state){const nub=document.createElement('div');nub.className='nub';el.appendChild(nub);let id=null;
-    const put=(dx,dy)=>{const R=el.clientWidth/2;nub.style.left=(R-19+dx*(R-22))+'px';nub.style.top=(R-19+dy*(R-22))+'px';};put(0,0);
+    const put=(dx,dy)=>{const R=el.clientWidth/2,nh=(nub.offsetWidth||36)/2;nub.style.left=(R-nh+dx*(R-nh-4))+'px';nub.style.top=(R-nh+dy*(R-nh-4))+'px';};put(0,0);
     const mv=e=>{const r=el.getBoundingClientRect(),R=r.width/2;let dx=(e.clientX-(r.left+R))/R,dy=(e.clientY-(r.top+R))/R;const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m;}state.dx=dx;state.dy=dy;put(dx,dy);};
     el.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();id=e.pointerId;try{el.setPointerCapture(id);}catch(_){}state.active=true;mv(e);});
     el.addEventListener('pointermove',e=>{if(id!==e.pointerId)return;e.preventDefault();e.stopPropagation();mv(e);});
@@ -373,8 +382,13 @@ function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
     if(!tpLook.active){const target=Math.atan2(-dx,-dz);let d2=target-tpYaw;while(d2>Math.PI)d2-=2*Math.PI;while(d2<-Math.PI)d2+=2*Math.PI;tpYaw+=d2*Math.min(1,dt*1.8);}}
   else{if(tpInput.rotL)tpYaw+=dt*1.6;if(tpInput.rotR)tpYaw-=dt*1.6;if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);}
   const ty=(typeof stepHeightAt==='function')?stepHeightAt(o.position.x,o.position.z):0;tpAvatar._baseY=(tpAvatar._baseY||0)+(ty-(tpAvatar._baseY||0))*Math.min(1,dt*10);o.position.y=tpAvatar._baseY+tpJumpY;
-  const D=6.8,H=4.4,dcx=o.position.x+Math.sin(tpYaw)*D,dcy=H+o.position.y,dcz=o.position.z+Math.cos(tpYaw)*D;
-  const far=((tpCam.position.x-dcx)**2+(tpCam.position.z-dcz)**2)>400,ck=far?1:Math.min(1,dt*4.2);
+  const D=6.8,H=4.4;
+  // la camera NON entra nei muri: la avvicino se dietro c'e' un muro
+  let camD=1.4;for(let t=0.22;t<=1.001;t+=0.08){const cx=o.position.x+Math.sin(tpYaw)*D*t,cz=o.position.z+Math.cos(tpYaw)*D*t;if(typeof inRoomRaw!=='function'||inRoomRaw(cx,cz))camD=D*t;else break;}
+  const dcx=o.position.x+Math.sin(tpYaw)*camD,dcy=(1.5+2.9*camD/D)+o.position.y,dcz=o.position.z+Math.cos(tpYaw)*camD;
+  const curD=Math.hypot(tpCam.position.x-o.position.x,tpCam.position.z-o.position.z);
+  const far=((tpCam.position.x-dcx)**2+(tpCam.position.z-dcz)**2)>400;
+  const ck=far?1:(camD<curD-0.3?Math.min(1,dt*12):Math.min(1,dt*4.2));
   tpCam.position.x+=(dcx-tpCam.position.x)*ck;tpCam.position.y+=(dcy-tpCam.position.y)*ck;tpCam.position.z+=(dcz-tpCam.position.z)*ck;
   tpCam.lookAt(o.position.x,1.2+o.position.y,o.position.z);
   camTarget.x=o.position.x;camTarget.z=o.position.z;
@@ -575,6 +589,8 @@ function roomAt(x,z){for(const r of RECT_IDS){if(x>=r.x0&&x<=r.x1&&z>=r.z0&&z<=r
 function roomAddAt(o,x,z){const id=roomAt(x,z);(id?rGroup(id):(typeof cityGroup!=='undefined'?cityGroup:scene)).add(o);}
 function _adjR(a,b){(ADJ[a]||(ADJ[a]=[])).push(b);(ADJ[b]||(ADJ[b]=[])).push(a);}
 function inWalkable(x,z){if(!WALK_RECTS.length)return (x*x+z*z)<27*27;for(const r of WALK_RECTS){if(x>r.x0+1.1&&x<r.x1-1.1&&z>r.z0+1.1&&z<r.z1-1.1)return true;}return false;}
+// come inWalkable ma senza margine: per la camera (puo' arrivare fino al muro)
+function inRoomRaw(x,z){if(!WALK_RECTS.length)return (x*x+z*z)<28*28;for(const r of WALK_RECTS){if(x>r.x0+0.2&&x<r.x1-0.2&&z>r.z0+0.2&&z<r.z1-0.2)return true;}return false;}
 // OSTACOLI: oggetti solidi (non ci passi dentro). Cerchi {x,z,r}
 const avoid=[];
 const caveMonsters=[];   // {obj,x,z,hp,maxhp,av}
