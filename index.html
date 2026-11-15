@@ -1536,44 +1536,72 @@ async function initNeighbors(){const spec=[
 // ===== Regni LONTANI: dioramas visivi di tutti gli altri popoli, ambientazioni diverse, visibili scorrendo la mappa =====
 const DISTANT_SPEC=[{k:'thalassa',x:-80,z:-62,water:true},{k:'metalla',x:84,z:58,mount:true},{k:'pyra',x:78,z:-78,ember:true},{k:'krios',x:-92,z:70,snow:true,mount:true},{k:'selenea',x:-70,z:-98,night:true}];
 let distantKingdoms=[], distantLife=[];
-function placeDistantKingdoms(){DISTANT_SPEC.forEach(s=>{if(s.k===myKingdom||neighbors.find(n=>n.k===s.k))return;const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const T=BATTLE_THEME[s.k]||{};const enemy=!!hostile[s.k];
-  const patch=new THREE.Mesh(new THREE.CircleGeometry(16.5,40),new THREE.MeshStandardMaterial({color:T.floor||0x8fb56f,roughness:1}));patch.rotation.x=-Math.PI/2;patch.position.y=0.02;g.add(patch);
-  const toC=Math.atan2(-s.x,-s.z);
-  // MURA: anello di segmenti + 4 torri + una porta verso il centro
-  const R=11.5,segH=2.0,segLen=2*(segH/1.1),cnt=Math.max(12,Math.round(2*Math.PI*R/segLen));
-  if(templates['wall'])for(let i=0;i<cnt;i++){const a=(i/cnt)*6.2832;const w=inst('wall');w.scale.setScalar(segH/1.1);w.position.set(Math.cos(a)*R,0,Math.sin(a)*R);w.rotation.y=Math.atan2(-Math.sin(a),Math.cos(a));w.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(w);autoSeat(w);}
-  if(templates['gate']){const gt=inst('gate');gt.scale.setScalar(segH/1.1*1.15);gt.position.set(Math.cos(toC)*R,0,Math.sin(toC)*R);gt.rotation.y=Math.atan2(-Math.sin(toC),Math.cos(toC));gt.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(gt);autoSeat(gt);}
-  {const twk=templates['tower_new']?'tower_new':'tower_A';if(templates[twk])for(const a of [0.78,2.36,3.93,5.5]){const t=inst(twk);fitHeight(t,3.8);t.position.set(Math.cos(a)*R,0,Math.sin(a)*R);t.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(t);autoSeat(t);}}
-  // PALAZZO del popolo al centro
-  const tpl=NB_PALACE[s.k]||'m_castle';if(templates[tpl]){const o=inst(tpl);o.scale.setScalar(2.4);o.rotation.y=toC;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);}
-  // CASE del popolo dentro le mura
-  const houseSet=enemy?['home_B','v_casa','church']:['home_A','home_B','v_casa','church','tavern'];
-  for(let i=0;i<7;i++){const tk=houseSet[i%houseSet.length];if(!templates[tk])continue;const a=(i/7)*6.2832+0.35,r=5.5+((i%2)?1.9:0);const o=inst(tk);fitHeight(o,1.9+Math.random()*0.5);o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.atan2(-Math.cos(a),-Math.sin(a));o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);}
-  // ABITANTI che si muovono
-  if(templates['p_knight'])for(let i=0;i<4;i++){const p=inst('p_knight');p.scale.setScalar(1.7);const a=Math.random()*6.28,r=3+Math.random()*6;p.position.set(Math.cos(a)*r,0,Math.sin(a)*r);p.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(p);autoSeat(p);distantLife.push({o:p,bx:p.position.x,bz:p.position.z,tx:p.position.x,tz:p.position.z,t:Math.random()*4,hop:Math.random()*6,sp:0.6,wander:8});}
-  // ANIMALI grandi e vivi
-  const anSet=['a_sheep','a_cow','a_chicken'];for(let i=0;i<4;i++){const ak=anSet[i%anSet.length];if(!templates[ak])continue;const o=inst(ak);o.scale.setScalar(1.5);const a=Math.random()*6.28,r=6+Math.random()*5;o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);distantLife.push({o,bx:o.position.x,bz:o.position.z,tx:o.position.x,tz:o.position.z,t:Math.random()*4,hop:Math.random()*6,sp:0.45,wander:6});}
-  // MOSTRO simbolo, grande
-  if(templates['km_'+s.k]){const m=inst('km_'+s.k);fitHeight(m,3.2);m.position.set(Math.cos(toC+2)*9,0,Math.sin(toC+2)*9);m.rotation.y=Math.random()*6.28;m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);autoSeat(m);}
-  // ALBERI (nuova versione) oltre le mura
-  const treeK=enemy?['deco_twisted','deco_dead']:['n_tree','n_pine'];
-  for(let i=0;i<14;i++){const tk=treeK[i%treeK.length];if(!templates[tk])continue;const o=inst(tk);fitHeight(o,enemy?2.2:2.9);const a=Math.random()*6.28,r=13.5+Math.random()*2.5;o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);}
-  if(s.mount)for(const ang of [2.2,3.9]){const mt=makeMountain(1.9);mt.position.set(Math.cos(ang)*18.5,0,Math.sin(ang)*18.5);g.add(mt);}
-  if(s.water)for(const ang of [0.6,2.4,4.2]){const w=disc(waterMid,5.5,0.04,Math.random()*3);w.position.set(Math.cos(ang)*17.5,0.04,Math.sin(ang)*17.5);g.add(w);const fm=foamRing(5.5);fm.position.set(Math.cos(ang)*17.5,0.05,Math.sin(ang)*17.5);g.add(fm);}
-  if(s.night){const glow=new THREE.Mesh(new THREE.CircleGeometry(16.5,40),new THREE.MeshBasicMaterial({color:0x6a3f9a,transparent:true,opacity:0.2}));glow.rotation.x=-Math.PI/2;glow.position.y=0.03;g.add(glow);}
-  const sign=makeSign(SIGNCOL[COLORMAP[s.k]]||0x9a7f5a);sign.position.set(Math.cos(toC)*(R+2),0,Math.sin(toC)*(R+2));sign.scale.setScalar(1.7);g.add(sign);
-  distantKingdoms.push({k:s.k,x:s.x,z:s.z,g});});placeNyxarMountain();loadVariety().then(enrichKingdoms).catch(()=>{});}
-// ===== FANTASIA: arricchisce ogni regno con tanti asset del titolare (case variate, props vissuti, strutture a tema) =====
+const TOWN_COBBLE=new THREE.MeshStandardMaterial({color:0xbcae92,roughness:1});
+const TOWN_DIRT=new THREE.MeshStandardMaterial({color:0xb2976a,roughness:1});
 const V_HOUSES=['house_2','house_3','house_4','house_5','house_6','house_7','hut','hut_2','shack'];
 const V_PROPS=['market_stalls_2','market_stalls_compact','storage_hut','logs','crops','rock_2','rock_3'];
 const V_THEME={thalassa:['dock','port','shipping_port','docks'],metalla:['mine','gold_rocks','mountain','rock'],pyra:['wooden_encampment','trees_cut','logs'],krios:['mountain','mountain_2','pine_trees'],selenea:['wooden_monument','trees_cut','rock_3']};
 function loadVariety(){const all=new Set([...V_HOUSES,...V_PROPS]);Object.values(V_THEME).forEach(a=>a.forEach(x=>all.add(x)));
   return Promise.all([...all].map(f=>templates['V_'+f]?Promise.resolve():loadModel('models/rts/'+f+'.glb').then(m=>{let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates['V_'+f]=m;}).catch(()=>{})));}
-function enrichKingdoms(){distantKingdoms.forEach(dk=>{const g=dk.g;
-  for(let i=0;i<5;i++){const hk='V_'+V_HOUSES[Math.floor(Math.random()*V_HOUSES.length)];if(!templates[hk])continue;const o=inst(hk);fitHeight(o,1.6+Math.random()*0.7);const a=Math.random()*6.28,r=4+Math.random()*4.5;o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);}
-  for(let i=0;i<5;i++){const pk='V_'+V_PROPS[Math.floor(Math.random()*V_PROPS.length)];if(!templates[pk])continue;const o=inst(pk);fitHeight(o,0.7+Math.random()*0.7);const a=Math.random()*6.28,r=4.5+Math.random()*5.5;o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);}
-  const th=V_THEME[dk.k]||[];th.forEach((f,i)=>{const tk='V_'+f;if(!templates[tk])return;const o=inst(tk);fitHeight(o,1.7+Math.random()*1.2);const a=(i/Math.max(1,th.length))*6.28+0.6,r=8.5+Math.random()*3;o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);});
-});}
+function townPut(g,key,x,z,h,faceA,extra){if(!templates[key])return null;const o=inst(key);if(h)fitHeight(o,h);if(extra)o.scale.multiplyScalar(extra);o.position.set(x,0,z);o.rotation.y=(faceA!=null)?faceA:Math.random()*6.2832;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);if(typeof autoSeat==='function')autoSeat(o);return o;}
+function townRoad(g,a,len,w){const road=new THREE.Mesh(new THREE.PlaneGeometry(len,w),TOWN_DIRT);road.rotation.x=-Math.PI/2;road.receiveShadow=true;const rg=new THREE.Group();rg.add(road);rg.rotation.y=-a;rg.position.set(Math.cos(a)*len/2,0.028,Math.sin(a)*len/2);g.add(rg);}
+function townPen(g,cx,cz,enemy){const W=4.6,D=3.4,fh=0.95,segL=2*(fh/1.1);
+  if(templates['fence_wood_straight']){const side=(x,z,ry,len)=>{const n=Math.max(1,Math.round(len/segL));for(let i=0;i<n;i++){const t=(i+0.5)/n;const px=ry===0?x-len/2+t*len:x,pz=ry===0?z:z-len/2+t*len;const f=inst('fence_wood_straight');f.scale.setScalar(fh/1.1);f.position.set(px,0,pz);f.rotation.y=ry;f.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(f);autoSeat(f);}};
+    side(cx,cz-D/2,0,W);side(cx,cz+D/2,0,W);side(cx-W/2,cz,Math.PI/2,D);side(cx+W/2,cz,Math.PI/2,D);}
+  const anSet=enemy?['a_sheep']:['a_sheep','a_cow','a_chicken'];
+  for(let i=0;i<3;i++){const o=townPut(g,anSet[i%anSet.length],cx+(Math.random()-.5)*W*0.5,cz+(Math.random()-.5)*D*0.5,0,null,1.45);if(o)distantLife.push({o,bx:o.position.x,bz:o.position.z,tx:o.position.x,tz:o.position.z,t:Math.random()*4,hop:Math.random()*6,sp:0.28,wander:1.3});}}
+function placeDistantKingdoms(){DISTANT_SPEC.forEach(s=>{if(s.k===myKingdom||neighbors.find(n=>n.k===s.k))return;const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const T=BATTLE_THEME[s.k]||{};const enemy=!!hostile[s.k];const toC=Math.atan2(-s.x,-s.z);
+  // terreno erboso texturizzato, tinta del bioma
+  let gm;if(typeof grass!=='undefined'&&grass){const gt=grass.clone();gt.needsUpdate=true;gt.wrapS=gt.wrapT=THREE.RepeatWrapping;gt.repeat.set(7,7);gm=new THREE.MeshStandardMaterial({map:gt,color:T.floor||0x8fb56f,roughness:1});}else gm=new THREE.MeshStandardMaterial({color:T.floor||0x8fb56f,roughness:1});
+  const patch=new THREE.Mesh(new THREE.CircleGeometry(16.8,46),gm);patch.rotation.x=-Math.PI/2;patch.position.y=0.02;patch.receiveShadow=true;g.add(patch);
+  // piazza acciottolata + anello-strada principale + strada verso la porta
+  const plaza=new THREE.Mesh(new THREE.CircleGeometry(4.3,34),TOWN_COBBLE);plaza.rotation.x=-Math.PI/2;plaza.position.y=0.034;plaza.receiveShadow=true;g.add(plaza);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(6.3,7.7,54),TOWN_DIRT);ring.rotation.x=-Math.PI/2;ring.position.y=0.03;ring.receiveShadow=true;g.add(ring);
+  townRoad(g,toC,13.6,1.8);
+  // MURA + 4 torri + porta (con varco per la porta)
+  const R=13,segH=2.0,segLen=2*(segH/1.1),cnt=Math.max(16,Math.round(2*Math.PI*R/segLen));
+  if(templates['wall'])for(let i=0;i<cnt;i++){const a=(i/cnt)*6.2832;if(Math.abs(Math.atan2(Math.sin(a-toC),Math.cos(a-toC)))<0.2)continue;const w=inst('wall');w.scale.setScalar(segH/1.1);w.position.set(Math.cos(a)*R,0,Math.sin(a)*R);w.rotation.y=Math.atan2(-Math.sin(a),Math.cos(a));w.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(w);autoSeat(w);}
+  if(templates['gate']){const gt=inst('gate');gt.scale.setScalar(segH/1.1*1.2);gt.position.set(Math.cos(toC)*R,0,Math.sin(toC)*R);gt.rotation.y=Math.atan2(-Math.sin(toC),Math.cos(toC));gt.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(gt);autoSeat(gt);}
+  {const twk=templates['tower_new']?'tower_new':'tower_A';if(templates[twk])for(const a of [0.78,2.36,3.93,5.5]){const t=inst(twk);fitHeight(t,3.9);t.position.set(Math.cos(a)*R,0,Math.sin(a)*R);t.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(t);autoSeat(t);}}
+  // PALAZZO al centro della piazza
+  const tpl=NB_PALACE[s.k]||'m_castle';townPut(g,tpl,0,0,0,toC,2.5);
+  // bosco nuovo oltre le mura
+  const treeK=enemy?['deco_twisted','deco_dead']:['n_tree','n_pine'];for(let i=0;i<16;i++){const tk=treeK[i%treeK.length];if(!templates[tk])continue;const o=inst(tk);fitHeight(o,enemy?2.2:2.9);const a=Math.random()*6.28,r=14.4+Math.random()*2.1;o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);}
+  if(s.mount)for(const ang of [2.2,3.9,5.3]){const mt=makeMountain(1.9);mt.position.set(Math.cos(ang)*19,0,Math.sin(ang)*19);g.add(mt);}
+  if(s.water)for(const ang of [0.6,2.4,4.2]){const w=disc(waterMid,5.5,0.04,Math.random()*3);w.position.set(Math.cos(ang)*18.2,0.04,Math.sin(ang)*18.2);g.add(w);const fm=foamRing(5.5);fm.position.set(Math.cos(ang)*18.2,0.05,Math.sin(ang)*18.2);g.add(fm);}
+  if(s.night){const glow=new THREE.Mesh(new THREE.CircleGeometry(16.8,46),new THREE.MeshBasicMaterial({color:0x6a3f9a,transparent:true,opacity:0.17}));glow.rotation.x=-Math.PI/2;glow.position.y=0.028;g.add(glow);}
+  const sign=makeSign(SIGNCOL[COLORMAP[s.k]]||0x9a7f5a);sign.position.set(Math.cos(toC)*(R+2),0,Math.sin(toC)*(R+2));sign.scale.setScalar(1.8);g.add(sign);
+  distantKingdoms.push({k:s.k,x:s.x,z:s.z,g,enemy,toC});});placeNyxarMountain();loadVariety().then(()=>distantKingdoms.forEach(buildTownInterior)).catch(()=>{});}
+// ===== il villaggio dentro le mura: strade, case allineate, mercato, recinto, giardini — bello e vivibile =====
+function buildTownInterior(dk){const g=dk.g,enemy=dk.enemy,k=dk.k,toC=dk.toC;
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  const good=enemy?['home_B','V_shack','V_hut','V_hut_2','V_house_2','V_house_4']:['home_A','home_B','V_house_2','V_house_3','V_house_4','V_house_5','V_house_6','V_house_7','V_hut','V_hut_2','tavern','church','v_casa'];
+  const faceIn=a=>Math.atan2(-Math.cos(a),-Math.sin(a));
+  const near=(a,b)=>Math.abs(Math.atan2(Math.sin(a-b),Math.cos(a-b)));
+  const mktA=toC+2.1, penA=toC-2.1;
+  // ANELLO INTERNO di case, affacciate sulla piazza (saltando mercato/recinto)
+  const N1=12;for(let i=0;i<N1;i++){const a=(i/N1)*6.2832+0.13;if(near(a,mktA)<0.55||near(a,penA)<0.55)continue;const r=8.5+((i%2)?0.45:0);townPut(g,pick(good),Math.cos(a)*r,Math.sin(a)*r,1.7+Math.random()*0.5,faceIn(a));}
+  // ANELLO ESTERNO nei varchi
+  const N2=12;for(let i=0;i<N2;i++){const a=(i/N2)*6.2832+0.4;if(near(a,mktA)<0.5||near(a,penA)<0.5)continue;const r=10.8;townPut(g,pick(good),Math.cos(a)*r,Math.sin(a)*r,1.6+Math.random()*0.5,faceIn(a));}
+  // FONTANA/pozzo sulla piazza, davanti al palazzo
+  townPut(g,'well',Math.cos(toC)*2.7,Math.sin(toC)*2.7,1.0,0);
+  // MERCATO: edificio + bancarelle in un settore
+  townPut(g,templates['market']?'market':'V_market_stalls_2',Math.cos(mktA)*9,Math.sin(mktA)*9,2.0,faceIn(mktA));
+  for(let i=0;i<3;i++){const sa=mktA+(i-1)*0.3;townPut(g,'V_market_stalls_2',Math.cos(sa)*7.1,Math.sin(sa)*7.1,1.1,faceIn(sa));}
+  // RECINTO con animali
+  townPen(g,Math.cos(penA)*9.3,Math.sin(penA)*9.3,enemy);
+  // GIARDINI (fiori/cespugli/alberelli) nella fascia verde fra piazza e strada
+  for(let i=0;i<16;i++){const a=Math.random()*6.28,r=4.4+Math.random()*1.6;townPut(g,pick(enemy?['deco_twisted','deco_mush','f_fern','p_skull']:['deco_flowers','f_bush','f_flgrp','f_flbush','deco_tree']),Math.cos(a)*r,Math.sin(a)*r,0.45+Math.random()*0.6);}
+  // LAMPIONI lungo l'anello-strada
+  if(templates['p_lantern'])for(let i=0;i<8;i++){const a=(i/8)*6.2832+0.2;townPut(g,'p_lantern',Math.cos(a)*7.0,Math.sin(a)*7.0,0.9,0);}
+  // PROPS vissuti sparsi con misura
+  for(let i=0;i<5;i++){const a=Math.random()*6.28,r=8+Math.random()*3;townPut(g,'V_'+pick(V_PROPS),Math.cos(a)*r,Math.sin(a)*r,0.7+Math.random()*0.6);}
+  // ABITANTI che camminano per le strade
+  for(let i=0;i<6;i++){const a=Math.random()*6.28,r=4+Math.random()*6;const o=townPut(g,'p_knight',Math.cos(a)*r,Math.sin(a)*r,0,null,1.7);if(o)distantLife.push({o,bx:o.position.x,bz:o.position.z,tx:o.position.x,tz:o.position.z,t:Math.random()*4,hop:Math.random()*6,sp:0.6,wander:7});}
+  // MOSTRO simbolo oltre le mura
+  townPut(g,'km_'+k,Math.cos(toC+2.6)*15.3,Math.sin(toC+2.6)*15.3,3.2);
+  // STRUTTURE A TEMA, distanziate oltre l'anello esterno (lato opposto alla porta)
+  const th=V_THEME[k]||[];th.forEach((f,i)=>{const a=toC+Math.PI+(i-(th.length-1)/2)*0.42;townPut(g,'V_'+f,Math.cos(a)*11.6,Math.sin(a)*11.6,1.8+Math.random()*0.9,faceIn(a));});}
 function updDistantLife(dt){for(const L of distantLife){const o=L.o;L.t-=dt;
   if(L.t<=0){L.t=3+Math.random()*4;const a=Math.random()*6.28,rr=Math.random()*L.wander;L.tx=L.bx+Math.cos(a)*rr;L.tz=L.bz+Math.sin(a)*rr;}
   const dx=L.tx-o.position.x,dz=L.tz-o.position.z,d=Math.hypot(dx,dz);
