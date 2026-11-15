@@ -449,7 +449,7 @@ function wrapScaled(src,targetH){const m=src.clone(true);m.position.set(0,0,0);m
 async function loadNatureDecos(){const mk=async(key,srcTpl,file,hh)=>{try{let src=srcTpl&&templates[srcTpl];if(!src){const m=await loadModel('models/nature/'+file+'.glb');let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(!has)return;src=m;}templates[key]=wrapScaled(src,hh);}catch(e){}};
   await mk('deco_tree','n_tree','tree',2.6);await mk('deco_pine','n_pine','pine',2.9);
   await mk('deco_mush','f_mush','mushroom',0.95);await mk('deco_flowers','f_flgrp','flower_group',0.55);
-  await mk('deco_twisted',null,'twisted_tree',2.8);}
+  await mk('deco_twisted',null,'twisted_tree',2.8);await mk('deco_dead',null,'dead_tree',2.6);await mk('deco_rock','f_pebble','pebble_round',0.55);}
 // mostro simbolo di ogni regno (per i villaggi e la Caccia ai 9 Mostri) + Nyxar
 const KMONSTER={dendra:'mushroom_king',nefele:'armabee',chrysa:'ghost',selenea:'wizard',oros:'goleling_evolved',thalassa:'squidle',pyra:'dragon',krios:'yeti',metalla:'goleling'};
 const NYXAR_MODEL='blue_demon';
@@ -1698,10 +1698,49 @@ const BGRID=7,BCELL=2.2,BHALF=(BGRID-1)/2;
 let units=[],enemies=[],selUnit=null,turn='player',marks=[];
 function bcw(x,y){return [(x-BHALF)*BCELL,(y-BHALF)*BCELL];}
 function clearBattle(){while(batGroup.children.length)batGroup.remove(batGroup.children[0]);units=[];enemies=[];marks=[];selUnit=null;}
+// ===== Campi di battaglia a tema: ognuno è il bioma del regno/avversario, decorato =====
+const BATTLE_THEME={
+  metalla:{floor:0x9a927f,rim:['rock','pebble','rock'],big:'mount',label:'le Cave di Mètalla'},
+  nefele: {floor:0xb4d2b2,rim:['pine','flower','bush'],tex:true,label:'le Alture di Nèfele'},
+  chrysa: {floor:0xccb866,rim:['tree','flower'],glow:0xffd76a,label:'i Campi d’Oro di Chrysa'},
+  selenea:{floor:0x655d80,rim:['twisted','mush','twisted'],night:true,glow:0x7a5cc0,label:'la Notte di Selenèa'},
+  oros:   {floor:0x857f74,rim:['dead','rock','dead'],label:'il Fronte di Òros'},
+  thalassa:{floor:0x9ec4cf,rim:['rock','pebble','bush'],big:'water',label:'la Riva di Thàlassa'},
+  pyra:   {floor:0x734237,rim:['dead','twisted'],ember:true,glow:0xff5a2a,label:'le Terre Arse di Pyra'},
+  krios:  {floor:0xdbe7ef,rim:['pine','rock','pine'],big:'mount',snow:true,label:'i Ghiacci di Krìos'},
+  dendra: {floor:0x6fa85a,rim:['tree','mush','fern'],dense:true,tex:true,label:'il Bosco di Dèndora'},
+  erebo:  {floor:0x565060,rim:['dead','twisted','mush'],night:true,glow:0x6a3f7a,label:'una Terra dell’Èrebo'},
+  nyxar:  {floor:0x3c2e48,rim:['twisted','dead','mush','twisted'],dense:true,night:true,glow:0x8a2fe0,label:'il Dominio di Nyxar'},
+  grass:  {floor:0x8fb56f,rim:['tree','pine','bush'],tex:true,label:''}
+};
+function battleProp(key){const T=templates;const g=k=>T[k]?inst(k):null;
+  switch(key){case 'rock':return g('deco_rock')||g('f_pebble');case 'pebble':return g('f_pebble')||g('deco_rock');
+    case 'tree':return g('deco_tree');case 'pine':return g('deco_pine');case 'twisted':return g('deco_twisted');
+    case 'dead':return g('deco_dead')||g('deco_twisted');case 'mush':return g('deco_mush');case 'fern':return g('f_fern')||g('deco_flowers');
+    case 'flower':return g('deco_flowers')||g('f_flgrp');case 'bush':return g('f_bush')||g('deco_tree');}return null;}
+function buildBattleArena(key){const T=BATTLE_THEME[key]||BATTLE_THEME.grass;const W=BGRID*BCELL;
+  let fm;if(T.tex){const bg=grass.clone();bg.needsUpdate=true;bg.wrapS=bg.wrapT=THREE.RepeatWrapping;bg.repeat.set(BGRID,BGRID);bg.encoding=THREE.sRGBEncoding;fm=new THREE.MeshStandardMaterial({map:bg,color:T.floor,roughness:1});}
+  else fm=new THREE.MeshStandardMaterial({color:T.floor,roughness:1});fm.envMapIntensity=T.night?0.25:0.4;
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(W,W),fm);floor.rotation.x=-Math.PI/2;floor.position.y=.015;floor.receiveShadow=true;batGroup.add(floor);
+  if(T.glow){const ring=new THREE.Mesh(new THREE.CircleGeometry(W*0.62,40),new THREE.MeshBasicMaterial({color:T.glow,transparent:true,opacity:0.14}));ring.rotation.x=-Math.PI/2;ring.position.y=0.011;batGroup.add(ring);}
+  const gh=new THREE.GridHelper(W,BGRID,0xffffff,0xffffff);gh.position.y=.03;gh.material.transparent=true;gh.material.opacity=.22;batGroup.add(gh);
+  // corona di decori a tema attorno all'arena (fuori dalle caselle giocabili)
+  const R0=W*0.5+0.9,rim=T.rim||['tree'],N=T.dense?30:22;
+  for(let i=0;i<N;i++){const a=(i/N)*6.2832+Math.random()*0.2,r=R0+Math.random()*4.4,o=battleProp(rim[i%rim.length]);if(!o)continue;o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.random()*6.28;o.scale.multiplyScalar(0.8+Math.random()*0.7);o.traverse&&o.traverse(m=>{if(m.isMesh)m.castShadow=true;});batGroup.add(o);if(typeof autoSeat==='function')autoSeat(o);}
+  if(T.big==='mount'){for(const ang of [2.0,3.6,5.2]){const m=makeMountain(1.0+Math.random()*0.5);const rr=R0+6;m.position.set(Math.cos(ang)*rr,0,Math.sin(ang)*rr);batGroup.add(m);}}
+  if(T.big==='water'){for(const ang of [0.5,2.3,3.9,5.5]){const w=disc(waterMid,2.6,0.02,Math.random()*3);w.position.set(Math.cos(ang)*(R0+1.6),0.02,Math.sin(ang)*(R0+1.6));w.scale.set(1.5,1,1.1);batGroup.add(w);}}
+  if(T.snow){for(let i=0;i<34;i++){const p=new THREE.Mesh(new THREE.CircleGeometry(0.07+Math.random()*0.08,6),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.85}));p.rotation.x=-Math.PI/2;p.position.set((Math.random()-.5)*W,0.02,(Math.random()-.5)*W);batGroup.add(p);}}
+  if(T.ember){for(let i=0;i<20;i++){const e=new THREE.Mesh(new THREE.CircleGeometry(0.1+Math.random()*0.06,6),new THREE.MeshBasicMaterial({color:0xff6a2a,transparent:true,opacity:0.5}));e.rotation.x=-Math.PI/2;e.position.set((Math.random()-.5)*W,0.02,(Math.random()-.5)*W);batGroup.add(e);}}
+  return T.label||'';}
 async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');return;}mode='battle';selKey=null;clearSel();drawer.classList.remove('open');
   ['top','side','zoom','guide','fab','map'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   cityGroup.visible=false;batGroup.visible=true;BG.style.display='flex';const svz=VZ;VZ=9;const stx=camTarget.x,stz=camTarget.z;camTarget.x=0;camTarget.z=0;updateCam();resize();batRestore={svz,stx,stz};clearBattle();
-  const bg=grass.clone();bg.needsUpdate=true;bg.wrapS=bg.wrapT=THREE.RepeatWrapping;bg.repeat.set(BGRID,BGRID);bg.encoding=THREE.sRGBEncoding;const fm=new THREE.MeshStandardMaterial({map:bg,color:0x8fb56f,roughness:1});fm.envMapIntensity=.4;const floor=new THREE.Mesh(new THREE.PlaneGeometry(BGRID*BCELL,BGRID*BCELL),fm);floor.rotation.x=-Math.PI/2;floor.position.y=.015;floor.receiveShadow=true;batGroup.add(floor);const gh=new THREE.GridHelper(BGRID*BCELL,BGRID,0xffffff,0xffffff);gh.position.y=.03;gh.material.transparent=true;gh.material.opacity=.22;batGroup.add(gh);
+  // campo di battaglia a tema: bioma del regno/avversario
+  let bkey='grass';
+  if(battleTarget&&battleTarget.kind==='nyxar')bkey='nyxar';
+  else if(battleTarget&&(battleTarget.kind==='hunt'||battleTarget.kind==='neighbor'))bkey=battleTarget.k;
+  else if(pendingLand)bkey='erebo';
+  const arenaLabel=buildBattleArena(bkey);
   const n=Math.min(soldiers,4);const he=['Knight.glb','Barbarian.glb','Mage.glb','Rogue.glb'];for(let i=0;i<n;i++){const o=await loadModel(AD+he[i%he.length]);o.scale.setScalar(.42);o.rotation.y=Math.PI/2;const uhp=30+soldierRank*8;const u={x:0,y:1+i,hp:uhp,max:uhp,atk:12+soldierRank*3,obj:o,done:false,enemy:false,bar:mkBarB()};batGroup.add(o);batGroup.add(u.bar.g);place(u);units.push(u);}
   // EROI della campagna: ogni mostro domato manda un eroe (più forte) a combattere al tuo fianco
   const nh=Math.min(monstersBeaten,4),hm=['Knight.glb','Mage.glb','Barbarian.glb','Rogue.glb'];
@@ -1715,14 +1754,14 @@ async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');retu
     const boss={x:BGRID-1,y:3,hp:bhp,max:bhp,atk:batk,obj:bo,enemy:true,boss:true,bar:mkBarB()};batGroup.add(bo);batGroup.add(boss.bar.g);place(boss);enemies.push(boss);
     const nm=isNyx?3:2,mhp=isNyx?42:16+monstersBeaten*3,matk=isNyx?10:6,ys=[1,5,2,4,0,6];
     for(let i=0;i<nm;i++){const o=await loadModel(SK+(i%2?'Skeleton_Rogue.glb':'Skeleton_Minion.glb'));o.scale.setScalar(.42);o.rotation.y=-Math.PI/2;const e={x:BGRID-1,y:ys[i]||2,hp:mhp,max:mhp,atk:matk,obj:o,enemy:true,bar:mkBarB()};batGroup.add(o);batGroup.add(e.bar.g);place(e);enemies.push(e);}
-    turn='player';units.forEach(u=>u.done=false);batInfo();HINT.style.display='block';HINT.textContent=(isNyx?'NYXAR, il Dio Caduto!':((K.monster||'Il mostro')+'!'))+' Tocca un soldato, poi una casella verde o il mostro rosso.';return;}
+    turn='player';units.forEach(u=>u.done=false);batInfo();HINT.style.display='block';HINT.textContent=(arenaLabel?'📍 '+arenaLabel+' — ':'')+(isNyx?'NYXAR, il Dio Caduto!':((K.monster||'Il mostro')+'!'))+' Tocca un soldato, poi il mostro rosso.';return;}
   const nbA=battleTarget&&battleTarget.kind==='neighbor';
   const foeName=nbA?((POPOLI.find(p=>p.k===battleTarget.k)||{}).n||'il villaggio'):'';
   const ne=nbA?Math.max(3,Math.min(BGRID-2,Math.round(battleTarget.mil*0.8)+2)):3+Math.min(terreLiberate,4);
   const ehp=nbA?20+Math.round(battleTarget.mil*1.6):18, eatk=nbA?8:7;
   const foe=nbA?['Knight.glb','Barbarian.glb','Rogue.glb']:['Skeleton_Warrior.glb','Skeleton_Minion.glb','Skeleton_Rogue.glb'];const foeDir=nbA?AD:SK;
   for(let i=0;i<ne;i++){const o=await loadModel(foeDir+foe[i%foe.length]);o.scale.setScalar(.42);o.rotation.y=-Math.PI/2;const e={x:BGRID-1,y:1+(i%(BGRID-2)),hp:ehp,max:ehp,atk:eatk,obj:o,enemy:true,bar:mkBarB()};batGroup.add(o);batGroup.add(e.bar.g);place(e);enemies.push(e);}
-  turn='player';units.forEach(u=>u.done=false);batInfo();HINT.style.display='block';HINT.textContent=nbA?('Attacchi '+foeName+'! Tocca un soldato, poi una casella verde o un nemico rosso.'):'Tocca un soldato, poi una casella verde o un nemico rosso.';}
+  turn='player';units.forEach(u=>u.done=false);batInfo();HINT.style.display='block';HINT.textContent=(arenaLabel?'📍 '+arenaLabel+' — ':'')+(nbA?('Attacchi '+foeName+'! '):'')+'Tocca un soldato, poi una casella verde o un nemico rosso.';}
 let batRestore=null;
 function mkBarB(){const g=new THREE.Group();const b=new THREE.MeshBasicMaterial({color:0x111111});b.depthTest=false;const f=new THREE.MeshBasicMaterial({color:0x4ade80});f.depthTest=false;const bg=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.2),b);const fg=new THREE.Mesh(new THREE.PlaneGeometry(1.14,.14),f);fg.position.z=.01;g.add(bg);g.add(fg);g.renderOrder=999;return {g,fg};}
 function updBar(u){const f=Math.max(0,u.hp/u.max);u.bar.fg.scale.x=f;u.bar.fg.position.x=-.57*(1-f);u.bar.fg.material.color.set(u.enemy?0xe24b4a:(f>.5?0x4ade80:0xfacc15));u.bar.g.position.set(u.obj.position.x,1.55,u.obj.position.z);u.bar.g.lookAt(camera.position.x,1.55,camera.position.z);}
