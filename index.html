@@ -182,13 +182,15 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 <div id="side">
   <div class="sbtn" id="btnWorld"><span>🌍</span><b>Mondo</b><span class="badge" id="worldBadge">0</span></div>
   <div class="sbtn" id="btnMiss"><span>📜</span><b>Missioni</b><span class="badge" id="missBadge">0</span></div>
-  <div class="sbtn" id="btnHero"><span>🦸</span><b>Eroi</b></div>
-  <div class="sbtn" id="btnChat"><span>💬</span><b>Tuzu</b></div>
-  <div class="sbtn" id="btnLib"><span>📚</span><b>Ricerche</b></div>
-  <div class="sbtn" id="btnShop"><span>🛒</span><b>Negozio</b></div>
-  <div class="sbtn" id="btnRank"><span>🏆</span><b>Classifica</b></div>
-  <div class="sbtn" id="btnAccount"><span>👤</span><b>Account</b></div>
+  <div class="sbtn" id="btnMenu"><span>☰</span><b>Altro</b></div>
+  <div class="sbtn more" id="btnHero"><span>🦸</span><b>Eroi</b></div>
+  <div class="sbtn more" id="btnChat"><span>💬</span><b>Tuzu</b></div>
+  <div class="sbtn more" id="btnLib"><span>📚</span><b>Ricerche</b></div>
+  <div class="sbtn more" id="btnShop"><span>🛒</span><b>Negozio</b></div>
+  <div class="sbtn more" id="btnRank"><span>🏆</span><b>Classifica</b></div>
+  <div class="sbtn more" id="btnAccount"><span>👤</span><b>Account</b></div>
 </div>
+<style>#side:not(.open) .more{display:none}</style>
 <div id="zoom"><div class="zb" id="zmap" title="Minimappa">🗺️</div><div class="zb" id="btnBox" title="Selezione ad area">▭</div><div class="zb" id="zrot" title="Ruota">↻</div><div class="zb" id="zin">+</div><div class="zb" id="zout">−</div></div>
 <canvas id="map" width="150" height="150" title="Minimappa: tocca per spostare la vista"></canvas>
 
@@ -766,15 +768,12 @@ const BUILD={
   mercato: {nome:'Mercato', em:'🪙', file:'market',    cost:{legna:45,pietra:20},  time:26, market:1},
   mulino:  {nome:'Mulino',  em:'🍞', file:'watermill', cost:{legna:35,pietra:15},  time:22, chain:{inR:'cibo',inA:6,outR:'pane',outA:5,t:20},job:1},
   taverna: {nome:'Taverna', em:'🍺', file:'tavern',    cost:{legna:45,pietra:20},  time:26, prod:{r:'oro',a:6,t:26},job:1, mor:5},
-  chiesa:  {nome:'Chiesa',  em:'⛪', file:'church',    cost:{legna:50,pietra:30},  time:28, mor:4},
+  chiesa:  {nome:'Santuario',em:'🔮', file:'church',    cost:{legna:50,pietra:30},  time:28, mor:4},
   caserma: {nome:'Caserma', em:'⚔️', file:'barracks',  cost:{legna:55,pietra:35,ferro:10}, time:32, caserma:1},
   arcieri: {nome:'Arcieri', em:'🏹', file:'archeryrange',cost:{legna:50,pietra:30,ferro:12}, time:30, caserma:1},
   armeria: {nome:'Armeria', em:'🗡️', file:'tower_catapult',cost:{legna:50,pietra:30,ferro:15}, time:30, chain:{inR:'ferro',inA:3,outR:'armi',outA:2,t:26},job:1}
 };
 const DECO={
-  albero:  {nome:'Albero',  em:'🌳', files:['deco_tree','deco_pine'], mor:1},
-  fiori:   {nome:'Fiori',   em:'🌸', flower:true, mor:1},
-  siepe:   {nome:'Siepe',   em:'🌿', build:'makeHedge', mor:1},
   lampione:{nome:'Lanterna',em:'🏮', files:['p_lantern'], mor:1},
   torcia:  {nome:'Torcia',  em:'🔥', files:['p_torch'], mor:1},
   cartello:{nome:'Cartello',em:'🪧', files:['p_signpost'], mor:1},
@@ -786,7 +785,6 @@ const DECO={
   ascia:   {nome:'Ascia',   em:'🪓', files:['p_axe'], mor:1},
   asciaguerra:{nome:'Ascia da guerra',em:'⚔️', files:['p_baxe'], mor:1},
   piccone: {nome:'Piccone', em:'⛏️', files:['p_pickaxe'], mor:1},
-  gru:     {nome:'Gru',     em:'🏗️', files:['p_crane'], mor:0},
   pergamena:{nome:'Pergamena',em:'📜', files:['p_scroll'], mor:1},
   cristallo:{nome:'Cristallo',em:'🔮', files:['p_cristallo'], mor:2},
   fungo:   {nome:'Fungo gigante',em:'🍄', files:['p_fungo'], mor:1},
@@ -1079,6 +1077,7 @@ const EVOLVE={
   caserma: [{t:0,tpl:'v_caserma',skins:['barracks_2','barracks_3','wooden_encampment'],fill:1.0},{t:2,file:'barracks',skins:['barracks','barracks_4','barracks_5','barracks_6'],fill:1.0},{t:4,file:'fortress',skins:['fortress','castle_fortress','castle','castle_2'],fill:1.15}],
   chiesa:  [{t:0,file:'magic-ritual',dir:'models/props/',fill:1.25}],
   mercato: [{t:0,file:'forge',dir:'models/props/',fill:1.35}],
+  cava:    [{t:0,file:'mine',dir:'models/props/',fill:1.4}],
   taverna: [{t:0,tpl:'v_taverna'}, {t:2,file:'tower_house',         fill:1.0},{t:4,file:'town_center',          fill:1.14}],
   segheria:[{t:0,tpl:'v_segheria'},{t:2,file:'storage_house',       fill:1.0},{t:4,file:'wooden_fortress',      fill:1.14}],
   fonderia:[{t:0,tpl:'v_fonderia'},{t:2,file:'business_building',   fill:1.0},{t:4,file:'stone_tower',          fill:1.14}],
@@ -2430,6 +2429,9 @@ function loadSave(){try{const raw=localStorage.getItem('tuzu_rpg5');const s=raw?
 // ===== MONDO =====
 document.getElementById('btnWorld').onclick=()=>{if(mode==='city')openMap();};
 document.getElementById('btnMiss').onclick=()=>openMiss();
+{const bm=document.getElementById('btnMenu');if(bm)bm.onclick=()=>document.getElementById('side').classList.toggle('open');
+ // chiudendo un pannello si richiude anche il menu laterale
+ document.querySelectorAll('#side .more').forEach(b=>b.addEventListener('click',()=>document.getElementById('side').classList.remove('open')));}
 document.getElementById('btnHero').onclick=()=>{if(mode==='city')openHeroes();};
 // ===== mini-guida iniziale =====
 const GUIDE=[
