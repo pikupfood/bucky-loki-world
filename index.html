@@ -496,12 +496,12 @@ const FOX='https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models/2.0/Fox/g
 // animali da fattoria: vivono in un recinto e danno cibo nel tempo
 // altezze in unità-mondo, coerenti con l'abitante ≈ 0.48 (gerarchia: pulcino<coniglio<pecora<persona≈mucca<cavallo)
 const ANIMALS={
-  pecora: {nome:'Pecora', em:'🐑',tpl:'a_sheep',  build:()=>makeSheep(),  hgt:0.36,cost:{oro:25},prod:{r:'cibo',a:3}},
-  gallina:{nome:'Gallina',em:'🐔',tpl:'a_chicken',build:()=>makeChicken(),hgt:0.26,cost:{oro:15},prod:{r:'cibo',a:2}},
-  mucca:  {nome:'Mucca',  em:'🐄',tpl:'a_cow',    hgt:0.5, cost:{oro:40},prod:{r:'cibo',a:5}},
-  cavallo:{nome:'Cavallo',em:'🐴',tpl:'a_horse',url:HORSE,hgt:0.6, cost:{oro:45},prod:{r:'cibo',a:2},clip:0},
-  anatra: {nome:'Anatra', em:'🦆',tpl:'a_duck',   hgt:0.28,cost:{oro:18},prod:{r:'cibo',a:2}},
-  coniglio:{nome:'Coniglio',em:'🐰',tpl:'a_rabbit',hgt:0.24,cost:{oro:12},prod:{r:'cibo',a:1}}
+  pecora: {nome:'Pecora', em:'🐑',tpl:'a_sheep',  build:()=>makeSheep(),  hgt:0.58,cost:{oro:25},prod:{r:'cibo',a:3}},
+  gallina:{nome:'Gallina',em:'🐔',tpl:'a_chicken',build:()=>makeChicken(),hgt:0.42,cost:{oro:15},prod:{r:'cibo',a:2}},
+  mucca:  {nome:'Mucca',  em:'🐄',tpl:'a_cow',    hgt:0.82,cost:{oro:40},prod:{r:'cibo',a:5}},
+  cavallo:{nome:'Cavallo',em:'🐴',tpl:'a_horse',url:HORSE,hgt:0.95,cost:{oro:45},prod:{r:'cibo',a:2},clip:0},
+  anatra: {nome:'Anatra', em:'🦆',tpl:'a_duck',   hgt:0.42,cost:{oro:18},prod:{r:'cibo',a:2}},
+  coniglio:{nome:'Coniglio',em:'🐰',tpl:'a_rabbit',hgt:0.38,cost:{oro:12},prod:{r:'cibo',a:1}}
 };
 // recinti già pronti di varie dimensioni (capienza = quanti animali ci stanno)
 const PENS={
@@ -523,7 +523,7 @@ const DEF={
   recinto: {nome:'Recinto', em:'🪵', file:'fence_wood_straight', cost:{legna:5}, fence:1, w:1,h:1, mor:0},
   muro:    {nome:'Muro',    em:'🧱', file:'wall',    cost:{pietra:6},           wall:1, w:1,h:1, mor:0},
   cancello:{nome:'Cancello',em:'🚪', file:'gate',    cost:{pietra:10,legna:6},  gate:1, w:1,h:1, mor:0},
-  torre:   {nome:'Torre',   em:'🗼', file:'tower_A', cost:{pietra:24,legna:12}, guard:1, mor:2}
+  torre:   {nome:'Torre',   em:'🗼', file:'tower_new', sc:1.5, cost:{pietra:24,legna:12}, guard:1, mor:2}
 };
 const POPOLI=[
  {k:'dendra',n:'Chlòri · Dèndora',ds:'Il tuo regno verde',own:1},
@@ -595,6 +595,7 @@ async function preload(){
   for(const n of names){templates[n]=await loadModel(B+'buildings/'+col+'/building_'+n+'_'+col+'.gltf');FP[n]=measFP(templates[n]);setLoad(++d/tot);}
   for(const n of nat){templates[n]=await loadModel(B+'decoration/nature/'+n+'.gltf');FP[n]=measFP(templates[n]);setLoad(++d/tot);}
   templates['fence_wood_straight']=await loadModel(B+'buildings/neutral/fence_wood_straight.gltf');setLoad(++d/tot);
+  try{templates['tower_new']=await loadModel('models/rts/watch_tower.glb');FP['tower_new']=measFP(templates['tower_new']);}catch(e){}
   templates['flag_'+col]=await loadModel(B+'decoration/props/flag_'+col+'.gltf');setLoad(++d/tot);
   // mura e cancelli (neutri) per la fortezza
   templates['wall']=await loadModel(B+'buildings/neutral/wall_straight.gltf');setLoad(++d/tot);
@@ -1495,7 +1496,7 @@ const ALLY_COST={oro:80,cibo:30};
 // bosco che circonda un vicino: lascia un varco verso la città (dove c'è la strada e il cartello)
 function nbForestRing(nb,count,rad,dense){const toCity=Math.atan2(-nb.g.position.x,-nb.g.position.z);let done=0,tries=0;
   while(done<count&&tries<count*4){tries++;const a=Math.random()*6.28;const da=Math.atan2(Math.sin(a-toCity),Math.cos(a-toCity));if(Math.abs(da)<0.95)continue; // varco verso la città
-    const r=rad+(Math.random()-.5)*(dense?1.8:2.6);const t=makeConeTree(2.0+Math.random()*1.3);t.position.set(Math.sin(a)*r,0,Math.cos(a)*r);t.rotation.y=Math.random()*6.28;nb.g.add(t);done++;}}
+    const r=rad+(Math.random()-.5)*(dense?1.8:2.6);const tk=Math.random()<0.5?'deco_tree':'deco_pine';let t;if(templates[tk]){t=inst(tk);fitHeight(t,2.0+Math.random()*1.3);t.traverse(m=>{if(m.isMesh)m.castShadow=true;});}else t=makeConeTree(2.0+Math.random()*1.3);t.position.set(Math.sin(a)*r,0,Math.cos(a)*r);t.rotation.y=Math.random()*6.28;nb.g.add(t);done++;}}
 // il mostro corrompe la terra attorno: alberi contorti + funghi (nemici tanto, alleati poco che resistono con i fiori)
 // ogni villaggio vicino ha il SUO castello pixellabs al centro
 const NB_PALACE={nefele:'m_watchtower',chrysa:'m_castle',oros:'m_fortress',thalassa:'m_castleR',pyra:'m_fortress',krios:'m_castle',selenea:'m_fortress',metalla:'m_castle',dendra:'m_castleR'};
@@ -1542,7 +1543,7 @@ function placeDistantKingdoms(){DISTANT_SPEC.forEach(s=>{if(s.k===myKingdom||nei
   const R=11.5,segH=2.0,segLen=2*(segH/1.1),cnt=Math.max(12,Math.round(2*Math.PI*R/segLen));
   if(templates['wall'])for(let i=0;i<cnt;i++){const a=(i/cnt)*6.2832;const w=inst('wall');w.scale.setScalar(segH/1.1);w.position.set(Math.cos(a)*R,0,Math.sin(a)*R);w.rotation.y=Math.atan2(-Math.sin(a),Math.cos(a));w.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(w);autoSeat(w);}
   if(templates['gate']){const gt=inst('gate');gt.scale.setScalar(segH/1.1*1.15);gt.position.set(Math.cos(toC)*R,0,Math.sin(toC)*R);gt.rotation.y=Math.atan2(-Math.sin(toC),Math.cos(toC));gt.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(gt);autoSeat(gt);}
-  if(templates['tower_A'])for(const a of [0.78,2.36,3.93,5.5]){const t=inst('tower_A');fitHeight(t,3.6);t.position.set(Math.cos(a)*R,0,Math.sin(a)*R);t.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(t);autoSeat(t);}
+  {const twk=templates['tower_new']?'tower_new':'tower_A';if(templates[twk])for(const a of [0.78,2.36,3.93,5.5]){const t=inst(twk);fitHeight(t,3.8);t.position.set(Math.cos(a)*R,0,Math.sin(a)*R);t.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(t);autoSeat(t);}}
   // PALAZZO del popolo al centro
   const tpl=NB_PALACE[s.k]||'m_castle';if(templates[tpl]){const o=inst(tpl);o.scale.setScalar(2.4);o.rotation.y=toC;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);}
   // CASE del popolo dentro le mura
