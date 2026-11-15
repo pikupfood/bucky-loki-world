@@ -597,12 +597,17 @@ function inRoomRaw(x,z){if(!WALK_RECTS.length)return (x*x+z*z)<28*28;for(const r
 const avoid=[];
 const caveMonsters=[];   // {obj,x,z,hp,maxhp,av}
 const collectNodes=[];   // {obj,x,z,kind,r,taken,respawn}
+// CANCELLO chiuso: blocca il corridoio verso la Tana finché non trovi la chiave
+let caveGateLocked=true, caveGate=null;
+const GATE_STRIP={x0:42.3,x1:49.7,z0:-25.4,z1:-22.4};
+function inGateStrip(x,z){return caveGateLocked&&x>GATE_STRIP.x0&&x<GATE_STRIP.x1&&z>GATE_STRIP.z0&&z<GATE_STRIP.z1;}
+function unlockCaveGate(){if(!caveGateLocked)return;caveGateLocked=false;if(caveGate){caveGate.rotation.y+=Math.PI*0.42;caveGate.position.x-=2.6;}if(typeof toast==='function')toast('🔑 Chiave usata: il cancello si apre!',4000);}
 function addAvoid(x,z,r,h){avoid.push({x:x,z:z,r:r,h:(h==null?2.2:h)});}
 // clear = quanto sono alti i piedi dell'avatar (salto): se salto sopra un ostacolo basso, ci passo
 function hitAvoid(x,z,pad,clear){pad=pad||0;clear=clear||0;for(let i=0;i<avoid.length;i++){const a=avoid[i];if((a.h||2.2)<=clear+0.25)continue;const dx=x-a.x,dz=z-a.z,rr=a.r+pad;if(dx*dx+dz*dz<rr*rr)return true;}return false;}
 // edifici/acqua/difese del giocatore: li legge dalla griglia (nel covo)
 function solidAt(wx,wz){if(typeof grid==='undefined'||typeof HALF==='undefined'||typeof CELL==='undefined')return false;const cx=Math.round(wx/CELL+HALF),cy=Math.round(wz/CELL+HALF);const e=grid[(typeof key==='function')?key(cx,cy):cx+','+cy];if(!e)return false;const t=e.type;return t==='building'||t==='water'||t==='def';}
-function canStep(x,z){return inWalkable(x,z)&&!solidAt(x,z)&&!hitAvoid(x,z,0.5,(typeof tpJumpY!=='undefined'?tpJumpY:0));}
+function canStep(x,z){return inWalkable(x,z)&&!solidAt(x,z)&&!inGateStrip(x,z)&&!hitAvoid(x,z,0.5,(typeof tpJumpY!=='undefined'?tpJumpY:0));}
 // SCALE: salita reale (l'avatar sale, non ci passa dentro)
 const STAIR={sx:12,sz:-3,steps:7,sw:3.2,sd:0.92,sh:0.42};
 function stepHeightAt(wx,wz){const S=STAIR,topY=S.steps*S.sh;if(wx<S.sx-S.sw/2-0.4||wx>S.sx+S.sw/2+0.9)return 0;const bottomZ=S.sz+0.6,topZ=S.sz-S.steps*S.sd;if(wz>bottomZ)return 0;if(wz<=topZ)return topY;return Math.max(0,Math.min(1,(bottomZ-wz)/(bottomZ-topZ)))*topY;}
@@ -637,17 +642,21 @@ function buildDungeonRooms(){if(dungeonRoomsDone)return;dungeonRoomsDone=true;co
   if(templates.d_throne&&templates.d_throne.children.length){const t=inst('d_throne');fitHeight(t,2.8);t.position.set(0,0,-DROOMS.covo.hd+2.6);rGroup('covo').add(t);if(typeof autoSeat==='function')autoSeat(t);addAvoid(0,-DROOMS.covo.hd+2.6,1.4);}
   const mons=['d_undead','d_skel','d_ghost','d_demon'].filter(k=>templates[k]&&templates[k].children&&templates[k].children.length);
   if(mons.length){const Tn=DROOMS.tana;for(let i=0;i<5;i++){const k=mons[Math.floor(Math.random()*mons.length)];const o=inst(k);fitHeight(o,2.3);const mx=Tn.x+(Math.random()-0.5)*Tn.hw*1.1,mz=Tn.z+(Math.random()-0.5)*Tn.hd*1.1;o.position.set(mx,0,mz);o.rotation.y=Math.random()*6.28;rGroup('tana').add(o);if(typeof autoSeat==='function')autoSeat(o);addAvoid(mx,mz,0.9);caveMonsters.push({obj:o,x:mx,z:mz,hp:3,maxhp:3,av:avoid[avoid.length-1]});}}
+  // CANCELLO chiuso all'imbocco della Tana (si apre con la chiave nascosta a Oros)
+  if(templates.d_gate&&templates.d_gate.children&&templates.d_gate.children.length){caveGate=inst('d_gate');fitHeight(caveGate,4.4);caveGate.position.set(46,0,-24);caveGate.rotation.y=Math.PI/2;caveGate.traverse(m=>{if(m.isMesh)m.castShadow=true;});rGroup('c_chrysa_tana').add(caveGate);if(typeof autoSeat==='function')autoSeat(caveGate);}
 }
 // i regni vicini (async) li ancoro e li metto nel gruppo della loro stanza
 function anchorKingdoms(){if(typeof neighbors==='undefined')return;for(const k in DROOMS){const R=DROOMS[k];if(R.kind!=='kingdom'||!R.nb)continue;const nb=neighbors.find(n=>n.k===R.nb);if(nb&&nb.g&&nb.g.parent!==roomVis[k]){nb.g.position.set(R.x,0,R.z);rGroup(k).add(nb.g);if(typeof addAvoid==='function')addAvoid(R.x,R.z,7);}}}
 // ===== INTERAZIONI in terza persona: combatti / raccogli / parla-allèati =====
 function placeCollectNodes(){
-  const spots=[['covo',6,10],['covo',-11,-10],['covo',11,11],['vuota',0,-46],['vuota',-4,-41],['tana',44,-31],['c_covo_oros',2,28]];
-  for(const [rid,x,z] of spots){
-    let o;if(templates.d_bigcrystal&&templates.d_bigcrystal.children&&templates.d_bigcrystal.children.length){o=inst('d_bigcrystal');fitHeight(o,2.1);}else{o=makeCrystalT();o.scale.setScalar(1.7);}
+  const spots=[['covo',6,10],['covo',-11,-10],['covo',11,11],['vuota',0,-46],['vuota',-4,-41],['c_covo_oros',2,28],['oros',2,48,'chiave']];
+  for(const sp of spots){const rid=sp[0],x=sp[1],z=sp[2],kind=sp[3]||'cristalli',isKey=kind==='chiave';
+    let o;
+    if(isKey){o=new THREE.Group();const km=new THREE.MeshStandardMaterial({color:0xffd24a,emissive:0xffae00,emissiveIntensity:1.1,roughness:0.3,metalness:0.6});const s=new THREE.Mesh(new THREE.TorusGeometry(0.22,0.08,8,14),km);s.position.y=1.05;o.add(s);const st=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.55,6),km);st.position.y=0.62;o.add(st);const t1=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.06,0.06),km);t1.position.set(0.1,0.42,0);o.add(t1);}
+    else if(templates.d_bigcrystal&&templates.d_bigcrystal.children&&templates.d_bigcrystal.children.length){o=inst('d_bigcrystal');fitHeight(o,2.1);}else{o=makeCrystalT();o.scale.setScalar(1.7);}
     o.position.set(x,0,z);o.rotation.y=Math.random()*6.28;(typeof rGroup==='function'?rGroup(rid):cityGroup).add(o);
-    const glow=new THREE.Mesh(new THREE.SphereGeometry(1.15,10,8),new THREE.MeshBasicMaterial({color:0x9a6bff,transparent:true,opacity:0.3,depthWrite:false,fog:false}));glow.position.set(x,1.1,z);(typeof rGroup==='function'?rGroup(rid):cityGroup).add(glow);
-    collectNodes.push({obj:o,glow,x,z,kind:'cristalli',taken:false,respawn:0});addAvoid(x,z,0.9);
+    const glow=new THREE.Mesh(new THREE.SphereGeometry(isKey?0.85:1.15,10,8),new THREE.MeshBasicMaterial({color:isKey?0xffd24a:0x9a6bff,transparent:true,opacity:0.34,depthWrite:false,fog:false}));glow.position.set(x,isKey?0.95:1.1,z);(typeof rGroup==='function'?rGroup(rid):cityGroup).add(glow);
+    collectNodes.push({obj:o,glow,x,z,kind,taken:false,respawn:0});if(!isKey)addAvoid(x,z,0.9);
   }
 }
 let _tpTarget=null,_tpActCd=0;
@@ -655,14 +664,19 @@ function tpFindTarget(px,pz){let best=null;
   for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(px-m.x,pz-m.z);if(d<4.4&&(!best||d<best.d))best={type:'monster',ref:m,d};}
   for(const c of collectNodes){if(c.taken)continue;const d=Math.hypot(px-c.x,pz-c.z);if(d<3.6&&(!best||d<best.d))best={type:'collect',ref:c,d};}
   if(typeof neighbors!=='undefined')for(const nb of neighbors){if(!nb.g)continue;const d=Math.hypot(px-nb.g.position.x,pz-nb.g.position.z);if(d<10&&(!best||best.type==='kingdom')&&(!best||d<best.d))best={type:'kingdom',ref:nb,d};}
+  if(caveGateLocked){const gx=(GATE_STRIP.x0+GATE_STRIP.x1)/2,gz=(GATE_STRIP.z0+GATE_STRIP.z1)/2,d=Math.hypot(px-gx,pz-gz);if(d<4.5&&!best)best={type:'gate',d};}
   return best;}
 function tpFloat(x,z,txt,col){try{if(typeof floatText==='function')floatText(x,1.8,z,txt,col);}catch(e){}}
 function tpDoAction(){if(!_tpTarget)return;const _now=performance.now();if(_now<_tpActCd)return;_tpActCd=_now+320;const t=_tpTarget;
-  if(t.type==='collect'){const c=t.ref;c.taken=true;if(c.obj)c.obj.visible=false;if(c.glow)c.glow.visible=false;const g=18+Math.floor(Math.random()*22);R.oro=(R.oro||0)+g;if(typeof drawTop==='function')drawTop();tpFloat(c.x,c.z,'+'+g+' 🪙','#ffd36a');if(typeof toast==='function')toast('✋ Cristalli raccolti: +'+g+' 🪙');c.respawn=performance.now()+45000;if(typeof save==='function')save();}
+  if(t.type==='collect'){const c=t.ref;c.taken=true;if(c.obj)c.obj.visible=false;if(c.glow)c.glow.visible=false;
+    if(c.kind==='chiave'){if(typeof unlockCaveGate==='function')unlockCaveGate();tpFloat(c.x,c.z,'🔑','#ffe27a');}
+    else{const g=18+Math.floor(Math.random()*22);R.oro=(R.oro||0)+g;if(typeof drawTop==='function')drawTop();tpFloat(c.x,c.z,'+'+g+' 🪙','#ffd36a');if(typeof toast==='function')toast('✋ Cristalli raccolti: +'+g+' 🪙');c.respawn=performance.now()+45000;}
+    if(typeof save==='function')save();}
   else if(t.type==='monster'){const m=t.ref;m.hp--;if(tpAvatar)tpAvatar.o.rotation.y=Math.atan2(m.x-tpAvatar.o.position.x,m.z-tpAvatar.o.position.z);
     if(m.hp<=0){if(m.obj)m.obj.visible=false;const i=avoid.indexOf(m.av);if(i>=0)avoid.splice(i,1);const rew=30+Math.floor(Math.random()*30);R.oro=(R.oro||0)+rew;if(typeof monstersBeaten!=='undefined')monstersBeaten++;if(typeof drawTop==='function')drawTop();tpFloat(m.x,m.z,'☠ +'+rew,'#ff9a9a');if(typeof toast==='function')toast('⚔️ Mostro sconfitto! +'+rew+' 🪙');if(typeof save==='function')save();}
     else{tpFloat(m.x,m.z,'-1 ❤','#ff5a5a');const mo=m.obj;if(mo){mo.scale.multiplyScalar(0.88);setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/0.88);},100);}if(typeof toast==='function')toast('⚔️ Colpito ('+m.hp+'/'+m.maxhp+')');}}
   else if(t.type==='kingdom'){const nb=t.ref;nb.reached=true;if(typeof reachedNb!=='undefined')reachedNb[nb.k]=1;if(typeof openNeighbor==='function')openNeighbor(nb.k);else if(typeof toast==='function')toast('Sei al regno vicino');}
+  else if(t.type==='gate'){if(typeof toast==='function')toast('🔒 Cancello chiuso: trova la chiave (nella stanza di Òros)',3600);}
 }
 // BOTTONE A (primario, contestuale): se c'e' un bersaglio fa quello, altrimenti fendente al mostro vicino
 function tpPrimaryAction(){if(!exploreMode)return;
@@ -679,7 +693,9 @@ function updTpAction(px,pz){
   const A=document.getElementById('tpA');
   if(!exploreMode){_tpTarget=null;return;}
   _tpTarget=tpFindTarget(px,pz);
-  if(A){if(typeof selKey!=='undefined'&&selKey)A.textContent='🔨';else A.textContent=_tpTarget?({monster:'⚔️',collect:'✋',kingdom:'🤝'}[_tpTarget.type]||'⚔️'):'⚔️';}
+  if(A){if(typeof selKey!=='undefined'&&selKey)A.textContent='🔨';
+    else if(_tpTarget){const T=_tpTarget;A.textContent=T.type==='gate'?'🔒':T.type==='collect'?((T.ref&&T.ref.kind==='chiave')?'🔑':'✋'):({monster:'⚔️',kingdom:'🤝'}[T.type]||'⚔️');}
+    else A.textContent='⚔️';}
 }
 // VITA dell'avatar + IA dei mostri (ti inseguono e colpiscono nella tana)
 let tpHp=5,tpMaxHp=5,_tpHurtCd=0;
