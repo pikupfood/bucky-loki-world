@@ -1700,25 +1700,31 @@ function bcw(x,y){return [(x-BHALF)*BCELL,(y-BHALF)*BCELL];}
 function clearBattle(){while(batGroup.children.length)batGroup.remove(batGroup.children[0]);units=[];enemies=[];marks=[];selUnit=null;}
 // ===== Campi di battaglia a tema: ognuno è il bioma del regno/avversario, decorato =====
 const BATTLE_THEME={
-  metalla:{floor:0x9a927f,rim:['rock','pebble','rock'],big:'mount',label:'le Cave di Mètalla'},
-  nefele: {floor:0xb4d2b2,rim:['pine','flower','bush'],tex:true,label:'le Alture di Nèfele'},
-  chrysa: {floor:0xccb866,rim:['tree','flower'],glow:0xffd76a,label:'i Campi d’Oro di Chrysa'},
-  selenea:{floor:0x655d80,rim:['twisted','mush','twisted'],night:true,glow:0x7a5cc0,label:'la Notte di Selenèa'},
-  oros:   {floor:0x857f74,rim:['dead','rock','dead'],label:'il Fronte di Òros'},
+  metalla:{floor:0x9a927f,rim:['rock','pebble','rock'],big:'mount',scenery:'mine.glb',label:'le Cave di Mètalla'},
+  nefele: {floor:0xb4d2b2,rim:['pine','flower','bush'],tex:true,scenery:'windmill.glb',label:'le Alture di Nèfele'},
+  chrysa: {floor:0xccb866,rim:['tree','flower'],glow:0xffd76a,scenery:'treasure-chest.glb',label:'i Campi d’Oro di Chrysa'},
+  selenea:{floor:0x655d80,rim:['twisted','mush','twisted'],night:true,glow:0x7a5cc0,scenery:'skull-throne.glb',label:'la Notte di Selenèa'},
+  oros:   {floor:0x857f74,rim:['dead','rock','dead'],scenery:'catapult.glb',label:'il Fronte di Òros'},
   thalassa:{floor:0x9ec4cf,rim:['rock','pebble','bush'],big:'water',label:'la Riva di Thàlassa'},
-  pyra:   {floor:0x734237,rim:['dead','twisted'],ember:true,glow:0xff5a2a,label:'le Terre Arse di Pyra'},
-  krios:  {floor:0xdbe7ef,rim:['pine','rock','pine'],big:'mount',snow:true,label:'i Ghiacci di Krìos'},
-  dendra: {floor:0x6fa85a,rim:['tree','mush','fern'],dense:true,tex:true,label:'il Bosco di Dèndora'},
-  erebo:  {floor:0x565060,rim:['dead','twisted','mush'],night:true,glow:0x6a3f7a,label:'una Terra dell’Èrebo'},
-  nyxar:  {floor:0x3c2e48,rim:['twisted','dead','mush','twisted'],dense:true,night:true,glow:0x8a2fe0,label:'il Dominio di Nyxar'},
+  pyra:   {floor:0x734237,rim:['dead','twisted'],ember:true,glow:0xff5a2a,scenery:'forge.glb',label:'le Terre Arse di Pyra'},
+  krios:  {floor:0xdbe7ef,rim:['pine','rock','pine'],big:'mount',snow:true,scenery:'watchtower.glb',label:'i Ghiacci di Krìos'},
+  dendra: {floor:0x6fa85a,rim:['tree','mush','fern'],dense:true,tex:true,scenery:'witch-cottage.glb',label:'il Bosco di Dèndora'},
+  erebo:  {floor:0x565060,rim:['dead','twisted','mush'],night:true,glow:0x6a3f7a,scenery:'undead.glb',label:'una Terra dell’Èrebo'},
+  nyxar:  {floor:0x3c2e48,rim:['twisted','dead','mush','twisted'],dense:true,night:true,glow:0x8a2fe0,scenery:'magic-ritual.glb',label:'il Dominio di Nyxar'},
   grass:  {floor:0x8fb56f,rim:['tree','pine','bush'],tex:true,label:''}
 };
+let battleGen=0;
+function loadBattleScenery(file,gen){loadModel('models/props/'+file).then(o=>{if(gen!==battleGen||mode!=='battle')return;
+  const box=new THREE.Box3().setFromObject(o);const h=(box.max.y-box.min.y)||1;o.scale.setScalar(3.8/h);o.updateMatrixWorld(true);
+  const b2=new THREE.Box3().setFromObject(o);o.position.set(-(b2.min.x+b2.max.x)/2,-b2.min.y,-(b2.min.z+b2.max.z)/2);
+  o.traverse(m=>{if(m.isMesh)m.castShadow=true;});
+  const g=new THREE.Group();g.add(o);g.position.set(BGRID*BCELL*0.5+2.6,0,0);g.rotation.y=-Math.PI/2;batGroup.add(g);}).catch(()=>{});}
 function battleProp(key){const T=templates;const g=k=>T[k]?inst(k):null;
   switch(key){case 'rock':return g('deco_rock')||g('f_pebble');case 'pebble':return g('f_pebble')||g('deco_rock');
     case 'tree':return g('deco_tree');case 'pine':return g('deco_pine');case 'twisted':return g('deco_twisted');
     case 'dead':return g('deco_dead')||g('deco_twisted');case 'mush':return g('deco_mush');case 'fern':return g('f_fern')||g('deco_flowers');
     case 'flower':return g('deco_flowers')||g('f_flgrp');case 'bush':return g('f_bush')||g('deco_tree');}return null;}
-function buildBattleArena(key){const T=BATTLE_THEME[key]||BATTLE_THEME.grass;const W=BGRID*BCELL;
+function buildBattleArena(key){const T=BATTLE_THEME[key]||BATTLE_THEME.grass;const W=BGRID*BCELL;const myGen=++battleGen;
   let fm;if(T.tex){const bg=grass.clone();bg.needsUpdate=true;bg.wrapS=bg.wrapT=THREE.RepeatWrapping;bg.repeat.set(BGRID,BGRID);bg.encoding=THREE.sRGBEncoding;fm=new THREE.MeshStandardMaterial({map:bg,color:T.floor,roughness:1});}
   else fm=new THREE.MeshStandardMaterial({color:T.floor,roughness:1});fm.envMapIntensity=T.night?0.25:0.4;
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(W,W),fm);floor.rotation.x=-Math.PI/2;floor.position.y=.015;floor.receiveShadow=true;batGroup.add(floor);
@@ -1731,6 +1737,7 @@ function buildBattleArena(key){const T=BATTLE_THEME[key]||BATTLE_THEME.grass;con
   if(T.big==='water'){for(const ang of [0.5,2.3,3.9,5.5]){const w=disc(waterMid,2.6,0.02,Math.random()*3);w.position.set(Math.cos(ang)*(R0+1.6),0.02,Math.sin(ang)*(R0+1.6));w.scale.set(1.5,1,1.1);batGroup.add(w);}}
   if(T.snow){for(let i=0;i<34;i++){const p=new THREE.Mesh(new THREE.CircleGeometry(0.07+Math.random()*0.08,6),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.85}));p.rotation.x=-Math.PI/2;p.position.set((Math.random()-.5)*W,0.02,(Math.random()-.5)*W);batGroup.add(p);}}
   if(T.ember){for(let i=0;i<20;i++){const e=new THREE.Mesh(new THREE.CircleGeometry(0.1+Math.random()*0.06,6),new THREE.MeshBasicMaterial({color:0xff6a2a,transparent:true,opacity:0.5}));e.rotation.x=-Math.PI/2;e.position.set((Math.random()-.5)*W,0.02,(Math.random()-.5)*W);batGroup.add(e);}}
+  if(T.scenery)loadBattleScenery(T.scenery,myGen);
   return T.label||'';}
 async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');return;}mode='battle';selKey=null;clearSel();drawer.classList.remove('open');
   ['top','side','zoom','guide','fab','map'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
