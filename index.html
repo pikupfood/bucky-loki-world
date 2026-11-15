@@ -334,9 +334,9 @@ function enterExplore(){if(exploreMode)return;if(typeof mode!=='undefined'&&mode
   if(!tpAvatar){if(typeof toast==='function')toast('Personaggio non disponibile');return;}
   exploreMode=true;tpAvatar.o.position.set(camTarget.x,0,camTarget.z);if(renderPass)renderPass.camera=tpCam;
   document.body.classList.add('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='block';const b=document.getElementById('tpbtn');if(b)b.textContent='🗺️';
-  if(typeof toast==='function')toast('🚶 Esplora: muoviti col joystick, la camera ti segue da sola',3600);resize();}
+  if(typeof toast==='function')toast('🚶 Esplora: muoviti col joystick, la camera ti segue da sola',3600);tpHp=tpMaxHp;if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();resize();}
 function exitExplore(){if(!exploreMode)return;exploreMode=false;if(renderPass)renderPass.camera=camera;if(tpAvatar&&typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);
-  document.body.classList.remove('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='none';const b=document.getElementById('tpbtn');if(b)b.textContent='🚶';const ta=document.getElementById('tpact');if(ta)ta.style.display='none';
+  document.body.classList.remove('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='none';const b=document.getElementById('tpbtn');if(b)b.textContent='🚶';const ta=document.getElementById('tpact');if(ta)ta.style.display='none';if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();
   if(tpAvatar){camTarget.x=tpAvatar.o.position.x;camTarget.z=tpAvatar.o.position.z;}updateCam();resize();}
 function toggleExplore(){exploreMode?exitExplore():enterExplore();}
 function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
@@ -630,10 +630,23 @@ function updTpAction(px,pz){
   if(_tpTarget){btn.textContent={monster:'⚔️ Combatti',collect:'✋ Raccogli',kingdom:'🤝 Parla / Allèati'}[_tpTarget.type];btn.style.display='flex';}
   else btn.style.display='none';
 }
+// VITA dell'avatar + IA dei mostri (ti inseguono e colpiscono nella tana)
+let tpHp=5,tpMaxHp=5,_tpHurtCd=0;
+function tpUpdHealthUI(){const el=document.getElementById('tphp');if(!el)return;if(!exploreMode){el.style.display='none';return;}el.style.display='flex';let s='';for(let i=0;i<tpMaxHp;i++)s+=(i<tpHp?'❤':'🖤');el.textContent=s;}
+function tpDown(){tpHp=tpMaxHp;if(tpAvatar)tpAvatar.o.position.set(0,0,0);for(const m of caveMonsters){if(m.hp>0&&m._home){m.x=m._home.x;m.z=m._home.z;if(m.obj){m.obj.position.x=m.x;m.obj.position.z=m.z;}if(m.av){m.av.x=m.x;m.av.z=m.z;}}}if(typeof toast==='function')toast('💀 Sei caduto! Torni al covo');tpUpdHealthUI();}
+function tpHurt(n){const now=performance.now();if(now<_tpHurtCd)return;_tpHurtCd=now+800;tpHp-=n;if(tpAvatar)tpFloat(tpAvatar.o.position.x,tpAvatar.o.position.z,'-'+n+' ❤','#ff5a5a');tpUpdHealthUI();if(tpHp<=0)tpDown();}
+function updCaveMonsters(dt){if(!exploreMode||!tpAvatar)return;if(_curRoom!=='tana'&&_curRoom!=='c_chrysa_tana')return;const a=tpAvatar.o.position;
+  for(const m of caveMonsters){if(m.hp<=0||!m.obj)continue;if(!m._home)m._home={x:m.x,z:m.z};
+    const dx=a.x-m.x,dz=a.z-m.z,d=Math.hypot(dx,dz)||1;
+    if(d<11&&d>1.7){const sp=2.6*dt,ux=dx/d,uz=dz/d,nx=m.x+ux*sp,nz=m.z+uz*sp;if(inWalkable(nx,nz)){m.x=nx;m.z=nz;m.obj.position.x=nx;m.obj.position.z=nz;if(m.av){m.av.x=nx;m.av.z=nz;}}m.obj.rotation.y=Math.atan2(ux,uz);}
+    if(d<2.0){if(performance.now()>(m.acd||0)){m.acd=performance.now()+1100;tpHurt(1);m.obj.scale.multiplyScalar(1.12);(function(mo){setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/1.12);},110);})(m.obj);}}
+  }}
 (function injectTpAction(){const st=document.createElement('style');
-  st.textContent='#tpact{position:fixed;left:50%;bottom:122px;transform:translateX(-50%);z-index:61;display:none;align-items:center;justify-content:center;padding:12px 22px;border-radius:26px;border:2px solid rgba(255,220,150,.6);background:rgba(40,28,16,.93);color:#ffe4a8;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.55);touch-action:none}';
+  st.textContent='#tpact{position:fixed;left:50%;bottom:122px;transform:translateX(-50%);z-index:61;display:none;align-items:center;justify-content:center;padding:12px 22px;border-radius:26px;border:2px solid rgba(255,220,150,.6);background:rgba(40,28,16,.93);color:#ffe4a8;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.55);touch-action:none}'+
+   '#tphp{position:fixed;left:50%;top:48px;transform:translateX(-50%);z-index:60;display:none;font-size:19px;letter-spacing:3px;text-shadow:0 1px 3px #000;pointer-events:none}';
   document.head.appendChild(st);const b=document.createElement('button');b.id='tpact';document.body.appendChild(b);
-  b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(typeof tpDoAction==='function')tpDoAction();});})();
+  b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(typeof tpDoAction==='function')tpDoAction();});
+  const hp=document.createElement('div');hp.id='tphp';document.body.appendChild(hp);})();
 // ===== NUVOLE che scorrono nel cielo =====
 const clouds=[];const CLOUDMAT=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,transparent:true,opacity:0.92,fog:false});
 function makeCloud(){const g=new THREE.Group();const n=4+Math.floor(Math.random()*4);for(let i=0;i<n;i++){const r=3+Math.random()*4.5;const s=new THREE.Mesh(new THREE.SphereGeometry(r,7,5),CLOUDMAT);s.position.set((Math.random()-0.5)*12,(Math.random()-0.5)*2.2,(Math.random()-0.5)*7);s.scale.y=0.5;g.add(s);}return g;}
@@ -2809,7 +2822,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updDistantLife(dt);updDistantFX(dt);conquestTribute(dt);updCaravans(dt);updRoadParties(dt);updWalkers(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();darkenBuildings();darkenKingdoms();darkenNeighbors();anchorKingdoms();}checkLeague();drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   updExplore(dt);
-  if(typeof updRoomVisibility==='function'){const _px=(exploreMode&&tpAvatar)?tpAvatar.o.position.x:camTarget.x,_pz=(exploreMode&&tpAvatar)?tpAvatar.o.position.z:camTarget.z;updRoomVisibility(_px,_pz);if(typeof updTpAction==='function')updTpAction(_px,_pz);}
+  if(typeof updRoomVisibility==='function'){const _px=(exploreMode&&tpAvatar)?tpAvatar.o.position.x:camTarget.x,_pz=(exploreMode&&tpAvatar)?tpAvatar.o.position.z:camTarget.z;updRoomVisibility(_px,_pz);if(typeof updTpAction==='function')updTpAction(_px,_pz);if(typeof updCaveMonsters==='function')updCaveMonsters(dt);}
   if(composer)composer.render();else renderer.render(scene,exploreMode?tpCam:camera);}
 requestAnimationFrame(tick);
 // salvataggio automatico ogni minuto (indipendente dal loop: funziona anche a schermo nascosto, e sincronizza sul cloud)
