@@ -1681,20 +1681,23 @@ function buildOrganicTown(dk){const g=dk.g,enemy=dk.enemy,k=dk.k,toC=dk.toC,env=
   // ---- MONUMENTO del regno (obelisco) ben in vista sulla piazza, davanti al palazzo ----
   {const mx=Math.cos(toC)*5.2,mz=Math.sin(toC)*5.2;const ob=makeObelisk();ob.scale.setScalar(1.15);ob.position.set(mx,0,mz);g.add(ob);avoid.push({x:mx,z:mz,r:2.2});}
   // ---- EDIFICI CIVICI vicino alla piazza (tipi diversi) ----
-  const civic=[templates['market']?'market':'V_market_stalls_2','tavern','church','blacksmith','V_barracks_2'];
-  civic.forEach((c,i)=>{const a=toC+0.5+i*0.72,r=5.4+Math.random()*0.8;if(!templates[c])return;townPut(g,c,Math.cos(a)*r,Math.sin(a)*r,2.0,faceC(Math.cos(a)*r,Math.sin(a)*r));avoid.push({x:Math.cos(a)*r,z:Math.sin(a)*r,r:2.5});dirt(Math.cos(a)*r,Math.sin(a)*r,1.6);});
+  const civic=[templates['market']?'market':'V_market_stalls_2','tavern','church'];
+  civic.forEach((c,i)=>{const a=toC+0.7+i*0.95,r=5.6+Math.random()*0.6;if(!templates[c])return;townPut(g,c,Math.cos(a)*r,Math.sin(a)*r,2.0,faceC(Math.cos(a)*r,Math.sin(a)*r));avoid.push({x:Math.cos(a)*r,z:Math.sin(a)*r,r:2.6});dirt(Math.cos(a)*r,Math.sin(a)*r,1.6);});
   // ---- CASE E ALTRO sparsi ORGANICAMENTE (no cerchio), tipi misti ----
   const housePool=enemy?['home_B','V_shack','V_hut','V_hut_2','V_house_2','V_house_4','V_house_6']:['home_A','home_B','v_casa','V_house_2','V_house_3','V_house_4','V_house_5','V_house_6','V_house_7','V_hut','V_hut_2','V_shack','V_houses','V_houses_2'];
   const mixPool=['V_barracks_2','V_windmill_2','V_temple_2','V_storage_hut','tavern','church'];
-  townSpots(20,12,2.9,avoid).forEach(sp=>{const tk=Math.random()<0.24?pick(mixPool):pick(housePool);const o=townPut(g,tk,sp.x,sp.z,1.5+Math.random()*0.7,faceC(sp.x,sp.z));if(o&&Math.random()<0.55)dirt(sp.x,sp.z,1.2+Math.random()*0.7);});
-  // sentieri tortuosi sparsi
-  for(let i=0;i<16;i++){const a=Math.random()*6.28,r=Math.random()*11;dirt(Math.cos(a)*r,Math.sin(a)*r,0.8+Math.random()*0.6);}
+  townSpots(14,11,3.4,avoid).forEach(sp=>{const tk=Math.random()<0.2?pick(mixPool):pick(housePool);const o=townPut(g,tk,sp.x,sp.z,1.6+Math.random()*0.6,faceC(sp.x,sp.z));if(o&&Math.random()<0.6)dirt(sp.x,sp.z,1.2+Math.random()*0.7);});
+  // pochi sentieri
+  for(let i=0;i<10;i++){const a=Math.random()*6.28,r=Math.random()*10;dirt(Math.cos(a)*r,Math.sin(a)*r,0.8+Math.random()*0.6);}
   // ---- MURA COMPLETE che seguono il perimetro IRREGOLARE (non un cerchio) + torri + porta ----
-  if(env.walls&&templates['wall']){const seed=dk.seed||0,rW=13.2,segs=Math.max(26,Math.round(2*Math.PI*rW/2.8));
-    for(let i=0;i<segs;i++){const a=(i/segs)*6.2832;if(Math.abs(Math.atan2(Math.sin(a-toC),Math.cos(a-toC)))<0.24)continue; // varco per la porta
-      const R=blobRad(a,seed,rW,0.13),w=inst('wall');w.scale.setScalar(1.7);w.position.set(Math.cos(a)*R,0,Math.sin(a)*R);w.rotation.y=Math.atan2(-Math.sin(a),Math.cos(a));w.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(w);autoSeat(w);}
-    const twk=templates['tower_new']?'tower_new':'tower_A';for(const ta of [toC+1.15,toC+2.4,toC+Math.PI,toC-2.4,toC-1.15]){const R=blobRad(ta,seed,rW,0.13);townPut(g,twk,Math.cos(ta)*R,Math.sin(ta)*R,4.0);}
-    if(templates['gate']){const R=blobRad(toC,seed,rW,0.13);townPut(g,'gate',Math.cos(toC)*R,Math.sin(toC)*R,0,Math.atan2(-Math.sin(toC),Math.cos(toC)),1.7/1.1*1.2);}}
+  if(env.walls&&templates['wall']){const seed=dk.seed||0,nC=6,twk=templates['tower_new']?'tower_new':'tower_A';
+    // angoli del perimetro -> mura DRITTE da un angolo all'altro (come una fortezza vera, non un ammasso)
+    const cor=[];for(let i=0;i<nC;i++){const a=(i/nC)*6.2832+0.4,R=blobRad(a,seed,12.5,0.07);cor.push({x:Math.cos(a)*R,z:Math.sin(a)*R});}
+    for(let i=0;i<nC;i++){const c1=cor[i],c2=cor[(i+1)%nC],mx=(c1.x+c2.x)/2,mz=(c1.z+c2.z)/2,ea=Math.atan2(mz,mx);
+      if(Math.abs(Math.atan2(Math.sin(ea-toC),Math.cos(ea-toC)))<0.55){if(templates['gate'])townPut(g,'gate',mx,mz,0,-Math.atan2(c2.z-c1.z,c2.x-c1.x),1.75/1.1*1.2);continue;} // la PORTA sul lato verso la città
+      const dx=c2.x-c1.x,dz=c2.z-c1.z,len=Math.hypot(dx,dz),ang=Math.atan2(dz,dx),n=Math.max(1,Math.round(len/3.35));
+      for(let j=0;j<n;j++){const t=(j+0.5)/n,wx=c1.x+dx*t,wz=c1.z+dz*t,w=inst('wall');w.scale.setScalar(1.75);w.position.set(wx,0,wz);w.rotation.y=-ang;w.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(w);autoSeat(w);}}
+    for(const c of cor)townPut(g,twk,c.x,c.z,4.2);}
   // ---- RECINTO con animali ----
   townPen(g,Math.cos(toC-2.4)*9.5,Math.sin(toC-2.4)*9.5,enemy);
   // ---- ALBERI del bioma, attorno e nei varchi (naturali, non in fila) ----
