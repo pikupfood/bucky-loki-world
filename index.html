@@ -358,7 +358,7 @@ const MON={
   officina:{nome:'Officina',em:'🔨',file:'m_workshop', cost:{legna:40,ferro:10}, mor:6, time:20, deco:1, w:4,h:4},
   casastregata:{nome:'Casa stregata',em:'👻',file:'m_haunted', cost:{oro:60}, mor:7, time:24, deco:1, w:5,h:5},
   cancello:{nome:'Cancello gotico',em:'⛩️',file:'m_gate', cost:{pietra:40,ferro:10}, mor:6, time:22, deco:1, w:4,h:4},
-  caverna:{nome:'Caverna',em:'🕳️',file:'m_cavern', cost:{pietra:30}, mor:4, time:20, deco:1, w:5,h:5},
+  caverna:{nome:'Caverna',em:'🕳️',file:'m_cavern', cost:{pietra:30}, mor:4, time:20, deco:1, dungeon:true, w:5,h:5},
   casafantasy:{nome:'Casa fantasy',em:'🏘️',file:'m_fhouse', cost:{legna:35,pietra:12}, mor:6, time:18, deco:1, w:4,h:4},
   torremagica:{nome:'Torre magica',em:'🗼',file:'m_ftower', cost:{oro:70,pietra:30}, mor:10, time:26, deco:1, w:4,h:4},
   casavolante:{nome:'Casa volante',em:'🎈',file:'m_floathouse', cost:{oro:80}, mor:12, time:28, deco:1, w:4,h:4},
@@ -964,7 +964,11 @@ function openMarketScene(b){closeDyn();const d=document.createElement('div');d.c
   d.querySelector('#mkdem').onclick=()=>confirmDemolish('Mercato',()=>demolish(b));
 }
 // ===== pannelli edifici (entra dentro) =====
+// ===== Caverna = dungeon: scendi, batti il Guardiano, prendi il tesoro (rischi l'esercito se perdi) =====
+function startDungeon(){if(soldiers<1){toast('Ti serve un esercito per esplorare la caverna ⚔️ (Caserma)',4000);return;}battleTarget={kind:'dungeon'};startBattle();}
+function openCavern(b){closeDyn();dialog('🕳️','La Caverna','Giù nel buio aspettano scheletri, arcieri e un Guardiano. Sconfiggili tutti per il tesoro 💎 — ma se perdi, l\'esercito è disperso.',`<p style="font-size:12.5px;opacity:.85">Esercito pronto: <b>${soldiers}</b> ⚔️${monstersBeaten>0?' · Eroi al tuo fianco: <b>'+Math.min(monstersBeaten,4)+'</b> 🦸':''}</p><button class="btn" id="cavGo" style="background:#6b3b8a">⚔️ Esplora la Caverna</button><button class="btn alt" id="cavClose">Chiudi</button>`);const d=document.getElementById('dyn');if(!d)return;const g=d.querySelector('#cavGo');if(g)g.onclick=()=>{closeDyn();startDungeon();};const c=d.querySelector('#cavClose');if(c)c.onclick=closeDyn;}
 function openBuilding(b){
+  if(b.def.dungeon){openCavern(b);return;}
   if(b.def.market){openMarketScene(b);return;}
   const d=b.def;let body='';let extra='';
   if(d.market){
@@ -1811,7 +1815,8 @@ const BATTLE_THEME={
   dendra: {floor:0x6fa85a,rim:['tree','mush','fern'],dense:true,tex:true,scenery:'witch-cottage.glb',label:'il Bosco di Dèndora'},
   erebo:  {floor:0x565060,rim:['dead','twisted','mush'],night:true,glow:0x6a3f7a,scenery:'undead.glb',label:'una Terra dell’Èrebo'},
   nyxar:  {floor:0x3c2e48,rim:['twisted','dead','mush','twisted'],dense:true,night:true,glow:0x8a2fe0,scenery:'magic-ritual.glb',label:'il Dominio di Nyxar'},
-  grass:  {floor:0x8fb56f,rim:['tree','pine','bush'],tex:true,label:''}
+  grass:  {floor:0x8fb56f,rim:['tree','pine','bush'],tex:true,label:''},
+  dungeon:{floor:0x3b3430,rim:['rock','mush','rock'],night:true,glow:0x5a4a6a,scenery:'cavern.glb',label:'la Caverna'}
 };
 let battleGen=0;
 function loadBattleScenery(file,gen){loadModel('models/props/'+file).then(o=>{if(gen!==battleGen||mode!=='battle')return;
@@ -1845,6 +1850,7 @@ async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');retu
   // campo di battaglia a tema: bioma del regno/avversario
   let bkey='grass';
   if(battleTarget&&battleTarget.kind==='nyxar')bkey='nyxar';
+  else if(battleTarget&&battleTarget.kind==='dungeon')bkey='dungeon';
   else if(battleTarget&&(battleTarget.kind==='hunt'||battleTarget.kind==='neighbor'))bkey=battleTarget.k;
   else if(pendingLand)bkey='erebo';
   const arenaLabel=buildBattleArena(bkey);
@@ -1865,8 +1871,17 @@ async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');retu
     bo.rotation.y=-Math.PI/2;bo.traverse(o=>{if(o.isMesh)o.castShadow=true;});
     const boss={x:BGRID-1,y:3,hp:bhp,max:bhp,atk:batk,obj:bo,enemy:true,boss:true,bar:mkBarB()};batGroup.add(bo);batGroup.add(boss.bar.g);place(boss);enemies.push(boss);
     const nm=isNyx?4:2+Math.floor(monstersBeaten/3),mhp=isNyx?70:20+monstersBeaten*4,matk=isNyx?14:7+Math.floor(monstersBeaten/2),ys=[1,5,2,4,0,6];
-    for(let i=0;i<nm;i++){const o=await loadModel(SK+(i%2?'Skeleton_Rogue.glb':'Skeleton_Minion.glb'));o.scale.setScalar(.42);o.rotation.y=-Math.PI/2;const e={x:BGRID-1,y:ys[i]||2,hp:mhp,max:mhp,atk:matk,obj:o,enemy:true,bar:mkBarB()};batGroup.add(o);batGroup.add(e.bar.g);place(e);enemies.push(e);}
+    for(let i=0;i<nm;i++){const isArch=(i%3===2)&&!!templates['enemy_archer'];let o;
+      if(isArch){o=inst('enemy_archer');if(typeof fitHeight==='function')fitHeight(o,1.0);}else{o=await loadModel(SK+(i%2?'Skeleton_Rogue.glb':'Skeleton_Minion.glb'));o.scale.setScalar(.42);}
+      o.rotation.y=-Math.PI/2;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});
+      const hp=isArch?Math.round(mhp*0.7):mhp;const e={x:BGRID-1,y:ys[i]||2,hp,max:hp,atk:isArch?matk+2:matk,obj:o,enemy:true,ranged:isArch,range:3,bar:mkBarB()};batGroup.add(o);batGroup.add(e.bar.g);place(e);enemies.push(e);}
     turn='player';units.forEach(u=>u.done=false);batInfo();HINT.style.display='block';HINT.textContent=(arenaLabel?'📍 '+arenaLabel+' — ':'')+(isNyx?'NYXAR, il Dio Caduto!':((K.monster||'Il mostro')+'!'))+' Tocca un soldato, poi il mostro rosso.';return;}
+  // ===== DUNGEON: esplora la Caverna (scheletri + arcieri + un Guardiano) =====
+  if(battleTarget&&battleTarget.kind==='dungeon'){const era=(typeof cityEra==='function'?cityEra():1);
+    const bhp=100+era*40,batk=13+era*2;const bo=await loadModel(SK+'Skeleton_Warrior.glb');bo.scale.setScalar(.7);bo.rotation.y=-Math.PI/2;bo.traverse(m=>{if(m.isMesh)m.castShadow=true;});
+    const boss={x:BGRID-1,y:3,hp:bhp,max:bhp,atk:batk,obj:bo,enemy:true,boss:true,bar:mkBarB()};batGroup.add(bo);batGroup.add(boss.bar.g);place(boss);enemies.push(boss);
+    const dys=[1,5,2,4,0,6];for(let i=0;i<4;i++){const isArch=(i%2===1)&&!!templates['enemy_archer'];let o;if(isArch){o=inst('enemy_archer');if(typeof fitHeight==='function')fitHeight(o,1.0);}else{o=await loadModel(SK+'Skeleton_Minion.glb');o.scale.setScalar(.42);}o.rotation.y=-Math.PI/2;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});const hp=isArch?20+era*6:26+era*6;const e={x:BGRID-1,y:dys[i],hp,max:hp,atk:isArch?8+era:7+era,obj:o,enemy:true,ranged:isArch,range:3,bar:mkBarB()};batGroup.add(o);batGroup.add(e.bar.g);place(e);enemies.push(e);}
+    turn='player';units.forEach(u=>u.done=false);batInfo();HINT.style.display='block';HINT.textContent=(arenaLabel?'📍 '+arenaLabel+' — ':'')+'Il Guardiano della Caverna! Sconfiggi tutti i nemici per il tesoro 💎.';return;}
   const nbA=battleTarget&&battleTarget.kind==='neighbor';
   const foeName=nbA?((POPOLI.find(p=>p.k===battleTarget.k)||{}).n||'il villaggio'):'';
   const ne=nbA?Math.max(3,Math.min(BGRID-2,Math.round(battleTarget.mil*0.8)+2)):3+Math.min(terreLiberate,4);
@@ -1884,16 +1899,25 @@ function addMark(x,y,c,op,dt){const [wx,wz]=bcw(x,y);const m=new THREE.Mesh(new 
 function showTargets(u){enemies.filter(e=>e.hp>0&&Math.abs(e.x-u.x)+Math.abs(e.y-u.y)===1).forEach(e=>addMark(e.x,e.y,0xff5555,.5,{atk:true,target:e}));}
 function showMoves(u){clearMarks();for(let x=0;x<BGRID;x++)for(let y=0;y<BGRID;y++){const d=Math.abs(x-u.x)+Math.abs(y-u.y);if(d>0&&d<=3&&!occ(x,y))addMark(x,y,0x5effa0,.55,{move:true,x,y});}showTargets(u);}
 function battleTapXY(cx,cy){if(turn!=='player')return;const r=canvas.getBoundingClientRect();ndc.x=((cx-r.left)/r.width)*2-1;ndc.y=-((cy-r.top)/r.height)*2+1;ray.setFromCamera(ndc,camera);const hm=ray.intersectObjects(marks)[0];if(hm&&selUnit){const d=hm.object.userData;if(d.atk){doAtk(selUnit,d.target);selUnit.done=true;afterAct();return;}if(d.move){selUnit.x=d.x;selUnit.y=d.y;place(selUnit);const adj=enemies.filter(e=>e.hp>0&&Math.abs(e.x-selUnit.x)+Math.abs(e.y-selUnit.y)===1);if(adj.length){clearMarks();showTargets(selUnit);HINT.textContent='Colpisci un nemico rosso, o fine turno.';}else{selUnit.done=true;afterAct();}return;}}const hu=ray.intersectObjects(units.filter(u=>u.hp>0&&!u.done).map(u=>u.obj),true)[0];if(hu){let o=hu.object;while(o.parent&&!units.find(u=>u.obj===o))o=o.parent;const u=units.find(x=>x.obj===o);if(u){selUnit=u;showMoves(u);HINT.textContent='Muoviti su una casella verde o colpisci un nemico rosso.';}}}
-function doAtk(a,b){b.hp-=a.atk;updBar(b);flash(b.obj);if(b.hp<=0){b.obj.visible=false;b.bar.g.visible=false;}checkEnd();}
+function doAtk(a,b,ranged){
+  if(ranged&&a.obj&&b.obj){try{const p0=a.obj.position.clone(),p1=b.obj.position.clone();const len=Math.max(0.3,p0.distanceTo(p1));const arr=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,len,4),new THREE.MeshBasicMaterial({color:0x2a1c10}));arr.position.copy(p0).lerp(p1,0.5);arr.position.y+=0.7;arr.lookAt(p1.x,p1.y+0.7,p1.z);arr.rotateX(Math.PI/2);batGroup.add(arr);setTimeout(()=>batGroup.remove(arr),200);}catch(e){}}
+  b.hp-=a.atk;updBar(b);flash(b.obj);if(b.hp<=0){b.obj.visible=false;b.bar.g.visible=false;}checkEnd();}
 function flash(obj){obj.traverse(m=>{if(m.isMesh&&m.material&&m.material.color){const mm=m.material;if(mm._o===undefined)mm._o=mm.color.getHex();mm.color.setHex(0xff3333);setTimeout(()=>mm.color.setHex(mm._o),150);}});}
 function afterAct(){clearMarks();selUnit=null;if(mode==='battle'&&units.every(u=>u.hp<=0||u.done))endTurn();}
 document.getElementById('endturn').onclick=endTurn;
 function endTurn(){if(turn!=='player'||mode!=='battle')return;clearMarks();selUnit=null;turn='enemy';batInfo();setTimeout(enemyTurn,450);}
-function enemyTurn(){let i=0;(function step(){if(mode!=='battle')return;if(i>=enemies.length){turn='player';units.forEach(u=>u.done=false);batInfo();return;}const e=enemies[i++];if(e.hp<=0){step();return;}const al=units.filter(u=>u.hp>0);if(!al.length){step();return;}al.sort((a,b)=>(Math.abs(a.x-e.x)+Math.abs(a.y-e.y))-(Math.abs(b.x-e.x)+Math.abs(b.y-e.y)));const t=al[0];let st=3;while(st-->0&&(Math.abs(t.x-e.x)+Math.abs(t.y-e.y))>1){let nx=e.x,ny=e.y;if(Math.abs(t.x-e.x)>=Math.abs(t.y-e.y))nx+=Math.sign(t.x-e.x);else ny+=Math.sign(t.y-e.y);if(occ(nx,ny))break;e.x=nx;e.y=ny;place(e);}if(Math.abs(t.x-e.x)+Math.abs(t.y-e.y)===1)doAtk(e,t);setTimeout(step,260);})();}
+function enemyTurn(){let i=0;(function step(){if(mode!=='battle')return;if(i>=enemies.length){turn='player';units.forEach(u=>u.done=false);batInfo();return;}const e=enemies[i++];if(e.hp<=0){step();return;}const al=units.filter(u=>u.hp>0);if(!al.length){step();return;}al.sort((a,b)=>(Math.abs(a.x-e.x)+Math.abs(a.y-e.y))-(Math.abs(b.x-e.x)+Math.abs(b.y-e.y)));const t=al[0];const D=()=>Math.abs(t.x-e.x)+Math.abs(t.y-e.y);
+  const stepTo=()=>{let nx=e.x,ny=e.y;if(Math.abs(t.x-e.x)>=Math.abs(t.y-e.y))nx+=Math.sign(t.x-e.x);else ny+=Math.sign(t.y-e.y);if(occ(nx,ny))return false;e.x=nx;e.y=ny;place(e);return true;};
+  if(e.ranged){const R=e.range||3;let st=2;while(st-->0&&D()>R){if(!stepTo())break;}if(D()<=R)doAtk(e,t,true);}
+  else{let st=3;while(st-->0&&D()>1){if(!stepTo())break;}if(D()===1)doAtk(e,t);}
+  setTimeout(step,260);})();}
 function batInfo(){document.getElementById('batInfo').textContent=turn==='player'?'Il tuo turno':'Turno dell’Èrebo…';}
 function checkEnd(){if(enemies.every(e=>e.hp<=0))endBattle(true);else if(units.every(u=>u.hp<=0))endBattle(false);}
 function endBattle(win){if(mode!=='battle')return;mode='ended';HINT.style.display='none';BG.style.display='none';const tgt=battleTarget;
   if(win){
+    if(tgt&&tgt.kind==='dungeon'){soldiers=units.filter(u=>u.hp>0&&!u.hero).length;const era=(typeof cityEra==='function'?cityEra():1);const gold=120+era*60+Math.floor(Math.random()*80);R.oro=(R.oro||0)+gold;const bonusR=['legna','pietra','ferro'][Math.floor(Math.random()*3)];const bq=30+era*15;R[bonusR]=(R[bonusR]||0)+bq;morale=Math.min(100,morale+6);save();bigBanner('💎','CAVERNA CONQUISTATA','Hai preso il tesoro!');
+      dialog('💎','Tesoro della Caverna!','','<p>Hai sconfitto il Guardiano! Bottino: 🪙+'+gold+' e '+RES[bonusR]+'+'+bq+'.</p><button class="btn" id="d1b">Torna al regno</button>');
+      document.getElementById('d1b').onclick=backToCity;pendingLand=null;battleTarget=null;return;}
     if(tgt&&(tgt.kind==='hunt'||tgt.kind==='nyxar')){soldiers=units.filter(u=>u.hp>0&&!u.hero).length;
       if(tgt.kind==='nyxar'){nyxarBeaten++;monstersBeaten=0;_huntReadyAt=-1;R.oro=(R.oro||0)+2500;morale=Math.min(100,morale+20);save();bigBanner('🌑','NYXAR È CADUTO','La luce torna a Dèndoria…');neighbors.forEach(nb=>{if(nb.monster){cityGroup.remove(nb.monster.obj);nb.monster=null;}spawnNbMonster(nb);});
         dialog('🌑','NYXAR sconfitto!','','<p>Il mondo respira… ma il ciclo non finisce: nasce un Male nuovo e 9 nuovi mostri. Sei più forte che mai (<b>+25% produzione</b> permanente). 🪙+2500.</p><button class="btn" id="d1b">Torna al regno</button>');
