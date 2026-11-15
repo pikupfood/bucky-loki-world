@@ -420,6 +420,10 @@ function placeCavern(){if(cavernDone)return;cavernDone=true;const R=30,H=14;cons
     const halo=new THREE.Mesh(new THREE.SphereGeometry(0.5,12,12),new THREE.MeshBasicMaterial({color:0xff8a3a,transparent:true,opacity:0.4}));halo.position.copy(core.position);G.add(halo);}
   for(const a of [0.4,1.97,3.54,5.11]){makeBrazier(Math.cos(a)*(R-3),Math.sin(a)*(R-3));}
   if(templates.d_throne&&templates.d_throne.children.length){const o=inst('d_throne');fitHeight(o,2.8);o.position.set(0,0,-7.5);o.traverse(m=>{if(m.isMesh)m.castShadow=true;});G.add(o);if(typeof autoSeat==='function')autoSeat(o);}}
+// arredo del covo (forgia, altare, libro, miniera, casse) + mostri in agguato ai bordi
+function placeCovoProps(){const G=(typeof cityGroup!=='undefined'?cityGroup:scene);const P=[['d_forge',8.5,2.5,2.3],['d_ritual',-8.5,2.5,1.9],['d_book',6.5,8.5,1.1],['d_podium',-6.5,8.5,1.4],['d_chest',4.5,-3.5,1.1],['d_barrels',-5.5,-4.5,1.3],['d_mine',11,-9,2.8]];
+  for(const [k,px,pz,h] of P){if(!templates[k]||!templates[k].children.length)continue;const o=inst(k);fitHeight(o,h);o.position.set(px,0,pz);o.rotation.y=Math.atan2(-px,-pz);o.traverse(m=>{if(m.isMesh)m.castShadow=true;});G.add(o);if(typeof autoSeat==='function')autoSeat(o);}}
+function placeLurkers(){const G=(typeof cityGroup!=='undefined'?cityGroup:scene);const mons=['d_undead','d_skel','d_ghost','d_demon'].filter(k=>templates[k]&&templates[k].children.length);if(!mons.length)return;for(let i=0;i<7;i++){const a=Math.random()*6.2832,r=23+Math.random()*4.5,k=mons[Math.floor(Math.random()*mons.length)];const o=inst(k);fitHeight(o,k==='d_ghost'?2.1:2.4);o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.atan2(-Math.cos(a),-Math.sin(a));o.traverse(m=>{if(m.isMesh)m.castShadow=true;});G.add(o);if(typeof autoSeat==='function')autoSeat(o);}}
 // ===== NUVOLE che scorrono nel cielo =====
 const clouds=[];const CLOUDMAT=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,transparent:true,opacity:0.92,fog:false});
 function makeCloud(){const g=new THREE.Group();const n=4+Math.floor(Math.random()*4);for(let i=0;i<n;i++){const r=3+Math.random()*4.5;const s=new THREE.Mesh(new THREE.SphereGeometry(r,7,5),CLOUDMAT);s.position.set((Math.random()-0.5)*12,(Math.random()-0.5)*2.2,(Math.random()-0.5)*7);s.scale.y=0.5;g.add(s);}return g;}
@@ -2606,7 +2610,7 @@ window.addEventListener('pagehide',()=>{if(started)save();});
 
 // ===== avvio =====
 (async function(){document.getElementById('loadtxt').textContent='Carico il regno…';await preload();
-  const dungMods=['d_rock|models/nature/mossy-rock.glb','d_crystal|models/props/dark-crystal.glb','d_bigcrystal|models/props/magical-crystals.glb','d_crystball|models/props/crystal-sphere.glb','d_dead|models/nature/dead_tree.glb','d_dead2|models/nature/dead_tree_3.glb','d_twist|models/nature/twisted_tree.glb','d_twist2|models/nature/twisted_tree_4.glb','d_mush|models/props/fantasy-mushroom.glb','d_mush2|models/nature/mushroom.glb','d_skull|models/props/skull.glb','d_bones|models/props/bone-weapon.glb','d_rockmed|models/nature/rock_medium.glb','d_grave|models/props/graveyard.glb','d_throne|models/props/skull-throne.glb','d_gate|models/props/gothic-gate.glb','d_walllamp|models/props/wall-lantern.glb'];
+  const dungMods=['d_rock|models/nature/mossy-rock.glb','d_crystal|models/props/dark-crystal.glb','d_bigcrystal|models/props/magical-crystals.glb','d_crystball|models/props/crystal-sphere.glb','d_dead|models/nature/dead_tree.glb','d_dead2|models/nature/dead_tree_3.glb','d_twist|models/nature/twisted_tree.glb','d_twist2|models/nature/twisted_tree_4.glb','d_mush|models/props/fantasy-mushroom.glb','d_mush2|models/nature/mushroom.glb','d_skull|models/props/skull.glb','d_bones|models/props/bone-weapon.glb','d_rockmed|models/nature/rock_medium.glb','d_grave|models/props/graveyard.glb','d_throne|models/props/skull-throne.glb','d_gate|models/props/gothic-gate.glb','d_walllamp|models/props/wall-lantern.glb','d_forge|models/props/forge.glb','d_ritual|models/props/magic-ritual.glb','d_book|models/props/ancient-book.glb','d_podium|models/props/podium.glb','d_undead|models/props/undead.glb','d_skel|models/props/skel-warrior.glb','d_ghost|models/props/ghost.glb','d_demon|models/props/demon.glb','d_chest|models/props/chest-ornate.glb','d_barrels|models/props/barrels.glb','d_mine|models/props/mine.glb'];
   for(const s of dungMods){const [k,u]=s.split('|');try{templates[k]=await loadModel(u);}catch(e){}}
   templates.stalag=(templates.d_rock&&templates.d_rock.children.length)?templates.d_rock:makeStalagT();templates.crystal=(templates.d_crystal&&templates.d_crystal.children.length)?templates.d_crystal:makeCrystalT();
   const had=loadSave();computeWorldHills();buildWorldHills();
@@ -2629,7 +2633,7 @@ window.addEventListener('pagehide',()=>{if(started)save();});
     placeLakes();placeWildVegetation();placeRivers();placeScatterForests();
   }
   placeCastle();
-  initNeighbors();placeDistantKingdoms();connectKingdoms();placeDungeonTorches();placeDungeonDecor();placeCavern();
+  initNeighbors();placeDistantKingdoms();connectKingdoms();placeDungeonTorches();placeDungeonDecor();placeCavern();placeCovoProps();placeLurkers();
   for(let i=0;i<5;i++)spawnAgent('operaio');for(let i=0;i<2;i++)spawnAgent('milite');
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
   checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();initFlutters();initFireflies();placeFlora();placeFloraDetail();spawnTuzu();spawnWildlife();spawnClouds();initPollen();spawnKingdomBanner();if(miniC){miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();}document.getElementById('load').style.display='none';
