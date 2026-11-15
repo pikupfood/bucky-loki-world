@@ -302,33 +302,47 @@ const tpCam=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,0.1,400);
 let exploreMode=false,tpAvatar=null,tpYaw=0.7;
 const tpInput={f:0,b:0,l:0,r:0,rotL:0,rotR:0};
 const tpJoy={active:false,dx:0,dy:0};
+const tpLook={active:false,dx:0,dy:0}; // joystick destro: guardarsi intorno
+let tpJumpY=0,tpJumpV=0,tpCrouch=false; // salto + abbassarsi/nascondersi
+function tpJump(){if(exploreMode&&tpAvatar&&tpJumpY<=0.02&&tpJumpV===0){tpJumpV=8.6;}}
 (function injectExploreUI(){
   const st=document.createElement('style');
   st.textContent='.explore #fab,.explore #side,.explore #build,.explore #cats,.explore #zoom,.explore #guide{display:none!important}'+
-   '#tpbtn{position:fixed;right:12px;bottom:76px;z-index:60;width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,220,150,.5);background:rgba(28,22,16,.85);color:#ffdca0;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}'+
-   '#tpjoy{position:fixed;left:20px;bottom:24px;z-index:60;width:116px;height:116px;border-radius:50%;background:rgba(20,16,12,.5);border:2px solid rgba(255,220,150,.35);display:none;touch-action:none}'+
-   '#tpjoy .nub{position:absolute;left:38px;top:38px;width:40px;height:40px;border-radius:50%;background:rgba(255,220,150,.85);pointer-events:none}'+
-   '#tprot{position:fixed;right:12px;bottom:138px;z-index:60;display:none;flex-direction:row;gap:8px}'+
-   '.explore #tprot{display:flex}'+
-   '#tprot button{width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,220,150,.4);background:rgba(28,22,16,.85);color:#ffdca0;font-size:18px;cursor:pointer;touch-action:none}';
+   '#tpbtn{position:fixed;right:12px;top:58px;z-index:62;width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,220,150,.5);background:rgba(28,22,16,.85);color:#ffdca0;font-size:20px;cursor:pointer;display:none;align-items:center;justify-content:center}'+
+   '.explore #tpbtn{display:flex}'+
+   '#tpjoy,#tplook{position:fixed;bottom:22px;z-index:60;border-radius:50%;background:rgba(20,16,12,.5);border:2px solid rgba(255,220,150,.3);display:none;touch-action:none}'+
+   '#tpjoy{left:20px;width:116px;height:116px}'+
+   '#tplook{right:16px;width:100px;height:100px;border-color:rgba(150,200,255,.32)}'+
+   '.explore #tpjoy,.explore #tplook{display:block}'+
+   '#tpjoy .nub,#tplook .nub{position:absolute;width:38px;height:38px;border-radius:50%;background:rgba(255,220,150,.85);pointer-events:none}'+
+   '#tplook .nub{background:rgba(170,210,255,.85)}'+
+   '#tpacts{position:fixed;right:128px;bottom:20px;z-index:61;display:none;flex-direction:column;gap:11px}'+
+   '.explore #tpacts{display:flex}'+
+   '#tpacts button{width:56px;height:56px;border-radius:50%;border:2px solid rgba(255,220,150,.45);background:rgba(40,28,16,.9);color:#ffe4a8;font-size:23px;cursor:pointer;touch-action:none;box-shadow:0 3px 10px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}'+
+   '#tpA{border-color:rgba(255,190,130,.85);width:62px;height:62px;font-size:26px}';
   document.head.appendChild(st);
-  const btn=document.createElement('button');btn.id='tpbtn';btn.textContent='🚶';btn.title='Esplora / Mappa';document.body.appendChild(btn);
+  function wireStick(el,state){const nub=document.createElement('div');nub.className='nub';el.appendChild(nub);let id=null;
+    const put=(dx,dy)=>{const R=el.clientWidth/2;nub.style.left=(R-19+dx*(R-22))+'px';nub.style.top=(R-19+dy*(R-22))+'px';};put(0,0);
+    const mv=e=>{const r=el.getBoundingClientRect(),R=r.width/2;let dx=(e.clientX-(r.left+R))/R,dy=(e.clientY-(r.top+R))/R;const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m;}state.dx=dx;state.dy=dy;put(dx,dy);};
+    el.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();id=e.pointerId;try{el.setPointerCapture(id);}catch(_){}state.active=true;mv(e);});
+    el.addEventListener('pointermove',e=>{if(id!==e.pointerId)return;e.preventDefault();e.stopPropagation();mv(e);});
+    const end=e=>{if(id!==e.pointerId)return;id=null;state.active=false;state.dx=0;state.dy=0;put(0,0);};
+    el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);}
+  const btn=document.createElement('button');btn.id='tpbtn';btn.textContent='🗺️';btn.title='Mappa';document.body.appendChild(btn);
   btn.addEventListener('click',()=>toggleExplore());
-  const joy=document.createElement('div');joy.id='tpjoy';joy.innerHTML='<div class="nub" id="tpnub"></div>';document.body.appendChild(joy);
-  const rot=document.createElement('div');rot.id='tprot';rot.innerHTML='<button id="tprotL">◀</button><button id="tprotR">▶</button>';document.body.appendChild(rot);
-  const nub=joy.querySelector('#tpnub');let jid=null;const RR=58;
-  function setNub(dx,dy){nub.style.left=(38+dx*38)+'px';nub.style.top=(38+dy*38)+'px';}
-  function moveJoy(e){const r=joy.getBoundingClientRect();let dx=(e.clientX-(r.left+r.width/2))/RR;let dy=(e.clientY-(r.top+r.height/2))/RR;const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m;}tpJoy.dx=dx;tpJoy.dy=dy;setNub(dx,dy);}
-  joy.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();jid=e.pointerId;try{joy.setPointerCapture(jid);}catch(_){}tpJoy.active=true;moveJoy(e);});
-  joy.addEventListener('pointermove',e=>{if(jid!==e.pointerId)return;e.preventDefault();e.stopPropagation();moveJoy(e);});
-  function endJoy(e){if(jid!==e.pointerId)return;jid=null;tpJoy.active=false;tpJoy.dx=0;tpJoy.dy=0;setNub(0,0);}
-  joy.addEventListener('pointerup',endJoy);joy.addEventListener('pointercancel',endJoy);
-  const rl=rot.querySelector('#tprotL'),rr=rot.querySelector('#tprotR');
-  const hold=(el,key)=>{const dn=e=>{e.preventDefault();e.stopPropagation();tpInput[key]=1;};const up=()=>{tpInput[key]=0;};el.addEventListener('pointerdown',dn);el.addEventListener('pointerup',up);el.addEventListener('pointerleave',up);el.addEventListener('pointercancel',up);};
-  hold(rl,'rotL');hold(rr,'rotR');
+  const joy=document.createElement('div');joy.id='tpjoy';document.body.appendChild(joy);wireStick(joy,tpJoy);
+  const look=document.createElement('div');look.id='tplook';document.body.appendChild(look);wireStick(look,tpLook);
+  const acts=document.createElement('div');acts.id='tpacts';acts.innerHTML='<button id="tpA">⚔️</button><button id="tpB">⤴️</button><button id="tpC">🧎</button>';document.body.appendChild(acts);
+  acts.querySelector('#tpA').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(typeof tpPrimaryAction==='function')tpPrimaryAction();});
+  acts.querySelector('#tpB').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();tpJump();});
+  const C=acts.querySelector('#tpC'),cDn=e=>{e.preventDefault();e.stopPropagation();tpCrouch=true;},cUp=()=>{tpCrouch=false;};
+  C.addEventListener('pointerdown',cDn);C.addEventListener('pointerup',cUp);C.addEventListener('pointerleave',cUp);C.addEventListener('pointercancel',cUp);
 })();
-window.addEventListener('keydown',e=>{const k=(e.key||'').toLowerCase();if(k==='w'||k==='arrowup')tpInput.f=1;else if(k==='s'||k==='arrowdown')tpInput.b=1;else if(k==='a'||k==='arrowleft')tpInput.l=1;else if(k==='d'||k==='arrowright')tpInput.r=1;else if(k==='q')tpInput.rotL=1;else if(k==='e')tpInput.rotR=1;else if(k===' '){if(exploreMode){e.preventDefault();if(typeof tpDoAction==='function')tpDoAction();}}});
-window.addEventListener('keyup',e=>{const k=(e.key||'').toLowerCase();if(k==='w'||k==='arrowup')tpInput.f=0;else if(k==='s'||k==='arrowdown')tpInput.b=0;else if(k==='a'||k==='arrowleft')tpInput.l=0;else if(k==='d'||k==='arrowright')tpInput.r=0;else if(k==='q')tpInput.rotL=0;else if(k==='e')tpInput.rotR=0;});
+// ancora un pulsante per entrare/uscire dall'esplorazione quando sei in mappa (iso)
+(function(){const b=document.createElement('button');b.id='tpenter';b.textContent='🚶';b.title='Esplora';b.style.cssText='position:fixed;right:12px;bottom:76px;z-index:60;width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,220,150,.5);background:rgba(28,22,16,.85);color:#ffdca0;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center';document.body.appendChild(b);b.addEventListener('click',()=>{if(!exploreMode)toggleExplore();});
+  const style=document.createElement('style');style.textContent='.explore #tpenter{display:none}';document.head.appendChild(style);})();
+window.addEventListener('keydown',e=>{const k=(e.key||'').toLowerCase();if(k==='w'||k==='arrowup')tpInput.f=1;else if(k==='s'||k==='arrowdown')tpInput.b=1;else if(k==='a'||k==='arrowleft')tpInput.l=1;else if(k==='d'||k==='arrowright')tpInput.r=1;else if(k==='q')tpInput.rotL=1;else if(k==='e')tpInput.rotR=1;else if(k==='f'||k==='enter'){if(exploreMode){e.preventDefault();if(typeof tpPrimaryAction==='function')tpPrimaryAction();}}else if(k===' '){if(exploreMode){e.preventDefault();if(typeof tpJump==='function')tpJump();}}else if(k==='shift'||k==='c'){if(exploreMode)tpCrouch=true;}});
+window.addEventListener('keyup',e=>{const k=(e.key||'').toLowerCase();if(k==='w'||k==='arrowup')tpInput.f=0;else if(k==='s'||k==='arrowdown')tpInput.b=0;else if(k==='a'||k==='arrowleft')tpInput.l=0;else if(k==='d'||k==='arrowright')tpInput.r=0;else if(k==='q')tpInput.rotL=0;else if(k==='e')tpInput.rotR=0;else if(k==='shift'||k==='c')tpCrouch=false;});
 function enterExplore(){if(exploreMode)return;if(typeof mode!=='undefined'&&mode!=='city'){if(typeof toast==='function')toast('Esci prima dalla battaglia');return;}
   if(!tpAvatar){tpAvatar=(typeof makeWalker==='function')?makeWalker(1.0):null;if(tpAvatar){tpAvatar.o.position.set(camTarget.x,0,camTarget.z);cityGroup.add(tpAvatar.o);}}
   if(!tpAvatar){if(typeof toast==='function')toast('Personaggio non disponibile');return;}
@@ -340,19 +354,25 @@ function exitExplore(){if(!exploreMode)return;exploreMode=false;if(renderPass)re
   if(tpAvatar){camTarget.x=tpAvatar.o.position.x;camTarget.z=tpAvatar.o.position.z;}updateCam();resize();}
 function toggleExplore(){exploreMode?exitExplore():enterExplore();}
 function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
+  // joystick destro: guardarsi intorno
+  if(tpLook.active)tpYaw-=tpLook.dx*dt*2.6;
+  // salto (fisica)
+  if(tpJumpV!==0||tpJumpY>0.001){tpJumpV-=24*dt;tpJumpY+=tpJumpV*dt;if(tpJumpY<=0){tpJumpY=0;tpJumpV=0;}}
+  // abbassarsi/nascondersi: si schiaccia e va piano
+  const bsy=tpAvatar._bsy||(tpAvatar._bsy=o.scale.y);o.scale.y+=((bsy*(tpCrouch?0.58:1))-o.scale.y)*Math.min(1,dt*10);
   let mf=(tpInput.f-tpInput.b)+(tpJoy.active?-tpJoy.dy:0);let mr=(tpInput.r-tpInput.l)+(tpJoy.active?tpJoy.dx:0);
   mf=Math.max(-1,Math.min(1,mf));mr=Math.max(-1,Math.min(1,mr));
   const Fx=-Math.sin(tpYaw),Fz=-Math.cos(tpYaw),Rx=-Math.cos(tpYaw),Rz=Math.sin(tpYaw);
   let dx=Fx*mf+Rx*mr,dz=Fz*mf+Rz*mr;const dl=Math.hypot(dx,dz);
-  if(dl>0.08){dx/=dl;dz/=dl;const SP=5.4;const ox=o.position.x,oz=o.position.z,nx=ox+dx*SP*dt,nz=oz+dz*SP*dt;
+  if(dl>0.08){dx/=dl;dz/=dl;const SP=(tpCrouch?2.4:5.4);const ox=o.position.x,oz=o.position.z,nx=ox+dx*SP*dt,nz=oz+dz*SP*dt;
     if(canStep(nx,nz)){o.position.x=nx;o.position.z=nz;}
     else if(canStep(nx,oz)){o.position.x=nx;}
     else if(canStep(ox,nz)){o.position.z=nz;}
     const fa=Math.atan2(dx,dz);let fd=fa-o.rotation.y;while(fd>Math.PI)fd-=2*Math.PI;while(fd<-Math.PI)fd+=2*Math.PI;o.rotation.y+=fd*Math.min(1,dt*9);if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,true);
-    // LA CAMERA SEGUE DA SOLA, morbida: si porta dietro la direzione di marcia
-    const target=Math.atan2(-dx,-dz);let d2=target-tpYaw;while(d2>Math.PI)d2-=2*Math.PI;while(d2<-Math.PI)d2+=2*Math.PI;tpYaw+=d2*Math.min(1,dt*1.8);}
+    // la camera segue da sola (ma non mentre guardi col joystick destro)
+    if(!tpLook.active){const target=Math.atan2(-dx,-dz);let d2=target-tpYaw;while(d2>Math.PI)d2-=2*Math.PI;while(d2<-Math.PI)d2+=2*Math.PI;tpYaw+=d2*Math.min(1,dt*1.8);}}
   else{if(tpInput.rotL)tpYaw+=dt*1.6;if(tpInput.rotR)tpYaw-=dt*1.6;if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);}
-  const ty=(typeof stepHeightAt==='function')?stepHeightAt(o.position.x,o.position.z):0;o.position.y+=(ty-o.position.y)*Math.min(1,dt*10);
+  const ty=(typeof stepHeightAt==='function')?stepHeightAt(o.position.x,o.position.z):0;tpAvatar._baseY=(tpAvatar._baseY||0)+(ty-(tpAvatar._baseY||0))*Math.min(1,dt*10);o.position.y=tpAvatar._baseY+tpJumpY;
   const D=6.8,H=4.4,dcx=o.position.x+Math.sin(tpYaw)*D,dcy=H+o.position.y,dcz=o.position.z+Math.cos(tpYaw)*D;
   const far=((tpCam.position.x-dcx)**2+(tpCam.position.z-dcz)**2)>400,ck=far?1:Math.min(1,dt*4.2);
   tpCam.position.x+=(dcx-tpCam.position.x)*ck;tpCam.position.y+=(dcy-tpCam.position.y)*ck;tpCam.position.z+=(dcz-tpCam.position.z)*ck;
@@ -625,13 +645,15 @@ function tpDoAction(){if(!_tpTarget)return;const _now=performance.now();if(_now<
     else{tpFloat(m.x,m.z,'-1 ❤','#ff5a5a');const mo=m.obj;if(mo){mo.scale.multiplyScalar(0.88);setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/0.88);},100);}if(typeof toast==='function')toast('⚔️ Colpito ('+m.hp+'/'+m.maxhp+')');}}
   else if(t.type==='kingdom'){const nb=t.ref;nb.reached=true;if(typeof reachedNb!=='undefined')reachedNb[nb.k]=1;if(typeof openNeighbor==='function')openNeighbor(nb.k);else if(typeof toast==='function')toast('Sei al regno vicino');}
 }
+// BOTTONE A (primario, contestuale): se c'e' un bersaglio fa quello, altrimenti fendente al mostro vicino
+function tpPrimaryAction(){if(!exploreMode)return;if(_tpTarget){tpDoAction();return;}if(tpAvatar){const a=tpAvatar.o.position;let best=null,bd=3.2;for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(a.x-m.x,a.z-m.z);if(d<bd){bd=d;best=m;}}if(best){_tpTarget={type:'monster',ref:best,d:bd};tpDoAction();}}}
 function updTpAction(px,pz){
   const now=performance.now();for(const c of collectNodes){if(c.taken&&c.respawn&&now>c.respawn){c.taken=false;c.respawn=0;if(c.obj)c.obj.visible=true;if(c.glow)c.glow.visible=true;}}
-  const btn=document.getElementById('tpact');if(!btn)return;
-  if(!exploreMode){if(btn.style.display!=='none')btn.style.display='none';_tpTarget=null;return;}
+  const old=document.getElementById('tpact');if(old&&old.style.display!=='none')old.style.display='none';
+  const A=document.getElementById('tpA');
+  if(!exploreMode){_tpTarget=null;return;}
   _tpTarget=tpFindTarget(px,pz);
-  if(_tpTarget){btn.textContent={monster:'⚔️ Combatti',collect:'✋ Raccogli',kingdom:'🤝 Parla / Allèati'}[_tpTarget.type];btn.style.display='flex';}
-  else btn.style.display='none';
+  if(A)A.textContent=_tpTarget?({monster:'⚔️',collect:'✋',kingdom:'🤝'}[_tpTarget.type]||'⚔️'):'⚔️';
 }
 // VITA dell'avatar + IA dei mostri (ti inseguono e colpiscono nella tana)
 let tpHp=5,tpMaxHp=5,_tpHurtCd=0;
@@ -640,8 +662,8 @@ function tpDown(){tpHp=tpMaxHp;if(tpAvatar)tpAvatar.o.position.set(0,0,0);for(co
 function tpHurt(n){const now=performance.now();if(now<_tpHurtCd)return;_tpHurtCd=now+800;tpHp-=n;if(tpAvatar)tpFloat(tpAvatar.o.position.x,tpAvatar.o.position.z,'-'+n+' ❤','#ff5a5a');tpUpdHealthUI();if(tpHp<=0)tpDown();}
 function updCaveMonsters(dt){if(!exploreMode||!tpAvatar)return;if(_curRoom!=='tana'&&_curRoom!=='c_chrysa_tana')return;const a=tpAvatar.o.position;
   for(const m of caveMonsters){if(m.hp<=0||!m.obj)continue;if(!m._home)m._home={x:m.x,z:m.z};
-    const dx=a.x-m.x,dz=a.z-m.z,d=Math.hypot(dx,dz)||1;
-    if(d<11&&d>1.7){const sp=2.6*dt,ux=dx/d,uz=dz/d,nx=m.x+ux*sp,nz=m.z+uz*sp;if(inWalkable(nx,nz)){m.x=nx;m.z=nz;m.obj.position.x=nx;m.obj.position.z=nz;if(m.av){m.av.x=nx;m.av.z=nz;}}m.obj.rotation.y=Math.atan2(ux,uz);}
+    const dx=a.x-m.x,dz=a.z-m.z,d=Math.hypot(dx,dz)||1;const aggro=tpCrouch?3.2:11; // accucciato = ti nascondi
+    if(d<aggro&&d>1.7){const sp=2.6*dt,ux=dx/d,uz=dz/d,nx=m.x+ux*sp,nz=m.z+uz*sp;if(inWalkable(nx,nz)){m.x=nx;m.z=nz;m.obj.position.x=nx;m.obj.position.z=nz;if(m.av){m.av.x=nx;m.av.z=nz;}}m.obj.rotation.y=Math.atan2(ux,uz);}
     if(d<2.0){if(performance.now()>(m.acd||0)){m.acd=performance.now()+1100;tpHurt(1);m.obj.scale.multiplyScalar(1.12);(function(mo){setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/1.12);},110);})(m.obj);}}
   }}
 (function injectTpAction(){const st=document.createElement('style');
