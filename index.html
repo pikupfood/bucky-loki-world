@@ -322,6 +322,12 @@ const DECO={
   scrigno: {nome:'Scrigno', em:'💰', files:['p_chest'], mor:2},
   pozione: {nome:'Pozione', em:'⚗️', files:['p_potion'], mor:1},
   teschio: {nome:'Teschio', em:'💀', files:['p_skull'], mor:0},
+  cavaliere:{nome:'Cavaliere',em:'🛡️', files:['p_knight'], mor:2},
+  ascia:   {nome:'Ascia',   em:'🪓', files:['p_axe'], mor:1},
+  asciaguerra:{nome:'Ascia da guerra',em:'⚔️', files:['p_baxe'], mor:1},
+  piccone: {nome:'Piccone', em:'⛏️', files:['p_pickaxe'], mor:1},
+  gru:     {nome:'Gru',     em:'🏗️', files:['p_crane'], mor:0},
+  pergamena:{nome:'Pergamena',em:'📜', files:['p_scroll'], mor:1},
   porticciolo:{nome:'Porticciolo',em:'⚓', build:'makeHarbor', mor:3, cost:{legna:30,pietra:10}},
   strada:  {nome:'Strada',  em:'🟫', road:true, mor:0},
   bandiera:{nome:'Bandiera',em:'🚩', files:['flag_'+col], mor:1}
@@ -462,7 +468,7 @@ async function loadNatureDecos(){const mk=async(key,srcTpl,file,hh)=>{try{let sr
   await mk('deco_mush','f_mush','mushroom',0.95);await mk('deco_flowers','f_flgrp','flower_group',0.55);
   await mk('deco_twisted',null,'twisted_tree',2.8);await mk('deco_dead',null,'dead_tree',2.6);await mk('deco_rock','f_pebble','pebble_round',0.55);}
 // props pixellabs (ottimizzati) come decorazioni piazzabili nei villaggi
-const PROP_DECO={p_lantern:['lantern.glb',0.9],p_torch:['torch.glb',1.05],p_signpost:['signpost.glb',1.2],p_barrels:['barrels.glb',0.6],p_potion:['potion.glb',0.32],p_chest:['treasure-chest.glb',0.5],p_skull:['skull.glb',0.4]};
+const PROP_DECO={p_lantern:['lantern.glb',0.9],p_torch:['torch.glb',1.05],p_signpost:['signpost.glb',1.2],p_barrels:['barrels.glb',0.6],p_potion:['potion.glb',0.32],p_chest:['treasure-chest.glb',0.5],p_skull:['skull.glb',0.4],p_knight:['knight.glb',0.78],p_axe:['axe.glb',0.6],p_baxe:['battle-axe.glb',0.7],p_pickaxe:['pickaxe.glb',0.6],p_crane:['crane.glb',1.7],p_scroll:['scroll.glb',0.32]};
 async function loadPropDecos(){for(const key in PROP_DECO){try{const m=await loadModel('models/props/'+PROP_DECO[key][0]);let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[key]=wrapScaled(m,PROP_DECO[key][1]);}catch(e){}}}
 // strutture grandi pixellabs (mulino ad acqua, castelli, fortezza) normalizzate sull'ingombro, come monumenti
 const MON_PROPS={m_watermill:['watermill.glb',4],m_castle:['castle.glb',6],m_castleR:['castle-royal.glb',6],m_fortress:['fortress.glb',5],m_watchtower:['watchtower.glb',4]};
