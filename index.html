@@ -423,6 +423,7 @@ async function preload(){
   await loadTuzu();
   await loadForestTrees();
   await loadFloraDetail();
+  await loadKingdomMonsters();
 }
 // alberi del bosco (nature kit) come template per l'InstancedMesh
 const FOREST_TPL={n_tree:'tree', n_pine:'pine'};
@@ -430,6 +431,10 @@ async function loadForestTrees(){for(const tn in FOREST_TPL){try{const m=await l
 // dettaglio-natura leggero (fiori/cespugli/felci/sassi/erba) per un mondo ricco e coerente
 const FLORA_TPL={f_bush:'bush',f_grass:'grass',f_grassw:'grass_wispy',f_fern:'fern',f_flbush:'bush_with_flowers',f_pebble:'pebble_round'};
 async function loadFloraDetail(){for(const tn in FLORA_TPL){try{const m=await loadModel('models/nature/'+FLORA_TPL[tn]+'.glb');let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[tn]=m;}catch(e){}}}
+// mostro simbolo di ogni regno (per i villaggi e la Caccia ai 9 Mostri) + Nyxar
+const KMONSTER={dendra:'mushroom_king',nefele:'armabee',chrysa:'ghost',selenea:'wizard',oros:'goleling_evolved',thalassa:'squidle',pyra:'dragon',krios:'yeti',metalla:'goleling'};
+const NYXAR_MODEL='blue_demon';
+async function loadKingdomMonsters(){for(const k in KMONSTER){try{const m=await loadModel('models/monsters/'+KMONSTER[k]+'.glb');let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates['km_'+k]=m;}catch(e){}}try{const m=await loadModel('models/monsters/'+NYXAR_MODEL+'.glb');let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates['nyxar']=m;}catch(e){}}
 async function loadTuzu(){const paths=['models/tuzu/tuzu.glb','models/monsters/green_blob.glb'];for(const p of paths){try{const m=await loadModel(p);let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has){templates['tuzu3d']=m;return;}}catch(e){}}}
 // ===== Tuzu in 3D: mascotte verde viva che gira per il regno =====
 let tuzu3d=null;
@@ -1199,7 +1204,7 @@ async function initNeighbors(){const spec=[
     {k:'nefele',x:-30,z:4,ax:HALF-12,ay:HALF+1, build:[['castle',0,0],['home_A',-1,0],['home_B',1,0],['tower_B',0,1],['market',1,-1]], defense:'stone', ring:5.6, forest:10},
     {k:'chrysa',x:30,z:-5,ax:HALF+12,ay:HALF-1, build:[['castle',0,0],['market',-1,0],['home_A',1,1],['blacksmith',-1,-1],['home_B',1,-1]], defense:'wood', ring:5.2, forest:14},
     {k:'oros',x:5,z:30,ax:HALF+1,ay:HALF+12, build:[['castle',0,0],['home_A',-1,-1],['home_B',1,0],['church',0,1],['home_A',-1,1]], defense:'forest', ring:5.0, forest:26}];
-  for(const s of spec){if(s.k===myKingdom)continue;const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:6,mil:2,timer:40+Math.random()*30,agents:[],ax:s.ax,ay:s.ay,reached:!!reachedNb[s.k]};
+  for(const s of spec){if(s.k===myKingdom)continue;const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:6,mil:2,timer:40+Math.random()*30,agents:[],ax:s.ax,ay:s.ay,reached:!!reachedNb[s.k],_ring:s.ring};
     for(const [f,cx,cz] of s.build)await nbBuild(nb,f,cx,cz);
     // difesa: muro di pietra, palisade di legno, o fitto bosco
     if(s.defense==='stone'){nbRampart(nb,s.ring,true);nbForestRing(nb,s.forest,s.ring+2.6,false);}
@@ -1207,7 +1212,10 @@ async function initNeighbors(){const spec=[
     else{nbForestRing(nb,s.forest,s.ring+0.3,true);nbForestRing(nb,Math.round(s.forest*0.6),s.ring+2.4,true);}
     // cartello indicatore all'imbocco della strada
     const sign=makeSign(SIGNCOL[col]||0x888888);const [sx,sz]=cw(s.ax,s.ay);sign.position.set(sx,0,sz);sign.rotation.y=Math.atan2(s.x-sx,s.z-sz);cityGroup.add(sign);nb.sign=sign;
-    for(let i=0;i<3;i++)nbSpawn(nb);neighbors.push(nb);}}
+    for(let i=0;i<3;i++)nbSpawn(nb);neighbors.push(nb);spawnNbMonster(nb);}}
+// ogni villaggio nemico ha il SUO mostro che si aggira lì attorno
+function spawnNbMonster(nb){if(!templates['km_'+nb.k])return;const g=new THREE.Group();const m=inst('km_'+nb.k);fitHeight(m,1.5);m.rotation.y=Math.random()*6.28;m.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(m);const ang=Math.random()*6.28,rr=(nb._ring||5)+2.5;g.position.set(nb.g.position.x+Math.cos(ang)*rr,0,nb.g.position.z+Math.sin(ang)*rr);cityGroup.add(g);nb.monster={obj:g,tx:g.position.x,tz:g.position.z,timer:2+Math.random()*3,hop:Math.random()*6};}
+function updNbMonsters(dt){for(const nb of neighbors){const mo=nb.monster;if(!mo)continue;const o=mo.obj;mo.timer-=dt;if(mo.timer<=0){mo.timer=4+Math.random()*4;const ang=Math.random()*6.28,rr=(nb._ring||5)+1.5+Math.random()*3.5;mo.tx=nb.g.position.x+Math.cos(ang)*rr;mo.tz=nb.g.position.z+Math.sin(ang)*rr;}const dx=mo.tx-o.position.x,dz=mo.tz-o.position.z,d=Math.hypot(dx,dz);if(d>0.2){o.position.x+=dx/d*0.5*dt;o.position.z+=dz/d*0.5*dt;o.rotation.y=Math.atan2(dx,dz);mo.hop+=dt*4.5;o.position.y=Math.abs(Math.sin(mo.hop))*0.09;}else{o.position.y=0.02;}}}
 function adjacentWalkable(cx,cy){return [[1,0],[-1,0],[0,1],[0,-1]].some(d=>walkable(cx+d[0],cy+d[1]));}
 function startCell(){for(let r=1;r<10;r++)for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++){const x=HALF+dx,y=HALF+dy;if(walkable(x,y))return [x,y];}return [HALF,HALF];}
 function neighborReachable(nb){const s=startCell();return !!bfsPath(s[0],s[1],nb.ax,nb.ay);}
@@ -1725,7 +1733,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updWeather(dt);
   if(started)updSeason(dt);
   if(started)updSky(dt);
-  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updCaravans(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}checkLeague();drawTop();}
+  if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updCaravans(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();}checkLeague();drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   renderer.render(scene,camera);}
 requestAnimationFrame(tick);
