@@ -1606,33 +1606,43 @@ function blobGround(seed,rBase,amp,mat){const geo=new THREE.CircleGeometry(rBase
 const OBEL_STONE=new THREE.MeshStandardMaterial({color:0xb9b2a2,roughness:1,flatShading:true});
 const OBEL_GOLD=new THREE.MeshStandardMaterial({color:0xe8c24a,roughness:0.5,metalness:0.3});
 function makeObelisk(){const g=new THREE.Group();const base=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.5,1.4),OBEL_STONE);base.position.y=0.25;g.add(base);const base2=new THREE.Mesh(new THREE.BoxGeometry(1.0,0.4,1.0),OBEL_STONE);base2.position.y=0.65;g.add(base2);const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.42,3.6,4),OBEL_STONE);shaft.position.y=2.7;shaft.rotation.y=Math.PI/4;g.add(shaft);const cap=new THREE.Mesh(new THREE.ConeGeometry(0.3,0.7,4),OBEL_GOLD);cap.position.y=4.8;cap.rotation.y=Math.PI/4;g.add(cap);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
-// ambiente RICCO del bioma attorno alla citta (fuori dalle mura): paesaggio fantastico
+// ambiente del bioma IN CONTINUITA col mondo: niente disco separato, tutto sfuma nel terreno
 function smallBiome(g,env,toC,k,enemy){const la=toC+Math.PI;const pick=a=>a[Math.floor(Math.random()*a.length)];
   const putB=(key,ang,r,h,ex)=>{const x=Math.cos(ang)*r,z=Math.sin(ang)*r;return townPut(g,key,x,z,h,Math.atan2(-Math.cos(ang),-Math.sin(ang)),ex);};
+  const scat=(key,ang,r,h)=>{if(!templates[key])return;const o=inst(key);fitHeight(o,h);o.position.set(Math.cos(ang)*r,0,Math.sin(ang)*r);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);};
   if(env.feat==='lake'){const lx=Math.cos(la)*21,lz=Math.sin(la)*21;
-    const sand=new THREE.Mesh(new THREE.CircleGeometry(16,46),new THREE.MeshStandardMaterial({color:0xe6d7a6,roughness:1}));sand.rotation.x=-Math.PI/2;sand.position.set(lx*0.52,0.025,lz*0.52);g.add(sand);
-    const w=disc(waterMid,14,0.04,0);w.position.set(lx,0.04,lz);g.add(w);const fm=foamRing(14);fm.position.set(lx,0.05,lz);g.add(fm);
-    for(let i=-1;i<=1;i++)putB('V_dock',la+i*0.28,14,0,1.3);
-    putB('V_shipping_port',la,11.5,1.9);
-    const twk=templates['tower_new']?'tower_new':'tower_A';putB(twk,la+0.8,16,4.4);
-    for(let i=0;i<10;i++){const da=la+(Math.random()-0.5)*1.9,rr=15+Math.random()*5;townPut(g,pick(['f_fern','f_bush']),Math.cos(da)*rr,Math.sin(da)*rr,0.5+Math.random()*0.4);}}
-  else if(env.feat==='mountain'){for(let i=0;i<7;i++){const a=i/7*6.2832+0.3,r=20+Math.random()*4;const mt=makeMountain(1.9+Math.random()*1.2);mt.position.set(Math.cos(a)*r,0,Math.sin(a)*r);g.add(mt);}
-    putB('V_mine',la,15,2.3);
-    for(let i=0;i<8;i++){const a=Math.random()*6.28,r=14+Math.random()*7;townPut(g,pick(['V_gold_rocks','V_rock_2','V_rock_3']),Math.cos(a)*r,Math.sin(a)*r,0.9+Math.random()*0.5);}}
-  else if(env.feat==='lava'){const glow=new THREE.Mesh(new THREE.CircleGeometry(24,54),new THREE.MeshBasicMaterial({color:0xff5a1e,transparent:true,opacity:0.2}));glow.rotation.x=-Math.PI/2;glow.position.y=0.028;g.add(glow);
-    for(let i=0;i<8;i++){const a=Math.random()*6.28,r=15+Math.random()*7,R=1.3+Math.random()*1.3;const p1=new THREE.Mesh(new THREE.CircleGeometry(R,20),new THREE.MeshBasicMaterial({color:0xff4310}));p1.rotation.x=-Math.PI/2;p1.position.set(Math.cos(a)*r,0.03,Math.sin(a)*r);g.add(p1);const p2=new THREE.Mesh(new THREE.CircleGeometry(R*0.5,16),new THREE.MeshBasicMaterial({color:0xffdc55}));p2.rotation.x=-Math.PI/2;p2.position.set(Math.cos(a)*r,0.036,Math.sin(a)*r);g.add(p2);}
-    const vx=Math.cos(la)*21,vz=Math.sin(la)*21,H=9;const cone=new THREE.Mesh(new THREE.ConeGeometry(6,H,7,1),new THREE.MeshBasicMaterial({color:0x2a1d19,flatShading:true}));cone.position.set(vx,H/2,vz);g.add(cone);const cr=new THREE.Mesh(new THREE.CircleGeometry(2.4,22),new THREE.MeshBasicMaterial({color:0xffe14a}));cr.rotation.x=-Math.PI/2;cr.position.set(vx,H+0.05,vz);g.add(cr);
-    const halo=new THREE.Mesh(new THREE.CircleGeometry(4.2,24),new THREE.MeshBasicMaterial({color:0xff6a1e,transparent:true,opacity:0.5}));halo.rotation.x=-Math.PI/2;halo.position.set(vx,H+0.02,vz);g.add(halo);
+    const sand=new THREE.Mesh(new THREE.CircleGeometry(16,46),new THREE.MeshStandardMaterial({color:0xe6d7a6,roughness:1}));sand.rotation.x=-Math.PI/2;sand.position.set(lx*0.55,0.026,lz*0.55);g.add(sand);
+    const w=disc(waterMid,14,0.045,0);w.position.set(lx,0.045,lz);g.add(w);const fm=foamRing(14);fm.position.set(lx,0.055,lz);g.add(fm);
+    const rpts=[[lx,lz],[Math.cos(la+0.22)*30,Math.sin(la+0.22)*30],[Math.cos(la-0.12)*41,Math.sin(la-0.12)*41]];
+    const rb=new THREE.Mesh(riverRibbon(rpts,2.6,3,Math.random()*6),shoreMat);rb.position.y=0.04;rb.renderOrder=27;g.add(rb);
+    const rm=new THREE.Mesh(riverRibbon(rpts,1.8,3,1+Math.random()*6),waterMid);rm.position.y=0.052;rm.renderOrder=28;g.add(rm);
+    const rs=new THREE.Mesh(riverRibbon(rpts,0.55,4,2+Math.random()*6),waterShallow);rs.position.y=0.072;rs.renderOrder=30;g.add(rs);
+    for(let i=-1;i<=1;i++)putB('V_dock',la+i*0.26,13.5,0,1.3);
+    putB('V_shipping_port',la,11,1.9);const twk=templates['tower_new']?'tower_new':'tower_A';putB(twk,la+0.8,15.5,4.4);
+    for(let i=0;i<12;i++){const da=la+(Math.random()-0.5)*2.1,rr=13+Math.random()*4;scat(pick(['f_fern','f_bush','f_grassw']),da,rr,0.5+Math.random()*0.4);}}
+  else if(env.feat==='mountain'){for(let i=0;i<9;i++){const a=la+(i-4)*0.33,r=22+Math.random()*10;const mt=makeMountain(2.2+Math.random()*1.6);mt.position.set(Math.cos(a)*r,0,Math.sin(a)*r);g.add(mt);}
+    for(let i=0;i<5;i++){const a=la+(i-2)*0.52,r=16+Math.random()*5;const mt=makeMountain(1.1+Math.random()*0.7);mt.position.set(Math.cos(a)*r,0,Math.sin(a)*r);g.add(mt);}
+    putB('V_mine',la+0.2,15,2.3);
+    for(let i=0;i<8;i++){const a=Math.random()*6.28,r=13+Math.random()*8;townPut(g,pick(['V_gold_rocks','V_rock_2','V_rock_3']),Math.cos(a)*r,Math.sin(a)*r,0.9+Math.random()*0.5);}}
+  else if(env.feat==='lava'){const glow=new THREE.Mesh(new THREE.CircleGeometry(23,54),new THREE.MeshBasicMaterial({color:0xff5a1e,transparent:true,opacity:0.18,depthWrite:false}));glow.rotation.x=-Math.PI/2;glow.position.y=0.03;glow.renderOrder=3;g.add(glow);
+    for(let i=0;i<8;i++){const a=Math.random()*6.28,r=14+Math.random()*8,R=1.3+Math.random()*1.3;const p1=new THREE.Mesh(new THREE.CircleGeometry(R,20),new THREE.MeshBasicMaterial({color:0xff4310}));p1.rotation.x=-Math.PI/2;p1.position.set(Math.cos(a)*r,0.034,Math.sin(a)*r);g.add(p1);const p2=new THREE.Mesh(new THREE.CircleGeometry(R*0.5,16),new THREE.MeshBasicMaterial({color:0xffdc55}));p2.rotation.x=-Math.PI/2;p2.position.set(Math.cos(a)*r,0.04,Math.sin(a)*r);g.add(p2);}
+    const vx=Math.cos(la)*23,vz=Math.sin(la)*23,H=13;const cone=new THREE.Mesh(new THREE.ConeGeometry(5.2,H,8,1),new THREE.MeshStandardMaterial({color:0x33231d,roughness:1,flatShading:true}));cone.position.set(vx,H/2,vz);cone.castShadow=true;g.add(cone);const cone2=new THREE.Mesh(new THREE.ConeGeometry(5.5,H*0.5,8,1),new THREE.MeshStandardMaterial({color:0x271a16,roughness:1,flatShading:true}));cone2.position.set(vx,H*0.25,vz);cone2.rotation.y=0.4;g.add(cone2);const cr=new THREE.Mesh(new THREE.CircleGeometry(1.5,20),new THREE.MeshBasicMaterial({color:0xffe14a}));cr.rotation.x=-Math.PI/2;cr.position.set(vx,H+0.05,vz);g.add(cr);
+    const halo=new THREE.Mesh(new THREE.CircleGeometry(2.4,22),new THREE.MeshBasicMaterial({color:0xff6a1e,transparent:true,opacity:0.6}));halo.rotation.x=-Math.PI/2;halo.position.set(vx,H+0.02,vz);g.add(halo);
+    for(let s=0;s<3;s++){const sa=la+(s-1)*0.5;const st=new THREE.Mesh(new THREE.PlaneGeometry(0.7,7),new THREE.MeshBasicMaterial({color:0xff5a14}));const sg=new THREE.Group();sg.add(st);sg.position.set(vx+Math.cos(sa)*2,H*0.55,vz+Math.sin(sa)*2);sg.rotation.y=sa;sg.rotation.x=0.7;g.add(sg);}
     const fx=fxCloud(g,70,0xff8a2a,0.6,20,12,true);distantFX.push({geo:fx.geo,vy:1.6,H:12});}
-  else if(env.feat==='snow'){for(let i=0;i<6;i++){const a=i/6*6.2832+0.4,r=20+Math.random()*4;const mt=makeMountain(2.0+Math.random()*1.1);mt.position.set(Math.cos(a)*r,0,Math.sin(a)*r);g.add(mt);}
-    const pond=new THREE.Mesh(new THREE.CircleGeometry(6,30),new THREE.MeshStandardMaterial({color:0xcfe6f2,roughness:0.4,metalness:0.15}));pond.rotation.x=-Math.PI/2;pond.position.set(Math.cos(la)*18,0.03,Math.sin(la)*18);g.add(pond);
-    for(let i=0;i<14;i++){const a=Math.random()*6.28,r=14+Math.random()*8;const sp=new THREE.Mesh(new THREE.SphereGeometry(0.5+Math.random()*0.5,8,6),new THREE.MeshStandardMaterial({color:0xf6fafd,roughness:1}));sp.scale.y=0.5;sp.position.set(Math.cos(a)*r,0.08,Math.sin(a)*r);g.add(sp);}
+  else if(env.feat==='snow'){for(let i=0;i<8;i++){const a=la+(i-4)*0.34,r=21+Math.random()*10;const mt=makeMountain(2.2+Math.random()*1.4);mt.position.set(Math.cos(a)*r,0,Math.sin(a)*r);g.add(mt);}
+    for(let i=0;i<4;i++){const a=la+(i-1.5)*0.6,r=16+Math.random()*4;const mt=makeMountain(1.1+Math.random()*0.6);mt.position.set(Math.cos(a)*r,0,Math.sin(a)*r);g.add(mt);}
+    const pond=new THREE.Mesh(new THREE.CircleGeometry(6,30),new THREE.MeshStandardMaterial({color:0xcfe6f2,roughness:0.4,metalness:0.15}));pond.rotation.x=-Math.PI/2;pond.position.set(Math.cos(la-0.5)*17,0.03,Math.sin(la-0.5)*17);g.add(pond);
+    for(let i=0;i<16;i++){const a=Math.random()*6.28,r=12+Math.random()*10;const sp=new THREE.Mesh(new THREE.SphereGeometry(0.5+Math.random()*0.5,8,6),new THREE.MeshStandardMaterial({color:0xf6fafd,roughness:1}));sp.scale.y=0.5;sp.position.set(Math.cos(a)*r,0.08,Math.sin(a)*r);g.add(sp);}
     const fx=fxCloud(g,120,0xffffff,0.5,22,13);distantFX.push({geo:fx.geo,vy:-1.1,H:13});}
-  else if(env.feat==='night'){const glow=new THREE.Mesh(new THREE.CircleGeometry(24,54),new THREE.MeshBasicMaterial({color:env.glow||0x7a4fd0,transparent:true,opacity:0.14}));glow.rotation.x=-Math.PI/2;glow.position.y=0.028;g.add(glow);
-    for(let i=0;i<9;i++){const a=Math.random()*6.28,r=14+Math.random()*8;townPut(g,pick(['deco_mush','deco_twisted']),Math.cos(a)*r,Math.sin(a)*r,0.7+Math.random()*0.6);}
-    for(let i=0;i<6;i++){const a=Math.random()*6.28,r=15+Math.random()*6,x=Math.cos(a)*r,z=Math.sin(a)*r;const key=templates['p_dcrystal']?'p_dcrystal':(templates['p_cristallo']?'p_cristallo':null);if(key)townPut(g,key,x,z,0.9);const gl=new THREE.Mesh(new THREE.CircleGeometry(1.5,16),new THREE.MeshBasicMaterial({color:0xb080ff,transparent:true,opacity:0.3}));gl.rotation.x=-Math.PI/2;gl.position.set(x,0.03,z);g.add(gl);}
+  else if(env.feat==='night'){const glow=new THREE.Mesh(new THREE.CircleGeometry(23,54),new THREE.MeshBasicMaterial({color:env.glow||0x7a4fd0,transparent:true,opacity:0.13,depthWrite:false}));glow.rotation.x=-Math.PI/2;glow.position.y=0.03;glow.renderOrder=3;g.add(glow);
+    for(let i=0;i<9;i++){const a=Math.random()*6.28,r=12+Math.random()*10;townPut(g,pick(['deco_mush','deco_twisted']),Math.cos(a)*r,Math.sin(a)*r,0.7+Math.random()*0.6);}
+    for(let i=0;i<6;i++){const a=Math.random()*6.28,r=13+Math.random()*7,x=Math.cos(a)*r,z=Math.sin(a)*r;const key=templates['p_dcrystal']?'p_dcrystal':(templates['p_cristallo']?'p_cristallo':null);if(key)townPut(g,key,x,z,0.9);const gl=new THREE.Mesh(new THREE.CircleGeometry(1.5,16),new THREE.MeshBasicMaterial({color:0xb080ff,transparent:true,opacity:0.3}));gl.rotation.x=-Math.PI/2;gl.position.set(x,0.03,z);g.add(gl);}
     fxCloud(g,45,0xd6ff7a,0.5,20,6,true);}
-  const tk=env.tree;if(templates[tk])for(let i=0;i<16;i++){const a=Math.random()*6.28,r=15+Math.random()*7,o=inst(tk);fitHeight(o,2.4+Math.random()*1.0);o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});g.add(o);autoSeat(o);}}
+  // FASCIA DI TRANSIZIONE: erba, cespugli, sassi e alberi che SCAVALCANO il bordo -> continuita col mondo
+  for(let i=0;i<46;i++){const a=Math.random()*6.28,r=17+Math.random()*12;scat(pick(['f_grass','f_grassw','f_grassw','f_clover']),a,r,0.32+Math.random()*0.2);}
+  for(let i=0;i<16;i++){const a=Math.random()*6.28,r=18+Math.random()*10;scat(pick(enemy?['f_bush','f_pebble','deco_rock']:['f_bush','f_fern','f_pebble','deco_rock','f_flbush']),a,r,0.5+Math.random()*0.35);}
+  const tk=env.tree;if(templates[tk])for(let i=0;i<22;i++){const a=Math.random()*6.28,r=15+Math.random()*13;scat(tk,a,r,2.3+Math.random()*1.2);}}
 // mura grandi e pulite: 6 lati dritti, una torre a ogni angolo, porta verso la citta (R = raggio)
 function smallWall(g,seed,toC,R){if(!templates['wall'])return;R=R||8.6;const nC=6,twk=templates['tower_new']?'tower_new':'tower_A';
   const cor=[];for(let i=0;i<nC;i++){const a=(i/nC)*6.2832+0.4,rr=blobRad(a,seed,R,0.05);cor.push({x:Math.cos(a)*rr,z:Math.sin(a)*rr});}
@@ -1646,14 +1656,14 @@ function townPen(g,cx,cz,enemy){const W=4.6,D=3.4,fh=0.95,segL=2*(fh/1.1);
     side(cx,cz-D/2,0,W);side(cx,cz+D/2,0,W);side(cx-W/2,cz,Math.PI/2,D);side(cx+W/2,cz,Math.PI/2,D);}
   const anSet=enemy?['a_sheep']:['a_sheep','a_cow','a_chicken'];const anH={a_cow:0.95,a_sheep:0.62,a_chicken:0.42};
   for(let i=0;i<3;i++){const ak=anSet[i%anSet.length];const o=townPut(g,ak,cx+(Math.random()-.5)*W*0.5,cz+(Math.random()-.5)*D*0.5,anH[ak]||0.7,null);if(o)distantLife.push({o,bx:o.position.x,bz:o.position.z,tx:o.position.x,tz:o.position.z,t:Math.random()*4,hop:Math.random()*6,sp:0.28,wander:1.1});}}
-function placeDistantKingdoms(){DISTANT_SPEC.forEach(s=>{if(s.k===myKingdom||neighbors.find(n=>n.k===s.k))return;const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const toC=Math.atan2(-s.x,-s.z);const env=KENV[s.k]||{g:0x8fb56f,tree:'n_tree',feat:'plain',walls:true};const enemy=!!hostile[s.k];
+function placeDistantKingdoms(){if(!window._edgeFadeTex){const cv=document.createElement('canvas');cv.width=cv.height=128;const cc=cv.getContext('2d');const gr=cc.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'#fff');gr.addColorStop(0.72,'#fff');gr.addColorStop(1,'#000');cc.fillStyle=gr;cc.fillRect(0,0,128,128);const t=new THREE.CanvasTexture(cv);t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;window._edgeFadeTex=t;}const edgeFadeTex=window._edgeFadeTex;DISTANT_SPEC.forEach(s=>{if(s.k===myKingdom||neighbors.find(n=>n.k===s.k))return;const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const toC=Math.atan2(-s.x,-s.z);const env=KENV[s.k]||{g:0x8fb56f,tree:'n_tree',feat:'plain',walls:true};const enemy=!!hostile[s.k];
   // terreno del bioma: erba texturizzata, oppure terra bruciata/neve piena
   let gm;
   if(env.feat==='lava'){gm=new THREE.MeshBasicMaterial({color:0x241a17});}
   else if(env.feat==='snow'){gm=new THREE.MeshStandardMaterial({color:0xeef4f8,roughness:1});}
   else if(typeof grass!=='undefined'&&grass){const gt=grass.clone();gt.needsUpdate=true;gt.wrapS=gt.wrapT=THREE.RepeatWrapping;gt.repeat.set(16,16);gm=new THREE.MeshStandardMaterial({map:gt,color:env.g,roughness:1});}
   else gm=new THREE.MeshStandardMaterial({color:env.g,roughness:1});
-  const seed=(s.x*0.13+s.z*0.07+s.k.length)%6.283;const patch=blobGround(seed,24,0.12,gm);patch.position.y=0.02;g.add(patch);
+  gm.alphaMap=edgeFadeTex;gm.transparent=true;gm.needsUpdate=true;const seed=(s.x*0.13+s.z*0.07+s.k.length)%6.283;const patch=blobGround(seed,24,0.16,gm);patch.position.y=0.02;patch.renderOrder=0;g.add(patch);
   distantKingdoms.push({k:s.k,x:s.x,z:s.z,g,enemy,toC,env,seed});});placeNyxarMountain();
   // i paesi lontani si costruiscono DOPO l'avvio, uno alla volta e distanziati nel tempo, così il tutorio/gioco non si blocca
   loadVariety().then(()=>{distantKingdoms.forEach((dk,i)=>{setTimeout(()=>{if(dk._built)return;dk._built=true;try{buildOrganicTown(dk);}catch(e){}},2200+i*700);});setTimeout(()=>{try{enrichNeighbors();}catch(e){}},2200+distantKingdoms.length*700);}).catch(()=>{});}
