@@ -406,7 +406,7 @@ function grantKingdomStart(){const K=KBONUS[myKingdom];if(!K||!K.start)return;fo
 const HUNT=[{k:'metalla',soglia:220},{k:'nefele',soglia:430},{k:'chrysa',soglia:700},{k:'thalassa',soglia:1000},{k:'dendra',soglia:1380},{k:'selenea',soglia:1800},{k:'oros',soglia:2300},{k:'krios',soglia:2900},{k:'pyra',soglia:3600}];
 const NYXAR_SOGLIA=4600;
 const HUNT_HEROES=['Guardiano della Pietra','Signore dei Venti',"Mercante d'Ombra",'Re delle Maree','Druido Antico','Arcimago Senza Nome','Colosso Spezzato','Domatore del Gelo','Cavaliere del Drago'];
-let monstersBeaten=0, nyxarBeaten=0, darkLevel=0;
+let monstersBeaten=0, nyxarBeaten=0, darkLevel=0, _huntReadyAt=-1;
 function huntProd(){return 1+monstersBeaten*0.05+nyxarBeaten*0.25;}
 // Via Oscura: tradire gli alleati avvicina a Nyxar e dà poteri proibiti (+produzione) ma distrugge il morale
 function darkMul(){return 1+darkLevel*0.12;}
@@ -636,9 +636,19 @@ function tip(){
   if(buildings.filter(b=>b.key==='casa').length<4)return 'Più Case 🏠 = più operai 👷. Costruiscine ancora!';
   if(!buildings.some(b=>b.key==='caserma'))return 'Costruisci una Caserma ⚔️ e addestra soldati.';
   if(terreLiberate<1)return 'Con dei soldati, apri 🌍 e libera una terra dall’Èrebo!';
+  const ct=storyTip();if(ct)return ct;
   if(morale<75)return 'Metti alberi, fiori e fontane ⛲ per alzare il morale 😊.';
   return 'Ottimo lavoro! Espandi il territorio toccando i bordi scuri 🔓.';
 }
+// Tuzu compagno: guida la campagna (Caccia ai Mostri → Nyxar → ciclo). Solo testo: va in #bubble (textContent, niente HTML).
+function storyTip(){try{
+  if(darkLevel>0&&Math.random()<0.4)return '🌑 La Via Oscura ti dà +'+Math.round((darkMul()-1)*100)+'% di produzione proibita… ma Nyxar ti osserva.';
+  const t=huntTarget();
+  if(!t)return nyxarBeaten>0?'✨ Hai spezzato il ciclo! All’orizzonte un nuovo Male si ridesta…':null;
+  const g=kingdomScore(),need=t.soglia,mon=(KINGDOMS[t.k]&&KINGDOMS[t.k].monster)||'il mostro',land=(typeof kName==='function'?kName(t.k):'una terra');
+  if(g>=need)return '⚔️ Sei pronto! Dài la caccia a '+mon+' ('+land+'): apri 🌍 Mondo → Caccia ai Mostri. ['+monstersBeaten+'/9]';
+  return '🏆 Cresci ancora: ~'+Math.max(1,Math.round(need-g))+' di Gloria per sfidare '+mon+' ('+land+'). ['+monstersBeaten+'/9 mostri]';
+}catch(e){return null;}}
 let bubbleT=null;
 function setBubble(t){const b=document.getElementById('bubble');if(!b)return;b.textContent=t;b.style.display='';clearTimeout(bubbleT);bubbleT=setTimeout(()=>{if(b)b.style.display='none';},7000);}
 document.getElementById('bubble').onclick=()=>{document.getElementById('bubble').style.display='none';clearTimeout(bubbleT);};
@@ -682,7 +692,9 @@ function openHeroes(){closeDyn();const d=document.createElement('div');d.classNa
   d.innerHTML=`<div class="card"><div class="em">🦸</div><h2>Eroi</h2><p>Recluta e potenzia eroi: ognuno dà un bonus permanente al regno.</p>${h}<button class="btn alt" id="hc">Chiudi</button></div>`;document.body.appendChild(d);armPanel(d);
   d.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{const k=b.dataset.h;const cost=heroCost(k);if(!afford(cost)){toast('Risorse insufficienti');return;}const wasNew=heroLvl(k)===0;pay(cost);heroes[k]=heroLvl(k)+1;if(wasNew)spawnHeroUnit(k);drawTop();save();toast(HEROES[k].em+' '+HEROES[k].nome+' — Lv'+heroes[k]+'! '+HEROES[k].desc,3600);d.remove();openHeroes();});
   d.querySelector('#hc').onclick=()=>d.remove();}
-function checkMissions(){let changed=false;missions.forEach(m=>{if(!m.got&&m.done()){m.got=true;pay(negCost(m.rew));changed=true;toast('Missione completata! '+Object.entries(m.rew).map(([r,v])=>RES[r]+v).join(' '));}});if(changed){drawTop();drawSide();save();setBubble(tip());}}
+function checkMissions(){let changed=false;missions.forEach(m=>{if(!m.got&&m.done()){m.got=true;pay(negCost(m.rew));changed=true;toast('Missione completata! '+Object.entries(m.rew).map(([r,v])=>RES[r]+v).join(' '));}});if(changed){drawTop();drawSide();save();setBubble(tip());}
+  // Tuzu nota quando sei pronto per il prossimo mostro (una volta per soglia)
+  try{if(terreLiberate>=1){const _ht=huntTarget();if(_ht&&kingdomScore()>=_ht.soglia&&_huntReadyAt!==monstersBeaten){_huntReadyAt=monstersBeaten;const mon=(KINGDOMS[_ht.k]&&KINGDOMS[_ht.k].monster)||'il mostro';toast('⚔️ Sei forte abbastanza: puoi dare la caccia a '+mon+'! Apri 🌍 Mondo',4600);setBubble('⚔️ Tuzu: sei pronto per '+mon+'! Vai su 🌍 Mondo → Caccia ai Mostri. ['+monstersBeaten+'/9]');}}}catch(e){}}
 function negCost(c){const o={};for(const r in c)o[r]=-c[r];return o;}
 
 // ===== costruzione / deco =====
