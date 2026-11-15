@@ -315,8 +315,13 @@ const DECO={
   albero:  {nome:'Albero',  em:'🌳', files:['deco_tree','deco_pine'], mor:1},
   fiori:   {nome:'Fiori',   em:'🌸', flower:true, mor:1},
   siepe:   {nome:'Siepe',   em:'🌿', build:'makeHedge', mor:1},
-  lampione:{nome:'Lampione',em:'🏮', build:'makeLamp',  mor:1},
-  casse:   {nome:'Casse',   em:'📦', build:'makeCrates',mor:0},
+  lampione:{nome:'Lanterna',em:'🏮', files:['p_lantern'], mor:1},
+  torcia:  {nome:'Torcia',  em:'🔥', files:['p_torch'], mor:1},
+  cartello:{nome:'Cartello',em:'🪧', files:['p_signpost'], mor:1},
+  casse:   {nome:'Botti',   em:'🛢️', files:['p_barrels'], mor:0},
+  scrigno: {nome:'Scrigno', em:'💰', files:['p_chest'], mor:2},
+  pozione: {nome:'Pozione', em:'⚗️', files:['p_potion'], mor:1},
+  teschio: {nome:'Teschio', em:'💀', files:['p_skull'], mor:0},
   porticciolo:{nome:'Porticciolo',em:'⚓', build:'makeHarbor', mor:3, cost:{legna:30,pietra:10}},
   strada:  {nome:'Strada',  em:'🟫', road:true, mor:0},
   bandiera:{nome:'Bandiera',em:'🚩', files:['flag_'+col], mor:1}
@@ -436,6 +441,7 @@ async function preload(){
   await loadForestTrees();
   await loadFloraDetail();
   await loadNatureDecos();
+  await loadPropDecos();
   await loadKingdomMonsters();
 }
 // alberi del bosco (nature kit) come template per l'InstancedMesh
@@ -450,6 +456,9 @@ async function loadNatureDecos(){const mk=async(key,srcTpl,file,hh)=>{try{let sr
   await mk('deco_tree','n_tree','tree',2.6);await mk('deco_pine','n_pine','pine',2.9);
   await mk('deco_mush','f_mush','mushroom',0.95);await mk('deco_flowers','f_flgrp','flower_group',0.55);
   await mk('deco_twisted',null,'twisted_tree',2.8);await mk('deco_dead',null,'dead_tree',2.6);await mk('deco_rock','f_pebble','pebble_round',0.55);}
+// props pixellabs (ottimizzati) come decorazioni piazzabili nei villaggi
+const PROP_DECO={p_lantern:['lantern.glb',0.9],p_torch:['torch.glb',1.05],p_signpost:['signpost.glb',1.2],p_barrels:['barrels.glb',0.6],p_potion:['potion.glb',0.32],p_chest:['treasure-chest.glb',0.5],p_skull:['skull.glb',0.4]};
+async function loadPropDecos(){for(const key in PROP_DECO){try{const m=await loadModel('models/props/'+PROP_DECO[key][0]);let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[key]=wrapScaled(m,PROP_DECO[key][1]);}catch(e){}}}
 // mostro simbolo di ogni regno (per i villaggi e la Caccia ai 9 Mostri) + Nyxar
 const KMONSTER={dendra:'mushroom_king',nefele:'armabee',chrysa:'ghost',selenea:'wizard',oros:'goleling_evolved',thalassa:'squidle',pyra:'dragon',krios:'yeti',metalla:'goleling'};
 const NYXAR_MODEL='blue_demon';
