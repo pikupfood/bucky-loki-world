@@ -362,7 +362,7 @@ function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
   const bsy=tpAvatar._bsy||(tpAvatar._bsy=o.scale.y);o.scale.y+=((bsy*(tpCrouch?0.58:1))-o.scale.y)*Math.min(1,dt*10);
   let mf=(tpInput.f-tpInput.b)+(tpJoy.active?-tpJoy.dy:0);let mr=(tpInput.r-tpInput.l)+(tpJoy.active?tpJoy.dx:0);
   mf=Math.max(-1,Math.min(1,mf));mr=Math.max(-1,Math.min(1,mr));
-  const Fx=-Math.sin(tpYaw),Fz=-Math.cos(tpYaw),Rx=-Math.cos(tpYaw),Rz=Math.sin(tpYaw);
+  const Fx=-Math.sin(tpYaw),Fz=-Math.cos(tpYaw),Rx=Math.cos(tpYaw),Rz=-Math.sin(tpYaw);
   let dx=Fx*mf+Rx*mr,dz=Fz*mf+Rz*mr;const dl=Math.hypot(dx,dz);
   if(dl>0.08){dx/=dl;dz/=dl;const SP=(tpCrouch?2.4:5.4);const ox=o.position.x,oz=o.position.z,nx=ox+dx*SP*dt,nz=oz+dz*SP*dt;
     if(canStep(nx,nz)){o.position.x=nx;o.position.z=nz;}
