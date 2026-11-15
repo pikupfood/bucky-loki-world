@@ -965,7 +965,7 @@ function openMarketScene(b){closeDyn();const d=document.createElement('div');d.c
 }
 // ===== pannelli edifici (entra dentro) =====
 // ===== Caverna = dungeon: scendi, batti il Guardiano, prendi il tesoro (rischi l'esercito se perdi) =====
-function startDungeon(){if(soldiers<1){toast('Ti serve un esercito per esplorare la caverna ⚔️ (Caserma)',4000);return;}battleTarget={kind:'dungeon'};startBattle();}
+function startDungeon(){if(soldiers<1){toast('Ti serve un esercito per esplorare la caverna ⚔️ (Caserma)',4000);return;}battleTarget={kind:'dungeon',rare:Math.random()<0.22};startBattle();}
 function openCavern(b){closeDyn();dialog('🕳️','La Caverna','Giù nel buio aspettano scheletri, arcieri e un Guardiano. Sconfiggili tutti per il tesoro 💎 — ma se perdi, l\'esercito è disperso.',`<p style="font-size:12.5px;opacity:.85">Esercito pronto: <b>${soldiers}</b> ⚔️${monstersBeaten>0?' · Eroi al tuo fianco: <b>'+Math.min(monstersBeaten,4)+'</b> 🦸':''}</p><button class="btn" id="cavGo" style="background:#6b3b8a">⚔️ Esplora la Caverna</button><button class="btn alt" id="cavClose">Chiudi</button>`);const d=document.getElementById('dyn');if(!d)return;const g=d.querySelector('#cavGo');if(g)g.onclick=()=>{closeDyn();startDungeon();};const c=d.querySelector('#cavClose');if(c)c.onclick=closeDyn;}
 function openBuilding(b){
   if(b.def.dungeon){openCavern(b);return;}
@@ -1877,11 +1877,15 @@ async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');retu
       const hp=isArch?Math.round(mhp*0.7):mhp;const e={x:BGRID-1,y:ys[i]||2,hp,max:hp,atk:isArch?matk+2:matk,obj:o,enemy:true,ranged:isArch,range:3,bar:mkBarB()};batGroup.add(o);batGroup.add(e.bar.g);place(e);enemies.push(e);}
     turn='player';units.forEach(u=>u.done=false);batInfo();HINT.style.display='block';HINT.textContent=(arenaLabel?'📍 '+arenaLabel+' — ':'')+(isNyx?'NYXAR, il Dio Caduto!':((K.monster||'Il mostro')+'!'))+' Tocca un soldato, poi il mostro rosso.';return;}
   // ===== DUNGEON: esplora la Caverna (scheletri + arcieri + un Guardiano) =====
-  if(battleTarget&&battleTarget.kind==='dungeon'){const era=(typeof cityEra==='function'?cityEra():1);
-    const bhp=100+era*40,batk=13+era*2;const bo=await loadModel(SK+'Skeleton_Warrior.glb');bo.scale.setScalar(.7);bo.rotation.y=-Math.PI/2;bo.traverse(m=>{if(m.isMesh)m.castShadow=true;});
-    const boss={x:BGRID-1,y:3,hp:bhp,max:bhp,atk:batk,obj:bo,enemy:true,boss:true,bar:mkBarB()};batGroup.add(bo);batGroup.add(boss.bar.g);place(boss);enemies.push(boss);
-    const dys=[1,5,2,4,0,6];for(let i=0;i<4;i++){const isArch=(i%2===1)&&!!templates['enemy_archer'];let o;if(isArch){o=inst('enemy_archer');if(typeof fitHeight==='function')fitHeight(o,1.0);}else{o=await loadModel(SK+'Skeleton_Minion.glb');o.scale.setScalar(.42);}o.rotation.y=-Math.PI/2;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});const hp=isArch?20+era*6:26+era*6;const e={x:BGRID-1,y:dys[i],hp,max:hp,atk:isArch?8+era:7+era,obj:o,enemy:true,ranged:isArch,range:3,bar:mkBarB()};batGroup.add(o);batGroup.add(e.bar.g);place(e);enemies.push(e);}
-    turn='player';units.forEach(u=>u.done=false);batInfo();HINT.style.display='block';HINT.textContent=(arenaLabel?'📍 '+arenaLabel+' — ':'')+'Il Guardiano della Caverna! Sconfiggi tutti i nemici per il tesoro 💎.';return;}
+  if(battleTarget&&battleTarget.kind==='dungeon'){const era=(typeof cityEra==='function'?cityEra():1);const rare=!!battleTarget.rare;
+    let bo,bhp,batk;
+    if(rare){bhp=220+era*60;batk=20+era*3;try{bo=await loadModel('models/props/undead.glb');if(typeof fitHeight==='function')fitHeight(bo,2.4);}catch(e){bo=await loadModel(SK+'Skeleton_Warrior.glb');bo.scale.setScalar(.95);}
+      const ring=new THREE.Mesh(new THREE.RingGeometry(0.9,1.3,30),new THREE.MeshBasicMaterial({color:0xffcf5a,transparent:true,opacity:0.5,side:THREE.DoubleSide,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.y=0.05;bo.add(ring);}
+    else{bhp=100+era*40;batk=13+era*2;bo=await loadModel(SK+'Skeleton_Warrior.glb');bo.scale.setScalar(.7);}
+    bo.rotation.y=-Math.PI/2;bo.traverse(m=>{if(m.isMesh)m.castShadow=true;});
+    const boss={x:BGRID-1,y:3,hp:bhp,max:bhp,atk:batk,obj:bo,enemy:true,boss:true,rare,bar:mkBarB()};batGroup.add(bo);batGroup.add(boss.bar.g);place(boss);enemies.push(boss);
+    const dn=rare?5:4,dys=[1,5,2,4,0,6];for(let i=0;i<dn;i++){const isArch=(i%2===1)&&!!templates['enemy_archer'];let o;if(isArch){o=inst('enemy_archer');if(typeof fitHeight==='function')fitHeight(o,1.0);}else{o=await loadModel(SK+'Skeleton_Minion.glb');o.scale.setScalar(.42);}o.rotation.y=-Math.PI/2;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});const hp=(isArch?20+era*6:26+era*6)*(rare?1.3:1);const e={x:BGRID-1,y:dys[i],hp:Math.round(hp),max:Math.round(hp),atk:(isArch?8+era:7+era)+(rare?2:0),obj:o,enemy:true,ranged:isArch,range:3,bar:mkBarB()};batGroup.add(o);batGroup.add(e.bar.g);place(e);enemies.push(e);}
+    turn='player';units.forEach(u=>u.done=false);batInfo();HINT.style.display='block';HINT.textContent=(arenaLabel?'📍 '+arenaLabel+' — ':'')+(rare?'💀 IL NON-MORTO ANTICO (raro)! Tesoro leggendario per chi lo abbatte 💎':'Il Guardiano della Caverna! Sconfiggi tutti i nemici per il tesoro 💎.');return;}
   const nbA=battleTarget&&battleTarget.kind==='neighbor';
   const foeName=nbA?((POPOLI.find(p=>p.k===battleTarget.k)||{}).n||'il villaggio'):'';
   const ne=nbA?Math.max(3,Math.min(BGRID-2,Math.round(battleTarget.mil*0.8)+2)):3+Math.min(terreLiberate,4);
@@ -1915,8 +1919,11 @@ function batInfo(){document.getElementById('batInfo').textContent=turn==='player
 function checkEnd(){if(enemies.every(e=>e.hp<=0))endBattle(true);else if(units.every(u=>u.hp<=0))endBattle(false);}
 function endBattle(win){if(mode!=='battle')return;mode='ended';HINT.style.display='none';BG.style.display='none';const tgt=battleTarget;
   if(win){
-    if(tgt&&tgt.kind==='dungeon'){soldiers=units.filter(u=>u.hp>0&&!u.hero).length;const era=(typeof cityEra==='function'?cityEra():1);const gold=120+era*60+Math.floor(Math.random()*80);R.oro=(R.oro||0)+gold;const bonusR=['legna','pietra','ferro'][Math.floor(Math.random()*3)];const bq=30+era*15;R[bonusR]=(R[bonusR]||0)+bq;morale=Math.min(100,morale+6);save();bigBanner('💎','CAVERNA CONQUISTATA','Hai preso il tesoro!');
-      dialog('💎','Tesoro della Caverna!','','<p>Hai sconfitto il Guardiano! Bottino: 🪙+'+gold+' e '+RES[bonusR]+'+'+bq+'.</p><button class="btn" id="d1b">Torna al regno</button>');
+    if(tgt&&tgt.kind==='dungeon'){soldiers=units.filter(u=>u.hp>0&&!u.hero).length;const era=(typeof cityEra==='function'?cityEra():1);const rare=!!tgt.rare;const mul=rare?3:1;const gold=(120+era*60+Math.floor(Math.random()*80))*mul;R.oro=(R.oro||0)+gold;let drops='🪙+'+gold;
+      if(rare){['legna','pietra','ferro'].forEach(r=>{const q=40+era*20;R[r]=(R[r]||0)+q;drops+=' '+RES[r]+'+'+q;});R.armi=(R.armi||0)+5;drops+=' 🗡️+5';morale=Math.min(100,morale+14);}
+      else{const bonusR=['legna','pietra','ferro'][Math.floor(Math.random()*3)];const bq=30+era*15;R[bonusR]=(R[bonusR]||0)+bq;drops+=' '+RES[bonusR]+'+'+bq;morale=Math.min(100,morale+6);}
+      save();bigBanner('💎',rare?'NON-MORTO ANTICO SCONFITTO':'CAVERNA CONQUISTATA',rare?'Tesoro leggendario!':'Hai preso il tesoro!');
+      dialog('💎',rare?'Tesoro Leggendario!':'Tesoro della Caverna!','','<p>Hai sconfitto '+(rare?'il <b>Non-Morto Antico</b>':'il Guardiano')+'! Bottino: '+drops+'.</p><button class="btn" id="d1b">Torna al regno</button>');
       document.getElementById('d1b').onclick=backToCity;pendingLand=null;battleTarget=null;return;}
     if(tgt&&(tgt.kind==='hunt'||tgt.kind==='nyxar')){soldiers=units.filter(u=>u.hp>0&&!u.hero).length;
       if(tgt.kind==='nyxar'){nyxarBeaten++;monstersBeaten=0;_huntReadyAt=-1;R.oro=(R.oro||0)+2500;morale=Math.min(100,morale+20);save();bigBanner('🌑','NYXAR È CADUTO','La luce torna a Dèndoria…');neighbors.forEach(nb=>{if(nb.monster){cityGroup.remove(nb.monster.obj);nb.monster=null;}spawnNbMonster(nb);});
