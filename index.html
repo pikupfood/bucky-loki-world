@@ -269,7 +269,9 @@ document.addEventListener('click',e=>{const t=e.target;if(t&&t.closest&&t.closes
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
-const scene=new THREE.Scene();const SKY=0x8fc3e6;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,82,215);
+const scene=new THREE.Scene();const SKY=0x8fc3e6;const HORIZON=0x9fcbe8;scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(HORIZON,88,230);
+// CIELO a gradiente (orizzonte chiaro -> zenit blu) con una cupola
+const skyDome=(()=>{const sc=document.createElement('canvas');sc.width=16;sc.height=256;const sg=sc.getContext('2d');const grd=sg.createLinearGradient(0,0,0,256);grd.addColorStop(0,'#3f86cf');grd.addColorStop(0.45,'#79b6e6');grd.addColorStop(0.72,'#a8d3ee');grd.addColorStop(1,'#d2eafa');sg.fillStyle=grd;sg.fillRect(0,0,16,256);const tex=new THREE.CanvasTexture(sc);tex.magFilter=THREE.LinearFilter;const dome=new THREE.Mesh(new THREE.SphereGeometry(520,24,16),new THREE.MeshBasicMaterial({map:tex,side:THREE.BackSide,depthWrite:false,fog:false}));dome.renderOrder=-10;scene.add(dome);return dome;})();
 let VZ=8.5;const camera=new THREE.OrthographicCamera(-VZ,VZ,VZ,-VZ,0.1,260);
 const camTarget={x:0,z:0};const CAMK=24;
 function updateCam(){camera.position.set(camTarget.x+CAMK,CAMK*1.18,camTarget.z+CAMK);camera.lookAt(camTarget.x,0,camTarget.z);}
@@ -340,6 +342,15 @@ const grass=(()=>{const S=512;const c=document.createElement('canvas');c.width=c
   return new THREE.CanvasTexture(c);})();
 grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(20,20);grass.encoding=THREE.sRGBEncoding;grass.anisotropy=8;
 const ground=new THREE.Mesh(new THREE.CircleGeometry(175,80),new THREE.MeshStandardMaterial({map:grass,color:0xffffff,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+// ===== NUVOLE che scorrono nel cielo =====
+const clouds=[];const CLOUDMAT=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,transparent:true,opacity:0.92,fog:false});
+function makeCloud(){const g=new THREE.Group();const n=4+Math.floor(Math.random()*4);for(let i=0;i<n;i++){const r=3+Math.random()*4.5;const s=new THREE.Mesh(new THREE.SphereGeometry(r,7,5),CLOUDMAT);s.position.set((Math.random()-0.5)*12,(Math.random()-0.5)*2.2,(Math.random()-0.5)*7);s.scale.y=0.5;g.add(s);}return g;}
+function spawnClouds(){if(clouds.length)return;for(let i=0;i<14;i++){const c=makeCloud();c.position.set((Math.random()-0.5)*200,20+Math.random()*10,(Math.random()-0.5)*200);c.scale.setScalar(0.85+Math.random()*0.9);scene.add(c);clouds.push({obj:c,sp:0.9+Math.random()*1.8});}}
+function updClouds(dt){for(const c of clouds){c.obj.position.x+=c.sp*dt;if(c.obj.position.x>120)c.obj.position.x=-120;}}
+// ===== POLLINE/pulviscolo luminoso nell'aria (effetto atmosfera) =====
+let pollen=null;
+function initPollen(){if(pollen)return;const N=130;const pos=new Float32Array(N*3);for(let i=0;i<N;i++){pos[i*3]=(Math.random()-0.5)*62;pos[i*3+1]=Math.random()*20;pos[i*3+2]=(Math.random()-0.5)*62;}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));const mat=new THREE.PointsMaterial({color:0xfff0bf,size:0.17,transparent:true,opacity:0.55,depthWrite:false,fog:false,blending:THREE.AdditiveBlending});pollen=new THREE.Points(geo,mat);pollen.frustumCulled=false;scene.add(pollen);}
+function updPollen(dt){if(!pollen)return;pollen.position.x=camTarget.x;pollen.position.z=camTarget.z;const p=pollen.geometry.attributes.position;for(let i=0;i<p.count;i++){let y=p.getY(i)+dt*0.45;if(y>20)y-=20;p.setY(i,y);p.setX(i,p.getX(i)+Math.sin((y+i*0.7))*dt*0.25);}p.needsUpdate=true;}
 // anello di terra all'orizzonte (stesso verde, si dissolve nella foschia, niente bordo netto)
 const groundRim=new THREE.Mesh(new THREE.RingGeometry(60,175,80,1),new THREE.MeshStandardMaterial({color:0x5f9150,roughness:1}));groundRim.rotation.x=-Math.PI/2;groundRim.position.y=-0.02;scene.add(groundRim);
 function cw(cx,cy){return [(cx-HALF)*CELL,(cy-HALF)*CELL];}
@@ -1289,7 +1300,9 @@ function riverRibbon(pts,baseW,wob,seed){const curve=new THREE.CatmullRomCurve3(
 function addRiver(pts){const seed=Math.random()*6.28;
   const mb=new THREE.Mesh(riverRibbon(pts,CELL*1.75,3+Math.random()*2,seed),shoreMat);mb.position.y=0.04;mb.renderOrder=27;cityGroup.add(mb);
   const m1=new THREE.Mesh(riverRibbon(pts,CELL*1.45,3.5+Math.random()*2,seed+1),waterMid);m1.position.y=0.05;m1.renderOrder=28;cityGroup.add(m1);
-  const m2=new THREE.Mesh(riverRibbon(pts,CELL*0.85,4+Math.random()*2,seed+2),waterDeep);m2.position.y=0.06;m2.renderOrder=29;cityGroup.add(m2);}
+  const m2=new THREE.Mesh(riverRibbon(pts,CELL*0.85,4+Math.random()*2,seed+2),waterDeep);m2.position.y=0.06;m2.renderOrder=29;cityGroup.add(m2);
+  // riflesso/corrente chiara al centro (il fiume sembra scorrere)
+  const m3=new THREE.Mesh(riverRibbon(pts,CELL*0.32,5+Math.random()*2,seed+3),waterShallow);m3.position.y=0.072;m3.renderOrder=30;cityGroup.add(m3);}
 // grande lago (sfocio dei fiumi), solo visivo, fuori dall'area giocabile
 let bigLakes=[];
 function addBigLake(wx,wz,R){const g=new THREE.Group();g.position.set(wx,0,wz);const sx=1.0+Math.random()*0.4,sz=0.78+Math.random()*0.3,rot=Math.random()*3;
@@ -2374,6 +2387,7 @@ if(miniC){miniC.addEventListener('pointerdown',ev=>{ev.preventDefault();ev.stopP
 let last=performance.now(),saveT=0,missT=0,started=false;
 function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000,.1);last=now;
   if(waterNrm){waterNrm.offset.x=(waterNrm.offset.x+dt*0.013)%1;waterNrm.offset.y=(waterNrm.offset.y+dt*0.009)%1;}
+  updClouds(dt);updPollen(dt);
   if(started)updDayNight(dt);
   if(started)updWeather(dt);
   if(started)updSeason(dt);
@@ -2413,7 +2427,7 @@ window.addEventListener('pagehide',()=>{if(started)save();});
   initNeighbors();placeDistantKingdoms();
   for(let i=0;i<5;i++)spawnAgent('operaio');for(let i=0;i<2;i++)spawnAgent('milite');
   if(had){const nc=buildings.filter(b=>b.key==='casa').length;for(let i=0;i<nc;i++)spawnAgent('abitante');}
-  checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();initFlutters();initFireflies();placeFlora();placeFloraDetail();spawnTuzu();spawnWildlife();spawnKingdomBanner();if(miniC){miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();}document.getElementById('load').style.display='none';
+  checkEra();recompute();drawTop();drawCats();drawBuild();drawSide();setBubble(tip());initBirds();initFlutters();initFireflies();placeFlora();placeFloraDetail();spawnTuzu();spawnWildlife();spawnClouds();initPollen();spawnKingdomBanner();if(miniC){miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();}document.getElementById('load').style.display='none';
 })();
 // ===== Account (login + salvataggio cloud, stesso account dell'app Tuzu) =====
 let cloudUser=null;
