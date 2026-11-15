@@ -328,6 +328,13 @@ const DECO={
   piccone: {nome:'Piccone', em:'⛏️', files:['p_pickaxe'], mor:1},
   gru:     {nome:'Gru',     em:'🏗️', files:['p_crane'], mor:0},
   pergamena:{nome:'Pergamena',em:'📜', files:['p_scroll'], mor:1},
+  cristallo:{nome:'Cristallo',em:'🔮', files:['p_cristallo'], mor:2},
+  fungo:   {nome:'Fungo gigante',em:'🍄', files:['p_fungo'], mor:1},
+  libro:   {nome:'Libro antico',em:'📖', files:['p_libro'], mor:1},
+  podio:   {nome:'Podio',   em:'🗿', files:['p_podio'], mor:1},
+  giardinoroccia:{nome:'Giardino roccioso',em:'🪨', files:['p_giardino'], mor:1},
+  rocciamuschio:{nome:'Roccia muschiosa',em:'🟢', files:['p_mossy'], mor:0},
+  oggettomagico:{nome:'Oggetto magico',em:'✨', files:['p_magico'], mor:2},
   porticciolo:{nome:'Porticciolo',em:'⚓', build:'makeHarbor', mor:3, cost:{legna:30,pietra:10}},
   strada:  {nome:'Strada',  em:'🟫', road:true, mor:0},
   bandiera:{nome:'Bandiera',em:'🚩', files:['flag_'+col], mor:1}
@@ -339,7 +346,14 @@ const MON={
   mulinoacqua:{nome:'Mulino ad acqua',em:'🏞️',file:'m_watermill',cost:{legna:50,pietra:25}, mor:9, time:22, deco:1},
   fortezza:{nome:'Fortezza',em:'🏯',file:'m_fortress',  cost:{oro:120,pietra:60}, mor:15, time:30, deco:1},
   castello:{nome:'Castello',em:'🏰',file:'m_castle',    cost:{oro:160,pietra:90}, mor:20, time:34, deco:1},
-  castelloreale:{nome:'Castello Reale',em:'👑',file:'m_castleR',cost:{oro:230,pietra:120,ferro:40}, mor:26, time:40, deco:1}
+  castelloreale:{nome:'Castello Reale',em:'👑',file:'m_castleR',cost:{oro:230,pietra:120,ferro:40}, mor:26, time:40, deco:1},
+  casetta:{nome:'Casetta',em:'🏠',file:'m_medhouse', cost:{legna:30,pietra:10}, mor:5, time:16, deco:1, w:4,h:4},
+  capanna:{nome:'Capanna fatata',em:'🛖',file:'m_cottage', cost:{legna:35,pietra:10}, mor:6, time:18, deco:1, w:4,h:4},
+  casalbero:{nome:'Casa sull’albero',em:'🌳',file:'m_treehouse', cost:{legna:50}, mor:8, time:20, deco:1, w:4,h:4},
+  officina:{nome:'Officina',em:'🔨',file:'m_workshop', cost:{legna:40,ferro:10}, mor:6, time:20, deco:1, w:4,h:4},
+  casastregata:{nome:'Casa stregata',em:'👻',file:'m_haunted', cost:{oro:60}, mor:7, time:24, deco:1, w:5,h:5},
+  cancello:{nome:'Cancello gotico',em:'⛩️',file:'m_gate', cost:{pietra:40,ferro:10}, mor:6, time:22, deco:1, w:4,h:4},
+  caverna:{nome:'Caverna',em:'🕳️',file:'m_cavern', cost:{pietra:30}, mor:4, time:20, deco:1, w:5,h:5}
 };
 const RES={legna:'🪵',cibo:'🌾',pietra:'🪨',ferro:'⚙️',pane:'🍞',armi:'🗡️',oro:'🪙'};
 // ingombri di riserva (se la misura del modello non è pronta) — quadratini fini da 0.5
@@ -490,6 +504,20 @@ const MON_PROPS={m_watermill:['watermill.glb',4],m_castle:['castle.glb',6],m_cas
 const HERO_MODELS={hero_warrior:'warrior.glb',hero_knight:'knight2.glb',hero_plague:'plague-doctor.glb',hero_dknight:'knight.glb',enemy_archer:'skeleton-archer.glb'};
 async function loadHeroModels(){for(const key in HERO_MODELS){try{const m=await loadModel('models/props/'+HERO_MODELS[key]);let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(has)templates[key]=m;}catch(e){}}}
 async function loadMonProps(){for(const key in MON_PROPS){const [file,foot]=MON_PROPS[key];try{const m=await loadModel('models/props/'+file);let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(!has)continue;const box=new THREE.Box3().setFromObject(m);const sz=box.getSize(new THREE.Vector3());const horiz=Math.max(sz.x,sz.z)||1;m.scale.setScalar((foot*CELL*0.9)/horiz);m.updateWorldMatrix(true,true);const b2=new THREE.Box3().setFromObject(m);if(isFinite(b2.min.y))m.position.y-=b2.min.y;m.position.x-=(b2.min.x+b2.max.x)/2;m.position.z-=(b2.min.z+b2.max.z)/2;m.traverse(o=>{if(o.isMesh)o.castShadow=true;});const wrap=new THREE.Group();wrap.add(m);templates[key]=wrap;FP[key]=measFP(wrap);}catch(e){}}}
+// ===== LAZY LOADING: props extra caricati SOLO quando piazzati (niente peso allo start) =====
+const TPL_SRC={
+  // decorazioni (avvolte, altezza target)
+  p_cristallo:{file:'crystal-sphere.glb',h:0.6}, p_libro:{file:'ancient-book.glb',h:0.4}, p_fungo:{file:'fantasy-mushroom.glb',h:0.95}, p_podio:{file:'podium.glb',h:0.55}, p_giardino:{file:'rock-garden.glb',h:0.5}, p_mossy:{file:'mossy-rock.glb',h:0.6}, p_magico:{file:'magical.glb',h:0.6},
+  // strutture (normalizzate sull'ingombro)
+  m_haunted:{file:'haunted-house.glb',foot:5}, m_medhouse:{file:'medieval-house.glb',foot:4}, m_cottage:{file:'fantasy-cottage.glb',foot:4}, m_treehouse:{file:'fantasy-treehouse.glb',foot:4}, m_gate:{file:'gothic-gate.glb',foot:4}, m_workshop:{file:'blacksmith-workshop.glb',foot:4}, m_cavern:{file:'cavern.glb',foot:5}
+};
+const _tplLoading={};
+function ensureTpl(key){if(templates[key])return Promise.resolve(true);if(_tplLoading[key])return _tplLoading[key];const src=TPL_SRC[key];if(!src)return Promise.resolve(false);
+  _tplLoading[key]=loadModel('models/props/'+src.file).then(m=>{let has=false;m.traverse(o=>{if(o.isMesh)has=true;});if(!has)return false;
+    if(src.h){templates[key]=wrapScaled(m,src.h);}
+    else{const foot=src.foot,box=new THREE.Box3().setFromObject(m),sz=box.getSize(new THREE.Vector3()),horiz=Math.max(sz.x,sz.z)||1;m.scale.setScalar((foot*CELL*0.9)/horiz);m.updateWorldMatrix(true,true);const b2=new THREE.Box3().setFromObject(m);if(isFinite(b2.min.y))m.position.y-=b2.min.y;m.position.x-=(b2.min.x+b2.max.x)/2;m.position.z-=(b2.min.z+b2.max.z)/2;m.traverse(o=>{if(o.isMesh)o.castShadow=true;});const wrap=new THREE.Group();wrap.add(m);templates[key]=wrap;FP[key]=measFP(wrap);}
+    return true;}).catch(()=>false);
+  return _tplLoading[key];}
 // mostro simbolo di ogni regno (per i villaggi e la Caccia ai 9 Mostri) + Nyxar
 const KMONSTER={dendra:'mushroom_king',nefele:'armabee',chrysa:'ghost',selenea:'wizard',oros:'goleling_evolved',thalassa:'squidle',pyra:'dragon',krios:'yeti',metalla:'goleling'};
 const NYXAR_MODEL='blue_demon';
@@ -782,7 +810,10 @@ function isPath(cx,cy){const g=grid[key(cx,cy)];return !!(g&&(g.type==='road'||g
 function newRoad(cx,cy){const [wx,wz]=cw(cx,cy);const g=new THREE.Group();g.position.set(wx,0.045,wz);cityGroup.add(g);return g;}
 function rebuildRoad(cx,cy){const e=grid[key(cx,cy)];if(!e||e.type!=='road'||!e.obj)return;const g=e.obj;while(g.children.length)g.remove(g.children[0]);const w=isPath(cx-1,cy),ea=isPath(cx+1,cy),n=isPath(cx,cy-1),s=isPath(cx,cy+1);const put=(sx,sz,mat,y)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(sx,sz),mat);m.rotation.x=-Math.PI/2;m.position.y=y;m.receiveShadow=true;g.add(m);};const We=CELL*0.6,Wc=CELL*0.3;let any=false;if(w||ea){put(CELL*1.02,We,roadEdge,0);put(CELL*1.02,Wc,roadMid,0.003);any=true;}if(n||s){put(We,CELL*1.02,roadEdge,0);put(Wc,CELL*1.02,roadMid,0.003);any=true;}if(!any){put(We,We,roadEdge,0);put(Wc,Wc,roadMid,0.003);}}
 function rebuildRoadArea(cx,cy){rebuildRoad(cx,cy);rebuildRoad(cx-1,cy);rebuildRoad(cx+1,cy);rebuildRoad(cx,cy-1);rebuildRoad(cx,cy+1);}
-function placeDeco(cx,cy,kk){const sk=kk||selKey;const d=DECO[sk];const [wx,wz]=cw(cx,cy);let o;
+function placeDeco(cx,cy,kk){const sk=kk||selKey;const d=DECO[sk];
+  // lazy: se il modello non è ancora caricato, caricalo e poi piazza (copre anche il ricarico dal salvataggio)
+  if(d.files){const miss=d.files.find(f=>!templates[f]&&TPL_SRC[f]);if(miss){ensureTpl(miss).then(()=>placeDeco(cx,cy,sk));return;}}
+  const [wx,wz]=cw(cx,cy);let o;
   if(d.road){const g=newRoad(cx,cy);const e={type:'road',key:sk,obj:g,ax:cx,ay:cy,w:1,h:1,cx,cy};occupy(cx,cy,1,1,e);decos.push({k:sk,cx,cy});rebuildRoadArea(cx,cy);return;}
   if(d.flower){o=makeFlowers();o.position.set(wx,0,wz);o.rotation.y=Math.random()*6.28;}
   else if(d.build){o=(typeof window[d.build]==='function'?window[d.build]():new THREE.Group());o.position.set(wx,0,wz);o.rotation.y=Math.random()*6.28;}
@@ -800,6 +831,10 @@ function startBuildAt(ax,ay,w,h,src){const d=src[selKey];if(d.cost&&!afford(d.co
   toast(d.nome+': in costruzione…');drawTop();
 }
 function finishSite(s){setOpacity(s.obj,1);cityGroup.remove(s.bar.g);const b={key:s.key,def:s.def,cx:s.ax,cy:s.ay,ax:s.ax,ay:s.ay,w:s.w,h:s.h,obj:s.obj,timer:0,active:true};buildings.push(b);const e={type:'building',key:s.key,ref:b,obj:s.obj,ax:s.ax,ay:s.ay,w:s.w,h:s.h,cx:s.ax,cy:s.ay};occupy(s.ax,s.ay,s.w,s.h,e);cellsOf(e).forEach(c=>rebuildRoadArea(c[0],c[1]));builtCount++;checkEra();if(s.def.pop){operai+=s.def.pop;spawnAgent('abitante');}if(s.def.mor){morale=Math.min(100,morale+s.def.mor);}recompute();drawTop();save();toast(s.def.nome+' pronta!');setBubble(tip());}
+// ricarico dal salvataggio di edifici E monumenti (anche con template lazy); i monumenti (deco:1) non evolvono
+function restoreBuilding(it){const d=BUILD[it.k]||MON[it.k];if(!d)return;
+  const build=()=>{const [w,h]=fpSize(d);const ax=it.cx,ay=it.cy;const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(d.file);o.position.set(wx,0,wz);o.scale.setScalar(d.sc||1);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:it.k,def:d,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true,lvl:Math.min(MAXLVL,it.lv||1)};if(!d.deco){if(b.lvl>1)o.scale.multiplyScalar(lvlScale(b.lvl));}buildings.push(b);if(!d.deco)applyBuildingTier(b);const e={type:'building',key:it.k,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);};
+  if(d.file&&!templates[d.file]&&TPL_SRC[d.file]){ensureTpl(d.file).then(build);}else build();}
 
 // ===== tap su cella =====
 function tryPlace(cx,cy){
@@ -823,7 +858,11 @@ function tryPlace(cx,cy){
   const [w,h]=fpSize(def);const [ax,ay]=fpAnchor(cx,cy,w,h);
   if(cat==='monumenti'&&!monUnlocked()){toast('Monumenti bloccati');return;}
   if(!canPlace(ax,ay,w,h)){toast('Spazio occupato o non sbloccato');return;}
-  if(cat==='decora'){const dd=DECO[selKey];if(dd.cost){if(!afford(dd.cost)){toast('Risorse insufficienti');return;}pay(dd.cost);}placeDeco(ax,ay);drawTop();save();if(selKey==='porticciolo')toast('⚓ Porticciolo costruito! Dà 🪙 via mare, e toccalo per mandare una nave a commerciare o attaccare ⛵',5000);return;}
+  if(cat==='decora'){const dd=DECO[selKey];if(dd.cost){if(!afford(dd.cost)){toast('Risorse insufficienti');return;}pay(dd.cost);}
+    const miss=(dd.files||[]).some(f=>!templates[f]&&TPL_SRC[f]);
+    if(miss){toast('Carico la decorazione…',1500);Promise.all((dd.files||[]).map(ensureTpl)).then(()=>{placeDeco(ax,ay);drawTop();save();});return;}
+    placeDeco(ax,ay);drawTop();save();if(selKey==='porticciolo')toast('⚓ Porticciolo costruito! Dà 🪙 via mare, e toccalo per mandare una nave a commerciare o attaccare ⛵',5000);return;}
+  if(cat==='monumenti'){const md=MON[selKey];if(md&&md.file&&!templates[md.file]&&TPL_SRC[md.file]){toast('Carico la struttura…',1500);ensureTpl(md.file).then(()=>{startBuildAt(ax,ay,w,h,MON);save();});return;}}
   startBuildAt(ax,ay,w,h,cat==='edifici'?BUILD:MON);save();
 }
 
@@ -1588,7 +1627,7 @@ document.getElementById('zrot').onclick=()=>{placeRot=(placeRot+1)%4;toast('↻ 
 // ===== salvataggio =====
 function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,cs:c.cycleStart,hv:c.harvests,ex:c.exhausted})),he:heroes,sr:soldierRank,rs:research,ach:achieved,fp:firstPlay,mk:myKingdom,mb:monstersBeaten,nx:nyxarBeaten,dk:darkLevel,ho:Object.keys(hostile),ts:Date.now()}));if(window.TuzuCloud)window.TuzuCloud.scheduleSync();}catch(e){}}
 function loadSave(){try{const s=JSON.parse(localStorage.getItem('tuzu_rpg5'));if(!s)return false;R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};achieved=s.ach||{};firstPlay=s.fp||0;if(s.mk)applyKingdom(s.mk);monstersBeaten=s.mb||0;nyxarBeaten=s.nx||0;darkLevel=s.dk||0;hostile={};(s.ho||[]).forEach(k=>hostile[k]=1);offlineSince=s.ts||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});(s.lc||[]).forEach(c=>addLake(c.cx,c.cy,c.r));(s.wl||[]).forEach(w=>wildTree(w.cx,w.cy));(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);if(!(s.lc&&s.lc.length))placeLakes();if(!(s.wl&&s.wl.length))placeWildVegetation();placeRivers();placeScatterForests();
-  (s.b||[]).forEach(it=>{const d=BUILD[it.k];if(!d)return;const [w,h]=fpSize(d);const ax=it.cx,ay=it.cy;const [wx,wz]=fpCenter(ax,ay,w,h);const o=inst(d.file);o.position.set(wx,0,wz);o.rotation.y=Math.random()*.4-.2;cityGroup.add(o);autoSeat(o);const b={key:it.k,def:d,cx:ax,cy:ay,ax,ay,w,h,obj:o,timer:0,active:true,lvl:Math.min(MAXLVL,it.lv||1)};if(b.lvl>1)o.scale.multiplyScalar(lvlScale(b.lvl));buildings.push(b);applyBuildingTier(b);const e={type:'building',key:it.k,ref:b,obj:o,ax,ay,w,h,cx:ax,cy:ay};occupy(ax,ay,w,h,e);});
+  (s.b||[]).forEach(it=>restoreBuilding(it));
   (s.d||[]).forEach(it=>{if(DECO[it.k])placeDeco(it.cx,it.cy,it.k);});
   (s.df||[]).forEach(it=>{const d=DEF[it.k];if(!d)return;const [w,h]=fpSize(d);const [ax,ay]=fpAnchor(it.cx,it.cy,w,h);if(canPlace(ax,ay,w,h))placeDef(ax,ay,w,h,it.k,it.manual?it.rot:undefined);});
   (s.pn||[]).forEach(it=>{const d=PENS[it.k];if(!d)return;const [w,h]=fpSize(d);const ax=it.ax,ay=it.ay;if(canPlace(ax,ay,w,h)){const pen=placePen(ax,ay,w,h,it.k);(it.an||[]).forEach(ak=>{if(ANIMALS[ak]&&pen.animals.length<pen.cap)spawnAnimal(ak,pen);});}});
