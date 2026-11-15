@@ -1842,7 +1842,15 @@ function openKingdomChoice(onDone){closeDyn();const d=document.createElement('di
   d.innerHTML=`<div class="card" style="max-width:580px;max-height:90vh;overflow:auto"><div class="em">🗺️</div><h2>Scegli il tuo Regno</h2><p style="font-size:12px;opacity:.9">Ogni popolo ha la sua forza, il suo dio protettore e il suo mostro. Alleati e nemici sono già scritti dalla storia. La scelta è per sempre in questa partita.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">${cards}</div></div>`;
   document.body.appendChild(d);armPanel(d);
   d.querySelectorAll('.kcard').forEach(c=>c.onclick=()=>{const k=c.dataset.k;applyKingdom(k);grantKingdomStart();drawTop();save();closeDyn();toast('🏰 Hai scelto '+kName(k)+' — '+KINGDOMS[k].strong,4600);if(onDone)onDone();});}
-document.getElementById('startBtn').onclick=()=>{ if(!firstPlay) openKingdomChoice(beginGame); else beginGame(); };
+// cutscene iniziale (apre la storia, dopo la scelta del regno)
+function openIntroStory(onDone){const K=KINGDOMS[myKingdom]||KINGDOMS.dendra;const slides=[
+  {em:'🌑',t:'Un tempo <b>Dèndoria</b> era un mondo intero, vegliato da dieci dèi.'},
+  {em:'💥',t:'Poi il decimo dio, <b>Nyxar</b>, si corruppe. La sua caduta spezzò il mondo in <b>9 lembi</b>: la <b>Frantumazione</b>.'},
+  {em:'🤝',t:'I <b>primi re</b> giurarono il <b>Patto</b>: mai lasciare che Nyxar risorga.'},
+  {em:'👹',t:'Ma il Male è <b>ciclico</b>. I suoi <b>9 mostri</b> tornano a tormentare le terre per risvegliarlo.'},
+  {em:K.em,t:'Tu guidi i <b>'+kName(myKingdom)+'</b>, forti in <b>'+K.strong+'</b>. Il dio <b>'+K.god+'</b> veglia su di te.<br>Cresci, sconfiggi i <b>9 Mostri</b> e affronta <b>Nyxar</b>. Il piccolo <b>Tuzu</b> 🟢 ti guiderà.'}];
+  let i=0;function show(){closeDyn();const s=slides[i],last=i===slides.length-1;dialog(s.em,'','',`<p style="font-size:14px;line-height:1.55;min-height:72px">${s.t}</p><div class="row"><button class="btn" id="isNext">${last?'⚔️ Inizia il tuo regno':'Avanti ▸'}</button>${!last?'<button class="btn alt" id="isSkip" style="flex:0 0 auto;width:auto;padding:10px 14px;margin-top:0">Salta</button>':''}</div>`);const d=document.getElementById('dyn');if(!d)return;d.querySelector('#isNext').onclick=()=>{i++;if(i>=slides.length){closeDyn();if(onDone)onDone();}else show();};const sk=d.querySelector('#isSkip');if(sk)sk.onclick=()=>{closeDyn();if(onDone)onDone();};}show();}
+document.getElementById('startBtn').onclick=()=>{ if(!firstPlay) openKingdomChoice(()=>openIntroStory(beginGame)); else beginGame(); };
 </script>
 <script type="module">
 // ===== Tuzu Cloud: account + salvataggio cloud (progetto Supabase "tuzu", stesso account dell'app) =====
