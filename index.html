@@ -1786,11 +1786,11 @@ async function startBattle(){if(soldiers<1){toast('Non hai soldati ⚔️');retu
   // ===== BOSS: Caccia ai Mostri / Nyxar (riusa il motore battaglia) =====
   const huntA=battleTarget&&(battleTarget.kind==='hunt'||battleTarget.kind==='nyxar');
   if(huntA){const isNyx=battleTarget.kind==='nyxar';const k=battleTarget.k;const K=KINGDOMS[k]||{};const tplName=isNyx?'nyxar':('km_'+k);
-    const bhp=isNyx?200+nyxarBeaten*40:60+monstersBeaten*30,batk=isNyx?18:10+monstersBeaten*2;
+    const bhp=isNyx?520+nyxarBeaten*80:90+monstersBeaten*45,batk=isNyx?30:Math.round(12+monstersBeaten*2.5);
     let bo;if(templates[tplName]){bo=inst(tplName);if(typeof fitHeight==='function')fitHeight(bo,isNyx?2.6:1.9);}else{bo=await loadModel(SK+'Skeleton_Warrior.glb');bo.scale.setScalar(.6);}
     bo.rotation.y=-Math.PI/2;bo.traverse(o=>{if(o.isMesh)o.castShadow=true;});
     const boss={x:BGRID-1,y:3,hp:bhp,max:bhp,atk:batk,obj:bo,enemy:true,boss:true,bar:mkBarB()};batGroup.add(bo);batGroup.add(boss.bar.g);place(boss);enemies.push(boss);
-    const nm=isNyx?3:2,mhp=isNyx?42:16+monstersBeaten*3,matk=isNyx?10:6,ys=[1,5,2,4,0,6];
+    const nm=isNyx?4:2+Math.floor(monstersBeaten/3),mhp=isNyx?70:20+monstersBeaten*4,matk=isNyx?14:7+Math.floor(monstersBeaten/2),ys=[1,5,2,4,0,6];
     for(let i=0;i<nm;i++){const o=await loadModel(SK+(i%2?'Skeleton_Rogue.glb':'Skeleton_Minion.glb'));o.scale.setScalar(.42);o.rotation.y=-Math.PI/2;const e={x:BGRID-1,y:ys[i]||2,hp:mhp,max:mhp,atk:matk,obj:o,enemy:true,bar:mkBarB()};batGroup.add(o);batGroup.add(e.bar.g);place(e);enemies.push(e);}
     turn='player';units.forEach(u=>u.done=false);batInfo();HINT.style.display='block';HINT.textContent=(arenaLabel?'📍 '+arenaLabel+' — ':'')+(isNyx?'NYXAR, il Dio Caduto!':((K.monster||'Il mostro')+'!'))+' Tocca un soldato, poi il mostro rosso.';return;}
   const nbA=battleTarget&&battleTarget.kind==='neighbor';
