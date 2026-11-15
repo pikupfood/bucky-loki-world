@@ -293,10 +293,66 @@ const fill=new THREE.DirectionalLight(0xbfd4f0,0.32);fill.position.set(26,20,-18
 const GradeShader={uniforms:{tDiffuse:{value:null},uSat:{value:0.9},uCon:{value:1.12},uWarm:{value:-0.012},uVig:{value:0.66}},
   vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
   fragmentShader:'uniform sampler2D tDiffuse;uniform float uSat,uCon,uWarm,uVig;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);vec3 col=c.rgb;float l=dot(col,vec3(0.299,0.587,0.114));col=mix(vec3(l),col,uSat);col=(col-0.5)*uCon+0.5;col.r+=uWarm;col.b-=uWarm*0.5;float r=length(vUv-0.5);float vig=smoothstep(0.80,0.34,r);col*=mix(uVig,1.0,vig);gl_FragColor=vec4(clamp(col,0.0,1.0),c.a);}'};
-let composer=null,bloomPass=null;
-try{if(THREE.EffectComposer&&THREE.RenderPass&&THREE.ShaderPass){composer=new THREE.EffectComposer(renderer);composer.addPass(new THREE.RenderPass(scene,camera));
+let composer=null,bloomPass=null,renderPass=null;
+try{if(THREE.EffectComposer&&THREE.RenderPass&&THREE.ShaderPass){composer=new THREE.EffectComposer(renderer);renderPass=new THREE.RenderPass(scene,camera);composer.addPass(renderPass);
   if(THREE.UnrealBloomPass){bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.32,0.7,0.92);composer.addPass(bloomPass);}
   composer.addPass(new THREE.ShaderPass(GradeShader));}}catch(e){composer=null;}
+// ===== MODALITA' ESPLORAZIONE in TERZA PERSONA (commutabile al volo) =====
+const tpCam=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,0.1,400);
+let exploreMode=false,tpAvatar=null,tpYaw=0.7;
+const tpInput={f:0,b:0,l:0,r:0,rotL:0,rotR:0};
+const tpJoy={active:false,dx:0,dy:0};
+(function injectExploreUI(){
+  const st=document.createElement('style');
+  st.textContent='.explore #fab,.explore #side,.explore #build,.explore #cats,.explore #zoom,.explore #guide{display:none!important}'+
+   '#tpbtn{position:fixed;right:12px;bottom:76px;z-index:60;width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,220,150,.5);background:rgba(28,22,16,.85);color:#ffdca0;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}'+
+   '#tpjoy{position:fixed;left:20px;bottom:24px;z-index:60;width:116px;height:116px;border-radius:50%;background:rgba(20,16,12,.5);border:2px solid rgba(255,220,150,.35);display:none;touch-action:none}'+
+   '#tpjoy .nub{position:absolute;left:38px;top:38px;width:40px;height:40px;border-radius:50%;background:rgba(255,220,150,.85);pointer-events:none}'+
+   '#tprot{position:fixed;right:12px;bottom:138px;z-index:60;display:none;flex-direction:row;gap:8px}'+
+   '.explore #tprot{display:flex}'+
+   '#tprot button{width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,220,150,.4);background:rgba(28,22,16,.85);color:#ffdca0;font-size:18px;cursor:pointer;touch-action:none}';
+  document.head.appendChild(st);
+  const btn=document.createElement('button');btn.id='tpbtn';btn.textContent='🚶';btn.title='Esplora / Mappa';document.body.appendChild(btn);
+  btn.addEventListener('click',()=>toggleExplore());
+  const joy=document.createElement('div');joy.id='tpjoy';joy.innerHTML='<div class="nub" id="tpnub"></div>';document.body.appendChild(joy);
+  const rot=document.createElement('div');rot.id='tprot';rot.innerHTML='<button id="tprotL">◀</button><button id="tprotR">▶</button>';document.body.appendChild(rot);
+  const nub=joy.querySelector('#tpnub');let jid=null;const RR=58;
+  function setNub(dx,dy){nub.style.left=(38+dx*38)+'px';nub.style.top=(38+dy*38)+'px';}
+  function moveJoy(e){const r=joy.getBoundingClientRect();let dx=(e.clientX-(r.left+r.width/2))/RR;let dy=(e.clientY-(r.top+r.height/2))/RR;const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m;}tpJoy.dx=dx;tpJoy.dy=dy;setNub(dx,dy);}
+  joy.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();jid=e.pointerId;try{joy.setPointerCapture(jid);}catch(_){}tpJoy.active=true;moveJoy(e);});
+  joy.addEventListener('pointermove',e=>{if(jid!==e.pointerId)return;e.preventDefault();e.stopPropagation();moveJoy(e);});
+  function endJoy(e){if(jid!==e.pointerId)return;jid=null;tpJoy.active=false;tpJoy.dx=0;tpJoy.dy=0;setNub(0,0);}
+  joy.addEventListener('pointerup',endJoy);joy.addEventListener('pointercancel',endJoy);
+  const rl=rot.querySelector('#tprotL'),rr=rot.querySelector('#tprotR');
+  const hold=(el,key)=>{const dn=e=>{e.preventDefault();e.stopPropagation();tpInput[key]=1;};const up=()=>{tpInput[key]=0;};el.addEventListener('pointerdown',dn);el.addEventListener('pointerup',up);el.addEventListener('pointerleave',up);el.addEventListener('pointercancel',up);};
+  hold(rl,'rotL');hold(rr,'rotR');
+})();
+window.addEventListener('keydown',e=>{const k=(e.key||'').toLowerCase();if(k==='w'||k==='arrowup')tpInput.f=1;else if(k==='s'||k==='arrowdown')tpInput.b=1;else if(k==='a'||k==='arrowleft')tpInput.l=1;else if(k==='d'||k==='arrowright')tpInput.r=1;else if(k==='q')tpInput.rotL=1;else if(k==='e')tpInput.rotR=1;});
+window.addEventListener('keyup',e=>{const k=(e.key||'').toLowerCase();if(k==='w'||k==='arrowup')tpInput.f=0;else if(k==='s'||k==='arrowdown')tpInput.b=0;else if(k==='a'||k==='arrowleft')tpInput.l=0;else if(k==='d'||k==='arrowright')tpInput.r=0;else if(k==='q')tpInput.rotL=0;else if(k==='e')tpInput.rotR=0;});
+function enterExplore(){if(exploreMode)return;if(typeof mode!=='undefined'&&mode!=='city'){if(typeof toast==='function')toast('Esci prima dalla battaglia');return;}
+  if(!tpAvatar){tpAvatar=(typeof makeWalker==='function')?makeWalker(1.0):null;if(tpAvatar){tpAvatar.o.position.set(camTarget.x,0,camTarget.z);cityGroup.add(tpAvatar.o);}}
+  if(!tpAvatar){if(typeof toast==='function')toast('Personaggio non disponibile');return;}
+  exploreMode=true;tpAvatar.o.position.set(camTarget.x,0,camTarget.z);if(renderPass)renderPass.camera=tpCam;
+  document.body.classList.add('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='block';const b=document.getElementById('tpbtn');if(b)b.textContent='🗺️';
+  if(typeof toast==='function')toast('🚶 Esplora: joystick per muoverti, ◀▶ per girare',3200);resize();}
+function exitExplore(){if(!exploreMode)return;exploreMode=false;if(renderPass)renderPass.camera=camera;if(tpAvatar&&typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);
+  document.body.classList.remove('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='none';const b=document.getElementById('tpbtn');if(b)b.textContent='🚶';
+  if(tpAvatar){camTarget.x=tpAvatar.o.position.x;camTarget.z=tpAvatar.o.position.z;}updateCam();resize();}
+function toggleExplore(){exploreMode?exitExplore():enterExplore();}
+function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
+  if(tpInput.rotL)tpYaw+=dt*1.9;if(tpInput.rotR)tpYaw-=dt*1.9;
+  let mf=(tpInput.f-tpInput.b)+(tpJoy.active?-tpJoy.dy:0);let mr=(tpInput.r-tpInput.l)+(tpJoy.active?tpJoy.dx:0);
+  mf=Math.max(-1,Math.min(1,mf));mr=Math.max(-1,Math.min(1,mr));
+  const Fx=-Math.sin(tpYaw),Fz=-Math.cos(tpYaw),Rx=-Math.cos(tpYaw),Rz=Math.sin(tpYaw);
+  let dx=Fx*mf+Rx*mr,dz=Fz*mf+Rz*mr;const dl=Math.hypot(dx,dz);
+  if(dl>0.08){dx/=dl;dz/=dl;const SP=5.4;o.position.x+=dx*SP*dt;o.position.z+=dz*SP*dt;
+    const r=Math.hypot(o.position.x,o.position.z),RM=27;if(r>RM){o.position.x*=RM/r;o.position.z*=RM/r;}
+    o.rotation.y=Math.atan2(dx,dz);if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,true);}
+  else if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);
+  o.position.y=0;
+  const D=6.8,H=4.4;tpCam.position.set(o.position.x+Math.sin(tpYaw)*D,H,o.position.z+Math.cos(tpYaw)*D);tpCam.lookAt(o.position.x,1.2,o.position.z);
+  camTarget.x=o.position.x;camTarget.z=o.position.z;
+  if(sunReady){sun.position.set(o.position.x+SUN_OFF.x,SUN_OFF.y,o.position.z+SUN_OFF.z);sun.target.position.set(o.position.x,0,o.position.z);sun.target.updateMatrixWorld();}}
 // ciclo giorno/notte dolce
 const C_DAY=new THREE.Color(0x8fc3e6),C_NIGHT=new THREE.Color(0x44568a),C_DUSK=new THREE.Color(0xf0a96c);
 let dayTime=0.18,dayLight=0.5,dayClock=0.28;
@@ -346,7 +402,7 @@ function updSeason(dt){seasonT-=dt;if(seasonT<=0){seasonT=130;season=(season+1)%
   if(snow.visible){const p=snowGeo.attributes.position;for(let i=0;i<SN;i++){p.array[i*3+1]-=dt*3.6;p.array[i*3]+=Math.sin((p.array[i*3+1]+i)*0.7)*dt*0.35;if(p.array[i*3+1]<0){p.array[i*3+1]=22;p.array[i*3]=camTarget.x+(Math.random()-.5)*60;p.array[i*3+2]=camTarget.z+(Math.random()-.5)*60;}}p.needsUpdate=true;}
   if(leaves.visible){const p=leavesGeo.attributes.position;for(let i=0;i<LN;i++){p.array[i*3+1]-=dt*2.2;p.array[i*3]+=Math.sin((p.array[i*3+1]+i)*0.9)*dt*0.7;if(p.array[i*3+1]<0){p.array[i*3+1]=20;p.array[i*3]=camTarget.x+(Math.random()-.5)*60;p.array[i*3+2]=camTarget.z+(Math.random()-.5)*60;}}p.needsUpdate=true;}
   if(petals.visible){const p=petalsGeo.attributes.position;for(let i=0;i<PN;i++){p.array[i*3+1]-=dt*1.7;p.array[i*3]+=Math.sin((p.array[i*3+1]+i)*0.8)*dt*0.9;p.array[i*3+2]+=Math.cos((p.array[i*3+1]+i)*0.6)*dt*0.4;if(p.array[i*3+1]<0){p.array[i*3+1]=20;p.array[i*3]=camTarget.x+(Math.random()-.5)*60;p.array[i*3+2]=camTarget.z+(Math.random()-.5)*60;}}p.needsUpdate=true;}}
-function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);if(composer){composer.setSize(w,h);if(bloomPass&&bloomPass.resolution)bloomPass.resolution.set(w,h);}const a=w/h;camera.left=-VZ*a;camera.right=VZ*a;camera.top=VZ;camera.bottom=-VZ;camera.updateProjectionMatrix();layoutHud();}
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);if(composer){composer.setSize(w,h);if(bloomPass&&bloomPass.resolution)bloomPass.resolution.set(w,h);}const a=w/h;camera.left=-VZ*a;camera.right=VZ*a;camera.top=VZ;camera.bottom=-VZ;camera.updateProjectionMatrix();if(typeof tpCam!=='undefined'){tpCam.aspect=a;tpCam.updateProjectionMatrix();}layoutHud();}
 // Spinge mascotte (#guide) e colonna laterale (#side) SOTTO l'HUD, qualunque sia il numero di righe: niente bottoni sovrapposti su telefoni stretti
 function layoutHud(){const top=document.getElementById('top');if(!top)return;const y=Math.round(Math.max(top.getBoundingClientRect().bottom+8,56));const g=document.getElementById('guide');const s=document.getElementById('side');if(g)g.style.top=y+'px';if(s)s.style.top=y+'px';}
 addEventListener('resize',resize);resize();
@@ -2641,7 +2697,8 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started)updSky(dt);
   if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updDistantLife(dt);updDistantFX(dt);conquestTribute(dt);updCaravans(dt);updRoadParties(dt);updWalkers(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();darkenBuildings();darkenKingdoms();darkenNeighbors();}checkLeague();drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
-  if(composer)composer.render();else renderer.render(scene,camera);}
+  updExplore(dt);
+  if(composer)composer.render();else renderer.render(scene,exploreMode?tpCam:camera);}
 requestAnimationFrame(tick);
 // salvataggio automatico ogni minuto (indipendente dal loop: funziona anche a schermo nascosto, e sincronizza sul cloud)
 let autoSaveShown=false;
