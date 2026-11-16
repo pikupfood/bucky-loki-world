@@ -285,7 +285,7 @@ let VZ=8.5;const camera=new THREE.OrthographicCamera(-VZ,VZ,VZ,-VZ,0.1,260);
 const camTarget={x:0,z:0};const CAMK=24;let sunReady=false;
 function updateCam(){camera.position.set(camTarget.x+CAMK,CAMK*1.18,camTarget.z+CAMK);camera.lookAt(camTarget.x,0,camTarget.z);if(sunReady){sun.position.set(camTarget.x+SUN_OFF.x,SUN_OFF.y,camTarget.z+SUN_OFF.z);sun.target.position.set(camTarget.x,0,camTarget.z);sun.target.updateMatrixWorld();}}
 updateCam();
-const hemi=new THREE.HemisphereLight(0x46587e,0x1a140d,0.52);scene.add(hemi);
+const hemi=new THREE.HemisphereLight(0x5a6e96,0x241a10,0.78);scene.add(hemi);
 const SUN_OFF={x:-24,y:46,z:17};
 const sun=new THREE.DirectionalLight(0xfff1dc,2.0);sun.position.set(SUN_OFF.x,SUN_OFF.y,SUN_OFF.z);sun.castShadow=true;
 sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.near=1;sun.shadow.camera.far=140;sun.shadow.camera.left=-46;sun.shadow.camera.right=46;sun.shadow.camera.top=46;sun.shadow.camera.bottom=-46;sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;scene.add(sun);scene.add(sun.target);sunReady=true;updateCam();
@@ -354,12 +354,25 @@ function tpJump(){if(exploreMode&&tpAvatar&&tpJumpY<=0.02&&tpJumpV===0){tpJumpV=
   const style=document.createElement('style');style.textContent='.explore #tpenter{display:none}';document.head.appendChild(style);})();
 window.addEventListener('keydown',e=>{const k=(e.key||'').toLowerCase();if(k==='w'||k==='arrowup')tpInput.f=1;else if(k==='s'||k==='arrowdown')tpInput.b=1;else if(k==='a'||k==='arrowleft')tpInput.l=1;else if(k==='d'||k==='arrowright')tpInput.r=1;else if(k==='q')tpInput.rotL=1;else if(k==='e')tpInput.rotR=1;else if(k==='f'||k==='enter'){if(exploreMode){e.preventDefault();if(typeof tpPrimaryAction==='function')tpPrimaryAction();}}else if(k===' '){if(exploreMode){e.preventDefault();if(typeof tpJump==='function')tpJump();}}else if(k==='shift'||k==='c'){if(exploreMode)tpCrouch=true;}});
 window.addEventListener('keyup',e=>{const k=(e.key||'').toLowerCase();if(k==='w'||k==='arrowup')tpInput.f=0;else if(k==='s'||k==='arrowdown')tpInput.b=0;else if(k==='a'||k==='arrowleft')tpInput.l=0;else if(k==='d'||k==='arrowright')tpInput.r=0;else if(k==='q')tpInput.rotL=0;else if(k==='e')tpInput.rotR=0;else if(k==='shift'||k==='c')tpCrouch=false;});
+function showExploreHelp(force){try{if(!force&&localStorage.getItem('tuzu_explore_help'))return;}catch(e){}
+  if(typeof closeDyn==='function')closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';
+  d.innerHTML='<div class="card" style="max-width:390px"><div class="em">🚶</div><h2>Comandi · Esplorazione</h2>'+
+   '<div style="text-align:left;font-size:13px;line-height:1.75">'+
+   '🕹️ <b>Stick sinistro</b> — muoviti<br>'+
+   '👁️ <b>Stick destro (piccolo)</b> — guardati intorno<br>'+
+   '⚔️ <b>Tasto A</b> — azione: combatti, costruisci 🔨, raccogli ✋, parla 💬, arrampica 🧗<br>'+
+   '✨ / ⤴️ <b>Tasto B</b> — magia se c\'è un nemico, altrimenti salto<br>'+
+   '🧎 <b>Tasto C</b> — abbassati e nasconditi<br>'+
+   '🔨 costruisci · 📜 missioni · 🗺️ torna alla mappa</div>'+
+   '<button class="btn" id="exhok" style="margin-top:10px">Ho capito!</button></div>';
+  document.body.appendChild(d);if(typeof armPanel==='function')armPanel(d);
+  const b=d.querySelector('#exhok');if(b)b.onclick=()=>{try{localStorage.setItem('tuzu_explore_help','1');}catch(e){}d.remove();};}
 function enterExplore(){if(exploreMode)return;if(typeof mode!=='undefined'&&mode!=='city'){if(typeof toast==='function')toast('Esci prima dalla battaglia');return;}
   if(!tpAvatar){tpAvatar=(typeof makeWalker==='function')?makeWalker(0.9):null;if(tpAvatar){tpAvatar.o.position.set(camTarget.x,0,camTarget.z);cityGroup.add(tpAvatar.o);}}
   if(!tpAvatar){if(typeof toast==='function')toast('Personaggio non disponibile');return;}
   exploreMode=true;tpAvatar.o.position.set(camTarget.x,0,camTarget.z);if(renderPass)renderPass.camera=tpCam;
   document.body.classList.add('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='block';const b=document.getElementById('tpbtn');if(b)b.textContent='🗺️';
-  if(typeof toast==='function')toast('🚶 Esplora: muoviti col joystick, la camera ti segue da sola',3600);tpHp=tpMaxHp;if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();resize();}
+  tpHp=tpMaxHp;if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();resize();setTimeout(()=>{if(typeof showExploreHelp==='function')showExploreHelp();},350);}
 function exitExplore(){if(!exploreMode)return;exploreMode=false;if(renderPass)renderPass.camera=camera;if(tpAvatar&&typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);
   document.body.classList.remove('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='none';const b=document.getElementById('tpbtn');if(b)b.textContent='🚶';const ta=document.getElementById('tpact');if(ta)ta.style.display='none';if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();
   if(tpAvatar){camTarget.x=tpAvatar.o.position.x;camTarget.z=tpAvatar.o.position.z;}updateCam();resize();}
@@ -634,7 +647,7 @@ function tpGroundY(x,z){if(!tpAvatar)return 0;
 const STAIR={sx:12,sz:-3,steps:7,sw:3.2,sd:0.92,sh:0.42};
 function stepHeightAt(wx,wz){const S=STAIR,topY=S.steps*S.sh;if(wx<S.sx-S.sw/2-0.4||wx>S.sx+S.sw/2+0.9)return 0;const bottomZ=S.sz+0.6,topZ=S.sz-S.steps*S.sd;if(wz>bottomZ)return 0;if(wz<=topZ)return topY;return Math.max(0,Math.min(1,(bottomZ-wz)/(bottomZ-topZ)))*topY;}
 // "vedi solo la stanza in cui sei": mostra la stanza corrente + quelle adiacenti; una luce ti segue
-function updRoomVisibility(px,pz){if(!RECT_IDS.length)return;if(!caveLight){caveLight=new THREE.PointLight(0xffe3b0,1.6,44,1.5);scene.add(caveLight);}caveLight.position.set(px,11,pz);const id=roomAt(px,pz)||_curRoom;if(id!==_curRoom){_curRoom=id;if(id&&typeof _visitedRooms!=='undefined')_visitedRooms[id]=1;const vis=new Set([id]);(ADJ[id]||[]).forEach(a=>vis.add(a));for(const kk in roomVis)roomVis[kk].visible=vis.has(kk);}}
+function updRoomVisibility(px,pz){if(!RECT_IDS.length)return;if(!caveLight){caveLight=new THREE.PointLight(0xffe8c0,2.4,62,1.1);scene.add(caveLight);}caveLight.position.set(px,12,pz);const id=roomAt(px,pz)||_curRoom;if(id!==_curRoom){_curRoom=id;if(id&&typeof _visitedRooms!=='undefined')_visitedRooms[id]=1;const vis=new Set([id]);(ADJ[id]||[]).forEach(a=>vis.add(a));for(const kk in roomVis)roomVis[kk].visible=vis.has(kk);}}
 function buildDungeonRooms(){if(dungeonRoomsDone)return;dungeonRoomsDone=true;const H=7,T=1.1;
   const wt=dungeonFloor.clone();wt.wrapS=wt.wrapT=THREE.RepeatWrapping;wt.repeat.set(3,1.5);wt.needsUpdate=true;
   const wmat=new THREE.MeshStandardMaterial({map:wt,color:0x4a453d,roughness:1});
@@ -887,8 +900,8 @@ function openQuestLog(){if(typeof closeDyn==='function')closeDyn();const d=docum
   let h='<div class="card" style="max-width:460px;max-height:86vh;overflow:auto"><div class="em">📜</div><h2>Missioni</h2><p style="font-size:11.5px;opacity:.85">Segui la storia o fai le secondarie. Il segnalino 🟡 ti indica dove andare.</p>';
   h+='<div style="font-weight:800;margin:8px 0 2px;color:#ffd98a">Storia</div>';for(const q of QUESTS.filter(q=>q.main))h+=questRow(q);
   h+='<div style="font-weight:800;margin:10px 0 2px;color:#9fe0a8">Secondarie</div>';for(const q of QUESTS.filter(q=>!q.main))h+=questRow(q);
-  h+='<button class="btn alt" id="qc" style="margin-top:8px">Chiudi</button></div>';
-  d.innerHTML=h;document.body.appendChild(d);if(typeof armPanel==='function')armPanel(d);d.querySelector('#qc').onclick=()=>d.remove();}
+  h+='<button class="btn" id="qhelp" style="margin-top:8px;background:#3a567a">❓ Comandi</button><button class="btn alt" id="qc" style="margin-top:6px">Chiudi</button></div>';
+  d.innerHTML=h;document.body.appendChild(d);if(typeof armPanel==='function')armPanel(d);d.querySelector('#qc').onclick=()=>d.remove();const hb=d.querySelector('#qhelp');if(hb)hb.onclick=()=>{d.remove();if(typeof showExploreHelp==='function')showExploreHelp(true);};}
 (function injectTpAction(){const st=document.createElement('style');
   st.textContent='#tpact{position:fixed;left:50%;bottom:122px;transform:translateX(-50%);z-index:61;display:none;align-items:center;justify-content:center;padding:12px 22px;border-radius:26px;border:2px solid rgba(255,220,150,.6);background:rgba(40,28,16,.93);color:#ffe4a8;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.55);touch-action:none}'+
    '#tphp{position:fixed;left:50%;top:48px;transform:translateX(-50%);z-index:60;display:none;font-size:19px;letter-spacing:3px;text-shadow:0 1px 3px #000;pointer-events:none}'+
