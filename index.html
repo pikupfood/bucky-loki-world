@@ -763,6 +763,8 @@ function buildDungeonRooms(){if(dungeonRoomsDone)return;dungeonRoomsDone=true;co
   if(templates.d_throne&&templates.d_throne.children.length){const t=inst('d_throne');fitHeight(t,2.8);t.position.set(0,0,-DROOMS.covo.hd+2.6);rGroup('covo').add(t);if(typeof autoSeat==='function')autoSeat(t);addAvoid(0,-DROOMS.covo.hd+2.6,1.4);}
   const mons=['d_undead','d_skel','d_ghost','d_demon'].filter(k=>templates[k]&&templates[k].children&&templates[k].children.length);
   if(mons.length){const Tn=DROOMS.tana;for(let i=0;i<5;i++){const k=mons[Math.floor(Math.random()*mons.length)];const o=inst(k);fitHeight(o,2.3);const mx=Tn.x+(Math.random()-0.5)*Tn.hw*1.1,mz=Tn.z+(Math.random()-0.5)*Tn.hd*1.1;o.position.set(mx,0,mz);o.rotation.y=Math.random()*6.28;rGroup('tana').add(o);if(typeof autoSeat==='function')autoSeat(o);addAvoid(mx,mz,0.9);caveMonsters.push({obj:o,x:mx,z:mz,hp:8,maxhp:8,av:avoid[avoid.length-1],room:'tana'});}}
+  // OGGETTI DISTRUTTIBILI nelle stanze: alberi/casse/barili/rocce da tagliare e distruggere (droppano risorse)
+  try{const DTY=['tree','tree','crate','barrel','rock','rock'];for(const k in DROOMS){const Rr=DROOMS[k];if(k==='covo'||k==='tana')continue;const n=1+Math.floor(Math.random()*3);for(let i=0;i<n;i++){const ang=Math.random()*6.2832,rr=(Math.min(Rr.hw,Rr.hd)-2.6)*(0.45+Math.random()*0.5);const x=Rr.x+Math.cos(ang)*rr,z=Rr.z+Math.sin(ang)*rr;if(typeof hitAvoid==='function'&&hitAvoid(x,z,0.8))continue;mkDestructible(DTY[Math.floor(Math.random()*DTY.length)],x,z,k);}}}catch(e){console.warn('destructibles',e);}
   // CANCELLO chiuso all'imbocco della Tana (si apre con la chiave nascosta a Oros)
   if(templates.d_gate&&templates.d_gate.children&&templates.d_gate.children.length){caveGate=inst('d_gate');fitHeight(caveGate,4.4);caveGate.position.set(48,0,-24);caveGate.rotation.y=Math.PI/2;caveGate.traverse(m=>{if(m.isMesh)m.castShadow=true;});rGroup('c_chrysa_tana').add(caveGate);if(typeof autoSeat==='function')autoSeat(caveGate);}
   // montanti SOLIDI ai lati del cancello (restano anche da aperto: il varco è nel mezzo)
@@ -859,6 +861,7 @@ let _tpTarget=null,_tpActCd=0,_tpClimb=null;
 function tpFindTarget(px,pz){let best=null;
   for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(px-m.x,pz-m.z);if(d<4.4&&(!best||d<best.d))best={type:'monster',ref:m,d};}
   for(const g of roomGuards){if(g.hp<=0)continue;const d=Math.hypot(px-g.x,pz-g.z);if(d<4.4&&(!best||d<best.d))best={type:'monster',ref:g,d};}
+  for(const dz of destructibles){if(dz.dead||dz.room!==_curRoom)continue;const d=Math.hypot(px-dz.x,pz-dz.z);if(d<3.2&&(!best||(best.type!=='monster'&&d<best.d)))best={type:'destr',ref:dz,d};}
   for(const np of storyNpcs){const d=Math.hypot(px-np.x,pz-np.z);if(d<3.6&&(!best||best.type==='kingdom')&&(!best||d<best.d))best={type:'npc',ref:np,d};}
   for(const c of collectNodes){if(c.taken)continue;const d=Math.hypot(px-c.x,pz-c.z);if(d<3.6&&(!best||d<best.d))best={type:'collect',ref:c,d};}
   if(typeof neighbors!=='undefined')for(const nb of neighbors){if(!nb.g)continue;const d=Math.hypot(px-nb.g.position.x,pz-nb.g.position.z);if(d<10&&(!best||best.type==='kingdom')&&(!best||d<best.d))best={type:'kingdom',ref:nb,d};}
@@ -877,6 +880,28 @@ function hitMonster(m,dmg){if(!m||m.hp<=0)return;dmg=dmg||1;m.hp-=dmg;if(m.hp<0)
     if(m._guard&&typeof guardsLeft==='function'&&guardsLeft(m.room)===0&&typeof onRoomCleared==='function')onRoomCleared(m.room);}
   else{tpFloat(m.x,m.z,'-'+dmg+' ❤','#ff5a5a');const mo=m.obj;if(mo){mo.scale.multiplyScalar(0.92);setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/0.92);},100);}}
 }
+// ===== OGGETTI DISTRUTTIBILI: alberi, casse, barili, rocce — li tagli/distruggi col tasto attacco e droppano risorse =====
+let destructibles=[];
+function _destrBurst(x,z,room,color){try{const grp=(typeof rGroup==='function'?rGroup(room):scene);for(let i=0;i<7;i++){const b=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.16,0.16),new THREE.MeshBasicMaterial({color}));b.position.set(x+(Math.random()-.5)*0.6,0.6+Math.random()*0.6,z+(Math.random()-.5)*0.6);grp.add(b);const vx=(Math.random()-.5)*3,vy=2+Math.random()*2,vz=(Math.random()-.5)*3;let t=0;const iv=setInterval(()=>{t+=0.033;b.position.x+=vx*0.033;b.position.z+=vz*0.033;b.position.y+=(vy-9*t)*0.033;b.material.transparent=true;b.material.opacity=Math.max(0,1-t*2.2);if(b.position.y<0.05||b.material.opacity<=0){clearInterval(iv);if(b.parent)b.parent.remove(b);b.geometry.dispose();}},33);}}catch(e){}}
+function mkDestructible(type,x,z,room){let g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=Math.random()*6.28;let hp,drop;
+  if(type==='tree'){hp=3;drop={legna:[6,12]};
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.3,1.4,7),new THREE.MeshStandardMaterial({color:0x6b4a2a,roughness:1}));trunk.position.y=0.7;trunk.castShadow=true;g.add(trunk);
+    const fol=new THREE.MeshStandardMaterial({color:0x3f7a3a,roughness:1,emissive:0x16301a,emissiveIntensity:0.5});for(let i=0;i<3;i++){const f=new THREE.Mesh(new THREE.ConeGeometry(1.05-i*0.22,1.0,8),fol);f.position.y=1.5+i*0.5;f.castShadow=true;g.add(f);}
+  } else if(type==='crate'){hp=2;drop={legna:[4,8]};const mm=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({color:0x8a5a2a,roughness:1,emissive:0x2a1a0c,emissiveIntensity:0.5}));mm.position.y=0.5;mm.castShadow=true;g.add(mm);const ed=new THREE.LineSegments(new THREE.EdgesGeometry(mm.geometry),new THREE.LineBasicMaterial({color:0x3a2410}));ed.position.y=0.5;g.add(ed);
+  } else if(type==='barrel'){hp=2;drop={oro:[8,16]};const mm=new THREE.Mesh(new THREE.CylinderGeometry(0.48,0.48,1.05,12),new THREE.MeshStandardMaterial({color:0x7a4a28,roughness:1,emissive:0x281709,emissiveIntensity:0.5}));mm.position.y=0.52;mm.castShadow=true;g.add(mm);
+  } else {type='rock';hp=4;drop={pietra:[6,12]};const mm=new THREE.Mesh(new THREE.IcosahedronGeometry(0.7,0),new THREE.MeshStandardMaterial({color:0x7a7a82,roughness:1,flatShading:true,emissive:0x2a2a30,emissiveIntensity:0.5}));mm.position.y=0.55;mm.castShadow=true;g.add(mm);}
+  (typeof rGroup==='function'?rGroup(room):scene).add(g);
+  let av=null;if(typeof addAvoid==='function'){addAvoid(x,z,0.5);av=avoid[avoid.length-1];}
+  const dz={obj:g,x,z,room,hp,maxhp:hp,type,drop,emo:(type==='rock'?'⛏️':type==='tree'?'🪓':'💥'),av};destructibles.push(dz);return dz;}
+function hitDestructible(dz,dmg){if(!dz||dz.dead)return;dmg=dmg||1;dz.hp-=dmg;
+  const o=dz.obj;if(o){o.scale.multiplyScalar(0.93);setTimeout(()=>{if(o&&!dz.dead)o.scale.multiplyScalar(1/0.93);},90);}
+  if(dz.hp>0){tpFloat(dz.x,dz.z,'-'+dmg,'#ffe0a0');return;}
+  dz.dead=true;if(o){o.visible=false;if(o.parent)o.parent.remove(o);}
+  const i=avoid.indexOf(dz.av);if(i>=0)avoid.splice(i,1);
+  _destrBurst(dz.x,dz.z,dz.room,dz.type==='rock'?0x9a9aa2:dz.type==='barrel'?0xffcf5a:0x7a5a2a);
+  let txt='';for(const r in dz.drop){const rg=dz.drop[r],amt=rg[0]+Math.floor(Math.random()*(rg[1]-rg[0]+1));R[r]=(R[r]||0)+amt;txt+=((typeof RES!=='undefined'&&RES[r])||r)+'+'+amt+' ';}
+  tpFloat(dz.x,dz.z,txt.trim(),'#b6ffb0');if(typeof drawTop==='function')drawTop();if(typeof save==='function')save();
+  const k=destructibles.indexOf(dz);if(k>=0)destructibles.splice(k,1);}
 function tpDoAction(){if(!_tpTarget)return;const _now=performance.now();if(_now<_tpActCd)return;_tpActCd=_now+320;const t=_tpTarget;
   if(t.type==='collect'){const c=t.ref;c.taken=true;if(c.obj)c.obj.visible=false;if(c.glow)c.glow.visible=false;
     if(c.kind==='chiave'){if(typeof _keyFound!=='undefined')_keyFound=true;if(typeof unlockCaveGate==='function')unlockCaveGate();tpFloat(c.x,c.z,'🔑','#ffe27a');}
@@ -888,10 +913,13 @@ function tpDoAction(){if(!_tpTarget)return;const _now=performance.now();if(_now<
     const base=(typeof tpAtk==='function')?tpAtk():1;const dmg=finisher?Math.max(2,Math.round(base*1.8)):base;hitMonster(m,dmg);
     // FENDENTE largo: colpisce anche le altre guardie a tiro (mischia vera); nel finale l'area è più ampia e li respinge
     const cleaveR=finisher?3.7:2.5,sp=finisher?Math.max(1,Math.round(dmg*0.55)):Math.max(1,Math.round(dmg/2));
-    if(av){for(const g of roomGuards){if(g!==m&&g.hp>0&&g.room===_curRoom&&Math.hypot(g.x-av.x,g.z-av.z)<cleaveR){hitMonster(g,sp);if(finisher)_tpKnock(g,av,1.0);}}for(const cm of caveMonsters){if(cm!==m&&cm.hp>0&&Math.hypot(cm.x-av.x,cm.z-av.z)<cleaveR){hitMonster(cm,sp);if(finisher)_tpKnock(cm,av,1.0);}}}
+    if(av){for(const g of roomGuards){if(g!==m&&g.hp>0&&g.room===_curRoom&&Math.hypot(g.x-av.x,g.z-av.z)<cleaveR){hitMonster(g,sp);if(finisher)_tpKnock(g,av,1.0);}}for(const cm of caveMonsters){if(cm!==m&&cm.hp>0&&Math.hypot(cm.x-av.x,cm.z-av.z)<cleaveR){hitMonster(cm,sp);if(finisher)_tpKnock(cm,av,1.0);}}for(const o2 of destructibles){if(!o2.dead&&o2.room===_curRoom&&Math.hypot(o2.x-av.x,o2.z-av.z)<cleaveR)hitDestructible(o2,sp);}}
     if(finisher){if(av&&typeof tpShockwave==='function')tpShockwave(av.x,av.z);if(av)_tpKnock(m,av,1.0);}
     if(typeof tpComboUI==='function')tpComboUI(_comboStep,finisher);
     if(finisher)_comboStep=0;}
+  else if(t.type==='destr'){const dz=t.ref;const av=tpAvatar?tpAvatar.o.position:null;if(av)tpAvatar.o.rotation.y=Math.atan2(dz.x-av.x,dz.z-av.z);
+    const dmg=(typeof tpAtk==='function')?tpAtk():1;hitDestructible(dz,dmg);
+    if(av&&!dz.dead)for(const o2 of destructibles){if(o2!==dz&&!o2.dead&&o2.room===_curRoom&&Math.hypot(o2.x-av.x,o2.z-av.z)<2.3)hitDestructible(o2,Math.max(1,Math.round(dmg/2)));}}
   else if(t.type==='kingdom'){const nb=t.ref;nb.reached=true;if(typeof reachedNb!=='undefined')reachedNb[nb.k]=1;
     if(typeof allied!=='undefined'&&allied[nb.k]){if(typeof openNeighbor==='function')openNeighbor(nb.k);} // alleato: mercato/parla, in pace
     else if(typeof toast==='function')toast('⚔️ Regno nemico: entra e combatti le guardie sul posto (niente campo di battaglia)',4200);}
@@ -952,7 +980,7 @@ function updTpAction(px,pz){
   _tpClimb=null;
   const enemyNear=(typeof tpEnemiesNear==='function'&&tpAvatar)?tpEnemiesNear(px,pz,7.5).length>0:false;
   if(A){if(typeof selKey!=='undefined'&&selKey)A.textContent='🔨';
-    else if(_tpTarget){const T=_tpTarget;A.textContent=T.type==='gate'?'🔒':T.type==='collect'?((T.ref&&T.ref.kind==='chiave')?'🔑':'✋'):({monster:'⚔️',kingdom:'🤝',npc:'💬'}[T.type]||'⚔️');}
+    else if(_tpTarget){const T=_tpTarget;A.textContent=T.type==='gate'?'🔒':T.type==='destr'?((T.ref&&T.ref.emo)||'🪓'):T.type==='collect'?((T.ref&&T.ref.kind==='chiave')?'🔑':'✋'):({monster:'⚔️',kingdom:'🤝',npc:'💬'}[T.type]||'⚔️');}
     else A.textContent='⚔️';}
   // tasto B: ✨ magia se c'è un nemico a tiro, altrimenti ⤴️ salto
   const B=document.getElementById('tpB');if(B)B.textContent=enemyNear?'✨':'⤴️';
