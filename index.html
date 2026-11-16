@@ -369,6 +369,7 @@ function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
   if(tpLook.active)tpYaw-=tpLook.dx*dt*2.6;
   // salto (fisica)
   if(tpJumpV!==0||tpJumpY>0.001){tpJumpV-=24*dt;tpJumpY+=tpJumpV*dt;if(tpJumpY<=0){tpJumpY=0;tpJumpV=0;}}
+  _tpFootY=(tpAvatar._baseY||0)+tpJumpY; // quota piedi: se salti sopra un ostacolo ci puoi passare/atterrare
   // abbassarsi/nascondersi: si schiaccia e va piano
   const bsy=tpAvatar._bsy||(tpAvatar._bsy=o.scale.y);o.scale.y+=((bsy*(tpCrouch?0.58:1))-o.scale.y)*Math.min(1,dt*10);
   let mf=(tpInput.f-tpInput.b)+(tpJoy.active?-tpJoy.dy:0);let mr=(tpInput.r-tpInput.l)+(tpJoy.active?tpJoy.dx:0);
@@ -518,7 +519,7 @@ function placeDungeonDecor(){if(dungeonDecorDone)return;dungeonDecorDone=true;co
   const hH={d_skull:0.8,d_bones:0.7,d_rockmed:1.5,d_mush:1.5,d_mush2:0.9,d_bigcrystal:2.4,d_grave:1.9,d_dead:3.0,d_dead2:3.0,d_twist:3.0,d_twist2:3.0};
   let n=0,tries=0;while(n<22&&tries<240){tries++;const a=Math.random()*6.2832,r=20+Math.random()*38,x=Math.cos(a)*r,z=Math.sin(a)*r;
     if(Math.hypot(x,z)<18)continue;if(typeof roomAt==='function'&&!roomAt(x,z))continue;if(typeof inAnyLake==='function'&&inAnyLake(x,z,2))continue;
-    const k=keys[Math.floor(Math.random()*keys.length)];if(!templates[k]||!templates[k].children.length)continue;const o=inst(k);const hgt=(hH[k]||2.4)*(0.82+Math.random()*0.45);fitHeight(o,hgt);o.position.set(x,0,z);o.rotation.y=Math.random()*6.2832;if(typeof roomAddAt==='function')roomAddAt(o,x,z);else cityGroup.add(o);if(typeof autoSeat==='function')autoSeat(o);if(typeof addAvoid==='function')addAvoid(x,z,0.9,hgt);if(hgt<1.0&&typeof tagFloor==='function')tagFloor(o);n++;}
+    const k=keys[Math.floor(Math.random()*keys.length)];if(!templates[k]||!templates[k].children.length)continue;const o=inst(k);const hgt=(hH[k]||2.4)*(0.82+Math.random()*0.45);fitHeight(o,hgt);o.position.set(x,0,z);o.rotation.y=Math.random()*6.2832;if(typeof roomAddAt==='function')roomAddAt(o,x,z);else cityGroup.add(o);if(typeof autoSeat==='function')autoSeat(o);if(typeof addAvoid==='function')addAvoid(x,z,0.9,hgt);if(typeof tagFloor==='function')tagFloor(o);n++;} // floor su tutti i decori: ci atterri sopra saltando
   if(templates.d_gate&&templates.d_gate.children.length){const o=inst('d_gate');fitHeight(o,4.6);o.position.set(0,0,-19);if(typeof roomAddAt==='function')roomAddAt(o,0,-19);else cityGroup.add(o);if(typeof autoSeat==='function')autoSeat(o);}}
 // MURA della caverna che chiudono il covo: sei dentro una sala di pietra + lanterne a muro + trono
 let cavernDone=false;
@@ -545,7 +546,7 @@ function placeCaveWater(){if(caveWaterDone)return;caveWaterDone=true;const G=(ty
   const basin=new THREE.Mesh(new THREE.CircleGeometry(5.4,40),new THREE.MeshStandardMaterial({map:dungeonFloor,color:0x2a2622,roughness:1}));basin.rotation.x=-Math.PI/2;basin.position.set(px,0.015,pz);basin.receiveShadow=true;G.add(basin);
   const waterMat=new THREE.MeshStandardMaterial({color:0x1c3c4a,emissive:0x0a1a26,roughness:0.14,metalness:0.25,transparent:true,opacity:0.88});
   const water=new THREE.Mesh(new THREE.CircleGeometry(4.6,40),waterMat);water.rotation.x=-Math.PI/2;water.position.set(px,0.05,pz);G.add(water);caveWater.push({mesh:water,baseY:0.05});
-  for(let i=0;i<16;i++){const a=i/16*6.2832,r=4.9+Math.random()*0.5,k=Math.random()<0.6?'d_rockmed':'stalag';if(!templates[k]||!templates[k].children.length)continue;const o=inst(k);const rh=0.8+Math.random()*1.1;fitHeight(o,rh);const rx=px+Math.cos(a)*r,rz=pz+Math.sin(a)*r;o.position.set(rx,0,rz);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});G.add(o);if(typeof addAvoid==='function')addAvoid(rx,rz,0.7,rh);if(rh<1.0&&typeof tagFloor==='function')tagFloor(o);}
+  for(let i=0;i<16;i++){const a=i/16*6.2832,r=4.9+Math.random()*0.5,k=Math.random()<0.6?'d_rockmed':'stalag';if(!templates[k]||!templates[k].children.length)continue;const o=inst(k);const rh=0.8+Math.random()*1.1;fitHeight(o,rh);const rx=px+Math.cos(a)*r,rz=pz+Math.sin(a)*r;o.position.set(rx,0,rz);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});G.add(o);if(typeof addAvoid==='function')addAvoid(rx,rz,0.7,rh);if(typeof tagFloor==='function')tagFloor(o);}
   const pl=new THREE.PointLight(0x2f6f9a,0.85,15,2);pl.position.set(px,2.4,pz);G.add(pl);
   // cascata dietro lo stagno
   const wx=px, wz=pz-5.2, LEDGE=7.5;
@@ -562,7 +563,7 @@ function updCaveWater(dt){for(const w of caveWater){if(w.fall&&w.tex){w.tex.offs
 // scala di pietra che sale a un terrazzo roccioso (salite/discese)
 let caveStairsDone=false;
 function placeCaveStairs(){if(caveStairsDone)return;caveStairsDone=true;const G=(typeof rGroup==='function'?rGroup('covo'):cityGroup);
-  const sx=12,sz=-3,steps=7,sw=3.2,sd=0.92,sh=0.42,mat=new THREE.MeshStandardMaterial({map:dungeonFloor,color:0x756a5a,roughness:1});
+  const sx=12,sz=-3,steps=7,sw=3.2,sd=0.62,sh=0.2,mat=new THREE.MeshStandardMaterial({map:dungeonFloor,color:0x756a5a,roughness:1});
   for(let i=0;i<steps;i++){const st=new THREE.Mesh(new THREE.BoxGeometry(sw,sh,sd),mat);st.position.set(sx,sh/2+i*sh,sz-i*sd);st.castShadow=st.receiveShadow=true;st.userData.floor=true;G.add(st);
     // spigolo chiaro sul bordo di ogni gradino, per staccarlo dal pavimento
     const lip=new THREE.Mesh(new THREE.BoxGeometry(sw+0.06,0.06,0.1),new THREE.MeshStandardMaterial({color:0x9a8e78,roughness:1}));lip.position.set(sx,sh+i*sh,sz-i*sd+sd/2);G.add(lip);}
@@ -603,11 +604,12 @@ const GATE_STRIP={x0:42.3,x1:49.7,z0:-25.4,z1:-22.4};
 function inGateStrip(x,z){return caveGateLocked&&x>GATE_STRIP.x0&&x<GATE_STRIP.x1&&z>GATE_STRIP.z0&&z<GATE_STRIP.z1;}
 function unlockCaveGate(){if(!caveGateLocked)return;caveGateLocked=false;if(caveGate){caveGate.rotation.y+=Math.PI*0.42;caveGate.position.x-=2.6;}if(typeof toast==='function')toast('🔑 Chiave usata: il cancello si apre!',4000);}
 // ostacoli BASSI (h<1) non si aggiungono: ci si cammina/sale sopra (il raggio al suolo mette i piedi in cima)
-function addAvoid(x,z,r,h){h=(h==null?2.2:h);if(h<1.0)return;avoid.push({x:x,z:z,r:r,h:h});}
-function hitAvoid(x,z,pad){pad=pad||0;for(let i=0;i<avoid.length;i++){const a=avoid[i],dx=x-a.x,dz=z-a.z,rr=a.r+pad;if(dx*dx+dz*dz<rr*rr)return true;}return false;}
+function addAvoid(x,z,r,h){h=(h==null?2.2:h);if(h<0.45)return;avoid.push({x:x,z:z,r:r,h:h});} // avatar ~0.9 alto: blocca tutto ≥0.45; solo le roccette <0.45 si scavalcano/saltano
+let _tpFootY=0; // altezza dei piedi dell'avatar (per saltare SOPRA gli ostacoli)
+function hitAvoid(x,z,pad,footY){pad=pad||0;for(let i=0;i<avoid.length;i++){const a=avoid[i],dx=x-a.x,dz=z-a.z,rr=a.r+pad;if(dx*dx+dz*dz<rr*rr){if(footY!=null&&footY>=(a.h||2.2)-0.08)continue;/* sei più in alto dell'ostacolo: ci passi sopra */return true;}}return false;}
 // edifici/acqua/difese del giocatore: li legge dalla griglia (nel covo)
 function solidAt(wx,wz){if(typeof grid==='undefined'||typeof HALF==='undefined'||typeof CELL==='undefined')return false;const cx=Math.round(wx/CELL+HALF),cy=Math.round(wz/CELL+HALF);const e=grid[(typeof key==='function')?key(cx,cy):cx+','+cy];if(!e)return false;const t=e.type;return t==='building'||t==='water'||t==='def';}
-function canStep(x,z){return inWalkable(x,z)&&!solidAt(x,z)&&!inGateStrip(x,z)&&!hitAvoid(x,z,0.5);}
+function canStep(x,z){return inWalkable(x,z)&&!solidAt(x,z)&&!inGateStrip(x,z)&&!hitAvoid(x,z,0.5,_tpFootY);}
 // raggio verso il basso SOLO sulle superfici calpestabili (userData.floor): pavimento, scale, cerchio, roccette
 const _tpDownRay=new THREE.Raycaster();const _tpDownDir=new THREE.Vector3(0,-1,0);const _tpFrom=new THREE.Vector3();
 let _floorTargets=null,_floorBuilt=0;
@@ -702,9 +704,13 @@ function tpPrimaryAction(){if(!exploreMode)return;
   if(typeof selKey!=='undefined'&&selKey&&typeof tryPlace==='function'&&typeof cellOfWorld==='function'&&tpAvatar){const c=cellOfWorld(tpAvatar.o.position.x,tpAvatar.o.position.z);try{tryPlace(c[0],c[1]);}catch(e){}return;}
   if(_tpTarget){tpDoAction();return;}if(tpAvatar){const a=tpAvatar.o.position;let best=null,bd=3.2;for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(a.x-m.x,a.z-m.z);if(d<bd){bd=d;best=m;}}for(const g of roomGuards){if(g.hp<=0)continue;const d=Math.hypot(a.x-g.x,a.z-g.z);if(d<bd){bd=d;best=g;}}if(best){_tpTarget={type:'monster',ref:best,d:bd};tpDoAction();}}}
 // apri il menu costruzioni dalla terza persona; scelto un oggetto, chiudo e passo in "posa"
-function tpOpenBuild(){if(!exploreMode)return;if(typeof selKey!=='undefined'&&selKey){selKey=null;if(typeof toast==='function')toast('Costruzione annullata');return;}
-  if(typeof drawer==='undefined')return;try{selKey=null;drawer.classList.add('open');if(typeof drawBuild==='function')drawBuild();}catch(e){return;}
-  const iv=setInterval(()=>{if(!drawer.classList.contains('open')){clearInterval(iv);return;}if(typeof selKey!=='undefined'&&selKey){drawer.classList.remove('open');clearInterval(iv);if(typeof toast==='function')toast('🔨 Vai dove vuoi e premi il tasto azione per posare');}},150);}
+function tpCloseBuildCat(){if(typeof drawer!=='undefined'&&drawer)drawer.classList.remove('open');document.body.classList.remove('tpbuilding');}
+function tpOpenBuild(){if(!exploreMode)return;if(typeof selKey!=='undefined'&&selKey){selKey=null;if(typeof toast==='function')toast('Costruzione annullata');tpCloseBuildCat();return;}
+  if(typeof drawer==='undefined'||!drawer)return;
+  if(drawer.classList.contains('open')){tpCloseBuildCat();return;} // ri-premi 🔨 = chiudi il catalogo
+  try{selKey=null;drawer.classList.add('open');document.body.classList.add('tpbuilding');if(typeof drawBuild==='function')drawBuild();}catch(e){return;}
+  if(typeof toast==='function')toast('🔨 Scegli cosa costruire, poi vai dove vuoi e premi il tasto azione ⚒️',4200);
+  const iv=setInterval(()=>{if(!drawer.classList.contains('open')){document.body.classList.remove('tpbuilding');clearInterval(iv);return;}if(typeof selKey!=='undefined'&&selKey){tpCloseBuildCat();clearInterval(iv);if(typeof toast==='function')toast('🔨 Vai dove vuoi e premi il tasto azione per posare');}},150);}
 function updTpAction(px,pz){
   const now=performance.now();for(const c of collectNodes){if(c.taken&&c.respawn&&now>c.respawn){c.taken=false;c.respawn=0;if(c.obj)c.obj.visible=true;if(c.glow)c.glow.visible=true;}}
   const old=document.getElementById('tpact');if(old&&old.style.display!=='none')old.style.display='none';
@@ -770,7 +776,11 @@ function updRoomCombat(dt){
 (function injectTpAction(){const st=document.createElement('style');
   st.textContent='#tpact{position:fixed;left:50%;bottom:122px;transform:translateX(-50%);z-index:61;display:none;align-items:center;justify-content:center;padding:12px 22px;border-radius:26px;border:2px solid rgba(255,220,150,.6);background:rgba(40,28,16,.93);color:#ffe4a8;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.55);touch-action:none}'+
    '#tphp{position:fixed;left:50%;top:48px;transform:translateX(-50%);z-index:60;display:none;font-size:19px;letter-spacing:3px;text-shadow:0 1px 3px #000;pointer-events:none}'+
-   '#tpbuildbtn{position:fixed;right:12px;top:112px;z-index:62;width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,220,150,.5);background:rgba(28,22,16,.85);color:#ffdca0;font-size:20px;cursor:pointer;display:none;align-items:center;justify-content:center}.explore #tpbuildbtn{display:flex}';
+   '#tpbuildbtn{position:fixed;right:12px;top:112px;z-index:62;width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,220,150,.5);background:rgba(28,22,16,.85);color:#ffdca0;font-size:20px;cursor:pointer;display:none;align-items:center;justify-content:center}.explore #tpbuildbtn{display:flex}'+
+   /* CATALOGO in 3ª persona: sopra i controlli e joystick nascosti, così si vede e si tocca */
+   '.tpbuilding #drawer{z-index:120!important;transform:none!important;transition:none!important;bottom:0!important;top:auto!important;max-height:52vh;overflow-y:auto}.tpbuilding #drawer .hd span{font-size:15px}'+
+   '.explore.tpbuilding #build{display:flex!important}.explore.tpbuilding #cats{display:flex!important}'+
+   '.tpbuilding #tpjoy,.tpbuilding #tplook,.tpbuilding #tplookwrap,.tpbuilding #tpA,.tpbuilding #tpB,.tpbuilding #tpC{display:none!important}';
   document.head.appendChild(st);const b=document.createElement('button');b.id='tpact';document.body.appendChild(b);
   b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(typeof tpDoAction==='function')tpDoAction();});
   const hp=document.createElement('div');hp.id='tphp';document.body.appendChild(hp);
