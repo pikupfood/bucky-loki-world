@@ -460,6 +460,7 @@ function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
   // joystick destro: guardarsi intorno
   if(tpLook.active)tpYaw-=tpLook.dx*dt*2.6;
   if(_gateLockMarker&&caveGateLocked){const _t=performance.now()*0.003,sp=_gateLockMarker.userData._spr,ha=_gateLockMarker.userData._halo;if(sp)sp.position.y=2.6+Math.sin(_t)*0.2;if(ha)ha.material.opacity=0.38+0.25*(0.5+0.5*Math.sin(_t*1.4));}
+  if(dungeonChests.length){const _tc=performance.now()*0.004;for(const c of dungeonChests){if(c.opened||c.room!==_curRoom||!c.glow)continue;c.glow.material.opacity=0.1+0.08*(0.5+0.5*Math.sin(_tc+c.x));}}
   // salto (fisica)
   if(tpJumpV!==0||tpJumpY>0.001){tpJumpV-=24*dt;tpJumpY+=tpJumpV*dt;if(tpJumpY<=0){tpJumpY=0;tpJumpV=0;}}
   _tpFootY=(tpAvatar._baseY||0)+tpJumpY; // quota piedi: se salti sopra un ostacolo ci puoi passare/atterrare
@@ -814,6 +815,8 @@ function buildDungeonRooms(){if(dungeonRoomsDone)return;dungeonRoomsDone=true;co
   if(mons.length){const Tn=DROOMS.tana;for(let i=0;i<5;i++){const k=mons[Math.floor(Math.random()*mons.length)];const o=inst(k);fitHeight(o,2.3);const mx=Tn.x+(Math.random()-0.5)*Tn.hw*1.1,mz=Tn.z+(Math.random()-0.5)*Tn.hd*1.1;o.position.set(mx,0,mz);o.rotation.y=Math.random()*6.28;rGroup('tana').add(o);if(typeof autoSeat==='function')autoSeat(o);addAvoid(mx,mz,0.9);caveMonsters.push({obj:o,x:mx,z:mz,hp:8,maxhp:8,av:avoid[avoid.length-1],room:'tana'});}}
   // OGGETTI DISTRUTTIBILI nelle stanze: alberi/casse/barili/rocce da tagliare e distruggere (droppano risorse)
   try{const DTY=['tree','tree','crate','barrel','rock','rock'];for(const k in DROOMS){const Rr=DROOMS[k];if(k==='covo'||k==='tana')continue;const n=1+Math.floor(Math.random()*3);for(let i=0;i<n;i++){const ang=Math.random()*6.2832,rr=(Math.min(Rr.hw,Rr.hd)-2.6)*(0.45+Math.random()*0.5);const x=Rr.x+Math.cos(ang)*rr,z=Rr.z+Math.sin(ang)*rr;if(typeof hitAvoid==='function'&&hitAvoid(x,z,0.8))continue;mkDestructible(DTY[Math.floor(Math.random()*DTY.length)],x,z,k);}}}catch(e){console.warn('destructibles',e);}
+  // FORZIERI DEL TESORO: uno nelle sale/rocche/cristalli/caverna — da scoprire e aprire per una ricompensa
+  try{const CHESTROOMS=['nef_hall','nef_keep','chr_forge','chr_keep','oros_hall','oros_keep','cristalli','vuota'];for(const k of CHESTROOMS){const Rr=DROOMS[k];if(!Rr)continue;let placed=false;for(let t=0;t<8&&!placed;t++){const ang=Math.random()*6.2832,rr=(Math.min(Rr.hw,Rr.hd)-3)*(0.55+Math.random()*0.35);const x=Rr.x+Math.cos(ang)*rr,z=Rr.z+Math.sin(ang)*rr;if(typeof hitAvoid==='function'&&hitAvoid(x,z,1.1))continue;mkTreasure(x,z,k);placed=true;}}}catch(e){console.warn('treasure',e);}
   // CANCELLO chiuso all'imbocco della Tana (si apre con la chiave nascosta a Oros)
   if(templates.d_gate&&templates.d_gate.children&&templates.d_gate.children.length){caveGate=inst('d_gate');fitHeight(caveGate,4.4);caveGate.position.set(48,0,-23.9);caveGate.rotation.y=0;caveGate.traverse(m=>{if(m.isMesh)m.castShadow=true;});rGroup('c_chrysa_tana').add(caveGate);if(typeof autoSeat==='function')autoSeat(caveGate);}
   // montanti SOLIDI ai lati del cancello (restano anche da aperto: il varco è nel mezzo)
@@ -911,7 +914,8 @@ let _tpTarget=null,_tpActCd=0,_tpClimb=null;
 function tpFindTarget(px,pz){let best=null;
   for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(px-m.x,pz-m.z);if(d<4.4&&(!best||d<best.d))best={type:'monster',ref:m,d};}
   for(const g of roomGuards){if(g.hp<=0)continue;const d=Math.hypot(px-g.x,pz-g.z);if(d<4.4&&(!best||d<best.d))best={type:'monster',ref:g,d};}
-  for(const dz of destructibles){if(dz.dead||dz.room!==_curRoom)continue;const d=Math.hypot(px-dz.x,pz-dz.z);if(d<3.2&&(!best||(best.type!=='monster'&&d<best.d)))best={type:'destr',ref:dz,d};}
+  for(const c of dungeonChests){if(c.opened||c.room!==_curRoom)continue;const d=Math.hypot(px-c.x,pz-c.z);if(d<3.0&&(!best||(best.type!=='monster'&&d<best.d)))best={type:'treasure',ref:c,d};}
+  for(const dz of destructibles){if(dz.dead||dz.room!==_curRoom)continue;const d=Math.hypot(px-dz.x,pz-dz.z);if(d<3.2&&(!best||(best.type!=='monster'&&best.type!=='treasure'&&d<best.d)))best={type:'destr',ref:dz,d};}
   for(const np of storyNpcs){const d=Math.hypot(px-np.x,pz-np.z);if(d<3.6&&(!best||best.type==='kingdom')&&(!best||d<best.d))best={type:'npc',ref:np,d};}
   for(const c of collectNodes){if(c.taken)continue;const d=Math.hypot(px-c.x,pz-c.z);if(d<3.6&&(!best||d<best.d))best={type:'collect',ref:c,d};}
   if(typeof neighbors!=='undefined')for(const nb of neighbors){if(!nb.g)continue;const d=Math.hypot(px-nb.g.position.x,pz-nb.g.position.z);if(d<10&&(!best||best.type==='kingdom')&&(!best||d<best.d))best={type:'kingdom',ref:nb,d};}
@@ -952,6 +956,33 @@ function hitDestructible(dz,dmg){if(!dz||dz.dead)return;dmg=dmg||1;dz.hp-=dmg;
   let txt='';for(const r in dz.drop){const rg=dz.drop[r],amt=rg[0]+Math.floor(Math.random()*(rg[1]-rg[0]+1));R[r]=(R[r]||0)+amt;txt+=((typeof RES!=='undefined'&&RES[r])||r)+'+'+amt+' ';}
   tpFloat(dz.x,dz.z,txt.trim(),'#b6ffb0');if(typeof drawTop==='function')drawTop();if(typeof save==='function')save();
   const k=destructibles.indexOf(dz);if(k>=0)destructibles.splice(k,1);}
+// ===== FORZIERI DEL TESORO: li scopri nelle stanze, li apri col tasto azione, danno ricompense (oro, cristalli, a volte equipaggiamento) =====
+let dungeonChests=[];
+function mkTreasure(x,z,room){
+  const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=Math.random()*6.28;
+  const wood=new THREE.MeshStandardMaterial({color:0x6e4a26,roughness:1,emissive:0x1e130a,emissiveIntensity:0.5});
+  const gold=new THREE.MeshStandardMaterial({color:0xffcf4a,roughness:0.4,metalness:0.6,emissive:0x5a4206,emissiveIntensity:0.6});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.1,0.66,0.82),wood);body.position.y=0.33;body.castShadow=true;g.add(body);
+  [-0.38,0.38].forEach(bx=>{const b=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.7,0.86),gold);b.position.set(bx,0.34,0);g.add(b);});
+  const lockm=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.2,0.08),gold);lockm.position.set(0,0.4,0.43);g.add(lockm);
+  const lid=new THREE.Group();lid.position.set(0,0.66,-0.41); // pivot sul bordo posteriore → si apre ruotando
+  const lm=new THREE.Mesh(new THREE.BoxGeometry(1.14,0.26,0.86),wood);lm.position.set(0,0.13,0.41);lm.castShadow=true;lid.add(lm);
+  [-0.38,0.38].forEach(bx=>{const b=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.28,0.9),gold);b.position.set(bx,0.13,0.41);lid.add(b);});
+  g.add(lid);
+  const glow=new THREE.Mesh(new THREE.SphereGeometry(0.95,14,14),new THREE.MeshBasicMaterial({color:0xffd24a,transparent:true,opacity:0.14,depthWrite:false,blending:THREE.AdditiveBlending}));glow.position.y=0.5;g.add(glow);
+  (typeof rGroup==='function'?rGroup(room):scene).add(g);
+  if(typeof addAvoid==='function')addAvoid(x,z,0.7);
+  const c={obj:g,lid,glow,x,z,room,opened:false,av:(typeof avoid!=='undefined'?avoid[avoid.length-1]:null)};dungeonChests.push(c);return c;}
+function openTreasure(c){ if(!c||c.opened)return; c.opened=true;
+  let k=0;const iv=setInterval(()=>{k++;c.lid.rotation.x=Math.max(-1.9,c.lid.rotation.x-0.19);if(k>=12)clearInterval(iv);},16);
+  if(c.glow)c.glow.material.opacity=0.04;
+  if(typeof _destrBurst==='function')_destrBurst(c.x,c.z,c.room,0xffd24a);
+  const r=Math.random(); const gold=40+Math.floor(Math.random()*60); R.oro=(R.oro||0)+gold; let txt='+'+gold+' 🪙';
+  if(r<0.12){ const cw=TP_WEAPONS.length-2,ca=TP_ARMORS.length-2; if(typeof tpGainWeapon==='function'&&tpWeapon<cw){tpGainWeapon(tpWeapon+1);txt+=' ⚔️';} else if(typeof tpGainArmor==='function'&&tpArmor<ca){tpGainArmor(tpArmor+1);txt+=' 🛡️';} }
+  else if(r<0.42){ const cr=2+Math.floor(Math.random()*4); if(typeof _crystalsCollected!=='undefined')_crystalsCollected+=cr; R.oro+=cr*15; txt+=' +'+cr+' 💎'; }
+  if(typeof tpFloat==='function')tpFloat(c.x,c.z,txt,'#ffe27a');
+  if(typeof toast==='function')toast('🎁 Forziere del tesoro! '+txt,3600);
+  if(typeof drawTop==='function')drawTop(); if(typeof save==='function')save();}
 function tpDoAction(){if(!_tpTarget)return;const _now=performance.now();if(_now<_tpActCd)return;_tpActCd=_now+320;const t=_tpTarget;
   if(t.type==='collect'){const c=t.ref;c.taken=true;if(c.obj)c.obj.visible=false;if(c.glow)c.glow.visible=false;
     if(c.kind==='chiave'){if(typeof _keyFound!=='undefined')_keyFound=true;if(typeof unlockCaveGate==='function')unlockCaveGate();tpFloat(c.x,c.z,'🔑','#ffe27a');}
@@ -970,6 +1001,7 @@ function tpDoAction(){if(!_tpTarget)return;const _now=performance.now();if(_now<
   else if(t.type==='destr'){const dz=t.ref;const av=tpAvatar?tpAvatar.o.position:null;if(av)tpAvatar.o.rotation.y=Math.atan2(dz.x-av.x,dz.z-av.z);
     const dmg=(typeof tpAtk==='function')?tpAtk():1;hitDestructible(dz,dmg);
     if(av&&!dz.dead)for(const o2 of destructibles){if(o2!==dz&&!o2.dead&&o2.room===_curRoom&&Math.hypot(o2.x-av.x,o2.z-av.z)<2.3)hitDestructible(o2,Math.max(1,Math.round(dmg/2)));}}
+  else if(t.type==='treasure'){const c=t.ref;const av=tpAvatar?tpAvatar.o.position:null;if(av)tpAvatar.o.rotation.y=Math.atan2(c.x-av.x,c.z-av.z);openTreasure(c);}
   else if(t.type==='kingdom'){const nb=t.ref;nb.reached=true;if(typeof reachedNb!=='undefined')reachedNb[nb.k]=1;
     if(typeof allied!=='undefined'&&allied[nb.k]){if(typeof openNeighbor==='function')openNeighbor(nb.k);} // alleato: mercato/parla, in pace
     else if(typeof toast==='function')toast('⚔️ Regno nemico: entra e combatti le guardie sul posto (niente campo di battaglia)',4200);}
@@ -1030,7 +1062,7 @@ function updTpAction(px,pz){
   _tpClimb=null;
   const enemyNear=(typeof tpEnemiesNear==='function'&&tpAvatar)?tpEnemiesNear(px,pz,7.5).length>0:false;
   if(A){if(typeof selKey!=='undefined'&&selKey)A.textContent='🔨';
-    else if(_tpTarget){const T=_tpTarget;A.textContent=T.type==='gate'?'🔒':T.type==='destr'?((T.ref&&T.ref.emo)||'🪓'):T.type==='collect'?((T.ref&&T.ref.kind==='chiave')?'🔑':'✋'):({monster:'⚔️',kingdom:'🤝',npc:'💬'}[T.type]||'⚔️');}
+    else if(_tpTarget){const T=_tpTarget;A.textContent=T.type==='gate'?'🔒':T.type==='treasure'?'🎁':T.type==='destr'?((T.ref&&T.ref.emo)||'🪓'):T.type==='collect'?((T.ref&&T.ref.kind==='chiave')?'🔑':'✋'):({monster:'⚔️',kingdom:'🤝',npc:'💬'}[T.type]||'⚔️');}
     else A.textContent='⚔️';}
   // tasto B: ✨ magia se c'è un nemico a tiro, altrimenti ⤴️ salto
   const B=document.getElementById('tpB');if(B)B.textContent=enemyNear?'✨':'⤴️';
