@@ -373,6 +373,14 @@ function tpJump(){if(exploreMode&&tpAvatar&&tpJumpY<=0.02&&tpJumpV===0){tpJumpV=
 let _kAtkDown=0,_kAtkHeld=false,_kAtkRaf=0;
 function _kChargeAnim(){if(!_kAtkHeld)return;const p=Math.min(1,(performance.now()-_kAtkDown)/520);const A=document.getElementById('tpA');if(A){A.style.setProperty('--chg',p);A.classList.toggle('full',p>=1);}_kAtkRaf=requestAnimationFrame(_kChargeAnim);}
 window.addEventListener('keydown',e=>{const k=(e.key||'').toLowerCase();
+  // SCORCIATOIE CITTÀ (PC): aprire catalogo/mappa senza il mouse. Solo fuori dall'esplorazione e se non stai scrivendo.
+  {const _tag=(e.target&&e.target.tagName||'').toLowerCase();const _typing=(_tag==='input'||_tag==='textarea'||(e.target&&e.target.isContentEditable));
+   if(!exploreMode&&!_typing){
+     const dr=document.getElementById('drawer');
+     if(k==='b'){e.preventDefault();if(dr){if(dr.classList.contains('open')){dr.classList.remove('open');if(typeof selKey!=='undefined')selKey=null;}else{dr.classList.add('open');}if(typeof drawBuild==='function')drawBuild();}return;}
+     if(k==='m'){e.preventDefault();const dyn=document.getElementById('dyn');if(dyn){if(typeof closeDyn==='function')closeDyn();}else if(typeof openMap==='function'&&typeof mode!=='undefined'&&mode==='city')openMap();return;}
+     if(k==='escape'){if(dr)dr.classList.remove('open');if(typeof selKey!=='undefined')selKey=null;if(typeof closeDyn==='function')closeDyn();return;}
+   }}
   if(k==='z'||k==='w')tpInput.f=1;                 // avanti (Z azerty / W qwerty)
   else if(k==='s')tpInput.b=1;                     // indietro
   else if(k==='q'||k==='a')tpInput.l=1;            // sinistra (Q azerty / A qwerty)
@@ -3000,7 +3008,7 @@ document.getElementById('btnHero').onclick=()=>{if(mode==='city')openHeroes();};
 // ===== mini-guida iniziale =====
 const GUIDE=[
  {em:'🕳️',t:'Benvenuto nel tuo covo',x:'Guidi i <b>Chlòri</b>, un popolo di piccoli Tuzu 🟢 nel sottosuolo. Fai crescere il tuo <b>covo</b>, esplora le stanze della grotta, alleati o combatti gli altri regni, fino a dominare il <b>Reame</b> del <b>Tàrtaro</b>.'},
- {em:'🔨',t:'Costruisci',x:'Tocca <b>🔨 Costruisci</b> in basso, scegli un edificio e tocca un <b>quadratino libero</b>. Inizia con <b>Segheria</b> 🪵, <b>Fattoria</b> 🌾 e <b>Case</b> 🏠.'},
+ {em:'🔨',t:'Costruisci',x:'Tocca <b>🔨 Costruisci</b> in basso, scegli un edificio e tocca un <b>quadratino libero</b>. Inizia con <b>Segheria</b> 🪵, <b>Fattoria</b> 🌾 e <b>Case</b> 🏠.<br><br>💻 <b>Da computer:</b> premi <b>B</b> per il catalogo, <b>M</b> per la mappa, <b>Esc</b> per chiudere.'},
  {em:'👷',t:'I Tuzu lavorano da soli',x:'Gli abitanti raccolgono e costruiscono da soli. Più <b>Case</b> = più lavoratori 👷. Tocca un abitante per dargli un ordine: tagliare legna 🪓, pescare 🎣 o raccogliere 🧺.'},
  {em:'🌾',t:'Nutri il popolo',x:'I Tuzu mangiano 🌾 cibo. Se manca, il morale 😊 cala. Fai <b>Fattorie</b>, semina nei <b>Campi</b> 🌱, alleva nei <b>Recinti</b> 🐑 o manda a pescare.'},
  {em:'⚔️',t:'Come ci si difende',x:'Ogni tanto l’Èrebo attacca. <b>I tuoi soldati e le torri si difendono DA SOLI</b> — non devi fare nulla durante l’attacco. Il tuo compito è <b>prepararti prima</b>: addestra <b>Soldati</b> (Caserma ⚔️) e, nel menu <b>🛡️ Difesa</b>, metti <b>Torri</b> 🏹 e <b>Mura</b> 🧱. Più giochi, più gli attacchi diventano forti.'},
