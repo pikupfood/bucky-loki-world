@@ -345,7 +345,7 @@ function tpJump(){if(exploreMode&&tpAvatar&&tpJumpY<=0.02&&tpJumpV===0){tpJumpV=
   const look=document.createElement('div');look.id='tplook';document.body.appendChild(look);wireStick(look,tpLook);
   const acts=document.createElement('div');acts.id='tpacts';acts.innerHTML='<button id="tpA">⚔️</button><button id="tpB">⤴️</button><button id="tpC">🧎</button>';document.body.appendChild(acts);
   acts.querySelector('#tpA').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(typeof tpPrimaryAction==='function')tpPrimaryAction();});
-  acts.querySelector('#tpB').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();tpJump();});
+  acts.querySelector('#tpB').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(typeof tpActionB==='function')tpActionB();else tpJump();});
   const C=acts.querySelector('#tpC'),cDn=e=>{e.preventDefault();e.stopPropagation();tpCrouch=true;},cUp=()=>{tpCrouch=false;};
   C.addEventListener('pointerdown',cDn);C.addEventListener('pointerup',cUp);C.addEventListener('pointerleave',cUp);C.addEventListener('pointercancel',cUp);
 })();
@@ -716,7 +716,7 @@ function placeKingdomDepth(){
   for(let i=0;i<10;i++){const a=i/10*6.28+Math.random()*0.5,rr=2.5+Math.random()*(R.hw-4);const cx=R.x+Math.cos(a)*rr,cz=R.z+Math.sin(a)*rr;let o;if(templates.d_bigcrystal&&templates.d_bigcrystal.children&&templates.d_bigcrystal.children.length){o=inst('d_bigcrystal');fitHeight(o,1.4+Math.random()*2.0);}else{o=makeCrystalT();o.scale.setScalar(1.4+Math.random()*1.6);}o.position.set(cx,0,cz);o.rotation.y=Math.random()*6.28;G.add(o);addAvoid(cx,cz,0.8,1.6);const col=cols[i%cols.length];const gl=new THREE.Mesh(new THREE.SphereGeometry(1.2,8,6),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.22,depthWrite:false,fog:false}));gl.position.set(cx,1.2,cz);G.add(gl);if(i<3){const pl=new THREE.PointLight(col,0.5,11,2);pl.position.set(cx,1.7,cz);G.add(pl);}}
   }catch(e){console.warn('placeKingdomDepth',e);}
 }
-let _tpTarget=null,_tpActCd=0;
+let _tpTarget=null,_tpActCd=0,_tpClimb=null;
 function tpFindTarget(px,pz){let best=null;
   for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(px-m.x,pz-m.z);if(d<4.4&&(!best||d<best.d))best={type:'monster',ref:m,d};}
   for(const g of roomGuards){if(g.hp<=0)continue;const d=Math.hypot(px-g.x,pz-g.z);if(d<4.4&&(!best||d<best.d))best={type:'monster',ref:g,d};}
@@ -743,11 +743,28 @@ function tpDoAction(){if(!_tpTarget)return;const _now=performance.now();if(_now<
     else if(typeof toast==='function')toast('⚔️ Regno nemico: entra e combatti le guardie sul posto (niente campo di battaglia)',4200);}
   else if(t.type==='gate'){if(typeof toast==='function')toast('🔒 Cancello chiuso: trova la chiave (nella stanza di Òros)',3600);}
 }
+// in 3ª persona costruisci OVUNQUE: sblocca da solo il terreno sotto l'ingombro dell'edificio scelto
+function tpUnlockFootprint(cx,cy){try{
+  if(typeof selKey==='undefined'||!selKey||typeof parOf!=='function')return;
+  let def=null;if(typeof cat!=='undefined'){if(cat==='edifici')def=BUILD[selKey];else if(cat==='difesa')def=DEF[selKey];else if(cat==='animali')def=PENS[selKey];else if(cat==='monumenti')def=MON[selKey];}
+  const sz=def?fpSize(def):[1,1];const a=fpAnchor(cx,cy,sz[0],sz[1]);let any=false;
+  for(let x=a[0];x<a[0]+sz[0];x++)for(let y=a[1];y<a[1]+sz[1];y++){if(typeof inB==='function'&&!inB(x,y))continue;const p=parOf(x,y),pk=parKey(p[0],p[1]);if(!unlockedPar[pk]){unlockedPar[pk]=1;any=true;}}
+  if(any){if(typeof refreshLocks==='function')refreshLocks();if(typeof drawTop==='function')drawTop();}
+}catch(e){}}
 // BOTTONE A (primario, contestuale): se c'e' un bersaglio fa quello, altrimenti fendente al mostro vicino
 function tpPrimaryAction(){if(!exploreMode)return;
-  // modalità costruzione/semina: posa al posto dell'avatar
-  if(typeof selKey!=='undefined'&&selKey&&typeof tryPlace==='function'&&typeof cellOfWorld==='function'&&tpAvatar){const c=cellOfWorld(tpAvatar.o.position.x,tpAvatar.o.position.z);try{tryPlace(c[0],c[1]);}catch(e){}return;}
+  // modalità costruzione/semina: posa al posto dell'avatar (sbloccando il terreno)
+  if(typeof selKey!=='undefined'&&selKey&&typeof tryPlace==='function'&&typeof cellOfWorld==='function'&&tpAvatar){const c=cellOfWorld(tpAvatar.o.position.x,tpAvatar.o.position.z);if(typeof inB==='function'&&!inB(c[0],c[1])){if(typeof toast==='function')toast('🔨 Qui non puoi costruire: torna nel tuo Covo');return;}tpUnlockFootprint(c[0],c[1]);try{tryPlace(c[0],c[1]);}catch(e){}return;}
+  // arrampicata: salto potenziato per salire su una sporgenza alta davanti a te (tieni avanti il joystick)
+  if(_tpClimb&&(!_tpTarget||_tpTarget.type==='kingdom')){const h=_tpClimb.h;tpJumpV=Math.sqrt(2*24*(h+0.7));if(tpJumpY<=0)tpJumpY=0.01;if(typeof toast==='function')toast('🧗 Ti arrampichi — spingi avanti!',1400);return;}
   if(_tpTarget){tpDoAction();return;}if(tpAvatar){const a=tpAvatar.o.position;let best=null,bd=3.2;for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(a.x-m.x,a.z-m.z);if(d<bd){bd=d;best=m;}}for(const g of roomGuards){if(g.hp<=0)continue;const d=Math.hypot(a.x-g.x,a.z-g.z);if(d<bd){bd=d;best=g;}}if(best){_tpTarget={type:'monster',ref:best,d:bd};tpDoAction();}}}
+// ===== MAGIA (tasto B in combattimento): colpo ad AREA a distanza =====
+let _tpMagicCd=0;
+function tpEnemiesNear(px,pz,RR){const list=[];for(const m of caveMonsters)if(m.hp>0&&Math.hypot(px-m.x,pz-m.z)<RR)list.push(m);for(const g of roomGuards)if(g.hp>0&&Math.hypot(px-g.x,pz-g.z)<RR)list.push(g);return list;}
+function magicBurstVisual(x,z){try{const ring=new THREE.Mesh(new THREE.RingGeometry(0.3,0.7,28),new THREE.MeshBasicMaterial({color:0x9a6bff,transparent:true,opacity:0.85,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));ring.rotation.x=-Math.PI/2;ring.position.set(x,0.3,z);(typeof rGroup==='function'?rGroup(_curRoom):scene).add(ring);const t0=performance.now();(function grow(){const e=(performance.now()-t0)/420;if(e>=1){if(ring.parent)ring.parent.remove(ring);return;}const s=0.4+e*7;ring.scale.set(s,s,s);ring.material.opacity=0.85*(1-e);requestAnimationFrame(grow);})();const fl=new THREE.PointLight(0x9a6bff,1.4,12,2);fl.position.set(x,1.4,z);(typeof rGroup==='function'?rGroup(_curRoom):scene).add(fl);setTimeout(()=>{if(fl.parent)fl.parent.remove(fl);},260);}catch(e){}}
+function tpMagic(){if(!exploreMode||!tpAvatar)return;const now=performance.now();if(now<_tpMagicCd){return;}const a=tpAvatar.o.position;const targets=tpEnemiesNear(a.x,a.z,7.5);if(!targets.length){if(typeof toast==='function')toast('✨ Nessun nemico a tiro');return;}_tpMagicCd=now+1400;magicBurstVisual(a.x,a.z);if(tpAvatar)tpAvatar.o.rotation.y=Math.atan2(targets[0].x-a.x,targets[0].z-a.z);for(const m of targets){if(typeof hitMonster==='function')hitMonster(m);}if(typeof toast==='function')toast('✨ Magia! Colpisci '+targets.length+(targets.length>1?' nemici':' nemico'),1600);}
+// tasto B: magia se ci sono nemici vicini, altrimenti salto
+function tpActionB(){if(!exploreMode)return;const a=tpAvatar?tpAvatar.o.position:null;if(a&&tpEnemiesNear(a.x,a.z,7.5).length){tpMagic();}else{if(typeof tpJump==='function')tpJump();}}
 // apri il menu costruzioni dalla terza persona; scelto un oggetto, chiudo e passo in "posa"
 function tpCloseBuildCat(){if(typeof drawer!=='undefined'&&drawer)drawer.classList.remove('open');document.body.classList.remove('tpbuilding');}
 function tpOpenBuild(){if(!exploreMode)return;if(typeof selKey!=='undefined'&&selKey){selKey=null;if(typeof toast==='function')toast('Costruzione annullata');tpCloseBuildCat();return;}
@@ -762,9 +779,19 @@ function updTpAction(px,pz){
   const A=document.getElementById('tpA');
   if(!exploreMode){_tpTarget=null;return;}
   _tpTarget=tpFindTarget(px,pz);
+  // arrampicata: ostacolo ALTO proprio davanti (e nient'altro da fare) → 🧗
+  _tpClimb=null;
+  if(tpAvatar&&!(typeof selKey!=='undefined'&&selKey)&&(!_tpTarget||_tpTarget.type==='kingdom')&&typeof tpYaw!=='undefined'){
+    const fx=-Math.sin(tpYaw),fz=-Math.cos(tpYaw);
+    for(let i=0;i<avoid.length;i++){const a=avoid[i],dx=a.x-px,dz=a.z-pz,d=Math.hypot(dx,dz)||1;if(d<a.r+1.5&&(dx/d*fx+dz/d*fz)>0.45&&a.h>=1.0&&a.h<=4.3){_tpClimb={x:a.x,z:a.z,h:a.h};break;}}
+  }
+  const enemyNear=(typeof tpEnemiesNear==='function'&&tpAvatar)?tpEnemiesNear(px,pz,7.5).length>0:false;
   if(A){if(typeof selKey!=='undefined'&&selKey)A.textContent='🔨';
     else if(_tpTarget){const T=_tpTarget;A.textContent=T.type==='gate'?'🔒':T.type==='collect'?((T.ref&&T.ref.kind==='chiave')?'🔑':'✋'):({monster:'⚔️',kingdom:'🤝'}[T.type]||'⚔️');}
+    else if(_tpClimb)A.textContent='🧗';
     else A.textContent='⚔️';}
+  // tasto B: ✨ magia se c'è un nemico a tiro, altrimenti ⤴️ salto
+  const B=document.getElementById('tpB');if(B)B.textContent=enemyNear?'✨':'⤴️';
 }
 // VITA dell'avatar + IA dei mostri (ti inseguono e colpiscono nella tana)
 let tpHp=5,tpMaxHp=5,_tpHurtCd=0;
@@ -778,7 +805,7 @@ function updCaveMonsters(dt){if(!exploreMode||!tpAvatar)return;if(_curRoom!=='ta
     if(d<2.0){if(performance.now()>(m.acd||0)){m.acd=performance.now()+1100;tpHurt(1);m.obj.scale.multiplyScalar(1.12);(function(mo){setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/1.12);},110);})(m.obj);}}
   }}
 // ===== INVASIONE DEL REGNO (3ª persona): entri da nemico → le GUARDIE escono e ti attaccano, le combatti sul posto (niente campo di battaglia) =====
-const roomGuards=[]; let _roomConquered={};
+const roomGuards=[]; let _roomConquered={}, _betrayed={};
 const GUARD_ROOMS=['nefele','chrysa','oros'];
 function spawnRoomGuards(roomId){
   if(roomGuards.some(g=>g.room===roomId))return false;
@@ -806,7 +833,7 @@ function onRoomCleared(roomId){
 function updRoomCombat(dt){
   if(!exploreMode||!tpAvatar)return; const a=tpAvatar.o.position, cur=_curRoom;
   if(GUARD_ROOMS.indexOf(cur)>=0&&!_roomConquered[cur]){
-    const nbk=(typeof DROOMS!=='undefined'&&DROOMS[cur])?DROOMS[cur].nb:null, al=(typeof allied!=='undefined'&&allied[nbk]);
+    const nbk=(typeof DROOMS!=='undefined'&&DROOMS[cur])?DROOMS[cur].nb:null, al=(typeof allied!=='undefined'&&allied[nbk])&&!_betrayed[cur];
     if(!al&&!roomGuards.some(g=>g.room===cur)){if(spawnRoomGuards(cur)&&typeof toast==='function')toast('⚔️ Sei entrato in un regno nemico! Le guardie ti attaccano — difenditi col tasto ⚔️',4600);}
   }
   for(const g of roomGuards){
@@ -818,6 +845,13 @@ function updRoomCombat(dt){
     if(d<2.0){if(performance.now()>(g.acd||0)){g.acd=performance.now()+1300;tpHurt(1);g.obj.scale.multiplyScalar(1.1);(function(mo){setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/1.1);},110);})(g.obj);}}
   }
 }
+// TRADIMENTO sul posto: attacchi un regno alleato → rompi l'alleanza e le sue guardie reagiscono (niente campo di battaglia)
+function roomOfNb(k){for(const r of GUARD_ROOMS){if(typeof DROOMS!=='undefined'&&DROOMS[r]&&DROOMS[r].nb===k)return r;}return null;}
+function tpKingdomBetray(k){const room=roomOfNb(k);if(!room){if(typeof toast==='function')toast('Sei troppo lontano dal regno');return;}if(typeof closeDyn==='function')closeDyn();
+  _betrayed[room]=1;try{if(typeof allied!=='undefined')delete allied[k];if(typeof hostile!=='undefined')hostile[k]=1;if(typeof darkLevel!=='undefined')darkLevel++;}catch(e){}
+  if(typeof spawnRoomGuards==='function')spawnRoomGuards(room);
+  if(typeof toast==='function')toast('⚔️ Attacchi '+(typeof kName==='function'?kName(k):'il regno')+' sul posto! Le guardie reagiscono',4600);
+  if(typeof drawTop==='function')drawTop();if(typeof save==='function')save();}
 (function injectTpAction(){const st=document.createElement('style');
   st.textContent='#tpact{position:fixed;left:50%;bottom:122px;transform:translateX(-50%);z-index:61;display:none;align-items:center;justify-content:center;padding:12px 22px;border-radius:26px;border:2px solid rgba(255,220,150,.6);background:rgba(40,28,16,.93);color:#ffe4a8;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.55);touch-action:none}'+
    '#tphp{position:fixed;left:50%;top:48px;transform:translateX(-50%);z-index:60;display:none;font-size:19px;letter-spacing:3px;text-shadow:0 1px 3px #000;pointer-events:none}'+
@@ -2423,11 +2457,12 @@ function openNeighbor(k,replace){const nb=neighbors.find(n=>n.k===k);const p=POP
    +`<div class="srow" style="display:flex;justify-content:space-between;align-items:center;gap:6px"><span>Compra ${RES[t.sells.r]}${t.sells.qty}</span><button class="btn" style="width:auto;margin:0;padding:7px 10px" id="nbbuy">🪙${buyP}</button></div>`
    +`<div class="srow" style="display:flex;justify-content:space-between;align-items:center;gap:6px"><span>Vendi ${RES[t.buys.r]}${t.buys.qty}</span><button class="btn alt" style="width:auto;margin:0;padding:7px 10px" id="nbsell">+🪙${sellG}</button></div>`
    +(al?`<div style="margin-top:8px;font-size:12px;opacity:.9">🤝 Alleata: sconti al mercato e un dono di ${RES[t.gift.r]} ogni tanto.</div>`:`<button class="btn" id="nbally" style="margin-top:8px;background:#1f8a56">🤝 Allèati (🪙${ALLY_COST.oro} + 🌾${ALLY_COST.cibo})</button>`)
-   +((typeof exploreMode!=='undefined'&&exploreMode)?'':`<button class="btn red" id="nbattack" style="margin-top:8px">⚔️ Attacca il villaggio${al?' (rompe l’alleanza)':''}</button>`)
+   +((typeof exploreMode!=='undefined'&&exploreMode)?`<button class="btn red" id="nbattacktp" style="margin-top:8px">⚔️ Attacca sul posto${al?' (rompe l’alleanza)':''}</button>`:`<button class="btn red" id="nbattack" style="margin-top:8px">⚔️ Attacca il villaggio${al?' (rompe l’alleanza)':''}</button>`)
    +`<button class="btn alt" id="nbwalk">👁 Guarda il villaggio</button><button class="btn alt" id="nbclose">Chiudi</button>`;
   dialog(war?'⚔️':al?'🤝':'🏘️',p.n,'',body);const d=document.getElementById('dyn');
   d.querySelector('#nbbuy').onclick=()=>nbBuy(k);d.querySelector('#nbsell').onclick=()=>nbSell(k);const ab=d.querySelector('#nbally');if(ab)ab.onclick=()=>nbAlly(k);
   const atkb=d.querySelector('#nbattack');if(atkb)atkb.onclick=()=>nbAttack(k);
+  const atktp=d.querySelector('#nbattacktp');if(atktp)atktp.onclick=()=>{if(typeof tpKingdomBetray==='function')tpKingdomBetray(k);};
   d.querySelector('#nbwalk').onclick=()=>{closeDyn();visitNeighbor(k);};d.querySelector('#nbclose').onclick=closeDyn;}
 function betray(k){delete allied[k];hostile[k]=1;darkLevel++;soldiers+=3;morale=Math.max(5,morale-18);drawTop();save();bigBanner('🌑','VIA OSCURA','Hai tradito '+kName(k)+'. Nyxar sorride.');setBubble('Hai imboccato la Via Oscura: poteri proibiti crescono (+'+Math.round((darkMul()-1)*100)+'% produzione), ma il morale crolla e la fiducia è perduta.');}
 function nbAttack(k){const nb=neighbors.find(n=>n.k===k);const p=POPOLI.find(p=>p.k===k);if(!nb)return;if(soldiers<1){toast('Non hai soldati ⚔️: costruisci una Caserma e addestrane');return;}
