@@ -909,19 +909,46 @@ const roomGuards=[]; let _roomConquered={}, _betrayed={};
 const GUARD_ROOMS=['nefele','chrysa','oros']; // piazze: guardie del regno (legate all'alleanza)
 const MONSTER_ROOMS=['nef_hall','chr_forge','oros_hall','nef_vault','chr_vault','oros_vault']; // sale/camere: mostri dell'Èrebo (sempre finché non ripulite)
 const _MONKEYS=['d_undead','d_skel','d_ghost','d_demon'];
+// ===== ARCHETIPI NEMICI: non tutti uguali — così c'è VERO combattimento, non un solo tipo che insegue =====
+const TP_ARCH={
+  grunt:    {hp:9,  speed:2.9, dmg:1, reach:2.0, scale:1.0,  atkCd:1250, model:'d_skel',   fit:2.1, name:'Fante',     em:'⚔️'},
+  bruto:    {hp:18, speed:1.5, dmg:3, reach:2.3, scale:1.5,  atkCd:1700, model:'d_demon',  fit:3.1, name:'Bruto',     em:'🪨'},
+  scattante:{hp:5,  speed:4.5, dmg:1, reach:1.7, scale:0.8,  atkCd:650,  model:'d_ghost',  fit:1.7, name:'Scattante', em:'💨'},
+  stregone: {hp:8,  speed:2.0, dmg:2, reach:14,  scale:1.05, atkCd:1900, model:'d_undead', fit:2.2, name:'Stregone',  em:'🔮', ranged:true, keep:7.5}
+};
+function archRoll(asMonster){const r=Math.random();
+  if(asMonster)return r<0.28?'bruto':r<0.56?'scattante':r<0.80?'stregone':'grunt';
+  return r<0.20?'bruto':r<0.38?'scattante':r<0.55?'stregone':'grunt'; // guardie del regno: per lo più fanti
+}
+function addCasterGlow(obj){try{const sc=obj.scale.y||1;const g=new THREE.Mesh(new THREE.SphereGeometry(0.34/sc,10,10),new THREE.MeshBasicMaterial({color:0xc08cff,transparent:true,opacity:0.6,blending:THREE.AdditiveBlending,depthWrite:false}));g.position.set(0,1.7/sc,0);g.renderOrder=4;obj.add(g);obj.userData._glow=g;obj.userData._glowBaseY=1.7/sc;}catch(e){}}
+// ===== PROIETTILI DELLO STREGONE: sfere di energia che ti colpiscono da lontano (devi schivare / chiudere la distanza) =====
+const enemyShots=[];
+function fireShot(g,a){const dx=a.x-g.x,dz=a.z-g.z,d=Math.hypot(dx,dz)||1,ux=dx/d,uz=dz/d;let m;
+  try{m=new THREE.Mesh(new THREE.SphereGeometry(0.27,10,10),new THREE.MeshBasicMaterial({color:0xc46aff,transparent:true,opacity:0.95,blending:THREE.AdditiveBlending,depthWrite:false}));}catch(e){return;}
+  m.position.set(g.x,1.4,g.z);(typeof rGroup==='function'?rGroup(g.room):scene).add(m);
+  enemyShots.push({m,x:g.x,z:g.z,vx:ux*9,vz:uz*9,life:2.4,dmg:g.dmg,room:g.room});
+  try{if(typeof floatText==='function')floatText(g.x,2.3,g.z,'✴️','#c9a3ff');}catch(e){}}
+function updEnemyShots(dt){if(!enemyShots.length)return;const a=tpAvatar?tpAvatar.o.position:null;
+  for(let i=enemyShots.length-1;i>=0;i--){const s=enemyShots[i];s.life-=dt;s.x+=s.vx*dt;s.z+=s.vz*dt;if(s.m)s.m.position.set(s.x,1.4,s.z);let hit=false;
+    if(a&&s.room===_curRoom){const dx=a.x-s.x,dz=a.z-s.z;if(dx*dx+dz*dz<0.78){if(typeof tpHurt==='function')tpHurt(s.dmg);hit=true;}}
+    if(!hit&&typeof solidAt==='function'&&solidAt(s.x,s.z))hit=true;
+    if(s.life<=0)hit=true;
+    if(hit){if(s.m){if(s.m.parent)s.m.parent.remove(s.m);if(s.m.geometry)s.m.geometry.dispose();}enemyShots.splice(i,1);}
+  }}
 function spawnRoomGuards(roomId,asMonster){
   if(roomGuards.some(g=>g.room===roomId))return false;
   const Rm=(typeof DROOMS!=='undefined')?DROOMS[roomId]:null; if(!Rm)return false; const N=asMonster?3:4;
-  const mons=asMonster?_MONKEYS.filter(k=>templates[k]&&templates[k].children&&templates[k].children.length):[];
   for(let i=0;i<N;i++){
     const ang=i/N*6.2832+Math.random()*0.5, rr=(Rm.hw||10)-2.8-Math.random()*1.4;
     const gx=Rm.x+Math.cos(ang)*rr, gz=Rm.z+Math.sin(ang)*rr;
+    const ak=archRoll(asMonster), A=TP_ARCH[ak];
     let obj,walker=null;
-    if(asMonster&&mons.length){obj=inst(mons[Math.floor(Math.random()*mons.length)]);if(typeof fitHeight==='function'){try{fitHeight(obj,2.2);}catch(e){}}obj.rotation.y=Math.random()*6.28;}
-    else{walker=(typeof makeWalker==='function')?makeWalker(1.12):null;if(walker){obj=walker.o;}else{obj=(templates.d_skull&&templates.d_skull.children.length)?inst('d_skull'):new THREE.Group();if(typeof fitHeight==='function'){try{fitHeight(obj,1.5);}catch(e){}}}}
+    if(asMonster){const mk=(templates[A.model]&&templates[A.model].children&&templates[A.model].children.length)?A.model:(_MONKEYS.find(k=>templates[k]&&templates[k].children&&templates[k].children.length)||'d_skull');obj=inst(mk);if(typeof fitHeight==='function'){try{fitHeight(obj,A.fit);}catch(e){}}obj.rotation.y=Math.random()*6.28;}
+    else{walker=(typeof makeWalker==='function')?makeWalker(1.12*A.scale):null;if(walker){obj=walker.o;}else{obj=(templates.d_skull&&templates.d_skull.children.length)?inst('d_skull'):new THREE.Group();if(typeof fitHeight==='function'){try{fitHeight(obj,1.5*A.scale);}catch(e){}}}}
     obj.position.set(gx,0,gz);(typeof rGroup==='function'?rGroup(roomId):cityGroup).add(obj);
-    if(typeof addAvoid==='function')addAvoid(gx,gz,0.55,1.9);
-    roomGuards.push({obj,x:gx,z:gz,hp:asMonster?8:10,maxhp:asMonster?8:10,av:avoid[avoid.length-1],room:roomId,home:{x:gx,z:gz},acd:0,walker,speed:asMonster?2.7:3.0,dmg:1,_guard:true,_mon:!!asMonster});
+    if(A.ranged)addCasterGlow(obj);
+    if(typeof addAvoid==='function')addAvoid(gx,gz,0.55*(A.scale>1?A.scale:1),1.9);
+    roomGuards.push({obj,x:gx,z:gz,hp:A.hp,maxhp:A.hp,av:avoid[avoid.length-1],room:roomId,home:{x:gx,z:gz},acd:0,walker,speed:A.speed,dmg:A.dmg,arch:ak,archName:A.name,archEm:A.em,reach:A.reach,atkCd:A.atkCd,ranged:!!A.ranged,keep:A.keep||0,_guard:true,_mon:!!asMonster});
   }
   return true;
 }
@@ -1009,10 +1036,21 @@ function updRoomCombat(dt){
     if(g.hp<=0||!g.obj)continue;
     if(g.room!==cur){if(g.walker)setWalkerMoving(g.walker,false);if(g.bar)g.bar.g.visible=false;continue;}
     if(!g.bar)attachEnemyBar(g);updEnemyBar(g);
-    const dx=a.x-g.x,dz=a.z-g.z,d=Math.hypot(dx,dz)||1; const aggro=(typeof tpCrouch!=='undefined'&&tpCrouch)?4:24; const stopD=g._boss?2.6:1.7, reach=g._boss?2.9:2.0;
-    if(d<aggro&&d>stopD){const sp=g.speed*dt,ux=dx/d,uz=dz/d,nx=g.x+ux*sp,nz=g.z+uz*sp;if(typeof inWalkable!=='function'||inWalkable(nx,nz)){g.x=nx;g.z=nz;g.obj.position.x=nx;g.obj.position.z=nz;if(g.av){g.av.x=nx;g.av.z=nz;}}g.obj.rotation.y=Math.atan2(ux,uz);if(g.walker)setWalkerMoving(g.walker,true);}
-    else if(g.walker)setWalkerMoving(g.walker,false);
-    if(d<reach){if(performance.now()>(g.acd||0)){g.acd=performance.now()+(g._boss?1500:1300);tpHurt(g.dmg||1);const sc=g._boss?1.06:1.1;g.obj.scale.multiplyScalar(sc);(function(mo,s){setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/s);},110);})(g.obj,sc);}}
+    if(g.obj.userData&&g.obj.userData._glow){const _sc=g.obj.scale.y||1;g.obj.userData._glow.position.y=(g.obj.userData._glowBaseY||(1.7/_sc))+Math.sin(performance.now()*0.004+g.x)*0.1/_sc;}
+    const dx=a.x-g.x,dz=a.z-g.z,d=Math.hypot(dx,dz)||1,ux=dx/d,uz=dz/d; const aggro=(typeof tpCrouch!=='undefined'&&tpCrouch)?5:24;
+    if(g.ranged&&!g._boss){
+      // STREGONE: tiene la distanza e lancia proiettili — devi inseguirlo o schivare
+      const keep=g.keep||7.5; let mvx=0,mvz=0;
+      if(d<keep-1.5){mvx=-ux;mvz=-uz;} else if(d>keep+2&&d<aggro){mvx=ux;mvz=uz;}
+      if(mvx||mvz){const sp=g.speed*dt,nx=g.x+mvx*sp,nz=g.z+mvz*sp;if(typeof inWalkable!=='function'||inWalkable(nx,nz)){g.x=nx;g.z=nz;g.obj.position.x=nx;g.obj.position.z=nz;if(g.av){g.av.x=nx;g.av.z=nz;}}}
+      g.obj.rotation.y=Math.atan2(ux,uz);
+      if(d<aggro&&performance.now()>(g.acd||0)){g.acd=performance.now()+(g.atkCd||1900);if(typeof fireShot==='function')fireShot(g,a);}
+    } else {
+      const stopD=g._boss?2.6:1.7, reach=g._boss?2.9:(g.reach||2.0);
+      if(d<aggro&&d>stopD){const sp=g.speed*dt,nx=g.x+ux*sp,nz=g.z+uz*sp;if(typeof inWalkable!=='function'||inWalkable(nx,nz)){g.x=nx;g.z=nz;g.obj.position.x=nx;g.obj.position.z=nz;if(g.av){g.av.x=nx;g.av.z=nz;}}g.obj.rotation.y=Math.atan2(ux,uz);if(g.walker)setWalkerMoving(g.walker,true);}
+      else if(g.walker)setWalkerMoving(g.walker,false);
+      if(d<reach){if(performance.now()>(g.acd||0)){g.acd=performance.now()+(g._boss?1500:(g.atkCd||1300));tpHurt(g.dmg||1);const sc=g._boss?1.06:1.1;g.obj.scale.multiplyScalar(sc);(function(mo,s){setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/s);},110);})(g.obj,sc);}}
+    }
   }
   if(typeof updBossBar==='function')updBossBar();
 }
@@ -3250,7 +3288,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
   if(started&&mode==='city'){produce(dt);feedPop(dt);updEvents(dt);updDecisions(dt);updImmigration(dt);tickTrain(dt);updAgents(dt);updNeighbors(dt);updNbMonsters(dt);updDistantLife(dt);updDistantFX(dt);conquestTribute(dt);updCaravans(dt);updRoadParties(dt);updWalkers(dt);updShips(dt);updChests(dt);updAnimals(dt);growCrops(dt);updTraveler(dt);updRaid(dt);updWallRegen(dt);updFloaters(dt);updSmoke(dt);updBirds(dt);updFlutters(dt);updFireflies(dt);updBuildingGlows(dt);updTuzu(dt);updWildlife(dt);{const _ph=!!(selKey||moveTarget);fineGrid.visible=_ph;showLockBorders(_ph);}if(miniOn){miniT+=dt;if(miniT>0.2){miniT=0;drawMiniMap();}}sites.forEach(s=>s.bar.g.lookAt(camera.position.x,2.2,camera.position.z));saveT+=dt;if(saveT>6){saveT=0;save();}missT+=dt;if(missT>1){missT=0;checkMissions();drawSide();updateHarvestBtn();darkenBuildings();darkenKingdoms();darkenNeighbors();anchorKingdoms();}checkLeague();drawTop();}
   if(mode==='battle'||mode==='ended')units.concat(enemies).forEach(u=>{if(u.hp>0)updBar(u);});
   updExplore(dt);
-  if(typeof updRoomVisibility==='function'){const _px=(exploreMode&&tpAvatar)?tpAvatar.o.position.x:camTarget.x,_pz=(exploreMode&&tpAvatar)?tpAvatar.o.position.z:camTarget.z;updRoomVisibility(_px,_pz);if(typeof updTpAction==='function')updTpAction(_px,_pz);if(typeof updCaveMonsters==='function')updCaveMonsters(dt);if(typeof updRoomCombat==='function')updRoomCombat(dt);_qTik=(_qTik||0)+dt;if(_qTik>0.5){_qTik=0;if(typeof checkQuests==='function')checkQuests();if(typeof updQuestHUD==='function')updQuestHUD();}}
+  if(typeof updRoomVisibility==='function'){const _px=(exploreMode&&tpAvatar)?tpAvatar.o.position.x:camTarget.x,_pz=(exploreMode&&tpAvatar)?tpAvatar.o.position.z:camTarget.z;updRoomVisibility(_px,_pz);if(typeof updTpAction==='function')updTpAction(_px,_pz);if(typeof updCaveMonsters==='function')updCaveMonsters(dt);if(typeof updRoomCombat==='function')updRoomCombat(dt);if(typeof updEnemyShots==='function')updEnemyShots(dt);_qTik=(_qTik||0)+dt;if(_qTik>0.5){_qTik=0;if(typeof checkQuests==='function')checkQuests();if(typeof updQuestHUD==='function')updQuestHUD();}}
   if(composer)composer.render();else renderer.render(scene,exploreMode?tpCam:camera);}
 requestAnimationFrame(tick);
 // salvataggio automatico ogni minuto (indipendente dal loop: funziona anche a schermo nascosto, e sincronizza sul cloud)
