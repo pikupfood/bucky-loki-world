@@ -1058,7 +1058,7 @@ function updBossBar(){let bar=document.getElementById('bossbar');
   if(!boss||!exploreMode){if(bar)bar.style.display='none';return;}
   if(!bar){bar=document.createElement('div');bar.id='bossbar';bar.innerHTML='<div class="bn"></div><div class="bt"><div class="bf"></div></div>';document.body.appendChild(bar);
     const st=document.createElement('style');st.textContent='#bossbar{position:fixed;left:50%;top:124px;transform:translateX(-50%);z-index:58;width:min(74vw,380px);text-align:center;display:none;pointer-events:none}#bossbar .bn{color:#ffd0d0;font-weight:800;font-size:14px;text-shadow:0 1px 3px #000;margin-bottom:3px;letter-spacing:.3px}#bossbar .bt{height:13px;border-radius:7px;background:rgba(40,10,10,.82);border:2px solid rgba(255,120,120,.55);overflow:hidden}#bossbar .bf{height:100%;background:linear-gradient(90deg,#ff4a4a,#ff9a3a);width:100%;transition:width .18s}';document.head.appendChild(st);}
-  bar.style.display='block';bar.querySelector('.bn').textContent=(boss._final?'🌑 ':'👑 ')+(boss.bname||'Guardiano');bar.querySelector('.bf').style.width=Math.max(0,100*boss.hp/boss.maxhp)+'%';
+  bar.style.display='block';bar.querySelector('.bn').textContent=(boss._enraged?'🔥 ':(boss._final?'🌑 ':'👑 '))+(boss.bname||'Guardiano')+(boss._enraged?' — Fase 2':'');const bf=bar.querySelector('.bf');bf.style.width=Math.max(0,100*boss.hp/boss.maxhp)+'%';bf.style.background=boss._enraged?'linear-gradient(90deg,#ff2a2a,#ff6a2a)':'linear-gradient(90deg,#ff4a4a,#ff9a3a)';
 }
 // ===== BARRA VITA sopra OGNI nemico (riuso mkBar3): così VEDI quanto gli manca =====
 function attachEnemyBar(e){if(e.bar||typeof mkBar3!=='function')return;try{const b=mkBar3();(typeof rGroup==='function'?rGroup(e.room||_curRoom||'covo'):scene).add(b.g);e.bar=b;}catch(_){}}
@@ -1087,10 +1087,25 @@ function nyxSummon(nyx,n){const mons=_MONKEYS.filter(k=>templates[k]&&templates[
 let _nyxAtk=0;
 function nyxFan(nyx,a,n,spread){const base=Math.atan2(a.x-nyx.x,a.z-nyx.z);for(let i=0;i<n;i++){const ang=base+(i-(n-1)/2)*spread;if(typeof mkShot==='function')mkShot(nyx.x,nyx.z,Math.sin(ang)*10,Math.cos(ang)*10,nyx.dmg||3,nyx.room,0xd14dff);}try{if(typeof floatText==='function')floatText(nyx.x,2.6,nyx.z,'🌑','#d9b0ff');}catch(e){}}
 function nyxNova(nyx,n){for(let i=0;i<n;i++){const ang=i/n*6.2832;if(typeof mkShot==='function')mkShot(nyx.x,nyx.z,Math.sin(ang)*8,Math.cos(ang)*8,Math.max(2,(nyx.dmg||3)-1),nyx.room,0xff5a7a);}}
-function nyxSpecial(nyx){const a=tpAvatar?tpAvatar.o.position:null;if(!a)return;_nyxAtk=(_nyxAtk+1)%3;
-  if(_nyxAtk===0){nyxFan(nyx,a,3,0.33);if(typeof toast==='function')toast('🌑 Raffica oscura di Nyxar! Schìvala muovendoti 💨',1800);}
-  else if(_nyxAtk===1){nyxNova(nyx,12);if(typeof tpShockwave==='function')tpShockwave(nyx.x,nyx.z);if(typeof toast==='function')toast('🌑 NOVA di Nyxar! Allontànati dal centro 💥',1900);}
-  else{const adds=roomGuards.filter(g=>g.room==='tana'&&!g._final&&g.hp>0).length;if(adds<4){nyxSummon(nyx,2);}else{nyxFan(nyx,a,5,0.26);if(typeof toast==='function')toast('🌑 Raffica ampia! 💨',1500);}}
+// FASE 2: spirale dell'Èrebo — getto rotante di proiettili (solo da infuriato)
+function nyxSpiral(nyx){let k=0;const arms=3;const iv=setInterval(()=>{const n=roomGuards.find(g=>g._final&&g.hp>0);if(!n||k>=9||typeof exploreMode==='undefined'||!exploreMode){clearInterval(iv);return;}const base=k*0.62;for(let s=0;s<arms;s++){const aa=base+s*(6.2832/arms);if(typeof mkShot==='function')mkShot(n.x,n.z,Math.sin(aa)*9,Math.cos(aa)*9,Math.max(2,(n.dmg||3)-1),n.room,0xb84dff);}k++;},150);}
+// FASE 2: Nyxar s'infuria sotto metà vita — più veloce, più danno, raffiche più dense
+function nyxEnrage(nyx){if(nyx._enraged)return;nyx._enraged=true;nyx.speed=3.5;nyx.dmg=4;
+  try{const sc=nyx.obj.scale.y||1,g=new THREE.Group();
+    const halo=new THREE.Mesh(new THREE.SphereGeometry(1.5/sc,16,16),new THREE.MeshBasicMaterial({color:0xff2a2a,transparent:true,opacity:0.2,depthWrite:false,blending:THREE.AdditiveBlending}));halo.position.y=1.9/sc;halo.renderOrder=4;
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(1.8/sc,0.13/sc,8,30),new THREE.MeshBasicMaterial({color:0xff5a4a,transparent:true,opacity:0.6,depthWrite:false,blending:THREE.AdditiveBlending}));ring.rotation.x=Math.PI/2;ring.position.y=0.12/sc;ring.renderOrder=4;
+    g.add(halo);g.add(ring);nyx.obj.add(g);nyx.obj.userData._rage=g;nyx.obj.userData._rageHalo=halo;
+  }catch(e){}
+  if(typeof tpShockwave==='function')tpShockwave(nyx.x,nyx.z);
+  nyxNova(nyx,14);_nyxAtk=1;
+  if(typeof bigBanner==='function')bigBanner('🔥','FASE 2','Nyxar si scatena: più rapido e feroce!');
+  if(typeof toast==='function')toast('🔥 NYXAR INFURIATO! Colpisce più forte e più spesso — occhio alle raffiche ⚔️',4200);
+}
+function nyxSpecial(nyx){const a=tpAvatar?tpAvatar.o.position:null;if(!a)return;const E=!!nyx._enraged;_nyxAtk=(_nyxAtk+1)%(E?4:3);
+  if(_nyxAtk===0){nyxFan(nyx,a,E?5:3,E?0.30:0.33);if(typeof toast==='function')toast(E?'🔥 Raffica furiosa! Non stare fermo 💨':'🌑 Raffica oscura di Nyxar! Schìvala muovendoti 💨',1800);}
+  else if(_nyxAtk===1){nyxNova(nyx,E?16:12);if(typeof tpShockwave==='function')tpShockwave(nyx.x,nyx.z);if(typeof toast==='function')toast(E?'🔥 NOVA immensa! Via dal centro 💥':'🌑 NOVA di Nyxar! Allontànati dal centro 💥',1900);}
+  else if(_nyxAtk===2){const adds=roomGuards.filter(g=>g.room==='tana'&&!g._final&&g.hp>0).length,cap=E?5:4;if(adds<cap){nyxSummon(nyx,E?3:2);}else{nyxFan(nyx,a,E?6:5,0.26);if(typeof toast==='function')toast('🌑 Raffica ampia! 💨',1500);}}
+  else{nyxSpiral(nyx);if(typeof toast==='function')toast('🔥 Spirale dell\'Èrebo! Gìrale attorno 🌀',2000);}
 }
 function guardsLeft(roomId){let n=0;for(const g of roomGuards)if(g.room===roomId&&g.hp>0)n++;return n;}
 function onRoomCleared(roomId){
@@ -1122,13 +1137,14 @@ function updRoomCombat(dt){
     const nyx=roomGuards.find(g=>g._final&&g.room==='tana'&&g.hp>0);
     if(allG&&!nyx)spawnNyxar();
     else if(!allG&&!_nyxHinted){_nyxHinted=true;if(typeof toast==='function')toast('🌑 Senti una presenza immane oltre il buio… ma prima devi abbattere i 3 Guardiani (nelle camere del tesoro dei regni).',5600);}
-    else if(nyx){const now=performance.now();if(now>_nyxSummonCd){_nyxSummonCd=now+5200;if(typeof nyxSpecial==='function')nyxSpecial(nyx);}}
+    else if(nyx){if(!nyx._enraged&&nyx.hp<=nyx.maxhp*0.5&&typeof nyxEnrage==='function')nyxEnrage(nyx);const now=performance.now();if(now>_nyxSummonCd){_nyxSummonCd=now+(nyx._enraged?3200:5200);if(typeof nyxSpecial==='function')nyxSpecial(nyx);}}
   }
   for(const g of roomGuards){
     if(g.hp<=0||!g.obj)continue;
     if(g.room!==cur){if(g.walker)setWalkerMoving(g.walker,false);if(g.bar)g.bar.g.visible=false;continue;}
     if(!g.bar)attachEnemyBar(g);updEnemyBar(g);
     if(g.obj.userData&&g.obj.userData._glow){const gd=g.obj.userData,_sc=g.obj.scale.y||1;gd._glow.position.y=(gd._glowBaseY||(1.7/_sc))+Math.sin(performance.now()*0.004+g.x)*0.1/_sc;if(gd._glowHalo)gd._glowHalo.scale.setScalar(1+0.2*Math.sin(performance.now()*0.006+g.x));}
+    if(g.obj.userData&&g.obj.userData._rage){const p=1+0.16*Math.sin(performance.now()*0.011);g.obj.userData._rage.scale.setScalar(p);if(g.obj.userData._rageHalo)g.obj.userData._rageHalo.material.opacity=0.16+0.12*(0.5+0.5*Math.sin(performance.now()*0.011));}
     const dx=a.x-g.x,dz=a.z-g.z,d=Math.hypot(dx,dz)||1,ux=dx/d,uz=dz/d; const aggro=(typeof tpCrouch!=='undefined'&&tpCrouch)?5:24;
     if(g.ranged&&!g._boss){
       // STREGONE: tiene la distanza e lancia proiettili — devi inseguirlo o schivare
@@ -1141,7 +1157,7 @@ function updRoomCombat(dt){
       const stopD=g._boss?2.6:1.7, reach=g._boss?2.9:(g.reach||2.0);
       if(d<aggro&&d>stopD){const sp=g.speed*dt,nx=g.x+ux*sp,nz=g.z+uz*sp;if(typeof inWalkable!=='function'||inWalkable(nx,nz)){g.x=nx;g.z=nz;g.obj.position.x=nx;g.obj.position.z=nz;if(g.av){g.av.x=nx;g.av.z=nz;}}g.obj.rotation.y=Math.atan2(ux,uz);if(g.walker)setWalkerMoving(g.walker,true);}
       else if(g.walker)setWalkerMoving(g.walker,false);
-      if(d<reach){if(performance.now()>(g.acd||0)){g.acd=performance.now()+(g._boss?1500:(g.atkCd||1300));tpHurt(g.dmg||1);const sc=g._boss?1.06:1.1;g.obj.scale.multiplyScalar(sc);(function(mo,s){setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/s);},110);})(g.obj,sc);}}
+      if(d<reach){if(performance.now()>(g.acd||0)){g.acd=performance.now()+(g._boss?(g._enraged?1000:1500):(g.atkCd||1300));tpHurt(g.dmg||1);const sc=g._boss?1.06:1.1;g.obj.scale.multiplyScalar(sc);(function(mo,s){setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/s);},110);})(g.obj,sc);}}
     }
   }
   if(typeof updBossBar==='function')updBossBar();
