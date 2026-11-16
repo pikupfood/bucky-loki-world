@@ -458,6 +458,7 @@ function toggleExplore(){exploreMode?exitExplore():enterExplore();}
 function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
   // joystick destro: guardarsi intorno
   if(tpLook.active)tpYaw-=tpLook.dx*dt*2.6;
+  if(_gateLockMarker&&caveGateLocked){const _t=performance.now()*0.003,sp=_gateLockMarker.userData._spr,ha=_gateLockMarker.userData._halo;if(sp)sp.position.y=2.6+Math.sin(_t)*0.2;if(ha)ha.material.opacity=0.38+0.25*(0.5+0.5*Math.sin(_t*1.4));}
   // salto (fisica)
   if(tpJumpV!==0||tpJumpY>0.001){tpJumpV-=24*dt;tpJumpY+=tpJumpV*dt;if(tpJumpY<=0){tpJumpY=0;tpJumpV=0;}}
   _tpFootY=(tpAvatar._baseY||0)+tpJumpY; // quota piedi: se salti sopra un ostacolo ci puoi passare/atterrare
@@ -638,7 +639,7 @@ function placeDungeonDecor(){if(dungeonDecorDone)return;dungeonDecorDone=true;co
   let n=0,tries=0;while(n<22&&tries<240){tries++;const a=Math.random()*6.2832,r=20+Math.random()*38,x=Math.cos(a)*r,z=Math.sin(a)*r;
     if(Math.hypot(x,z)<18)continue;if(typeof roomAt==='function'&&!roomAt(x,z))continue;if(typeof inAnyLake==='function'&&inAnyLake(x,z,2))continue;
     const k=keys[Math.floor(Math.random()*keys.length)];if(!templates[k]||!templates[k].children.length)continue;const o=inst(k);const hgt=(hH[k]||2.4)*(0.82+Math.random()*0.45);fitHeight(o,hgt);o.position.set(x,0,z);o.rotation.y=Math.random()*6.2832;if(typeof roomAddAt==='function')roomAddAt(o,x,z);else cityGroup.add(o);if(typeof autoSeat==='function')autoSeat(o);if(typeof addAvoid==='function')addAvoid(x,z,1.1,hgt);n++;} // SOLIDO (niente floor): ci sbatti contro, non ci sali dentro
-  if(templates.d_gate&&templates.d_gate.children.length){const o=inst('d_gate');fitHeight(o,4.6);o.position.set(0,0,-19);if(typeof roomAddAt==='function')roomAddAt(o,0,-19);else cityGroup.add(o);if(typeof autoSeat==='function')autoSeat(o);if(typeof addAvoid==='function'){addAvoid(-2.6,-19,0.8);addAvoid(2.6,-19,0.8);}}}
+  if(templates.d_gate&&templates.d_gate.children.length){const o=inst('d_gate');fitHeight(o,4.0);o.position.set(0,0,-18.5);if(typeof roomAddAt==='function')roomAddAt(o,0,-18.5);else cityGroup.add(o);if(typeof autoSeat==='function')autoSeat(o);if(typeof addAvoid==='function'){addAvoid(-2.3,-18.5,0.7);addAvoid(2.3,-18.5,0.7);}}}
 // MURA della caverna che chiudono il covo: sei dentro una sala di pietra + lanterne a muro + trono
 let cavernDone=false;
 function placeCavern(){if(cavernDone)return;cavernDone=true;const R=30,H=14;const G=(typeof cityGroup!=='undefined'?cityGroup:scene);
@@ -739,7 +740,23 @@ const storyNpcs=[];      // sovrani/personaggi con cui parlare {x,z,name,line,ro
 let caveGateLocked=true, caveGate=null;
 const GATE_STRIP={x0:44.3,x1:51.7,z0:-25.4,z1:-22.4};
 function inGateStrip(x,z){return caveGateLocked&&x>GATE_STRIP.x0&&x<GATE_STRIP.x1&&z>GATE_STRIP.z0&&z<GATE_STRIP.z1;}
-function unlockCaveGate(){if(!caveGateLocked)return;caveGateLocked=false;if(caveGate){caveGate.rotation.y+=Math.PI*0.42;caveGate.position.x-=2.6;}if(typeof toast==='function')toast('🔑 Chiave usata: il cancello si apre!',4000);}
+let _gateLockMarker=null;
+// SEGNALE CHIARO: lucchetto fluttuante + alone dorato + raggio di luce sul cancello bloccato — si vede da lontano che va sbloccato
+function addGateLockMarker(){ if(!caveGate||_gateLockMarker||typeof THREE==='undefined')return; const cx=48,cz=-23.9;
+  try{const g=new THREE.Group();
+    const halo=new THREE.Mesh(new THREE.TorusGeometry(2.3,0.16,8,30),new THREE.MeshBasicMaterial({color:0xffd24a,transparent:true,opacity:0.6,depthWrite:false,blending:THREE.AdditiveBlending}));halo.rotation.x=Math.PI/2;halo.position.set(cx,0.35,cz);g.add(halo);
+    // CARTELLO scuro con bordo dorato + lucchetto disegnato + "CHIUSO" (sfondo scuro = non lo mangia il bagliore)
+    const c=document.createElement('canvas');c.width=256;c.height=112;const ctx=c.getContext('2d');
+    ctx.fillStyle='rgba(18,12,7,0.86)';ctx.strokeStyle='#ffd24a';ctx.lineWidth=5;ctx.fillRect(5,5,246,102);ctx.strokeRect(5,5,246,102);
+    ctx.save();ctx.translate(46,58);ctx.strokeStyle='#ffe89a';ctx.lineWidth=9;ctx.lineCap='round';ctx.beginPath();ctx.arc(0,-7,15,Math.PI,2*Math.PI);ctx.stroke();ctx.fillStyle='#ffd24a';ctx.fillRect(-20,6,40,34);ctx.fillStyle='#4a2e06';ctx.beginPath();ctx.arc(0,20,5,0,6.3);ctx.fill();ctx.fillRect(-3,20,6,13);ctx.restore();
+    ctx.fillStyle='#ffe89a';ctx.font='bold 34px sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText('CHIUSO',86,56);
+    const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false,depthTest:false}));spr.scale.set(4.2,1.84,1);spr.position.set(cx,2.6,cz);spr.renderOrder=20;g.add(spr);
+    g.userData._spr=spr;g.userData._halo=halo;
+    (typeof rGroup==='function'?rGroup('c_chrysa_tana'):scene).add(g);_gateLockMarker=g;
+  }catch(e){}}
+function unlockCaveGate(){if(!caveGateLocked)return;caveGateLocked=false;if(caveGate){caveGate.rotation.y+=Math.PI*0.42;caveGate.position.x-=2.6;}
+  if(_gateLockMarker){if(_gateLockMarker.parent)_gateLockMarker.parent.remove(_gateLockMarker);_gateLockMarker=null;}
+  if(typeof toast==='function')toast('🔑 Chiave usata: il cancello si apre!',4000);}
 // ostacoli BASSI (h<1) non si aggiungono: ci si cammina/sale sopra (il raggio al suolo mette i piedi in cima)
 function addAvoid(x,z,r,h){h=(h==null?2.2:h);if(h<0.45)return;avoid.push({x:x,z:z,r:r,h:h});} // avatar ~0.9 alto: blocca tutto ≥0.45; solo le roccette <0.45 si scavalcano/saltano
 let _tpFootY=0; // altezza dei piedi dell'avatar (per saltare SOPRA gli ostacoli)
@@ -797,9 +814,10 @@ function buildDungeonRooms(){if(dungeonRoomsDone)return;dungeonRoomsDone=true;co
   // OGGETTI DISTRUTTIBILI nelle stanze: alberi/casse/barili/rocce da tagliare e distruggere (droppano risorse)
   try{const DTY=['tree','tree','crate','barrel','rock','rock'];for(const k in DROOMS){const Rr=DROOMS[k];if(k==='covo'||k==='tana')continue;const n=1+Math.floor(Math.random()*3);for(let i=0;i<n;i++){const ang=Math.random()*6.2832,rr=(Math.min(Rr.hw,Rr.hd)-2.6)*(0.45+Math.random()*0.5);const x=Rr.x+Math.cos(ang)*rr,z=Rr.z+Math.sin(ang)*rr;if(typeof hitAvoid==='function'&&hitAvoid(x,z,0.8))continue;mkDestructible(DTY[Math.floor(Math.random()*DTY.length)],x,z,k);}}}catch(e){console.warn('destructibles',e);}
   // CANCELLO chiuso all'imbocco della Tana (si apre con la chiave nascosta a Oros)
-  if(templates.d_gate&&templates.d_gate.children&&templates.d_gate.children.length){caveGate=inst('d_gate');fitHeight(caveGate,4.4);caveGate.position.set(48,0,-24);caveGate.rotation.y=Math.PI/2;caveGate.traverse(m=>{if(m.isMesh)m.castShadow=true;});rGroup('c_chrysa_tana').add(caveGate);if(typeof autoSeat==='function')autoSeat(caveGate);}
+  if(templates.d_gate&&templates.d_gate.children&&templates.d_gate.children.length){caveGate=inst('d_gate');fitHeight(caveGate,4.4);caveGate.position.set(48,0,-23.9);caveGate.rotation.y=0;caveGate.traverse(m=>{if(m.isMesh)m.castShadow=true;});rGroup('c_chrysa_tana').add(caveGate);if(typeof autoSeat==='function')autoSeat(caveGate);}
   // montanti SOLIDI ai lati del cancello (restano anche da aperto: il varco è nel mezzo)
   if(typeof addAvoid==='function'){addAvoid(44.7,-24,0.85);addAvoid(51.3,-24,0.85);}
+  if(typeof addGateLockMarker==='function')addGateLockMarker();
 }
 // i regni vicini (async) li ancoro e li metto nel gruppo della loro stanza
 function anchorKingdoms(){if(typeof neighbors==='undefined')return;const S=1.7;for(const k in DROOMS){const R=DROOMS[k];if(R.kind!=='kingdom'||!R.nb)continue;const nb=neighbors.find(n=>n.k===R.nb);if(nb&&nb.g&&nb.g.parent!==roomVis[k]){nb.g.position.set(R.x,0,R.z);nb.g.scale.setScalar(S);rGroup(k).add(nb.g);
