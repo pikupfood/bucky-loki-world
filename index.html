@@ -374,7 +374,7 @@ function enterExplore(){if(exploreMode)return;if(typeof mode!=='undefined'&&mode
   document.body.classList.add('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='block';const b=document.getElementById('tpbtn');if(b)b.textContent='🗺️';
   tpHp=tpMaxHp;if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();resize();setTimeout(()=>{if(typeof showExploreHelp==='function')showExploreHelp();},350);}
 function exitExplore(){if(!exploreMode)return;exploreMode=false;if(renderPass)renderPass.camera=camera;if(tpAvatar&&typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);
-  document.body.classList.remove('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='none';const b=document.getElementById('tpbtn');if(b)b.textContent='🚶';const ta=document.getElementById('tpact');if(ta)ta.style.display='none';if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();
+  document.body.classList.remove('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='none';const b=document.getElementById('tpbtn');if(b)b.textContent='🚶';const ta=document.getElementById('tpact');if(ta)ta.style.display='none';const bb=document.getElementById('bossbar');if(bb)bb.style.display='none';if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();
   if(tpAvatar){camTarget.x=tpAvatar.o.position.x;camTarget.z=tpAvatar.o.position.z;}updateCam();resize();}
 function toggleExplore(){exploreMode?exitExplore():enterExplore();}
 function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
@@ -790,8 +790,14 @@ function tpFindTarget(px,pz){let best=null;
   return best;}
 function tpFloat(x,z,txt,col){try{if(typeof floatText==='function')floatText(x,1.8,z,txt,col);}catch(e){}}
 function hitMonster(m){if(!m||m.hp<=0)return;m.hp--;
-  if(m.hp<=0){if(m.obj)m.obj.visible=false;const i=avoid.indexOf(m.av);if(i>=0)avoid.splice(i,1);const rew=30+Math.floor(Math.random()*30);R.oro=(R.oro||0)+rew;if(!m._guard&&typeof monstersBeaten!=='undefined')monstersBeaten++;if(typeof drawTop==='function')drawTop();tpFloat(m.x,m.z,'☠ +'+rew,'#ff9a9a');if(typeof toast==='function')toast((m._guard?'⚔️ Guardia abbattuta! +':'⚔️ Mostro sconfitto! +')+rew+' 🪙');if(typeof save==='function')save();if(m._guard&&typeof guardsLeft==='function'&&guardsLeft(m.room)===0&&typeof onRoomCleared==='function')onRoomCleared(m.room);}
-  else{tpFloat(m.x,m.z,'-1 ❤','#ff5a5a');const mo=m.obj;if(mo){mo.scale.multiplyScalar(0.88);setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/0.88);},100);}}
+  if(m.hp<=0){if(m.obj)m.obj.visible=false;const i=avoid.indexOf(m.av);if(i>=0)avoid.splice(i,1);
+    const rew=m._boss?(300+Math.floor(Math.random()*160)):(30+Math.floor(Math.random()*30));R.oro=(R.oro||0)+rew;
+    if(!m._guard&&typeof monstersBeaten!=='undefined')monstersBeaten++;
+    if(m._boss){if(typeof _bossDefeated!=='undefined'&&m.bossK)_bossDefeated[m.bossK]=1;if(typeof monstersBeaten!=='undefined')monstersBeaten++;tpFloat(m.x,m.z,'👑 +'+rew,'#ffe27a');if(typeof toast==='function')toast('👑 '+(m.bname||'Boss')+' sconfitto! Guardiano del regno abbattuto. +'+rew+' 🪙',5600);}
+    else{tpFloat(m.x,m.z,'☠ +'+rew,'#ff9a9a');if(typeof toast==='function')toast((m._guard?'⚔️ Guardia abbattuta! +':'⚔️ Mostro sconfitto! +')+rew+' 🪙');}
+    if(typeof drawTop==='function')drawTop();if(typeof save==='function')save();
+    if(m._guard&&typeof guardsLeft==='function'&&guardsLeft(m.room)===0&&typeof onRoomCleared==='function')onRoomCleared(m.room);}
+  else{tpFloat(m.x,m.z,'-1 ❤','#ff5a5a');const mo=m.obj;if(mo){mo.scale.multiplyScalar(0.92);setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/0.92);},100);}}
 }
 function tpDoAction(){if(!_tpTarget)return;const _now=performance.now();if(_now<_tpActCd)return;_tpActCd=_now+320;const t=_tpTarget;
   if(t.type==='collect'){const c=t.ref;c.taken=true;if(c.obj)c.obj.visible=false;if(c.glow)c.glow.visible=false;
@@ -885,6 +891,31 @@ function spawnRoomGuards(roomId,asMonster){
   }
   return true;
 }
+// ===== BOSS DI FINE REGNO: un guardiano enorme nella camera del tesoro (il mostro-simbolo del regno) =====
+const VAULT_BOSS={nef_vault:'nefele',chr_vault:'chrysa',oros_vault:'oros'};
+function spawnBoss(roomId,k){
+  const Rm=(typeof DROOMS!=='undefined')?DROOMS[roomId]:null; if(!Rm)return false;
+  if(roomGuards.some(g=>g.room===roomId&&g._boss))return false;
+  const tpl='km_'+k; let obj=null;
+  if(templates[tpl]&&templates[tpl].children&&templates[tpl].children.length)obj=inst(tpl);
+  else if(templates.d_demon&&templates.d_demon.children&&templates.d_demon.children.length)obj=inst('d_demon');
+  else obj=new THREE.Group();
+  if(typeof fitHeight==='function'){try{fitHeight(obj,3.6);}catch(e){}}
+  const bx=Rm.x, bz=Rm.z-Rm.hd+3.4; // in fondo alla camera
+  obj.position.set(bx,0,bz);obj.rotation.y=0;obj.traverse(m=>{if(m.isMesh)m.castShadow=true;});
+  (typeof rGroup==='function'?rGroup(roomId):cityGroup).add(obj);if(typeof autoSeat==='function')autoSeat(obj);
+  if(typeof addAvoid==='function')addAvoid(bx,bz,1.5,3.6);
+  const nm=(typeof KINGDOMS!=='undefined'&&KINGDOMS[k])?KINGDOMS[k].monster:'il Guardiano';
+  roomGuards.push({obj,x:bx,z:bz,hp:16,maxhp:16,av:avoid[avoid.length-1],room:roomId,home:{x:bx,z:bz},acd:0,walker:null,speed:2.4,_guard:true,_mon:true,_boss:true,dmg:2,bossK:k,bname:nm});
+  return true;
+}
+function updBossBar(){let bar=document.getElementById('bossbar');
+  const boss=(typeof _curRoom!=='undefined')?roomGuards.find(g=>g._boss&&g.hp>0&&g.room===_curRoom):null;
+  if(!boss||!exploreMode){if(bar)bar.style.display='none';return;}
+  if(!bar){bar=document.createElement('div');bar.id='bossbar';bar.innerHTML='<div class="bn"></div><div class="bt"><div class="bf"></div></div>';document.body.appendChild(bar);
+    const st=document.createElement('style');st.textContent='#bossbar{position:fixed;left:50%;top:94px;transform:translateX(-50%);z-index:58;width:min(74vw,380px);text-align:center;display:none;pointer-events:none}#bossbar .bn{color:#ffd0d0;font-weight:800;font-size:14px;text-shadow:0 1px 3px #000;margin-bottom:3px;letter-spacing:.3px}#bossbar .bt{height:13px;border-radius:7px;background:rgba(40,10,10,.82);border:2px solid rgba(255,120,120,.55);overflow:hidden}#bossbar .bf{height:100%;background:linear-gradient(90deg,#ff4a4a,#ff9a3a);width:100%;transition:width .18s}';document.head.appendChild(st);}
+  bar.style.display='block';bar.querySelector('.bn').textContent='👑 '+(boss.bname||'Guardiano');bar.querySelector('.bf').style.width=Math.max(0,100*boss.hp/boss.maxhp)+'%';
+}
 function guardsLeft(roomId){let n=0;for(const g of roomGuards)if(g.room===roomId&&g.hp>0)n++;return n;}
 function onRoomCleared(roomId){
   if(_roomConquered[roomId])return; _roomConquered[roomId]=true;
@@ -904,16 +935,20 @@ function updRoomCombat(dt){
     const pacified=((typeof allied!=='undefined'&&allied[nbk])&&!_betrayed[cur])||(typeof conquered!=='undefined'&&conquered[nbk]);
     if(!pacified&&!roomGuards.some(g=>g.room===cur)){if(spawnRoomGuards(cur)&&typeof toast==='function')toast('⚔️ Sei entrato in un regno nemico! Le guardie ti attaccano — difenditi col tasto ⚔️',4600);}
   } else if(MONSTER_ROOMS.indexOf(cur)>=0&&!_roomConquered[cur]&&!roomGuards.some(g=>g.room===cur)){
-    if(spawnRoomGuards(cur,true)&&typeof toast==='function')toast('👹 Mostri dell\'Èrebo infestano '+((typeof DROOMS!=='undefined'&&DROOMS[cur])?DROOMS[cur].label:'questa sala')+'! Falli fuori ⚔️',4200);
+    const bossK=VAULT_BOSS[cur];
+    const spawned=spawnRoomGuards(cur,true);
+    if(bossK){const b=spawnBoss(cur,bossK);if((spawned||b)&&typeof toast==='function')toast('👑 '+((typeof KINGDOMS!=='undefined'&&KINGDOMS[bossK])?KINGDOMS[bossK].monster:'Il Guardiano')+' custodisce il tesoro! Boss di fine regno — sconfiggilo ⚔️',5200);}
+    else if(spawned&&typeof toast==='function')toast('👹 Mostri dell\'Èrebo infestano '+((typeof DROOMS!=='undefined'&&DROOMS[cur])?DROOMS[cur].label:'questa sala')+'! Falli fuori ⚔️',4200);
   }
   for(const g of roomGuards){
     if(g.hp<=0||!g.obj)continue;
     if(g.room!==cur){if(g.walker)setWalkerMoving(g.walker,false);continue;}
-    const dx=a.x-g.x,dz=a.z-g.z,d=Math.hypot(dx,dz)||1; const aggro=(typeof tpCrouch!=='undefined'&&tpCrouch)?4:24;
-    if(d<aggro&&d>1.7){const sp=g.speed*dt,ux=dx/d,uz=dz/d,nx=g.x+ux*sp,nz=g.z+uz*sp;if(typeof inWalkable!=='function'||inWalkable(nx,nz)){g.x=nx;g.z=nz;g.obj.position.x=nx;g.obj.position.z=nz;if(g.av){g.av.x=nx;g.av.z=nz;}}g.obj.rotation.y=Math.atan2(ux,uz);if(g.walker)setWalkerMoving(g.walker,true);}
+    const dx=a.x-g.x,dz=a.z-g.z,d=Math.hypot(dx,dz)||1; const aggro=(typeof tpCrouch!=='undefined'&&tpCrouch)?4:24; const stopD=g._boss?2.6:1.7, reach=g._boss?2.9:2.0;
+    if(d<aggro&&d>stopD){const sp=g.speed*dt,ux=dx/d,uz=dz/d,nx=g.x+ux*sp,nz=g.z+uz*sp;if(typeof inWalkable!=='function'||inWalkable(nx,nz)){g.x=nx;g.z=nz;g.obj.position.x=nx;g.obj.position.z=nz;if(g.av){g.av.x=nx;g.av.z=nz;}}g.obj.rotation.y=Math.atan2(ux,uz);if(g.walker)setWalkerMoving(g.walker,true);}
     else if(g.walker)setWalkerMoving(g.walker,false);
-    if(d<2.0){if(performance.now()>(g.acd||0)){g.acd=performance.now()+1300;tpHurt(1);g.obj.scale.multiplyScalar(1.1);(function(mo){setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/1.1);},110);})(g.obj);}}
+    if(d<reach){if(performance.now()>(g.acd||0)){g.acd=performance.now()+(g._boss?1500:1300);tpHurt(g.dmg||1);const sc=g._boss?1.06:1.1;g.obj.scale.multiplyScalar(sc);(function(mo,s){setTimeout(()=>{if(mo)mo.scale.multiplyScalar(1/s);},110);})(g.obj,sc);}}
   }
+  if(typeof updBossBar==='function')updBossBar();
 }
 // TRADIMENTO sul posto: attacchi un regno alleato → rompi l'alleanza e le sue guardie reagiscono (niente campo di battaglia)
 function roomOfNb(k){for(const r of GUARD_ROOMS){if(typeof DROOMS!=='undefined'&&DROOMS[r]&&DROOMS[r].nb===k)return r;}return null;}
@@ -923,14 +958,15 @@ function tpKingdomBetray(k){const room=roomOfNb(k);if(!room){if(typeof toast==='
   if(typeof toast==='function')toast('⚔️ Attacchi '+(typeof kName==='function'?kName(k):'il regno')+' sul posto! Le guardie reagiscono',4600);
   if(typeof drawTop==='function')drawTop();if(typeof save==='function')save();}
 // ===== MISSIONI (storia principale + secondarie): diario, obiettivo a schermo, segnalino nel mondo =====
-let _visitedRooms={}, _crystalsCollected=0, _keyFound=false, questDone={}, _questBeacon=null, _qTik=0;
+let _visitedRooms={}, _crystalsCollected=0, _keyFound=false, questDone={}, _questBeacon=null, _qTik=0, _bossDefeated={};
 const QUESTS=[
  {id:'explore',main:true,t:'Esplora i tre regni',d:'Raggiungi Nèfele (◄ ovest), Chrýsa (► est) e Òros (▼ sud).',target:{room:'oros'},done:()=>_visitedRooms['nefele']&&_visitedRooms['chrysa']&&_visitedRooms['oros'],rew:{oro:60}},
  {id:'crystals',main:false,t:'Raccogli 6 cristalli',d:'Brillano nelle stanze e nella Grotta dei Cristalli (▲ nord).',target:{room:'cristalli'},done:()=>_crystalsCollected>=6,rew:{oro:60}},
  {id:'grotta',main:false,t:'Scopri la Grotta dei Cristalli',d:'A nord, oltre la Caverna Vuota.',target:{room:'cristalli'},done:()=>_visitedRooms['cristalli'],rew:{oro:40}},
  {id:'key',main:true,t:'Trova la Chiave',d:'In fondo alla Rocca di Òros (▼ sud, poi avanti).',target:{room:'oros_keep'},done:()=>_keyFound,rew:{oro:90}},
  {id:'tana',main:true,t:'Apri e ripulisci la Tana',d:'Apri il cancello con la chiave (Chrýsa → est) e sconfiggi i mostri.',target:{room:'tana'},done:()=>(typeof caveGateLocked!=='undefined'&&!caveGateLocked)&&caveMonsters.length>0&&caveMonsters.every(m=>m.hp<=0),rew:{oro:140}},
- {id:'conquer',main:true,t:'Conquista un regno',d:'Entra in un regno nemico e abbatti tutte le guardie.',target:{room:'oros'},done:()=>Object.keys(_roomConquered).length>=1,rew:{oro:160}}
+ {id:'conquer',main:true,t:'Conquista un regno',d:'Entra in un regno nemico e abbatti tutte le guardie.',target:{room:'oros'},done:()=>Object.keys(_roomConquered).length>=1,rew:{oro:160}},
+ {id:'boss',main:true,t:'Abbatti un Guardiano',d:'Ogni regno ha un boss nella camera del tesoro, in fondo alla rocca.',target:{room:'nef_vault'},done:()=>Object.keys(_bossDefeated).length>=1,rew:{oro:220}}
 ];
 function currentMainQuest(){return QUESTS.find(q=>q.main&&!questDone[q.id]);}
 function questTargetPos(q){if(!q||!q.target)return null;if(q.target.pos)return q.target.pos;if(q.target.room&&typeof DROOMS!=='undefined'&&DROOMS[q.target.room])return [DROOMS[q.target.room].x,DROOMS[q.target.room].z];return null;}
@@ -2692,8 +2728,8 @@ document.getElementById('zin').onclick=()=>setZoom(VZ*0.8);document.getElementBy
 document.getElementById('zrot').onclick=()=>{placeRot=(placeRot+1)%4;toast('↻ Rotazione: '+(placeRot*90)+'° (per muri, cancelli, torri, decori)',2600);};
 
 // ===== salvataggio =====
-function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({ver:3,R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1,sk:b.skin||0})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,cs:c.cycleStart,hv:c.harvests,ex:c.exhausted})),he:heroes,sr:soldierRank,rs:research,ach:achieved,fp:firstPlay,mk:myKingdom,mb:monstersBeaten,nx:nyxarBeaten,dk:darkLevel,ho:Object.keys(hostile),cq:Object.keys(conquered),qd:(typeof questDone!=='undefined')?Object.keys(questDone):[],cc:(typeof _crystalsCollected!=='undefined')?_crystalsCollected:0,kf:(typeof _keyFound!=='undefined')?_keyFound:false,vr:(typeof _visitedRooms!=='undefined')?Object.keys(_visitedRooms):[],rq:(typeof _roomConquered!=='undefined')?Object.keys(_roomConquered):[],ts:Date.now()}));if(window.TuzuCloud)window.TuzuCloud.scheduleSync();}catch(e){}}
-function loadSave(){try{const raw=localStorage.getItem('tuzu_rpg5');const s=raw?JSON.parse(raw):null;if(!s||s.ver!==3){if(raw)localStorage.removeItem('tuzu_rpg5');return false;}R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};achieved=s.ach||{};firstPlay=s.fp||0;if(s.mk)applyKingdom(s.mk);monstersBeaten=s.mb||0;nyxarBeaten=s.nx||0;darkLevel=s.dk||0;hostile={};(s.ho||[]).forEach(k=>hostile[k]=1);conquered={};(s.cq||[]).forEach(k=>conquered[k]=1);try{if(typeof questDone!=='undefined')(s.qd||[]).forEach(k=>questDone[k]=1);if(typeof _crystalsCollected!=='undefined'&&s.cc)_crystalsCollected=s.cc;if(typeof _keyFound!=='undefined'&&s.kf)_keyFound=true;if(typeof _visitedRooms!=='undefined')(s.vr||[]).forEach(k=>_visitedRooms[k]=1);if(typeof _roomConquered!=='undefined')(s.rq||[]).forEach(k=>_roomConquered[k]=1);}catch(e){}offlineSince=s.ts||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});/* CAVERNA: non ripristino i laghi di superficie ne gli alberi selvatici (erano le "punte bianche") */(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);Object.keys(hostile).forEach(k=>{if(hostile[k])delete allied[k];});placeScatterForests();/* CAVERNA: niente laghi/fiumi/vegetazione di superficie; placeScatterForests ora riempie di roccia/stalagmiti */
+function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({ver:3,R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1,sk:b.skin||0})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,cs:c.cycleStart,hv:c.harvests,ex:c.exhausted})),he:heroes,sr:soldierRank,rs:research,ach:achieved,fp:firstPlay,mk:myKingdom,mb:monstersBeaten,nx:nyxarBeaten,dk:darkLevel,ho:Object.keys(hostile),cq:Object.keys(conquered),qd:(typeof questDone!=='undefined')?Object.keys(questDone):[],cc:(typeof _crystalsCollected!=='undefined')?_crystalsCollected:0,kf:(typeof _keyFound!=='undefined')?_keyFound:false,vr:(typeof _visitedRooms!=='undefined')?Object.keys(_visitedRooms):[],rq:(typeof _roomConquered!=='undefined')?Object.keys(_roomConquered):[],bd:(typeof _bossDefeated!=='undefined')?Object.keys(_bossDefeated):[],ts:Date.now()}));if(window.TuzuCloud)window.TuzuCloud.scheduleSync();}catch(e){}}
+function loadSave(){try{const raw=localStorage.getItem('tuzu_rpg5');const s=raw?JSON.parse(raw):null;if(!s||s.ver!==3){if(raw)localStorage.removeItem('tuzu_rpg5');return false;}R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};achieved=s.ach||{};firstPlay=s.fp||0;if(s.mk)applyKingdom(s.mk);monstersBeaten=s.mb||0;nyxarBeaten=s.nx||0;darkLevel=s.dk||0;hostile={};(s.ho||[]).forEach(k=>hostile[k]=1);conquered={};(s.cq||[]).forEach(k=>conquered[k]=1);try{if(typeof questDone!=='undefined')(s.qd||[]).forEach(k=>questDone[k]=1);if(typeof _crystalsCollected!=='undefined'&&s.cc)_crystalsCollected=s.cc;if(typeof _keyFound!=='undefined'&&s.kf)_keyFound=true;if(typeof _visitedRooms!=='undefined')(s.vr||[]).forEach(k=>_visitedRooms[k]=1);if(typeof _roomConquered!=='undefined')(s.rq||[]).forEach(k=>_roomConquered[k]=1);if(typeof _bossDefeated!=='undefined')(s.bd||[]).forEach(k=>_bossDefeated[k]=1);}catch(e){}offlineSince=s.ts||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});/* CAVERNA: non ripristino i laghi di superficie ne gli alberi selvatici (erano le "punte bianche") */(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);Object.keys(hostile).forEach(k=>{if(hostile[k])delete allied[k];});placeScatterForests();/* CAVERNA: niente laghi/fiumi/vegetazione di superficie; placeScatterForests ora riempie di roccia/stalagmiti */
   _restoring=true;
   (s.b||[]).forEach(it=>restoreBuilding(it));
   (s.d||[]).forEach(it=>{if(DECO[it.k])placeDeco(it.cx,it.cy,it.k);});
