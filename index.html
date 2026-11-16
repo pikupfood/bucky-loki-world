@@ -448,11 +448,12 @@ function enterExplore(){if(exploreMode)return;if(typeof mode!=='undefined'&&mode
   if(!tpAvatar){tpAvatar=(typeof makeWalker==='function')?makeWalker(0.9,(typeof avatarChar!=='undefined'?avatarChar:null),(typeof avatarTint!=='undefined'?avatarTint:null)):null;if(tpAvatar){tpAvatar.o.position.set(camTarget.x,0,camTarget.z);cityGroup.add(tpAvatar.o);}}
   if(!tpAvatar){if(typeof toast==='function')toast('Personaggio non disponibile');return;}
   exploreMode=true;tpAvatar.o.position.set(camTarget.x,0,camTarget.z);if(renderPass)renderPass.camera=tpCam;
+  if(typeof anchorKingdoms==='function')try{anchorKingdoms();}catch(e){} // assicura che i regni vicini siano ancorati nelle piazze (non vuote) anche se entri in esplorazione senza passare dalla città
   if(!_prewarmed){_prewarmed=true;try{if(renderer&&renderer.compile)renderer.compile(scene,tpCam);}catch(e){}} // pre-compila gli shader: sposta l'eventuale scatto da "roba nuova che compare" al momento dell'ingresso
   document.body.classList.add('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='block';const b=document.getElementById('tpbtn');if(b)b.textContent='🗺️';
   if(typeof tpApplyArmor==='function')tpApplyArmor();tpHp=tpMaxHp;if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();if(typeof tpGearHUD==='function')tpGearHUD();if(typeof nyxarBeaten!=='undefined'&&nyxarBeaten>0&&typeof addNyxTrophyAura==='function')addNyxTrophyAura();resize();setTimeout(()=>{if(typeof showExploreHelp==='function')showExploreHelp();},350);}
 function exitExplore(){if(!exploreMode)return;exploreMode=false;if(renderPass)renderPass.camera=camera;if(tpAvatar&&typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);
-  document.body.classList.remove('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='none';const b=document.getElementById('tpbtn');if(b)b.textContent='🚶';const ta=document.getElementById('tpact');if(ta)ta.style.display='none';const bb=document.getElementById('bossbar');if(bb)bb.style.display='none';if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();
+  document.body.classList.remove('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='none';const b=document.getElementById('tpbtn');if(b)b.textContent='🚶';const ta=document.getElementById('tpact');if(ta)ta.style.display='none';const bb=document.getElementById('bossbar');if(bb)bb.style.display='none';const gh=document.getElementById('guardhud');if(gh)gh.style.display='none';if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();
   if(tpAvatar){camTarget.x=tpAvatar.o.position.x;camTarget.z=tpAvatar.o.position.z;}updateCam();resize();}
 function toggleExplore(){exploreMode?exitExplore():enterExplore();}
 function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
@@ -1230,8 +1231,11 @@ function onRoomCleared(roomId){
   const dk=(typeof DROOMS!=='undefined')?DROOMS[roomId]:null, isPiazza=dk&&dk.kind==='kingdom';
   if(isPiazza){const nbk=dk.nb;if(nbk){try{if(typeof hostile!=='undefined')delete hostile[nbk];}catch(e){} if(typeof conquered!=='undefined')conquered[nbk]=1; if(typeof liberated!=='undefined')liberated[nbk]=1;}
     const rew=120+Math.floor(Math.random()*120); R.oro=(R.oro||0)+rew;
-    if(typeof toast==='function')toast('🏰 Regno conquistato: '+(nbk&&typeof kName==='function'?kName(nbk):'nemico')+'! +'+rew+' 🪙',4800);
+    const nm=(nbk&&typeof kName==='function'?kName(nbk):'il regno nemico');
+    if(typeof bigBanner==='function')bigBanner('🏰','REGNO CONQUISTATO!',nm+' è tuo — +'+rew+' 🪙');
+    if(typeof toast==='function')toast('🏰 Hai conquistato '+nm+'! Le guardie sono sconfitte. +'+rew+' 🪙',5200);
   } else {const rew=70+Math.floor(Math.random()*70); R.oro=(R.oro||0)+rew;
+    if(typeof bigBanner==='function')bigBanner('🧹','SALA RIPULITA',(dk?dk.label:'La sala')+' — +'+rew+' 🪙');
     if(typeof toast==='function')toast('🧹 '+(dk?dk.label:'Sala')+' ripulita! +'+rew+' 🪙',4200);
   }
   if(typeof drawTop==='function')drawTop(); if(typeof save==='function')save();
@@ -1278,6 +1282,15 @@ function updRoomCombat(dt){
     }
   }
   if(typeof updBossBar==='function')updBossBar();
+  if(typeof updGuardHUD==='function')updGuardHUD(cur);
+}
+// CONTATORE GUARDIE: mentre combatti in un regno nemico vedi quante ne restano → si capisce il progresso verso la conquista
+function updGuardHUD(cur){let el=document.getElementById('guardhud');
+  const isGuardRoom=(typeof GUARD_ROOMS!=='undefined'&&GUARD_ROOMS.indexOf(cur)>=0&&!_roomConquered[cur]);
+  const n=isGuardRoom?guardsLeft(cur):0;
+  if(!(exploreMode&&isGuardRoom&&n>0)){if(el)el.style.display='none';return;}
+  if(!el){el=document.createElement('div');el.id='guardhud';el.style.cssText='position:fixed;left:50%;top:152px;transform:translateX(-50%);z-index:59;background:rgba(66,16,16,.9);border:1.5px solid rgba(255,120,120,.6);color:#ffdada;font-size:12.5px;font-weight:800;padding:5px 15px;border-radius:14px;pointer-events:none;white-space:nowrap;text-shadow:0 1px 2px #000';document.body.appendChild(el);}
+  el.style.display='block';el.textContent='⚔️ Guardie rimaste: '+n+' — abbàttile tutte per conquistare';
 }
 // TRADIMENTO sul posto: attacchi un regno alleato → rompi l'alleanza e le sue guardie reagiscono (niente campo di battaglia)
 function roomOfNb(k){for(const r of GUARD_ROOMS){if(typeof DROOMS!=='undefined'&&DROOMS[r]&&DROOMS[r].nb===k)return r;}return null;}
