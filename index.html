@@ -194,7 +194,7 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
   <div class="sbtn more" id="btnAccount"><span>👤</span><b>Account</b></div>
 </div>
 <style>#side:not(.open) .more{display:none}</style>
-<div id="zoom"><div class="zb" id="zmap" title="Minimappa">🗺️</div><div class="zb" id="btnBox" title="Selezione ad area">▭</div><div class="zb" id="zrot" title="Ruota">↻</div><div class="zb" id="zin">+</div><div class="zb" id="zout">−</div></div>
+<div id="zoom"><div class="zb" id="zmap" title="Minimappa">🗺️</div><div class="zb" id="btnBox" title="Selezione ad area">▭</div><div class="zb" id="zdem" title="Demolisci (X)">🗑</div><div class="zb" id="zrot" title="Ruota">↻</div><div class="zb" id="zin">+</div><div class="zb" id="zout">−</div></div>
 <canvas id="map" width="150" height="150" title="Minimappa: tocca per spostare la vista"></canvas>
 
 <div id="guide"><div id="tuzu"><i></i></div><div id="bubble">Benvenuto! Tocca 🔨 per costruire.</div></div>
@@ -310,6 +310,18 @@ const tpJoy={active:false,dx:0,dy:0};
 const tpLook={active:false,dx:0,dy:0}; // joystick destro: guardarsi intorno
 let tpJumpY=0,tpJumpV=0,tpCrouch=false; // salto + abbassarsi/nascondersi
 function tpJump(){if(exploreMode&&tpAvatar&&tpJumpY<=0.02&&tpJumpV===0){tpJumpV=10;}}
+// SCHIVATA/ROTOLATA: scatto rapido con brevi fotogrammi d'invulnerabilità (i-frame)
+let _tpDodge=0,_tpDodgeCd=0,_tpIframe=0,_tpDodgeDir={x:0,z:1};
+function _dodgePuff(x,z){try{const grp=(typeof rGroup==='function'&&typeof _curRoom!=='undefined'?rGroup(_curRoom):scene);for(let i=0;i<6;i++){const p=new THREE.Mesh(new THREE.SphereGeometry(0.16,6,6),new THREE.MeshBasicMaterial({color:0xcfe0f0,transparent:true,opacity:0.5,depthWrite:false}));p.position.set(x+(Math.random()-.5)*0.6,0.3+Math.random()*0.3,z+(Math.random()-.5)*0.6);grp.add(p);let t=0;const iv=setInterval(()=>{t+=0.033;p.scale.multiplyScalar(1.08);p.material.opacity-=0.06;if(p.material.opacity<=0){clearInterval(iv);if(p.parent)p.parent.remove(p);p.geometry.dispose();}},33);}}catch(e){}}
+function tpDodge(){if(!exploreMode||!tpAvatar)return;const now=performance.now();if(now<_tpDodgeCd)return;
+  let mf=(tpInput.f-tpInput.b)+(tpJoy.active?-tpJoy.dy:0),mr=(tpInput.r-tpInput.l)+(tpJoy.active?tpJoy.dx:0);
+  const Fx=-Math.sin(tpYaw),Fz=-Math.cos(tpYaw),Rx=Math.cos(tpYaw),Rz=-Math.sin(tpYaw);
+  let dx=Fx*mf+Rx*mr,dz=Fz*mf+Rz*mr,dl=Math.hypot(dx,dz);
+  if(dl<0.1){dx=Fx;dz=Fz;dl=Math.hypot(dx,dz)||1;} // fermo: scatta in avanti (dove guardi)
+  dx/=dl;dz/=dl;_tpDodgeDir={x:dx,z:dz};_tpDodge=now+250;_tpIframe=now+330;_tpDodgeCd=now+760;
+  tpAvatar.o.rotation.y=Math.atan2(dx,dz);
+  if(typeof tpFloat==='function')tpFloat(tpAvatar.o.position.x,tpAvatar.o.position.z,'💨','#cfe6ff');
+  _dodgePuff(tpAvatar.o.position.x,tpAvatar.o.position.z);}
 (function injectExploreUI(){
   const st=document.createElement('style');
   st.textContent='.explore #fab,.explore #side,.explore #build,.explore #cats,.explore #zoom,.explore #guide{display:none!important}'+
@@ -322,17 +334,19 @@ function tpJump(){if(exploreMode&&tpAvatar&&tpJumpY<=0.02&&tpJumpV===0){tpJumpV=
    '.explore #tpjoy,.explore #tplook{display:block}'+
    '#tpjoy .nub,#tplook .nub{position:absolute;width:38px;height:38px;border-radius:50%;background:rgba(255,220,150,.85);pointer-events:none}'+
    '#tplook .nub{background:rgba(170,210,255,.85);width:30px;height:30px}'+
-   '#tpA,#tpB,#tpC{position:fixed;z-index:61;border-radius:50%;border:2px solid rgba(255,220,150,.45);background:rgba(40,28,16,.9);color:#ffe4a8;cursor:pointer;touch-action:none;box-shadow:0 3px 10px rgba(0,0,0,.5);display:none;align-items:center;justify-content:center}'+
-   '.explore #tpA,.explore #tpB,.explore #tpC{display:flex}'+
+   '#tpA,#tpB,#tpC,#tpD{position:fixed;z-index:61;border-radius:50%;border:2px solid rgba(255,220,150,.45);background:rgba(40,28,16,.9);color:#ffe4a8;cursor:pointer;touch-action:none;box-shadow:0 3px 10px rgba(0,0,0,.5);display:none;align-items:center;justify-content:center}'+
+   '.explore #tpA,.explore #tpB,.explore #tpC,.explore #tpD{display:flex}'+
    '#tpA{right:60px;bottom:120px;width:66px;height:66px;font-size:28px;border-color:rgba(255,190,130,.9)}'+
    '#tpB{right:116px;bottom:36px;width:56px;height:56px;font-size:23px}'+
    '#tpC{right:18px;bottom:36px;width:56px;height:56px;font-size:23px}'+
+   '#tpD{right:18px;bottom:102px;width:52px;height:52px;font-size:22px;border-color:rgba(150,200,255,.6)}'+
    '@media (orientation:landscape){'+
      '#tpjoy{width:104px;height:104px;bottom:16px;left:18px}'+
      '#tplook{width:74px;height:74px;bottom:124px;right:18px}'+
      '#tpA{right:66px;bottom:80px;width:58px;height:58px;font-size:25px}'+
      '#tpB{right:118px;bottom:16px;width:52px;height:52px;font-size:21px}'+
      '#tpC{right:16px;bottom:16px;width:52px;height:52px;font-size:21px}'+
+     '#tpD{right:16px;bottom:78px;width:48px;height:48px;font-size:20px}'+
    '}';
   document.head.appendChild(st);
   function wireStick(el,state){const nub=document.createElement('div');nub.className='nub';el.appendChild(nub);let id=null;
@@ -346,7 +360,8 @@ function tpJump(){if(exploreMode&&tpAvatar&&tpJumpY<=0.02&&tpJumpV===0){tpJumpV=
   btn.addEventListener('click',()=>toggleExplore());
   const joy=document.createElement('div');joy.id='tpjoy';document.body.appendChild(joy);wireStick(joy,tpJoy);
   const look=document.createElement('div');look.id='tplook';document.body.appendChild(look);wireStick(look,tpLook);
-  const acts=document.createElement('div');acts.id='tpacts';acts.innerHTML='<button id="tpA">⚔️</button><button id="tpB">⤴️</button><button id="tpC">🧎</button>';document.body.appendChild(acts);
+  const acts=document.createElement('div');acts.id='tpacts';acts.innerHTML='<button id="tpA">⚔️</button><button id="tpB">⤴️</button><button id="tpC">🧎</button><button id="tpD">💨</button>';document.body.appendChild(acts);
+  {const _dd=acts.querySelector('#tpD');if(_dd)_dd.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(typeof tpDodge==='function')tpDodge();});}
   (function(){const A=acts.querySelector('#tpA');const CHARGE_MS=520;let dT=0,held=false,rafid=0;
     const st=document.createElement('style');st.textContent=
      '#tpA.charging::after{content:"";position:absolute;inset:-5px;border-radius:50%;background:conic-gradient(#ffd24a calc(var(--chg,0)*360deg),rgba(255,255,255,.14) 0);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 4px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 4px));pointer-events:none}'+
@@ -380,7 +395,8 @@ window.addEventListener('keydown',e=>{const k=(e.key||'').toLowerCase();
      const dr=document.getElementById('drawer');
      if(k==='b'){e.preventDefault();if(dr){if(dr.classList.contains('open')){dr.classList.remove('open');if(typeof selKey!=='undefined')selKey=null;}else{dr.classList.add('open');}if(typeof drawBuild==='function')drawBuild();}return;}
      if(k==='m'){e.preventDefault();const dyn=document.getElementById('dyn');if(dyn){if(typeof closeDyn==='function')closeDyn();}else if(typeof openMap==='function'&&typeof mode!=='undefined'&&mode==='city')openMap();return;}
-     if(k==='escape'){if(dr)dr.classList.remove('open');if(typeof selKey!=='undefined')selKey=null;if(typeof closeDyn==='function')closeDyn();return;}
+     if(k==='x'){e.preventDefault();if(typeof setDemolishMode==='function')setDemolishMode(!(typeof demolishMode!=='undefined'&&demolishMode));return;}
+     if(k==='escape'){if(dr)dr.classList.remove('open');if(typeof selKey!=='undefined')selKey=null;if(typeof demolishMode!=='undefined'&&demolishMode&&typeof setDemolishMode==='function')setDemolishMode(false);if(typeof closeDyn==='function')closeDyn();return;}
    }}
   if(k==='z'||k==='w')tpInput.f=1;                 // avanti (Z azerty / W qwerty)
   else if(k==='s')tpInput.b=1;                     // indietro
@@ -397,7 +413,8 @@ window.addEventListener('keydown',e=>{const k=(e.key||'').toLowerCase();
   else if(k==='k'){if(exploreMode){e.preventDefault();if(!e.repeat&&typeof tpActionB==='function')tpActionB();}}   // magia / salto
   else if(k==='l'){if(exploreMode)tpCrouch=true;}                                                                  // abbassati
   else if(k===' '){if(exploreMode){e.preventDefault();if(typeof tpJump==='function')tpJump();}}                    // salto
-  else if(k==='shift'||k==='c'){if(exploreMode)tpCrouch=true;}                                                     // abbassati (alternativa)
+  else if(k==='c'){if(exploreMode)tpCrouch=true;}                                                                  // abbassati (alternativa)
+  else if(k==='shift'){if(exploreMode&&!e.repeat&&typeof tpDodge==='function'){e.preventDefault();tpDodge();}}      // SCHIVATA
   else if(k==='f'||k==='enter'){if(exploreMode){e.preventDefault();if(typeof tpPrimaryAction==='function')tpPrimaryAction();}} // attacco rapido (alternativa)
 });
 window.addEventListener('keyup',e=>{const k=(e.key||'').toLowerCase();
@@ -408,7 +425,7 @@ window.addEventListener('keyup',e=>{const k=(e.key||'').toLowerCase();
   else if(k==='arrowleft')tpInput.rotL=0;
   else if(k==='arrowright')tpInput.rotR=0;
   else if(k==='j'){if(_kAtkHeld){_kAtkHeld=false;cancelAnimationFrame(_kAtkRaf);const A=document.getElementById('tpA');if(A){A.classList.remove('charging','full');A.style.setProperty('--chg','0');}const el=performance.now()-_kAtkDown;if(el>=520){if(typeof tpChargedAttack==='function')tpChargedAttack();}else{if(typeof tpPrimaryAction==='function')tpPrimaryAction();}}}
-  else if(k==='l'||k==='shift'||k==='c')tpCrouch=false;
+  else if(k==='l'||k==='c')tpCrouch=false;
 });
 function showExploreHelp(force){try{if(!force&&localStorage.getItem('tuzu_explore_help'))return;}catch(e){}
   if(typeof closeDyn==='function')closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';
@@ -421,6 +438,7 @@ function showExploreHelp(force){try{if(!force&&localStorage.getItem('tuzu_explor
    '🔋 <b>Tieni premuto A</b> — carica un <b>colpo caricato</b>: danno forte + onda d\'urto<br>'+
    '✨ / ⤴️ <b>Tasto B</b> — magia se c\'è un nemico, altrimenti salto<br>'+
    '🧎 <b>Tasto C</b> — abbassati e nasconditi<br>'+
+   '💨 <b>Tasto D / Shift</b> — <b>schivata</b>: scatto rapido che evita i colpi<br>'+
    '🔨 costruisci · 📜 missioni · 🗺️ torna alla mappa</div>'+
    '<button class="btn" id="exhok" style="margin-top:10px">Ho capito!</button></div>';
   document.body.appendChild(d);if(typeof armPanel==='function')armPanel(d);
@@ -443,6 +461,12 @@ function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
   _tpFootY=(tpAvatar._baseY||0)+tpJumpY; // quota piedi: se salti sopra un ostacolo ci puoi passare/atterrare
   // abbassarsi/nascondersi: si schiaccia e va piano
   const bsy=tpAvatar._bsy||(tpAvatar._bsy=o.scale.y);o.scale.y+=((bsy*(tpCrouch?0.58:1))-o.scale.y)*Math.min(1,dt*10);
+  const _ndg=performance.now();
+  if(_ndg<_tpDodge){ // SCHIVATA attiva: scatto rapido, salta il movimento normale (invulnerabile per pochi fotogrammi)
+    const DSP=13,ox=o.position.x,oz=o.position.z,nx=ox+_tpDodgeDir.x*DSP*dt,nz=oz+_tpDodgeDir.z*DSP*dt;
+    if(typeof canStep==='function'&&canStep(nx,nz)){o.position.x=nx;o.position.z=nz;}else if(typeof canStep==='function'&&canStep(nx,oz)){o.position.x=nx;}else if(typeof canStep==='function'&&canStep(ox,nz)){o.position.z=nz;}
+    if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,true);
+  } else {
   let mf=(tpInput.f-tpInput.b)+(tpJoy.active?-tpJoy.dy:0);let mr=(tpInput.r-tpInput.l)+(tpJoy.active?tpJoy.dx:0);
   mf=Math.max(-1,Math.min(1,mf));mr=Math.max(-1,Math.min(1,mr));
   const Fx=-Math.sin(tpYaw),Fz=-Math.cos(tpYaw),Rx=Math.cos(tpYaw),Rz=-Math.sin(tpYaw);
@@ -458,6 +482,7 @@ function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
     // la camera segue da sola (ma non mentre guardi col joystick destro)
     if(!tpLook.active){const target=Math.atan2(-dx,-dz);let d2=target-tpYaw;while(d2>Math.PI)d2-=2*Math.PI;while(d2<-Math.PI)d2+=2*Math.PI;tpYaw+=d2*Math.min(1,dt*1.8);}}
   else{if(tpInput.rotL)tpYaw+=dt*1.6;if(tpInput.rotR)tpYaw-=dt*1.6;if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);}
+  }
   const ty=(typeof tpGroundY==='function')?tpGroundY(o.position.x,o.position.z):0;tpAvatar._baseY=(tpAvatar._baseY||0)+(ty-(tpAvatar._baseY||0))*Math.min(1,dt*12);o.position.y=tpAvatar._baseY+tpJumpY;
   const D=6.8,H=4.4;
   // la camera NON entra nei muri: la avvicino se dietro c'e' un muro
@@ -1031,7 +1056,7 @@ function tpFlash(strong){try{let f=document.getElementById('tpflash');if(!f){f=d
 function tpDown(){if(tpAvatar)tpAvatar.o.position.set(0,0,0);for(const m of caveMonsters){if(m.hp>0&&m._home){m.x=m._home.x;m.z=m._home.z;if(m.obj){m.obj.position.x=m.x;m.obj.position.z=m.z;}if(m.av){m.av.x=m.x;m.av.z=m.z;}}}for(const g of roomGuards){if(g.hp>0&&g.home){g.x=g.home.x;g.z=g.home.z;if(g.obj){g.obj.position.x=g.x;g.obj.position.z=g.z;}if(g.av){g.av.x=g.x;g.av.z=g.z;}}}
   tpHp=tpMaxHp;_tpHurtCd=performance.now()+1200;if(typeof tpFlash==='function')tpFlash(true);
   if(typeof bigBanner==='function')bigBanner('💀','SEI CADUTO','Troppi colpi! Torni al Covo per guarire');else if(typeof toast==='function')toast('💀 Sei caduto! Torni al covo',4000);tpUpdHealthUI();}
-function tpHurt(n){const now=performance.now();if(now<_tpHurtCd)return;_tpHurtCd=now+700;tpHp-=n;if(tpAvatar)tpFloat(tpAvatar.o.position.x,tpAvatar.o.position.z,'-'+n+' ❤','#ff5a5a');if(typeof tpFlash==='function'&&tpHp>0)tpFlash(false);tpUpdHealthUI();if(tpHp<=0)tpDown();}
+function tpHurt(n){const now=performance.now();if(now<_tpIframe){if(tpAvatar&&typeof tpFloat==='function')tpFloat(tpAvatar.o.position.x,tpAvatar.o.position.z,'✦ schivato','#9fe0ff');return;}if(now<_tpHurtCd)return;_tpHurtCd=now+700;tpHp-=n;if(tpAvatar)tpFloat(tpAvatar.o.position.x,tpAvatar.o.position.z,'-'+n+' ❤','#ff5a5a');if(typeof tpFlash==='function'&&tpHp>0)tpFlash(false);tpUpdHealthUI();if(tpHp<=0)tpDown();}
 function updCaveMonsters(dt){if(!exploreMode||!tpAvatar)return;if(_curRoom!=='tana'&&_curRoom!=='c_chrysa_tana')return;const a=tpAvatar.o.position;
   for(const m of caveMonsters){if(m.hp<=0||!m.obj)continue;if(!m._home)m._home={x:m.x,z:m.z};if(!m.room)m.room='tana';
     if(!m.bar)attachEnemyBar(m);updEnemyBar(m);
@@ -1818,7 +1843,7 @@ function afford(c){for(const r in c)if(R[r]<c[r])return false;return true;}
 function pay(c){for(const r in c)R[r]-=c[r];}
 // drawer
 const drawer=document.getElementById('drawer');
-document.getElementById('fab').onclick=()=>{drawer.classList.add('open');};
+document.getElementById('fab').onclick=()=>{if(typeof demolishMode!=='undefined'&&demolishMode&&typeof setDemolishMode==='function')setDemolishMode(false);drawer.classList.add('open');};
 document.getElementById('dclose').onclick=()=>{drawer.classList.remove('open');selKey=null;drawBuild();};
 
 // ===== guida Tuzu + missioni =====
@@ -1951,6 +1976,14 @@ function tryPlace(cx,cy){
   if(!unlockedCell(cx,cy)){const g0=grid[key(cx,cy)];if(g0&&g0.type==='tree'&&g0.wild){toast('🌳 Vegetazione selvatica: scegli un abitante e mandalo a tagliarla per recuperare il terreno',3600);return;}if(g0&&g0.type==='water'){toast('💧 Acqua: scegli un abitante e toccala per mandarlo a pescare 🎣',3400);return;}const p=parOf(cx,cy);if(adjPar(p[0],p[1]))openUnlock(p[0],p[1]);else toast('Sblocca prima le terre vicine');return;}
   const occ=grid[key(cx,cy)];
   if(occ){
+    if(demolishMode){
+      if(occ.type==='building')demolish(occ.ref);
+      else if(occ.type==='pen'){demolishPen(occ.pen);drawTop();save();toast('Recinto demolito');}
+      else if(occ.type==='crop')toast('🌱 I campi si raccolgono, non si demoliscono');
+      else if(occ.type==='site')toast('In costruzione… non demolibile ora');
+      else removeObj(occ);
+      return;
+    }
     if(occ.type==='building')openBuilding(occ.ref);
     else if(occ.type==='pen')openPen(occ.pen);
     else if(occ.type==='crop'){tapCrop(occ);}
@@ -1959,6 +1992,7 @@ function tryPlace(cx,cy){
     else if(occ.type==='site')toast('In costruzione…');
     return;
   }
+  if(demolishMode){toast('Niente da demolire qui');return;}
   if(!selKey){toast('Apri 🔨 e scegli cosa mettere');return;}
   if(cat==='animali'){const d=PENS[selKey];const [w,h]=fpSize(d);const [ax,ay]=fpAnchor(cx,cy,w,h);if(!canPlace(ax,ay,w,h)){toast('Spazio occupato o non sbloccato');return;}if(!afford(d.cost)){toast('Risorse insufficienti');return;}pay(d.cost);const pen=placePen(ax,ay,w,h,selKey,true);drawTop();drawer.classList.remove('open');selKey=null;openPen(pen);return;}
   if(cat==='campi'){const d=CROPS[selKey];if(!canPlace(cx,cy,1,1)){toast('Spazio occupato');return;}if(!afford(d.cost)){toast('Risorse insufficienti');return;}pay(d.cost);const ncr=plantCrop(cx,cy,selKey);drawTop();save();toast('🌱 '+d.nome+' seminato! Pronto fra '+fmtLeft(ncr.dur)+' — torna a raccoglierlo con un tocco. Il campo dà '+MAX_HARVESTS+' raccolti.',5200);return;}
@@ -2020,6 +2054,16 @@ function removeObj(occ){cityGroup.remove(occ.obj);freeOf(occ);
 function demolish(b){const e=grid[key(b.cx,b.cy)];cityGroup.remove(b.obj);if(e)freeOf(e);const i=buildings.indexOf(b);if(i>=0)buildings.splice(i,1);
   if(b.def.cost){for(const r in b.def.cost)R[r]+=Math.floor(b.def.cost[r]*0.5);}
   if(b.def.pop){operai=Math.max(4,operai-b.def.pop);}if(e)cellsOf(e).forEach(c=>rebuildRoadArea(c[0],c[1]));recompute();drawTop();save();closeDyn();toast('Demolito (metà risorse restituite)');}
+// ===== MODALITÀ DEMOLISCI: un interruttore; poi tocchi QUALSIASI cosa per toglierla (niente pannelli) =====
+let demolishMode=false;
+function setDemolishMode(on){demolishMode=!!on;
+  if(demolishMode){if(typeof selKey!=='undefined')selKey=null;const dr=document.getElementById('drawer');if(dr)dr.classList.remove('open');}
+  document.body.classList.toggle('demolishing',demolishMode);
+  const z=document.getElementById('zdem');if(z)z.classList.toggle('on',demolishMode);
+  let bar=document.getElementById('demobar');
+  if(!bar){bar=document.createElement('div');bar.id='demobar';bar.innerHTML='🗑 <b>Demolizione</b> — tocca cosa togliere · esci';document.body.appendChild(bar);bar.onclick=()=>setDemolishMode(false);
+    const st=document.createElement('style');st.textContent='#demobar{position:fixed;left:50%;top:116px;transform:translateX(-50%);z-index:60;display:none;background:rgba(150,30,30,.92);border:1.5px solid rgba(255,150,150,.7);color:#ffe3e3;font-size:12.5px;font-weight:700;padding:5px 15px;border-radius:14px;cursor:pointer;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.4)}body.demolishing #demobar{display:block}#zdem.on{background:rgba(170,38,38,.95)!important;border-color:rgba(255,150,150,.9)!important;color:#ffd4d4!important}';document.head.appendChild(st);}
+  if(typeof toast==='function')toast(demolishMode?'🗑 Demolizione attiva: tocca edifici, mura, torri o decori da togliere (metà risorse rese)':'Demolizione disattivata',demolishMode?3600:1600);}
 
 // ===== scena mercato (bottegaio + pergamena) =====
 const KEEPER_SVG=`<svg viewBox="0 0 170 150" width="188" style="position:absolute;left:50%;bottom:4px;transform:translateX(-50%)">
@@ -3033,6 +3077,7 @@ function finishBox(a,b){const x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),y0=Math.
   toast('Niente nel riquadro: trascina sugli alberi/terreno o su altri operai');}
 const bxb=document.getElementById('btnBox');if(bxb)bxb.onclick=()=>setBoxMode(!boxMode);
 document.getElementById('zin').onclick=()=>setZoom(VZ*0.8);document.getElementById('zout').onclick=()=>setZoom(VZ/0.8);
+{const zd=document.getElementById('zdem');if(zd)zd.onclick=()=>{if(typeof setDemolishMode==='function')setDemolishMode(!demolishMode);};}
 document.getElementById('zrot').onclick=()=>{placeRot=(placeRot+1)%4;toast('↻ Rotazione: '+(placeRot*90)+'° (per muri, cancelli, torri, decori)',2600);};
 
 // ===== salvataggio =====
@@ -3060,7 +3105,7 @@ document.getElementById('btnHero').onclick=()=>{if(mode==='city')openHeroes();};
 // ===== mini-guida iniziale =====
 const GUIDE=[
  {em:'🕳️',t:'Benvenuto nel tuo covo',x:'Guidi i <b>Chlòri</b>, un popolo di piccoli Tuzu 🟢 nel sottosuolo. Fai crescere il tuo <b>covo</b>, esplora le stanze della grotta, alleati o combatti gli altri regni, fino a dominare il <b>Reame</b> del <b>Tàrtaro</b>.'},
- {em:'🔨',t:'Costruisci',x:'Tocca <b>🔨 Costruisci</b> in basso, scegli un edificio e tocca un <b>quadratino libero</b>. Inizia con <b>Segheria</b> 🪵, <b>Fattoria</b> 🌾 e <b>Case</b> 🏠.<br><br>💻 <b>Da computer:</b> premi <b>B</b> per il catalogo, <b>M</b> per la mappa, <b>Esc</b> per chiudere.'},
+ {em:'🔨',t:'Costruisci',x:'Tocca <b>🔨 Costruisci</b> in basso, scegli un edificio e tocca un <b>quadratino libero</b>. Inizia con <b>Segheria</b> 🪵, <b>Fattoria</b> 🌾 e <b>Case</b> 🏠.<br><br>💻 <b>Da computer:</b> premi <b>B</b> per il catalogo, <b>M</b> per la mappa, <b>X</b> per demolire, <b>Esc</b> per chiudere.'},
  {em:'👷',t:'I Tuzu lavorano da soli',x:'Gli abitanti raccolgono e costruiscono da soli. Più <b>Case</b> = più lavoratori 👷. Tocca un abitante per dargli un ordine: tagliare legna 🪓, pescare 🎣 o raccogliere 🧺.'},
  {em:'🌾',t:'Nutri il popolo',x:'I Tuzu mangiano 🌾 cibo. Se manca, il morale 😊 cala. Fai <b>Fattorie</b>, semina nei <b>Campi</b> 🌱, alleva nei <b>Recinti</b> 🐑 o manda a pescare.'},
  {em:'⚔️',t:'Come ci si difende',x:'Ogni tanto l’Èrebo attacca. <b>I tuoi soldati e le torri si difendono DA SOLI</b> — non devi fare nulla durante l’attacco. Il tuo compito è <b>prepararti prima</b>: addestra <b>Soldati</b> (Caserma ⚔️) e, nel menu <b>🛡️ Difesa</b>, metti <b>Torri</b> 🏹 e <b>Mura</b> 🧱. Più giochi, più gli attacchi diventano forti.'},
