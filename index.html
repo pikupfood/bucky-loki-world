@@ -421,7 +421,7 @@ function enterExplore(){if(exploreMode)return;if(typeof mode!=='undefined'&&mode
   if(!tpAvatar){if(typeof toast==='function')toast('Personaggio non disponibile');return;}
   exploreMode=true;tpAvatar.o.position.set(camTarget.x,0,camTarget.z);if(renderPass)renderPass.camera=tpCam;
   document.body.classList.add('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='block';const b=document.getElementById('tpbtn');if(b)b.textContent='🗺️';
-  if(typeof tpApplyArmor==='function')tpApplyArmor();tpHp=tpMaxHp;if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();if(typeof tpGearHUD==='function')tpGearHUD();resize();setTimeout(()=>{if(typeof showExploreHelp==='function')showExploreHelp();},350);}
+  if(typeof tpApplyArmor==='function')tpApplyArmor();tpHp=tpMaxHp;if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();if(typeof tpGearHUD==='function')tpGearHUD();if(typeof nyxarBeaten!=='undefined'&&nyxarBeaten>0&&typeof addNyxTrophyAura==='function')addNyxTrophyAura();resize();setTimeout(()=>{if(typeof showExploreHelp==='function')showExploreHelp();},350);}
 function exitExplore(){if(!exploreMode)return;exploreMode=false;if(renderPass)renderPass.camera=camera;if(tpAvatar&&typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);
   document.body.classList.remove('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='none';const b=document.getElementById('tpbtn');if(b)b.textContent='🚶';const ta=document.getElementById('tpact');if(ta)ta.style.display='none';const bb=document.getElementById('bossbar');if(bb)bb.style.display='none';if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();
   if(tpAvatar){camTarget.x=tpAvatar.o.position.x;camTarget.z=tpAvatar.o.position.z;}updateCam();resize();}
@@ -540,6 +540,19 @@ const dungeonFloor=(()=>{const s=512,c=document.createElement('canvas');c.width=
   for(let i=0;i<3200;i++){g.fillStyle='rgba(130,118,100,'+(Math.random()*0.06)+')';g.fillRect(Math.random()*s,Math.random()*s,1,1);}
   for(let i=0;i<24;i++){g.strokeStyle='rgba(0,0,0,0.32)';g.lineWidth=0.8+Math.random();g.beginPath();let x=Math.random()*s,y=Math.random()*s;g.moveTo(x,y);for(let k=0;k<6;k++){x+=(Math.random()-.5)*62;y+=(Math.random()-.5)*62;g.lineTo(x,y);}g.stroke();}
   return new THREE.CanvasTexture(c);})();
+// MURI: pietra grigia a blocchi (ashlar) con malta e smusso 3D — chiara abbastanza da leggersi anche in ombra
+const dungeonStone=(()=>{const s=512,c=document.createElement('canvas');c.width=c.height=s;const g=c.getContext('2d');
+  g.fillStyle='#2b2d33';g.fillRect(0,0,s,s); // malta scura fra i blocchi
+  const bh=74;for(let y=0,row=0;y<s+bh;y+=bh,row++){const off=(row%2)?70:0;for(let x=-140;x<s;x+=136){
+    const bx=x+off+6,by=y+6,bw=136-12,hh=bh-12,v=Math.floor(Math.random()*28-12);
+    g.fillStyle='rgb('+(126+v)+','+(124+v)+','+(130+v)+')';g.fillRect(bx,by,bw,hh);
+    g.strokeStyle='rgba(255,255,255,0.12)';g.lineWidth=2;g.beginPath();g.moveTo(bx,by+hh);g.lineTo(bx,by);g.lineTo(bx+bw,by);g.stroke(); // luce alto-sx
+    g.strokeStyle='rgba(0,0,0,0.5)';g.beginPath();g.moveTo(bx+bw,by);g.lineTo(bx+bw,by+hh);g.lineTo(bx,by+hh);g.stroke(); // ombra basso-dx
+  }}
+  for(let i=0;i<14000;i++){g.fillStyle='rgba(0,0,0,'+(Math.random()*0.10)+')';g.fillRect(Math.random()*s,Math.random()*s,1,1);}
+  for(let i=0;i<5000;i++){g.fillStyle='rgba(205,203,210,'+(Math.random()*0.05)+')';g.fillRect(Math.random()*s,Math.random()*s,1,1);}
+  for(let i=0;i<18;i++){g.strokeStyle='rgba(0,0,0,0.2)';g.lineWidth=0.8;g.beginPath();let x=Math.random()*s,y=Math.random()*s;g.moveTo(x,y);for(let k=0;k<5;k++){x+=(Math.random()-.5)*70;y+=(Math.random()-.5)*70;g.lineTo(x,y);}g.stroke();}
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;})();
 dungeonFloor.wrapS=dungeonFloor.wrapT=THREE.RepeatWrapping;dungeonFloor.repeat.set(30,30);dungeonFloor.encoding=THREE.sRGBEncoding;dungeonFloor.anisotropy=8;
 const ground=new THREE.Mesh(new THREE.CircleGeometry(175,80),new THREE.MeshStandardMaterial({map:dungeonFloor,color:0x8a847c,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;ground.userData.floor=true;scene.add(ground);
 // TORCE/BRACIERI del covo: fuoco caldo che palpita contro il buio
@@ -710,9 +723,12 @@ function stepHeightAt(wx,wz){const S=STAIR,topY=S.steps*S.sh;if(wx<S.sx-S.sw/2-0
 // "vedi solo la stanza in cui sei": mostra la stanza corrente + quelle adiacenti; una luce ti segue
 function updRoomVisibility(px,pz){if(!RECT_IDS.length)return;if(!caveLight){caveLight=new THREE.PointLight(0xffe8c0,2.4,62,1.1);scene.add(caveLight);}caveLight.position.set(px,12,pz);const id=roomAt(px,pz)||_curRoom;if(id!==_curRoom){_curRoom=id;if(id&&typeof _visitedRooms!=='undefined')_visitedRooms[id]=1;const vis=new Set([id]);(ADJ[id]||[]).forEach(a=>vis.add(a));for(const kk in roomVis)roomVis[kk].visible=vis.has(kk);}}
 function buildDungeonRooms(){if(dungeonRoomsDone)return;dungeonRoomsDone=true;const H=7,T=1.1;
-  const wt=dungeonFloor.clone();wt.wrapS=wt.wrapT=THREE.RepeatWrapping;wt.repeat.set(3,1.5);wt.needsUpdate=true;
-  const wmat=new THREE.MeshStandardMaterial({map:wt,color:0x4a453d,roughness:1});
-  const wallBox=(gid,cx,cz,lx,lz)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(lx,H,lz),wmat);m.position.set(cx,H/2-0.3,cz);rGroup(gid).add(m);};
+  const wallBox=(gid,cx,cz,lx,lz)=>{
+    const along=Math.max(lx,lz);
+    const t=dungeonStone.clone();t.wrapS=t.wrapT=THREE.RepeatWrapping;
+    t.repeat.set(Math.max(1,Math.round(along/4)),Math.max(1,Math.round(H/4)));t.needsUpdate=true;
+    const mat=new THREE.MeshStandardMaterial({map:t,color:0xffffff,roughness:0.9,metalness:0.05,emissive:0x5a5560,emissiveMap:t,emissiveIntensity:0.6});
+    const m=new THREE.Mesh(new THREE.BoxGeometry(lx,H,lz),mat);m.position.set(cx,H/2-0.3,cz);rGroup(gid).add(m);};
   const subtract=(a,b,opens)=>{let cur=[[a,b]];for(const [o0,o1] of opens){const nx=[];for(const [s0,s1] of cur){if(o1<=s0||o0>=s1)nx.push([s0,s1]);else{if(o0>s0)nx.push([s0,o0]);if(o1<s1)nx.push([o1,s1]);}}cur=nx;}return cur;};
   const open={};for(const k in DROOMS)open[k]={N:[],S:[],E:[],W:[]};
   for(const k in DROOMS){const R=DROOMS[k],rc={x0:R.x-R.hw,x1:R.x+R.hw,z0:R.z-R.hd,z1:R.z+R.hd};WALK_RECTS.push(rc);RECT_IDS.push({id:k,x0:rc.x0,x1:rc.x1,z0:rc.z0,z1:rc.z1});rGroup(k);}
@@ -935,8 +951,8 @@ function updTpAction(px,pz){
 // VITA dell'avatar + IA dei mostri (ti inseguono e colpiscono nella tana)
 let tpHp=10,tpMaxHp=10,_tpHurtCd=0;
 // ===== EQUIPAGGIAMENTO: armi (danno) + armature (vita). Bottino dai nemici/boss → diventi più forte =====
-const TP_WEAPONS=[{n:'Pugnale',e:'🗡️',dmg:2},{n:'Spada',e:'⚔️',dmg:3},{n:'Ascia da guerra',e:'🪓',dmg:4},{n:'Martello di guerra',e:'🔨',dmg:5},{n:'Spada magica',e:'✨',dmg:7}];
-const TP_ARMORS=[{n:'Veste',e:'👕',hp:0},{n:'Corazza di cuoio',e:'🟫',hp:5},{n:'Cotta di maglia',e:'🔗',hp:11},{n:'Armatura pesante',e:'🛡️',hp:20}];
+const TP_WEAPONS=[{n:'Pugnale',e:'🗡️',dmg:2},{n:'Spada',e:'⚔️',dmg:3},{n:'Ascia da guerra',e:'🪓',dmg:4},{n:'Martello di guerra',e:'🔨',dmg:5},{n:'Spada magica',e:'✨',dmg:7},{n:'Falce dell\'Èrebo',e:'🌑',dmg:11,legend:1}];
+const TP_ARMORS=[{n:'Veste',e:'👕',hp:0},{n:'Corazza di cuoio',e:'🟫',hp:5},{n:'Cotta di maglia',e:'🔗',hp:11},{n:'Armatura pesante',e:'🛡️',hp:20},{n:'Manto del Dio Caduto',e:'🔮',hp:32,legend:1}];
 let tpWeapon=0,tpArmor=0;
 function tpAtk(){return (TP_WEAPONS[tpWeapon]||TP_WEAPONS[0]).dmg;}
 function tpApplyArmor(){const base=10,was=tpMaxHp;tpMaxHp=base+(TP_ARMORS[tpArmor]||TP_ARMORS[0]).hp;if(tpMaxHp>was)tpHp+=(tpMaxHp-was);if(tpHp>tpMaxHp)tpHp=tpMaxHp;if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();}
@@ -944,10 +960,25 @@ function tpGearHUD(){const el=document.getElementById('tpgear');if(!el)return;if
 function tpGainWeapon(tier){if(tier<=tpWeapon)return false;tpWeapon=Math.min(TP_WEAPONS.length-1,tier);if(typeof toast==='function')toast('🗡️ NUOVA ARMA: '+TP_WEAPONS[tpWeapon].n+'! Danno '+TP_WEAPONS[tpWeapon].dmg,4600);if(tpAvatar&&typeof tpFloat==='function')tpFloat(tpAvatar.o.position.x,tpAvatar.o.position.z,TP_WEAPONS[tpWeapon].e+' '+TP_WEAPONS[tpWeapon].n,'#ffe27a');if(typeof bigBanner==='function')bigBanner(TP_WEAPONS[tpWeapon].e,'NUOVA ARMA',TP_WEAPONS[tpWeapon].n+' — danno '+TP_WEAPONS[tpWeapon].dmg);tpGearHUD();if(typeof save==='function')save();return true;}
 function tpGainArmor(tier){if(tier<=tpArmor)return false;tpArmor=Math.min(TP_ARMORS.length-1,tier);tpApplyArmor();if(typeof toast==='function')toast('🛡️ NUOVA ARMATURA: '+TP_ARMORS[tpArmor].n+'! Vita +'+TP_ARMORS[tpArmor].hp,4600);if(tpAvatar&&typeof tpFloat==='function')tpFloat(tpAvatar.o.position.x,tpAvatar.o.position.z,TP_ARMORS[tpArmor].e+' '+TP_ARMORS[tpArmor].n,'#9fd0ff');if(typeof bigBanner==='function')bigBanner(TP_ARMORS[tpArmor].e,'NUOVA ARMATURA',TP_ARMORS[tpArmor].n+' — vita '+tpMaxHp);tpGearHUD();if(typeof save==='function')save();return true;}
 function tpLootFrom(m){if(!m)return;
-  if(m._final){tpGainWeapon(TP_WEAPONS.length-1);tpGainArmor(TP_ARMORS.length-1);return;}
-  if(m._boss){const w=Math.random()<0.5;if(w)tpGainWeapon(tpWeapon+1);else tpGainArmor(tpArmor+1);if(Math.random()<0.45){if(w)tpGainArmor(tpArmor+1);else tpGainWeapon(tpWeapon+1);}return;}
-  if(Math.random()<0.11)tpGainWeapon(tpWeapon+1);else if(Math.random()<0.11)tpGainArmor(tpArmor+1);
+  if(m._final){grantNyxarReward();return;}
+  const cw=TP_WEAPONS.length-2,ca=TP_ARMORS.length-2; // le reliquie leggendarie restano esclusive di Nyxar
+  if(m._boss){const w=Math.random()<0.5;if(w)tpGainWeapon(Math.min(cw,tpWeapon+1));else tpGainArmor(Math.min(ca,tpArmor+1));if(Math.random()<0.45){if(w)tpGainArmor(Math.min(ca,tpArmor+1));else tpGainWeapon(Math.min(cw,tpWeapon+1));}return;}
+  if(Math.random()<0.11)tpGainWeapon(Math.min(cw,tpWeapon+1));else if(Math.random()<0.11)tpGainArmor(Math.min(ca,tpArmor+1));
 }
+// PREMIO SPECIALE: abbattere Nyxar dà le due reliquie leggendarie uniche + aura-trofeo sul personaggio
+let _nyxRewardGiven=0;
+function addNyxTrophyAura(){if(!tpAvatar||!tpAvatar.o||tpAvatar.o.userData._trophy)return;
+  try{const g=new THREE.Group();
+    const halo=new THREE.Mesh(new THREE.SphereGeometry(0.92,16,16),new THREE.MeshBasicMaterial({color:0x9a4dff,transparent:true,opacity:0.16,depthWrite:false,blending:THREE.AdditiveBlending}));halo.position.y=1.0;
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.72,0.06,8,24),new THREE.MeshBasicMaterial({color:0xc48bff,transparent:true,opacity:0.5,depthWrite:false,blending:THREE.AdditiveBlending}));ring.rotation.x=Math.PI/2;ring.position.y=0.08;
+    g.add(halo);g.add(ring);tpAvatar.o.add(g);tpAvatar.o.userData._trophy=g;tpAvatar.o.userData._trophyHalo=halo;
+  }catch(e){}}
+function grantNyxarReward(){const wi=TP_WEAPONS.length-1,ai=TP_ARMORS.length-1;_nyxRewardGiven=1;
+  tpWeapon=wi;tpArmor=ai;if(typeof tpApplyArmor==='function')tpApplyArmor();if(typeof tpGearHUD==='function')tpGearHUD();
+  addNyxTrophyAura();
+  if(typeof bigBanner==='function')bigBanner('🌑','RELIQUIA LEGGENDARIA',TP_WEAPONS[wi].n+' · '+TP_ARMORS[ai].n);
+  if(typeof toast==='function')toast('🌑 Dalle ceneri di Nyxar prendi la '+TP_WEAPONS[wi].n+' ('+TP_WEAPONS[wi].dmg+'⚔) e il '+TP_ARMORS[ai].n+' (vita '+tpMaxHp+' ❤). Reliquie uniche! 🔮',8000);
+  if(typeof save==='function')save();}
 function openEquip(){if(typeof closeDyn==='function')closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';
   let h='<div class="card" style="max-width:420px;max-height:86vh;overflow:auto"><div class="em">🎒</div><h2>Equipaggiamento</h2>';
   h+='<div style="font-size:12.5px;margin:4px 0 8px">Danno: <b>'+tpAtk()+'</b> ⚔️ · Vita: <b>'+tpMaxHp+'</b> ❤️</div>';
