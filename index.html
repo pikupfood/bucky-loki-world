@@ -346,7 +346,22 @@ function tpJump(){if(exploreMode&&tpAvatar&&tpJumpY<=0.02&&tpJumpV===0){tpJumpV=
   const joy=document.createElement('div');joy.id='tpjoy';document.body.appendChild(joy);wireStick(joy,tpJoy);
   const look=document.createElement('div');look.id='tplook';document.body.appendChild(look);wireStick(look,tpLook);
   const acts=document.createElement('div');acts.id='tpacts';acts.innerHTML='<button id="tpA">⚔️</button><button id="tpB">⤴️</button><button id="tpC">🧎</button>';document.body.appendChild(acts);
-  acts.querySelector('#tpA').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(typeof tpPrimaryAction==='function')tpPrimaryAction();});
+  (function(){const A=acts.querySelector('#tpA');const CHARGE_MS=520;let dT=0,held=false,rafid=0;
+    const st=document.createElement('style');st.textContent=
+     '#tpA.charging::after{content:"";position:absolute;inset:-5px;border-radius:50%;background:conic-gradient(#ffd24a calc(var(--chg,0)*360deg),rgba(255,255,255,.14) 0);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 4px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 4px));pointer-events:none}'+
+     '#tpA.full{box-shadow:0 0 18px 5px rgba(255,210,74,.95)}'+
+     '#tpcombo{position:fixed;left:50%;top:150px;transform:translateX(-50%) scale(.7);z-index:62;pointer-events:none;color:#ffe29a;font-weight:900;font-size:19px;text-shadow:0 2px 6px #000,0 0 10px rgba(255,180,60,.6);opacity:0;transition:opacity .12s,transform .12s;letter-spacing:.4px;white-space:nowrap}'+
+     '#tpcombo.show{opacity:1;transform:translateX(-50%) scale(1)}'+
+     '#tpcombo.fin{color:#fff2c4;font-size:23px}';
+    document.head.appendChild(st);
+    function isAtkCtx(){if(typeof selKey!=='undefined'&&selKey)return false;if(typeof _tpTarget!=='undefined'&&_tpTarget&&_tpTarget.type&&_tpTarget.type!=='monster')return false;return true;}
+    function anim(){if(!held)return;const p=Math.min(1,(performance.now()-dT)/CHARGE_MS);A.style.setProperty('--chg',p);A.classList.toggle('full',p>=1);rafid=requestAnimationFrame(anim);}
+    A.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(!exploreMode)return;
+      if(!isAtkCtx()){if(typeof tpPrimaryAction==='function')tpPrimaryAction();return;}
+      held=true;dT=performance.now();try{A.setPointerCapture(e.pointerId);}catch(_){}A.classList.add('charging');A.style.setProperty('--chg','0');cancelAnimationFrame(rafid);rafid=requestAnimationFrame(anim);});
+    function release(e){if(e){e.preventDefault&&e.preventDefault();e.stopPropagation&&e.stopPropagation();}if(!held)return;held=false;cancelAnimationFrame(rafid);const el=performance.now()-dT;A.classList.remove('charging','full');A.style.setProperty('--chg','0');
+      if(el>=CHARGE_MS){if(typeof tpChargedAttack==='function')tpChargedAttack();}else{if(typeof tpPrimaryAction==='function')tpPrimaryAction();}}
+    A.addEventListener('pointerup',release);A.addEventListener('pointercancel',release);})();
   acts.querySelector('#tpB').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(typeof tpActionB==='function')tpActionB();else tpJump();});
   const C=acts.querySelector('#tpC'),cDn=e=>{e.preventDefault();e.stopPropagation();tpCrouch=true;},cUp=()=>{tpCrouch=false;};
   C.addEventListener('pointerdown',cDn);C.addEventListener('pointerup',cUp);C.addEventListener('pointerleave',cUp);C.addEventListener('pointercancel',cUp);
@@ -363,6 +378,8 @@ function showExploreHelp(force){try{if(!force&&localStorage.getItem('tuzu_explor
    '🕹️ <b>Stick sinistro</b> — muoviti<br>'+
    '👁️ <b>Stick destro (piccolo)</b> — guardati intorno<br>'+
    '⚔️ <b>Tasto A</b> — azione: combatti, costruisci 🔨, raccogli ✋, parla 💬<br>'+
+   '💥 <b>Combo</b> — colpi rapidi in fila: il 3° è un <b>fendente finale</b> ad area<br>'+
+   '🔋 <b>Tieni premuto A</b> — carica un <b>colpo caricato</b>: danno forte + onda d\'urto<br>'+
    '✨ / ⤴️ <b>Tasto B</b> — magia se c\'è un nemico, altrimenti salto<br>'+
    '🧎 <b>Tasto C</b> — abbassati e nasconditi<br>'+
    '🔨 costruisci · 📜 missioni · 🗺️ torna alla mappa</div>'+
@@ -810,10 +827,16 @@ function tpDoAction(){if(!_tpTarget)return;const _now=performance.now();if(_now<
     if(c.kind==='chiave'){if(typeof _keyFound!=='undefined')_keyFound=true;if(typeof unlockCaveGate==='function')unlockCaveGate();tpFloat(c.x,c.z,'🔑','#ffe27a');}
     else{const g=18+Math.floor(Math.random()*22);R.oro=(R.oro||0)+g;if(typeof _crystalsCollected!=='undefined')_crystalsCollected++;if(typeof drawTop==='function')drawTop();tpFloat(c.x,c.z,'+'+g+' 🪙','#ffd36a');if(typeof toast==='function')toast('✋ Cristalli raccolti: +'+g+' 🪙');c.respawn=performance.now()+45000;}
     if(typeof save==='function')save();}
-  else if(t.type==='monster'){const m=t.ref;if(tpAvatar)tpAvatar.o.rotation.y=Math.atan2(m.x-tpAvatar.o.position.x,m.z-tpAvatar.o.position.z);
-    const dmg=(typeof tpAtk==='function')?tpAtk():1;hitMonster(m,dmg);
-    // FENDENTE largo: colpisce anche le altre guardie a tiro (mischia vera), danno pieno sul bersaglio e metà di lato
-    if(tpAvatar){const av=tpAvatar.o.position,sp=Math.max(1,Math.round(dmg/2));for(const g of roomGuards){if(g!==m&&g.hp>0&&g.room===_curRoom&&Math.hypot(g.x-av.x,g.z-av.z)<2.5)hitMonster(g,sp);}for(const cm of caveMonsters){if(cm!==m&&cm.hp>0&&Math.hypot(cm.x-av.x,cm.z-av.z)<2.5)hitMonster(cm,sp);}}}
+  else if(t.type==='monster'){const m=t.ref;const av=tpAvatar?tpAvatar.o.position:null;if(av)tpAvatar.o.rotation.y=Math.atan2(m.x-av.x,m.z-av.z);
+    // COMBO: colpi rapidi concatenati; il 3° è il FENDENTE FINALE (più danno, area più ampia, rinculo + onda d'urto)
+    const _n=performance.now();if(_n-_comboLast>1150||_comboStep>=3)_comboStep=0;_comboStep++;_comboLast=_n;const finisher=_comboStep>=3;
+    const base=(typeof tpAtk==='function')?tpAtk():1;const dmg=finisher?Math.max(2,Math.round(base*1.8)):base;hitMonster(m,dmg);
+    // FENDENTE largo: colpisce anche le altre guardie a tiro (mischia vera); nel finale l'area è più ampia e li respinge
+    const cleaveR=finisher?3.7:2.5,sp=finisher?Math.max(1,Math.round(dmg*0.55)):Math.max(1,Math.round(dmg/2));
+    if(av){for(const g of roomGuards){if(g!==m&&g.hp>0&&g.room===_curRoom&&Math.hypot(g.x-av.x,g.z-av.z)<cleaveR){hitMonster(g,sp);if(finisher)_tpKnock(g,av,1.0);}}for(const cm of caveMonsters){if(cm!==m&&cm.hp>0&&Math.hypot(cm.x-av.x,cm.z-av.z)<cleaveR){hitMonster(cm,sp);if(finisher)_tpKnock(cm,av,1.0);}}}
+    if(finisher){if(av&&typeof tpShockwave==='function')tpShockwave(av.x,av.z);if(av)_tpKnock(m,av,1.0);}
+    if(typeof tpComboUI==='function')tpComboUI(_comboStep,finisher);
+    if(finisher)_comboStep=0;}
   else if(t.type==='kingdom'){const nb=t.ref;nb.reached=true;if(typeof reachedNb!=='undefined')reachedNb[nb.k]=1;
     if(typeof allied!=='undefined'&&allied[nb.k]){if(typeof openNeighbor==='function')openNeighbor(nb.k);} // alleato: mercato/parla, in pace
     else if(typeof toast==='function')toast('⚔️ Regno nemico: entra e combatti le guardie sul posto (niente campo di battaglia)',4200);}
@@ -843,6 +866,20 @@ function magicBurstVisual(x,z){try{const ring=new THREE.Mesh(new THREE.RingGeome
 function tpMagic(){if(!exploreMode||!tpAvatar)return;const now=performance.now();if(now<_tpMagicCd){return;}const a=tpAvatar.o.position;const targets=tpEnemiesNear(a.x,a.z,7.5);if(!targets.length){if(typeof toast==='function')toast('✨ Nessun nemico a tiro');return;}_tpMagicCd=now+1400;magicBurstVisual(a.x,a.z);if(tpAvatar)tpAvatar.o.rotation.y=Math.atan2(targets[0].x-a.x,targets[0].z-a.z);const md=Math.max(1,Math.round(((typeof tpAtk==='function')?tpAtk():1)*0.7));for(const m of targets){if(typeof hitMonster==='function')hitMonster(m,md);}if(typeof toast==='function')toast('✨ Magia! Colpisci '+targets.length+(targets.length>1?' nemici':' nemico'),1600);}
 // tasto B: magia se ci sono nemici vicini, altrimenti salto
 function tpActionB(){if(!exploreMode)return;const a=tpAvatar?tpAvatar.o.position:null;if(a&&tpEnemiesNear(a.x,a.z,7.5).length){tpMagic();}else{if(typeof tpJump==='function')tpJump();}}
+// ===== COMBO + COLPO CARICATO: l'attacco del giocatore diventa vario =====
+let _comboStep=0,_comboLast=0;
+function _tpKnock(m,av,kb){try{const dx=m.x-av.x,dz=m.z-av.z,d=Math.hypot(dx,dz)||1,nx=m.x+dx/d*kb,nz=m.z+dz/d*kb;if(m.hp>0&&(typeof inWalkable!=='function'||inWalkable(nx,nz))){m.x=nx;m.z=nz;if(m.obj){m.obj.position.x=nx;m.obj.position.z=nz;}if(m.av){m.av.x=nx;m.av.z=nz;}}}catch(e){}}
+function tpShockwave(x,z){try{const ring=new THREE.Mesh(new THREE.RingGeometry(0.3,0.95,34),new THREE.MeshBasicMaterial({color:0xffd24a,transparent:true,opacity:0.92,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));ring.rotation.x=-Math.PI/2;ring.position.set(x,0.25,z);(typeof rGroup==='function'?rGroup(_curRoom):scene).add(ring);const t0=performance.now();(function grow(){const e=(performance.now()-t0)/480;if(e>=1){if(ring.parent)ring.parent.remove(ring);if(ring.geometry)ring.geometry.dispose();return;}const s=0.5+e*9;ring.scale.set(s,s,s);ring.material.opacity=0.92*(1-e);requestAnimationFrame(grow);})();}catch(e){}}
+function tpComboUI(step,finisher){try{let el=document.getElementById('tpcombo');if(!el){el=document.createElement('div');el.id='tpcombo';document.body.appendChild(el);}el.textContent=finisher?'✦ FENDENTE FINALE! ✦':('COMBO ×'+step);el.className=finisher?'show fin':'show';clearTimeout(el._t);el._t=setTimeout(()=>{el.className='';},720);}catch(e){}}
+function tpChargedAttack(){if(!exploreMode||!tpAvatar)return;const a=tpAvatar.o.position;const targets=(typeof tpEnemiesNear==='function')?tpEnemiesNear(a.x,a.z,4.2):[];
+  let near=null,nd=1e9;for(const m of targets){const d=Math.hypot(a.x-m.x,a.z-m.z);if(d<nd){nd=d;near=m;}}
+  if(near)tpAvatar.o.rotation.y=Math.atan2(near.x-a.x,near.z-a.z);
+  if(typeof tpShockwave==='function')tpShockwave(a.x,a.z);
+  if(typeof tpFloat==='function')tpFloat(a.x,a.z,'💥 CARICATO','#ffd24a');
+  _comboStep=0;
+  if(!targets.length){if(typeof toast==='function')toast('💥 Colpo caricato! (nessun nemico a tiro)',1500);return;}
+  const base=(typeof tpAtk==='function')?tpAtk():1,heavy=Math.max(3,Math.round(base*2.3)),splash=Math.max(1,Math.round(base*1.2));
+  for(const m of targets){hitMonster(m,m===near?heavy:splash);_tpKnock(m,a,1.6);}}
 // apri il menu costruzioni dalla terza persona; scelto un oggetto, chiudo e passo in "posa"
 function tpCloseBuildCat(){if(typeof drawer!=='undefined'&&drawer)drawer.classList.remove('open');document.body.classList.remove('tpbuilding');}
 function tpOpenBuild(){if(!exploreMode)return;if(typeof selKey!=='undefined'&&selKey){selKey=null;if(typeof toast==='function')toast('Costruzione annullata');tpCloseBuildCat();return;}
