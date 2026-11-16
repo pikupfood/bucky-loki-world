@@ -588,22 +588,31 @@ function placeCaveStairs(){if(caveStairsDone)return;caveStairsDone=true;const G=
 // ===== GROTTA A STANZE: stanze chiuse di roccia + corridoi =====
 const DROOMS={
  covo:    {x:0,  z:0,   hw:15,hd:15,kind:'base',  label:'il Covo'},
- // OVEST — regno di Nèfele: piazza + rocca interna
+ // OVEST — regno di Nèfele: piazza + sala guardie + rocca + camera del tesoro
  nefele:  {x:-48,z:0,   hw:16,hd:16,kind:'kingdom',nb:'nefele',label:'Nèfele'},
- nef_keep:{x:-84,z:0,   hw:11,hd:11,kind:'keep',   nb:'nefele',label:'la Rocca di Nèfele'},
- // EST — regno di Chrýsa: piazza + rocca interna
+ nef_hall:{x:-48,z:-44, hw:13,hd:12,kind:'hall',   nb:'nefele',label:'la Sala delle Guardie'},
+ nef_keep:{x:-86,z:0,   hw:12,hd:12,kind:'keep',   nb:'nefele',label:'la Rocca di Nèfele'},
+ nef_vault:{x:-86,z:-36,hw:10,hd:10,kind:'vault',  nb:'nefele',label:'la Camera del Cielo'},
+ // EST — regno di Chrýsa: piazza + forgia + rocca + camera dell'oro
  chrysa:  {x:48, z:0,   hw:16,hd:16,kind:'kingdom',nb:'chrysa',label:'Chrýsa'},
- chr_keep:{x:84, z:0,   hw:11,hd:11,kind:'keep',   nb:'chrysa',label:'la Rocca di Chrýsa'},
- // SUD — regno di Òros: piazza + rocca interna (qui la chiave)
+ chr_forge:{x:48,z:44,  hw:13,hd:12,kind:'hall',   nb:'chrysa',label:'la Forgia di Chrýsa'},
+ chr_keep:{x:86, z:0,   hw:12,hd:12,kind:'keep',   nb:'chrysa',label:'la Rocca di Chrýsa'},
+ chr_vault:{x:86,z:36,  hw:10,hd:10,kind:'vault',  nb:'chrysa',label:'la Camera dell\'Oro'},
+ // SUD — regno di Òros: piazza + sala + rocca (qui la chiave) + cripta
  oros:    {x:0,  z:48,  hw:16,hd:16,kind:'kingdom',nb:'oros',  label:'Òros'},
- oros_keep:{x:0, z:84,  hw:11,hd:11,kind:'keep',   nb:'oros',  label:'la Rocca di Òros'},
+ oros_hall:{x:-40,z:48, hw:13,hd:12,kind:'hall',   nb:'oros',  label:'la Sala di Òros'},
+ oros_keep:{x:0, z:86,  hw:12,hd:12,kind:'keep',   nb:'oros',  label:'la Rocca di Òros'},
+ oros_vault:{x:36,z:86, hw:10,hd:10,kind:'vault',  nb:'oros',  label:'la Cripta di Òros'},
  // NORD — caverna vuota + grotta dei cristalli
  vuota:   {x:0,  z:-48, hw:11,hd:11,kind:'empty',  label:'la Caverna Vuota'},
  cristalli:{x:0, z:-78, hw:13,hd:11,kind:'crystal', label:'la Grotta dei Cristalli'},
  // tana dei mostri (dietro il cancello chiuso, da Chrýsa)
  tana:    {x:48, z:-36, hw:10,hd:10,kind:'monsters',label:'la Tana dei Mostri'}
 };
-const DCORR=[['covo','nefele'],['nefele','nef_keep'],['covo','chrysa'],['chrysa','chr_keep'],['covo','oros'],['oros','oros_keep'],['covo','vuota'],['vuota','cristalli'],['chrysa','tana']];
+const DCORR=[['covo','nefele'],['nefele','nef_keep'],['nefele','nef_hall'],['nef_keep','nef_vault'],
+ ['covo','chrysa'],['chrysa','chr_keep'],['chrysa','chr_forge'],['chr_keep','chr_vault'],
+ ['covo','oros'],['oros','oros_keep'],['oros','oros_hall'],['oros_keep','oros_vault'],
+ ['covo','vuota'],['vuota','cristalli'],['chrysa','tana']];
 const CORRW=7;
 const WALK_RECTS=[];        // movimento (inset)
 const RECT_IDS=[];          // {id,x0,x1,z0,z1}: in che stanza/corridoio sei
@@ -693,8 +702,11 @@ function placeCollectNodes(){
     ['vuota',0,-48],['vuota',-5,-43],['vuota',6,-52],
     ['cristalli',0,-78],['cristalli',6,-74],['cristalli',-7,-81],['cristalli',4,-83],['cristalli',-5,-73],['cristalli',9,-80],
     ['c_covo_oros',2,28],['nefele',-54,6],['chrysa',54,-6],
-    ['nef_keep',-82,3],['nef_keep',-86,-3],['chr_keep',82,3],['chr_keep',86,-3],
-    ['oros_keep',0,82,'chiave']];
+    ['nef_keep',-88,3],['nef_keep',-92,-3],['chr_keep',88,3],['chr_keep',92,-3],
+    ['nef_hall',-48,-48],['nef_hall',-44,-40],['nef_vault',-86,-38],['nef_vault',-90,-34],['nef_vault',-82,-34],
+    ['chr_forge',48,48],['chr_forge',44,40],['chr_vault',86,38],['chr_vault',90,34],['chr_vault',82,34],
+    ['oros_hall',-44,52],['oros_hall',-36,44],['oros_vault',36,88],['oros_vault',40,84],['oros_vault',32,84],
+    ['oros_keep',0,90,'chiave']];
   for(const sp of spots){const rid=sp[0],x=sp[1],z=sp[2],kind=sp[3]||'cristalli',isKey=kind==='chiave';
     let o;
     if(isKey){o=new THREE.Group();const km=new THREE.MeshStandardMaterial({color:0xffd24a,emissive:0xffae00,emissiveIntensity:1.1,roughness:0.3,metalness:0.6});const s=new THREE.Mesh(new THREE.TorusGeometry(0.22,0.08,8,14),km);s.position.y=1.05;o.add(s);const st=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.55,6),km);st.position.y=0.62;o.add(st);const t1=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.06,0.06),km);t1.position.set(0.1,0.42,0);o.add(t1);}
@@ -736,6 +748,37 @@ function placeKingdomDepth(){
   for(let i=0;i<10;i++){const a=i/10*6.28+Math.random()*0.5,rr=2.5+Math.random()*(R.hw-4);const cx=R.x+Math.cos(a)*rr,cz=R.z+Math.sin(a)*rr;let o;if(templates.d_bigcrystal&&templates.d_bigcrystal.children&&templates.d_bigcrystal.children.length){o=inst('d_bigcrystal');fitHeight(o,1.4+Math.random()*2.0);}else{o=makeCrystalT();o.scale.setScalar(1.4+Math.random()*1.6);}o.position.set(cx,0,cz);o.rotation.y=Math.random()*6.28;G.add(o);addAvoid(cx,cz,0.8,1.6);const col=cols[i%cols.length];const gl=new THREE.Mesh(new THREE.SphereGeometry(1.2,8,6),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.22,depthWrite:false,fog:false}));gl.position.set(cx,1.2,cz);G.add(gl);if(i<3){const pl=new THREE.PointLight(col,0.5,11,2);pl.position.set(cx,1.7,cz);G.add(pl);}}
   }catch(e){console.warn('placeKingdomDepth',e);}
 }
+// ===== STANZE INTERNE DEI REGNI (sale + camere del tesoro): arredo, ostacoli, cartelli/indicazioni =====
+function placeKingdomRooms(){try{
+  const rooms=[
+    {id:'nef_hall',col:0x8fb0ff,theme:'guard'},{id:'nef_vault',col:0x8fb0ff,theme:'treasure'},
+    {id:'chr_forge',col:0xffd24a,theme:'forge'},{id:'chr_vault',col:0xffd24a,theme:'treasure'},
+    {id:'oros_hall',col:0x7fdb8f,theme:'guard'},{id:'oros_vault',col:0x7fdb8f,theme:'treasure'}
+  ];
+  for(const Rm of rooms){const R=DROOMS[Rm.id];if(!R)continue;const G=rGroup(Rm.id);
+    const bx=R.hw-2.4,bz=R.hd-2.4;
+    for(const [sx,sz] of [[-1,-1],[1,-1],[-1,1],[1,1]]){try{makeBrazier(R.x+sx*bx,R.z+sz*bz,Rm.id);}catch(e){}}
+    const rug=new THREE.Mesh(new THREE.CircleGeometry(3.0,26),new THREE.MeshStandardMaterial({color:Rm.col,transparent:true,opacity:0.16,roughness:1}));rug.rotation.x=-Math.PI/2;rug.position.set(R.x,0.02,R.z);rug.renderOrder=2;G.add(rug);
+    const props=Rm.theme==='forge'?['d_forge','d_barrels','d_chest','d_mine']:Rm.theme==='guard'?['d_skull','d_bones','d_rockmed','d_barrels','d_grave']:['d_bigcrystal','d_chest','d_rockmed'];
+    const n=Rm.theme==='treasure'?5:6;
+    for(let i=0;i<n;i++){const k=props[i%props.length];if(!templates[k]||!templates[k].children||!templates[k].children.length)continue;const o=inst(k);const hh=1.3+Math.random()*1.2;fitHeight(o,hh);const a=(i/n)*6.28+Math.random()*0.6,rr=(R.hw-4)*0.55+Math.random()*2.2;const px=R.x+Math.cos(a)*rr,pz=R.z+Math.sin(a)*rr;o.position.set(px,0,pz);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});G.add(o);if(typeof autoSeat==='function')autoSeat(o);addAvoid(px,pz,0.9,hh);}
+  }
+  // CARTELLI/indicazioni DENTRO i regni, verso le stanze interne
+  const SIGNSPEC=[
+    {room:'nefele',side:'W',t:'◄ Rocca',c:'#9fb8ff'},{room:'nefele',side:'N',t:'Sala ▲',c:'#9fb8ff'},
+    {room:'nef_keep',side:'N',t:'Tesoro ▲',c:'#9fb8ff'},
+    {room:'chrysa',side:'E',t:'Rocca ►',c:'#ffd98a'},{room:'chrysa',side:'S',t:'Forgia ▼',c:'#ffd98a'},
+    {room:'chr_keep',side:'S',t:'Tesoro ▼',c:'#ffd98a'},
+    {room:'oros',side:'W',t:'◄ Sala',c:'#9fe0a8'},{room:'oros',side:'S',t:'Rocca ▼',c:'#9fe0a8'},
+    {room:'oros_keep',side:'E',t:'Cripta ►',c:'#9fe0a8'}
+  ];
+  for(const s of SIGNSPEC){const R=DROOMS[s.room];if(!R)continue;let x=R.x,z=R.z,ry=0;const m=2.0;
+    if(s.side==='W'){x=R.x-R.hw+m;z=R.z+3;ry=Math.PI/2;}
+    else if(s.side==='E'){x=R.x+R.hw-m;z=R.z+3;ry=-Math.PI/2;}
+    else if(s.side==='N'){x=R.x-3;z=R.z-R.hd+m;ry=0;}
+    else{x=R.x+3;z=R.z+R.hd-m;ry=Math.PI;}
+    const sp=makeSignpost(s.t,s.c);sp.position.set(x,0,z);sp.rotation.y=ry;rGroup(s.room).add(sp);}
+}catch(e){console.warn('placeKingdomRooms',e);}}
 let _tpTarget=null,_tpActCd=0,_tpClimb=null;
 function tpFindTarget(px,pz){let best=null;
   for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(px-m.x,pz-m.z);if(d<4.4&&(!best||d<best.d))best={type:'monster',ref:m,d};}
@@ -823,29 +866,36 @@ function updCaveMonsters(dt){if(!exploreMode||!tpAvatar)return;if(_curRoom!=='ta
   }}
 // ===== INVASIONE DEL REGNO (3ª persona): entri da nemico → le GUARDIE escono e ti attaccano, le combatti sul posto (niente campo di battaglia) =====
 const roomGuards=[]; let _roomConquered={}, _betrayed={};
-const GUARD_ROOMS=['nefele','chrysa','oros'];
-function spawnRoomGuards(roomId){
+const GUARD_ROOMS=['nefele','chrysa','oros']; // piazze: guardie del regno (legate all'alleanza)
+const MONSTER_ROOMS=['nef_hall','chr_forge','oros_hall','nef_vault','chr_vault','oros_vault']; // sale/camere: mostri dell'Èrebo (sempre finché non ripulite)
+const _MONKEYS=['d_undead','d_skel','d_ghost','d_demon'];
+function spawnRoomGuards(roomId,asMonster){
   if(roomGuards.some(g=>g.room===roomId))return false;
-  const Rm=(typeof DROOMS!=='undefined')?DROOMS[roomId]:null; if(!Rm)return false; const N=4;
+  const Rm=(typeof DROOMS!=='undefined')?DROOMS[roomId]:null; if(!Rm)return false; const N=asMonster?3:4;
+  const mons=asMonster?_MONKEYS.filter(k=>templates[k]&&templates[k].children&&templates[k].children.length):[];
   for(let i=0;i<N;i++){
-    const ang=i/N*6.2832+Math.random()*0.5, rr=(Rm.hw||10)-2.4-Math.random()*1.4;
+    const ang=i/N*6.2832+Math.random()*0.5, rr=(Rm.hw||10)-2.8-Math.random()*1.4;
     const gx=Rm.x+Math.cos(ang)*rr, gz=Rm.z+Math.sin(ang)*rr;
-    let obj,walker=(typeof makeWalker==='function')?makeWalker(1.12):null;
-    if(walker){obj=walker.o;} else {obj=(templates.d_skull&&templates.d_skull.children.length)?inst('d_skull'):new THREE.Group();if(typeof fitHeight==='function'){try{fitHeight(obj,1.5);}catch(e){}}}
+    let obj,walker=null;
+    if(asMonster&&mons.length){obj=inst(mons[Math.floor(Math.random()*mons.length)]);if(typeof fitHeight==='function'){try{fitHeight(obj,2.2);}catch(e){}}obj.rotation.y=Math.random()*6.28;}
+    else{walker=(typeof makeWalker==='function')?makeWalker(1.12):null;if(walker){obj=walker.o;}else{obj=(templates.d_skull&&templates.d_skull.children.length)?inst('d_skull'):new THREE.Group();if(typeof fitHeight==='function'){try{fitHeight(obj,1.5);}catch(e){}}}}
     obj.position.set(gx,0,gz);(typeof rGroup==='function'?rGroup(roomId):cityGroup).add(obj);
-    if(typeof addAvoid==='function')addAvoid(gx,gz,0.55,1.7);
-    roomGuards.push({obj,x:gx,z:gz,hp:6,maxhp:6,av:avoid[avoid.length-1],room:roomId,home:{x:gx,z:gz},acd:0,walker,speed:2.9,_guard:true});
+    if(typeof addAvoid==='function')addAvoid(gx,gz,0.55,1.9);
+    roomGuards.push({obj,x:gx,z:gz,hp:asMonster?5:6,maxhp:asMonster?5:6,av:avoid[avoid.length-1],room:roomId,home:{x:gx,z:gz},acd:0,walker,speed:asMonster?2.6:2.9,_guard:true,_mon:!!asMonster});
   }
   return true;
 }
 function guardsLeft(roomId){let n=0;for(const g of roomGuards)if(g.room===roomId&&g.hp>0)n++;return n;}
 function onRoomCleared(roomId){
   if(_roomConquered[roomId])return; _roomConquered[roomId]=true;
-  const nbk=(typeof DROOMS!=='undefined'&&DROOMS[roomId])?DROOMS[roomId].nb:null;
-  if(nbk){try{if(typeof hostile!=='undefined')delete hostile[nbk];}catch(e){} if(typeof conquered!=='undefined')conquered[nbk]=1; if(typeof liberated!=='undefined')liberated[nbk]=1;}
-  const rew=120+Math.floor(Math.random()*120); R.oro=(R.oro||0)+rew;
+  const dk=(typeof DROOMS!=='undefined')?DROOMS[roomId]:null, isPiazza=dk&&dk.kind==='kingdom';
+  if(isPiazza){const nbk=dk.nb;if(nbk){try{if(typeof hostile!=='undefined')delete hostile[nbk];}catch(e){} if(typeof conquered!=='undefined')conquered[nbk]=1; if(typeof liberated!=='undefined')liberated[nbk]=1;}
+    const rew=120+Math.floor(Math.random()*120); R.oro=(R.oro||0)+rew;
+    if(typeof toast==='function')toast('🏰 Regno conquistato: '+(nbk&&typeof kName==='function'?kName(nbk):'nemico')+'! +'+rew+' 🪙',4800);
+  } else {const rew=70+Math.floor(Math.random()*70); R.oro=(R.oro||0)+rew;
+    if(typeof toast==='function')toast('🧹 '+(dk?dk.label:'Sala')+' ripulita! +'+rew+' 🪙',4200);
+  }
   if(typeof drawTop==='function')drawTop(); if(typeof save==='function')save();
-  if(typeof toast==='function')toast('🏰 Regno conquistato: '+(nbk&&typeof kName==='function'?kName(nbk):'nemico')+'! +'+rew+' 🪙',4800);
 }
 function updRoomCombat(dt){
   if(!exploreMode||!tpAvatar)return; const a=tpAvatar.o.position, cur=_curRoom;
@@ -853,6 +903,8 @@ function updRoomCombat(dt){
     const nbk=(typeof DROOMS!=='undefined'&&DROOMS[cur])?DROOMS[cur].nb:null;
     const pacified=((typeof allied!=='undefined'&&allied[nbk])&&!_betrayed[cur])||(typeof conquered!=='undefined'&&conquered[nbk]);
     if(!pacified&&!roomGuards.some(g=>g.room===cur)){if(spawnRoomGuards(cur)&&typeof toast==='function')toast('⚔️ Sei entrato in un regno nemico! Le guardie ti attaccano — difenditi col tasto ⚔️',4600);}
+  } else if(MONSTER_ROOMS.indexOf(cur)>=0&&!_roomConquered[cur]&&!roomGuards.some(g=>g.room===cur)){
+    if(spawnRoomGuards(cur,true)&&typeof toast==='function')toast('👹 Mostri dell\'Èrebo infestano '+((typeof DROOMS!=='undefined'&&DROOMS[cur])?DROOMS[cur].label:'questa sala')+'! Falli fuori ⚔️',4200);
   }
   for(const g of roomGuards){
     if(g.hp<=0||!g.obj)continue;
@@ -2640,8 +2692,8 @@ document.getElementById('zin').onclick=()=>setZoom(VZ*0.8);document.getElementBy
 document.getElementById('zrot').onclick=()=>{placeRot=(placeRot+1)%4;toast('↻ Rotazione: '+(placeRot*90)+'° (per muri, cancelli, torri, decori)',2600);};
 
 // ===== salvataggio =====
-function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({ver:3,R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1,sk:b.skin||0})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,cs:c.cycleStart,hv:c.harvests,ex:c.exhausted})),he:heroes,sr:soldierRank,rs:research,ach:achieved,fp:firstPlay,mk:myKingdom,mb:monstersBeaten,nx:nyxarBeaten,dk:darkLevel,ho:Object.keys(hostile),cq:Object.keys(conquered),qd:(typeof questDone!=='undefined')?Object.keys(questDone):[],cc:(typeof _crystalsCollected!=='undefined')?_crystalsCollected:0,kf:(typeof _keyFound!=='undefined')?_keyFound:false,vr:(typeof _visitedRooms!=='undefined')?Object.keys(_visitedRooms):[],ts:Date.now()}));if(window.TuzuCloud)window.TuzuCloud.scheduleSync();}catch(e){}}
-function loadSave(){try{const raw=localStorage.getItem('tuzu_rpg5');const s=raw?JSON.parse(raw):null;if(!s||s.ver!==3){if(raw)localStorage.removeItem('tuzu_rpg5');return false;}R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};achieved=s.ach||{};firstPlay=s.fp||0;if(s.mk)applyKingdom(s.mk);monstersBeaten=s.mb||0;nyxarBeaten=s.nx||0;darkLevel=s.dk||0;hostile={};(s.ho||[]).forEach(k=>hostile[k]=1);conquered={};(s.cq||[]).forEach(k=>conquered[k]=1);try{if(typeof questDone!=='undefined')(s.qd||[]).forEach(k=>questDone[k]=1);if(typeof _crystalsCollected!=='undefined'&&s.cc)_crystalsCollected=s.cc;if(typeof _keyFound!=='undefined'&&s.kf)_keyFound=true;if(typeof _visitedRooms!=='undefined')(s.vr||[]).forEach(k=>_visitedRooms[k]=1);}catch(e){}offlineSince=s.ts||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});/* CAVERNA: non ripristino i laghi di superficie ne gli alberi selvatici (erano le "punte bianche") */(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);Object.keys(hostile).forEach(k=>{if(hostile[k])delete allied[k];});placeScatterForests();/* CAVERNA: niente laghi/fiumi/vegetazione di superficie; placeScatterForests ora riempie di roccia/stalagmiti */
+function save(){try{localStorage.setItem('tuzu_rpg5',JSON.stringify({ver:3,R,soldiers,operai,terreLiberate,morale,builtCount,liberated,miss:missions.map(m=>m.got),par:Object.keys(unlockedPar),rc:Object.keys(reclaimed),wl:wilds,lc:lakeCenters,nr:Object.keys(reachedNb),al:Object.keys(allied),b:buildings.map(b=>({k:b.key,cx:b.cx,cy:b.cy,lv:b.lvl||1,sk:b.skin||0})),d:decos,df:defenses,pn:pens.map(p=>({k:p.key,ax:p.ax,ay:p.ay,an:p.animals.map(a=>a.key)})),cr:crops.map(c=>({t:c.type,cx:c.cx,cy:c.cy,cs:c.cycleStart,hv:c.harvests,ex:c.exhausted})),he:heroes,sr:soldierRank,rs:research,ach:achieved,fp:firstPlay,mk:myKingdom,mb:monstersBeaten,nx:nyxarBeaten,dk:darkLevel,ho:Object.keys(hostile),cq:Object.keys(conquered),qd:(typeof questDone!=='undefined')?Object.keys(questDone):[],cc:(typeof _crystalsCollected!=='undefined')?_crystalsCollected:0,kf:(typeof _keyFound!=='undefined')?_keyFound:false,vr:(typeof _visitedRooms!=='undefined')?Object.keys(_visitedRooms):[],rq:(typeof _roomConquered!=='undefined')?Object.keys(_roomConquered):[],ts:Date.now()}));if(window.TuzuCloud)window.TuzuCloud.scheduleSync();}catch(e){}}
+function loadSave(){try{const raw=localStorage.getItem('tuzu_rpg5');const s=raw?JSON.parse(raw):null;if(!s||s.ver!==3){if(raw)localStorage.removeItem('tuzu_rpg5');return false;}R=s.R;soldiers=s.soldiers||2;operai=s.operai||5;terreLiberate=s.terreLiberate||0;morale=s.morale||58;builtCount=s.builtCount||0;liberated=s.liberated||{};heroes=s.he||{};soldierRank=s.sr||0;research=s.rs||{};achieved=s.ach||{};firstPlay=s.fp||0;if(s.mk)applyKingdom(s.mk);monstersBeaten=s.mb||0;nyxarBeaten=s.nx||0;darkLevel=s.dk||0;hostile={};(s.ho||[]).forEach(k=>hostile[k]=1);conquered={};(s.cq||[]).forEach(k=>conquered[k]=1);try{if(typeof questDone!=='undefined')(s.qd||[]).forEach(k=>questDone[k]=1);if(typeof _crystalsCollected!=='undefined'&&s.cc)_crystalsCollected=s.cc;if(typeof _keyFound!=='undefined'&&s.kf)_keyFound=true;if(typeof _visitedRooms!=='undefined')(s.vr||[]).forEach(k=>_visitedRooms[k]=1);if(typeof _roomConquered!=='undefined')(s.rq||[]).forEach(k=>_roomConquered[k]=1);}catch(e){}offlineSince=s.ts||0;if(R){if(R.pane===undefined)R.pane=0;if(R.armi===undefined)R.armi=0;}(s.miss||[]).forEach((g,i)=>{if(missions[i])missions[i].got=g;});(s.par||[]).forEach(k=>unlockedPar[k]=1);refreshLocks();(s.rc||[]).forEach(k=>{const p=k.split(',').map(Number);reclaimCell(p[0],p[1]);});/* CAVERNA: non ripristino i laghi di superficie ne gli alberi selvatici (erano le "punte bianche") */(s.nr||[]).forEach(k=>reachedNb[k]=1);(s.al||[]).forEach(k=>allied[k]=1);Object.keys(hostile).forEach(k=>{if(hostile[k])delete allied[k];});placeScatterForests();/* CAVERNA: niente laghi/fiumi/vegetazione di superficie; placeScatterForests ora riempie di roccia/stalagmiti */
   _restoring=true;
   (s.b||[]).forEach(it=>restoreBuilding(it));
   (s.d||[]).forEach(it=>{if(DECO[it.k])placeDeco(it.cx,it.cy,it.k);});
@@ -3117,7 +3169,7 @@ window.addEventListener('pagehide',()=>{if(started)save();});
     placeScatterForests(); // riempie la caverna di roccia/stalagmiti/cristalli
   }
   // CAVERNA: niente castello ne regni di superficie; i villaggi vicini restano come dati ma invisibili (stripSurface li nasconde)
-  initNeighbors();buildDungeonRooms();placeDungeonTorches();placeDungeonDecor();placeCovoProps();placeCaveWater();placeCaveStairs();placeCollectNodes();placeKingdomDepth();stripSurface();darkenBuildings();
+  initNeighbors();buildDungeonRooms();placeDungeonTorches();placeDungeonDecor();placeCovoProps();placeCaveWater();placeCaveStairs();placeCollectNodes();placeKingdomDepth();placeKingdomRooms();stripSurface();darkenBuildings();
   // ripristino stato avventura dal salvataggio: se la chiave era già presa, il cancello resta aperto
   if(typeof _keyFound!=='undefined'&&_keyFound){try{const kn=collectNodes.find(c=>c.kind==='chiave');if(kn){kn.taken=true;if(kn.obj)kn.obj.visible=false;if(kn.glow)kn.glow.visible=false;}if(caveGateLocked){caveGateLocked=false;if(caveGate){caveGate.rotation.y+=Math.PI*0.42;caveGate.position.x-=2.6;}}}catch(e){}}
   for(let i=0;i<5;i++)spawnAgent('operaio');for(let i=0;i<2;i++)spawnAgent('milite');
