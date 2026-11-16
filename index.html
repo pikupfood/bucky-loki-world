@@ -583,11 +583,11 @@ const dungeonFloor=(()=>{const s=512,c=document.createElement('canvas');c.width=
   return new THREE.CanvasTexture(c);})();
 // MURI: pietra grigia a blocchi (ashlar) con malta e smusso 3D — chiara abbastanza da leggersi anche in ombra
 const dungeonStone=(()=>{const s=512,c=document.createElement('canvas');c.width=c.height=s;const g=c.getContext('2d');
-  g.fillStyle='#2b2d33';g.fillRect(0,0,s,s); // malta scura fra i blocchi
+  g.fillStyle='#17181d';g.fillRect(0,0,s,s); // malta molto scura fra i blocchi (atmosfera cupa)
   const bh=74;for(let y=0,row=0;y<s+bh;y+=bh,row++){const off=(row%2)?70:0;for(let x=-140;x<s;x+=136){
     const bx=x+off+6,by=y+6,bw=136-12,hh=bh-12,v=Math.floor(Math.random()*28-12);
-    g.fillStyle='rgb('+(82+v)+','+(80+v)+','+(88+v)+')';g.fillRect(bx,by,bw,hh);
-    g.strokeStyle='rgba(255,255,255,0.12)';g.lineWidth=2;g.beginPath();g.moveTo(bx,by+hh);g.lineTo(bx,by);g.lineTo(bx+bw,by);g.stroke(); // luce alto-sx
+    g.fillStyle='rgb('+(56+v)+','+(55+v)+','+(63+v)+')';g.fillRect(bx,by,bw,hh);
+    g.strokeStyle='rgba(210,214,230,0.10)';g.lineWidth=2;g.beginPath();g.moveTo(bx,by+hh);g.lineTo(bx,by);g.lineTo(bx+bw,by);g.stroke(); // luce alto-sx
     g.strokeStyle='rgba(0,0,0,0.5)';g.beginPath();g.moveTo(bx+bw,by);g.lineTo(bx+bw,by+hh);g.lineTo(bx,by+hh);g.stroke(); // ombra basso-dx
   }}
   for(let i=0;i<14000;i++){g.fillStyle='rgba(0,0,0,'+(Math.random()*0.10)+')';g.fillRect(Math.random()*s,Math.random()*s,1,1);}
@@ -784,7 +784,7 @@ function buildDungeonRooms(){if(dungeonRoomsDone)return;dungeonRoomsDone=true;co
     const along=Math.max(lx,lz);
     const t=dungeonStone.clone();t.wrapS=t.wrapT=THREE.RepeatWrapping;
     t.repeat.set(Math.max(1,Math.round(along/4)),Math.max(1,Math.round(H/4)));t.needsUpdate=true;
-    const mat=new THREE.MeshStandardMaterial({map:t,color:0xffffff,roughness:0.92,metalness:0.05,emissive:0x34323c,emissiveMap:t,emissiveIntensity:0.4});
+    const mat=new THREE.MeshStandardMaterial({map:t,color:0xeef0f6,roughness:0.95,metalness:0.04,emissive:0x16151c,emissiveMap:t,emissiveIntensity:0.3});
     const m=new THREE.Mesh(new THREE.BoxGeometry(lx,H,lz),mat);m.position.set(cx,H/2-0.3,cz);rGroup(gid).add(m);};
   const subtract=(a,b,opens)=>{let cur=[[a,b]];for(const [o0,o1] of opens){const nx=[];for(const [s0,s1] of cur){if(o1<=s0||o0>=s1)nx.push([s0,s1]);else{if(o0>s0)nx.push([s0,o0]);if(o1<s1)nx.push([o1,s1]);}}cur=nx;}return cur;};
   const open={};for(const k in DROOMS)open[k]={N:[],S:[],E:[],W:[]};
