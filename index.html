@@ -186,6 +186,7 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
   <div class="sbtn" id="btnMenu"><span>☰</span><b>Altro</b></div>
   <div class="sbtn more" id="btnEquip"><span>🎒</span><b>Equip</b></div>
   <div class="sbtn more" id="btnChar"><span>🎨</span><b>Aspetto</b></div>
+  <div class="sbtn more" id="btnPerf"><span>📊</span><b>FPS</b></div>
   <div class="sbtn more" id="btnHero"><span>🦸</span><b>Eroi</b></div>
   <div class="sbtn more" id="btnChat"><span>💬</span><b>Tuzu</b></div>
   <div class="sbtn more" id="btnLib"><span>📚</span><b>Ricerche</b></div>
@@ -304,7 +305,7 @@ try{if(THREE.EffectComposer&&THREE.RenderPass&&THREE.ShaderPass){composer=new TH
   composer.addPass(new THREE.ShaderPass(GradeShader));}}catch(e){composer=null;}
 // ===== MODALITA' ESPLORAZIONE in TERZA PERSONA (commutabile al volo) =====
 const tpCam=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,0.1,400);
-let exploreMode=false,tpAvatar=null,tpYaw=0.7;
+let exploreMode=false,tpAvatar=null,tpYaw=0.7,_prewarmed=false;
 const tpInput={f:0,b:0,l:0,r:0,rotL:0,rotR:0};
 const tpJoy={active:false,dx:0,dy:0};
 const tpLook={active:false,dx:0,dy:0}; // joystick destro: guardarsi intorno
@@ -447,6 +448,7 @@ function enterExplore(){if(exploreMode)return;if(typeof mode!=='undefined'&&mode
   if(!tpAvatar){tpAvatar=(typeof makeWalker==='function')?makeWalker(0.9,(typeof avatarChar!=='undefined'?avatarChar:null),(typeof avatarTint!=='undefined'?avatarTint:null)):null;if(tpAvatar){tpAvatar.o.position.set(camTarget.x,0,camTarget.z);cityGroup.add(tpAvatar.o);}}
   if(!tpAvatar){if(typeof toast==='function')toast('Personaggio non disponibile');return;}
   exploreMode=true;tpAvatar.o.position.set(camTarget.x,0,camTarget.z);if(renderPass)renderPass.camera=tpCam;
+  if(!_prewarmed){_prewarmed=true;try{if(renderer&&renderer.compile)renderer.compile(scene,tpCam);}catch(e){}} // pre-compila gli shader: sposta l'eventuale scatto da "roba nuova che compare" al momento dell'ingresso
   document.body.classList.add('explore');const j=document.getElementById('tpjoy');if(j)j.style.display='block';const b=document.getElementById('tpbtn');if(b)b.textContent='🗺️';
   if(typeof tpApplyArmor==='function')tpApplyArmor();tpHp=tpMaxHp;if(typeof tpUpdHealthUI==='function')tpUpdHealthUI();if(typeof tpGearHUD==='function')tpGearHUD();if(typeof nyxarBeaten!=='undefined'&&nyxarBeaten>0&&typeof addNyxTrophyAura==='function')addNyxTrophyAura();resize();setTimeout(()=>{if(typeof showExploreHelp==='function')showExploreHelp();},350);}
 function exitExplore(){if(!exploreMode)return;exploreMode=false;if(renderPass)renderPass.camera=camera;if(tpAvatar&&typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);
@@ -3106,6 +3108,9 @@ document.getElementById('btnMiss').onclick=()=>openMiss();
 document.getElementById('btnHero').onclick=()=>{if(mode==='city')openHeroes();};
 {const be=document.getElementById('btnEquip');if(be)be.onclick=()=>{if(typeof openEquip==='function')openEquip();};}
 {const bc=document.getElementById('btnChar');if(bc)bc.onclick=()=>{if(typeof openCharCustom==='function')openCharCustom();};}
+{const togglePerf=()=>{window._perfOn=!window._perfOn;const el=document.getElementById('perfhud');if(el&&!window._perfOn)el.remove();if(typeof toast==='function')toast(window._perfOn?'📊 Misuratore FPS ON — gioca e guarda il numero «peggiore ms»: quando si blocca sale. Rimetti su 📊 per toglierlo.':'Misuratore FPS OFF',window._perfOn?5200:1800);};
+ const bp=document.getElementById('btnPerf');if(bp)bp.onclick=togglePerf;
+ window.addEventListener('keydown',e=>{if((e.key||'').toLowerCase()!=='p')return;const t=e.target;if(t&&/^(input|textarea)$/i.test(t.tagName||''))return;togglePerf();});}
 // ===== mini-guida iniziale =====
 const GUIDE=[
  {em:'🕳️',t:'Benvenuto nel tuo covo',x:'Guidi i <b>Chlòri</b>, un popolo di piccoli Tuzu 🟢 nel sottosuolo. Fai crescere il tuo <b>covo</b>, esplora le stanze della grotta, alleati o combatti gli altri regni, fino a dominare il <b>Reame</b> del <b>Tàrtaro</b>.'},
@@ -3529,7 +3534,10 @@ if(miniC){miniC.addEventListener('pointerdown',ev=>{ev.preventDefault();ev.stopP
 {const zmapBtn=document.getElementById('zmap');if(zmapBtn)zmapBtn.onclick=()=>{miniOn=!miniOn;if(miniC)miniC.style.display=miniOn?'block':'none';if(miniOn)drawMiniMap();zmapBtn.style.opacity=miniOn?'1':'';toast(miniOn?'🗺️ Minimappa accesa':'🗺️ Minimappa nascosta',1300);};}
 // ===== loop =====
 let last=performance.now(),saveT=0,missT=0,started=false;
+let _perfMax=0,_perfFrames=0,_perfAcc=0;
 function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000,.1);last=now;
+  // MISURATORE PRESTAZIONI (toggle da menu ☰ → FPS, o tasto P): fps + fotogramma PEGGIORE negli ultimi 0,7s → per trovare i freeze
+  if(window._perfOn){const ms=dt*1000;if(ms>_perfMax)_perfMax=ms;_perfFrames++;_perfAcc+=dt;if(_perfAcc>=0.7){const fps=Math.round(_perfFrames/_perfAcc),worst=Math.round(_perfMax);let el=document.getElementById('perfhud');if(!el){el=document.createElement('div');el.id='perfhud';el.style.cssText='position:fixed;left:6px;top:6px;z-index:200;background:rgba(0,0,0,.74);color:#8fffa0;font:700 12px/1.35 ui-monospace,monospace;padding:4px 9px;border-radius:8px;pointer-events:none;white-space:pre';document.body.appendChild(el);}el.textContent='FPS '+fps+'   peggiore '+worst+'ms'+(worst>80?'  ⚠ SCATTO':'');el.style.color=worst>120?'#ff6a6a':worst>60?'#ffd24a':'#8fffa0';_perfFrames=0;_perfAcc=0;_perfMax=0;}}
   if(waterNrm){waterNrm.offset.x=(waterNrm.offset.x+dt*0.013)%1;waterNrm.offset.y=(waterNrm.offset.y+dt*0.009)%1;}
   updClouds(dt);updPollen(dt);updDungeonFires(dt);updCaveWater(dt);
   if(started)updDayNight(dt);
