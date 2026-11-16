@@ -774,7 +774,7 @@ function tpGroundY(x,z){if(!tpAvatar)return 0;
   if(!_floorTargets||performance.now()-_floorBuilt>2500){_floorTargets=[];try{scene.traverse(m=>{if(m.isMesh&&m.userData&&m.userData.floor)_floorTargets.push(m);});}catch(e){}_floorBuilt=performance.now();}
   if(!_floorTargets.length)return (tpAvatar._baseY||0);
   _tpFrom.set(x,10,z);_tpDownRay.set(_tpFrom,_tpDownDir);_tpDownRay.far=13;let hits;try{hits=_tpDownRay.intersectObjects(_floorTargets,false);}catch(e){return 0;}
-  for(let i=0;i<hits.length;i++){const y=hits[i].point.y;if(y<=2.0)return Math.max(0,y);} // solo suolo e scale (≤2): mai in cima a un prop
+  for(let i=0;i<hits.length;i++){const y=hits[i].point.y;if(y<=4.5)return Math.max(0,y);} // suolo + scale/piattaforme (≤4.5): ci sali davvero (prima ≤2 → sprofondavi oltre i 2m sulle scale). I prop NON sono 'floor', quindi non ci sali
   return 0;}
 // SCALE: salita reale (l'avatar sale, non ci passa dentro)
 const STAIR={sx:12,sz:-3,steps:7,sw:3.2,sd:0.92,sh:0.42};
@@ -814,7 +814,7 @@ function buildDungeonRooms(){if(dungeonRoomsDone)return;dungeonRoomsDone=true;co
   const mons=['d_undead','d_skel','d_ghost','d_demon'].filter(k=>templates[k]&&templates[k].children&&templates[k].children.length);
   if(mons.length){const Tn=DROOMS.tana;for(let i=0;i<5;i++){const k=mons[Math.floor(Math.random()*mons.length)];const o=inst(k);fitHeight(o,2.3);const mx=Tn.x+(Math.random()-0.5)*Tn.hw*1.1,mz=Tn.z+(Math.random()-0.5)*Tn.hd*1.1;o.position.set(mx,0,mz);o.rotation.y=Math.random()*6.28;rGroup('tana').add(o);if(typeof autoSeat==='function')autoSeat(o);addAvoid(mx,mz,0.9);caveMonsters.push({obj:o,x:mx,z:mz,hp:8,maxhp:8,av:avoid[avoid.length-1],room:'tana'});}}
   // OGGETTI DISTRUTTIBILI nelle stanze: alberi/casse/barili/rocce da tagliare e distruggere (droppano risorse)
-  try{const DTY=['tree','tree','crate','barrel','rock','rock'];for(const k in DROOMS){const Rr=DROOMS[k];if(k==='covo'||k==='tana')continue;const n=1+Math.floor(Math.random()*3);for(let i=0;i<n;i++){const ang=Math.random()*6.2832,rr=(Math.min(Rr.hw,Rr.hd)-2.6)*(0.45+Math.random()*0.5);const x=Rr.x+Math.cos(ang)*rr,z=Rr.z+Math.sin(ang)*rr;if(typeof hitAvoid==='function'&&hitAvoid(x,z,0.8))continue;mkDestructible(DTY[Math.floor(Math.random()*DTY.length)],x,z,k);}}}catch(e){console.warn('destructibles',e);}
+  try{const DTY=['tree','tree','crate','barrel','rock','rock','pot','pot','crate'];for(const k in DROOMS){const Rr=DROOMS[k];if(k==='covo'||k==='tana')continue;const n=3+Math.floor(Math.random()*3);for(let i=0;i<n;i++){const ang=Math.random()*6.2832,rr=(Math.min(Rr.hw,Rr.hd)-2.6)*(0.4+Math.random()*0.55);const x=Rr.x+Math.cos(ang)*rr,z=Rr.z+Math.sin(ang)*rr;if(typeof hitAvoid==='function'&&hitAvoid(x,z,0.8))continue;mkDestructible(DTY[Math.floor(Math.random()*DTY.length)],x,z,k);}}}catch(e){console.warn('destructibles',e);}
   // FORZIERI DEL TESORO: uno nelle sale/rocche/cristalli/caverna — da scoprire e aprire per una ricompensa
   try{const CHESTROOMS=['nef_hall','nef_keep','chr_forge','chr_keep','oros_hall','oros_keep','cristalli','vuota'];for(const k of CHESTROOMS){const Rr=DROOMS[k];if(!Rr)continue;let placed=false;for(let t=0;t<8&&!placed;t++){const ang=Math.random()*6.2832,rr=(Math.min(Rr.hw,Rr.hd)-3)*(0.55+Math.random()*0.35);const x=Rr.x+Math.cos(ang)*rr,z=Rr.z+Math.sin(ang)*rr;if(typeof hitAvoid==='function'&&hitAvoid(x,z,1.1))continue;mkTreasure(x,z,k);placed=true;}}}catch(e){console.warn('treasure',e);}
   // CANCELLO chiuso all'imbocco della Tana (si apre con la chiave nascosta a Oros)
@@ -943,10 +943,11 @@ function mkDestructible(type,x,z,room){let g=new THREE.Group();g.position.set(x,
     const fol=new THREE.MeshStandardMaterial({color:0x3f7a3a,roughness:1,emissive:0x16301a,emissiveIntensity:0.5});for(let i=0;i<3;i++){const f=new THREE.Mesh(new THREE.ConeGeometry(1.05-i*0.22,1.0,8),fol);f.position.y=1.5+i*0.5;f.castShadow=true;g.add(f);}
   } else if(type==='crate'){hp=2;drop={legna:[4,8]};const mm=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({color:0x8a5a2a,roughness:1,emissive:0x2a1a0c,emissiveIntensity:0.5}));mm.position.y=0.5;mm.castShadow=true;g.add(mm);const ed=new THREE.LineSegments(new THREE.EdgesGeometry(mm.geometry),new THREE.LineBasicMaterial({color:0x3a2410}));ed.position.y=0.5;g.add(ed);
   } else if(type==='barrel'){hp=2;drop={oro:[8,16]};const mm=new THREE.Mesh(new THREE.CylinderGeometry(0.48,0.48,1.05,12),new THREE.MeshStandardMaterial({color:0x7a4a28,roughness:1,emissive:0x281709,emissiveIntensity:0.5}));mm.position.y=0.52;mm.castShadow=true;g.add(mm);
+  } else if(type==='pot'){hp=1;drop={oro:[12,24]};const cer=new THREE.MeshStandardMaterial({color:0xb86a3a,roughness:0.8,emissive:0x2a160a,emissiveIntensity:0.5});const body=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.42,0.62,12),cer);body.position.y=0.33;body.castShadow=true;g.add(body);const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.3,0.2,12),cer);neck.position.y=0.72;g.add(neck);const rim=new THREE.Mesh(new THREE.TorusGeometry(0.22,0.05,6,12),cer);rim.rotation.x=Math.PI/2;rim.position.y=0.82;g.add(rim);
   } else {type='rock';hp=4;drop={pietra:[6,12]};const mm=new THREE.Mesh(new THREE.IcosahedronGeometry(0.7,0),new THREE.MeshStandardMaterial({color:0x7a7a82,roughness:1,flatShading:true,emissive:0x2a2a30,emissiveIntensity:0.5}));mm.position.y=0.55;mm.castShadow=true;g.add(mm);}
   (typeof rGroup==='function'?rGroup(room):scene).add(g);
-  let av=null;if(typeof addAvoid==='function'){addAvoid(x,z,(type==='tree'?0.85:type==='rock'?0.72:type==='barrel'?0.6:0.65));av=avoid[avoid.length-1];}
-  const dz={obj:g,x,z,room,hp,maxhp:hp,type,drop,emo:(type==='rock'?'⛏️':type==='tree'?'🪓':'💥'),av};destructibles.push(dz);return dz;}
+  let av=null;if(typeof addAvoid==='function'){addAvoid(x,z,(type==='tree'?0.85:type==='rock'?0.72:type==='barrel'?0.6:type==='pot'?0.42:0.65));av=avoid[avoid.length-1];}
+  const dz={obj:g,x,z,room,hp,maxhp:hp,type,drop,emo:(type==='rock'?'⛏️':type==='tree'?'🪓':type==='pot'?'🏺':'💥'),av};destructibles.push(dz);return dz;}
 function hitDestructible(dz,dmg){if(!dz||dz.dead)return;dmg=dmg||1;dz.hp-=dmg;
   const o=dz.obj;if(o){o.scale.multiplyScalar(0.93);setTimeout(()=>{if(o&&!dz.dead)o.scale.multiplyScalar(1/0.93);},90);}
   if(dz.hp>0){tpFloat(dz.x,dz.z,'-'+dmg,'#ffe0a0');return;}
