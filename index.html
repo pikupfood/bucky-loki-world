@@ -472,8 +472,8 @@ function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
   const Fx=-Math.sin(tpYaw),Fz=-Math.cos(tpYaw),Rx=Math.cos(tpYaw),Rz=-Math.sin(tpYaw);
   let dx=Fx*mf+Rx*mr,dz=Fz*mf+Rz*mr;const dl=Math.hypot(dx,dz);
   if(dl>0.08){dx/=dl;dz/=dl;const SP=(tpCrouch?2.4:5.4);const ox=o.position.x,oz=o.position.z,nx=ox+dx*SP*dt,nz=oz+dz*SP*dt;
-    // "incastrato" SOLO se sei davvero DENTRO la geometria (fuori da ogni stanza, o dentro un edificio, o oltre il bordo dell'ostacolo): allora esci. Sfiorare un oggetto NON conta (prima bastava avvicinarsi e si attraversava tutto)
-    const stuck=(typeof inRoomRaw==='function'&&!inRoomRaw(ox,oz))||solidAt(ox,oz)||hitAvoid(ox,oz,-0.35);
+    // "incastrato" SOLO fuori da ogni stanza o dentro un edificio: allora esci. Gli oggetti NON danno più il via libera (la respinta qui sotto ti spinge fuori) → niente attraversamento
+    const stuck=(typeof inRoomRaw==='function'&&!inRoomRaw(ox,oz))||solidAt(ox,oz);
     if(stuck){o.position.x=nx;o.position.z=nz;}
     else if(canStep(nx,nz)){o.position.x=nx;o.position.z=nz;}
     else if(canStep(nx,oz)){o.position.x=nx;}
@@ -483,6 +483,10 @@ function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
     if(!tpLook.active){const target=Math.atan2(-dx,-dz);let d2=target-tpYaw;while(d2>Math.PI)d2-=2*Math.PI;while(d2<-Math.PI)d2+=2*Math.PI;tpYaw+=d2*Math.min(1,dt*1.8);}}
   else{if(tpInput.rotL)tpYaw+=dt*1.6;if(tpInput.rotR)tpYaw-=dt*1.6;if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,false);}
   }
+  // SOLIDITÀ: se sei finito DENTRO un oggetto (scatto, spinta, spawn), ti rispinge fuori → gli oggetti non si attraversano più
+  if(typeof avoid!=='undefined'&&avoid.length){const px=o.position.x,pz=o.position.z;let bi=-1,bd=0;
+    for(let i=0;i<avoid.length;i++){const a=avoid[i];if(a.h<0.45)continue;const ex=px-a.x,ez=pz-a.z,rr=a.r+0.26,d2=ex*ex+ez*ez;if(d2<rr*rr){const dep=rr-Math.sqrt(d2);if(dep>bd){bd=dep;bi=i;}}}
+    if(bi>=0){const a=avoid[bi];let ex=px-a.x,ez=pz-a.z,d=Math.hypot(ex,ez);if(d<1e-4){ex=Math.cos(tpYaw+1.5708);ez=Math.sin(tpYaw+1.5708);d=1;}const rr=a.r+0.26,qx=a.x+ex/d*rr,qz=a.z+ez/d*rr;if((typeof inWalkable!=='function'||inWalkable(qx,qz))&&(typeof solidAt!=='function'||!solidAt(qx,qz))){o.position.x=qx;o.position.z=qz;}}}
   const ty=(typeof tpGroundY==='function')?tpGroundY(o.position.x,o.position.z):0;tpAvatar._baseY=(tpAvatar._baseY||0)+(ty-(tpAvatar._baseY||0))*Math.min(1,dt*12);o.position.y=tpAvatar._baseY+tpJumpY;
   const D=6.8,H=4.4;
   // la camera NON entra nei muri: la avvicino se dietro c'e' un muro
@@ -916,7 +920,7 @@ function mkDestructible(type,x,z,room){let g=new THREE.Group();g.position.set(x,
   } else if(type==='barrel'){hp=2;drop={oro:[8,16]};const mm=new THREE.Mesh(new THREE.CylinderGeometry(0.48,0.48,1.05,12),new THREE.MeshStandardMaterial({color:0x7a4a28,roughness:1,emissive:0x281709,emissiveIntensity:0.5}));mm.position.y=0.52;mm.castShadow=true;g.add(mm);
   } else {type='rock';hp=4;drop={pietra:[6,12]};const mm=new THREE.Mesh(new THREE.IcosahedronGeometry(0.7,0),new THREE.MeshStandardMaterial({color:0x7a7a82,roughness:1,flatShading:true,emissive:0x2a2a30,emissiveIntensity:0.5}));mm.position.y=0.55;mm.castShadow=true;g.add(mm);}
   (typeof rGroup==='function'?rGroup(room):scene).add(g);
-  let av=null;if(typeof addAvoid==='function'){addAvoid(x,z,0.5);av=avoid[avoid.length-1];}
+  let av=null;if(typeof addAvoid==='function'){addAvoid(x,z,(type==='tree'?0.85:type==='rock'?0.72:type==='barrel'?0.6:0.65));av=avoid[avoid.length-1];}
   const dz={obj:g,x,z,room,hp,maxhp:hp,type,drop,emo:(type==='rock'?'⛏️':type==='tree'?'🪓':'💥'),av};destructibles.push(dz);return dz;}
 function hitDestructible(dz,dmg){if(!dz||dz.dead)return;dmg=dmg||1;dz.hp-=dmg;
   const o=dz.obj;if(o){o.scale.multiplyScalar(0.93);setTimeout(()=>{if(o&&!dz.dead)o.scale.multiplyScalar(1/0.93);},90);}
