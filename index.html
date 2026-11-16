@@ -360,7 +360,7 @@ function showExploreHelp(force){try{if(!force&&localStorage.getItem('tuzu_explor
    '<div style="text-align:left;font-size:13px;line-height:1.75">'+
    '🕹️ <b>Stick sinistro</b> — muoviti<br>'+
    '👁️ <b>Stick destro (piccolo)</b> — guardati intorno<br>'+
-   '⚔️ <b>Tasto A</b> — azione: combatti, costruisci 🔨, raccogli ✋, parla 💬, arrampica 🧗<br>'+
+   '⚔️ <b>Tasto A</b> — azione: combatti, costruisci 🔨, raccogli ✋, parla 💬<br>'+
    '✨ / ⤴️ <b>Tasto B</b> — magia se c\'è un nemico, altrimenti salto<br>'+
    '🧎 <b>Tasto C</b> — abbassati e nasconditi<br>'+
    '🔨 costruisci · 📜 missioni · 🗺️ torna alla mappa</div>'+
@@ -390,7 +390,8 @@ function updExplore(dt){if(!exploreMode||!tpAvatar)return;const o=tpAvatar.o;
   const Fx=-Math.sin(tpYaw),Fz=-Math.cos(tpYaw),Rx=Math.cos(tpYaw),Rz=-Math.sin(tpYaw);
   let dx=Fx*mf+Rx*mr,dz=Fz*mf+Rz*mr;const dl=Math.hypot(dx,dz);
   if(dl>0.08){dx/=dl;dz/=dl;const SP=(tpCrouch?2.4:5.4);const ox=o.position.x,oz=o.position.z,nx=ox+dx*SP*dt,nz=oz+dz*SP*dt;
-    if(canStep(nx,nz)){o.position.x=nx;o.position.z=nz;}
+    if(!canStep(ox,oz)){o.position.x=nx;o.position.z=nz;} // sei incastrato dentro un oggetto: esci liberamente
+    else if(canStep(nx,nz)){o.position.x=nx;o.position.z=nz;}
     else if(canStep(nx,oz)){o.position.x=nx;}
     else if(canStep(ox,nz)){o.position.z=nz;}
     const fa=Math.atan2(dx,dz);let fd=fa-o.rotation.y;while(fd>Math.PI)fd-=2*Math.PI;while(fd<-Math.PI)fd+=2*Math.PI;o.rotation.y+=fd*Math.min(1,dt*9);if(typeof setWalkerMoving==='function')setWalkerMoving(tpAvatar,true);
@@ -532,7 +533,7 @@ function placeDungeonDecor(){if(dungeonDecorDone)return;dungeonDecorDone=true;co
   const hH={d_skull:0.8,d_bones:0.7,d_rockmed:1.5,d_mush:1.5,d_mush2:0.9,d_bigcrystal:2.4,d_grave:1.9,d_dead:3.0,d_dead2:3.0,d_twist:3.0,d_twist2:3.0};
   let n=0,tries=0;while(n<22&&tries<240){tries++;const a=Math.random()*6.2832,r=20+Math.random()*38,x=Math.cos(a)*r,z=Math.sin(a)*r;
     if(Math.hypot(x,z)<18)continue;if(typeof roomAt==='function'&&!roomAt(x,z))continue;if(typeof inAnyLake==='function'&&inAnyLake(x,z,2))continue;
-    const k=keys[Math.floor(Math.random()*keys.length)];if(!templates[k]||!templates[k].children.length)continue;const o=inst(k);const hgt=(hH[k]||2.4)*(0.82+Math.random()*0.45);fitHeight(o,hgt);o.position.set(x,0,z);o.rotation.y=Math.random()*6.2832;if(typeof roomAddAt==='function')roomAddAt(o,x,z);else cityGroup.add(o);if(typeof autoSeat==='function')autoSeat(o);if(typeof addAvoid==='function')addAvoid(x,z,0.9,hgt);if(typeof tagFloor==='function')tagFloor(o);n++;} // floor su tutti i decori: ci atterri sopra saltando
+    const k=keys[Math.floor(Math.random()*keys.length)];if(!templates[k]||!templates[k].children.length)continue;const o=inst(k);const hgt=(hH[k]||2.4)*(0.82+Math.random()*0.45);fitHeight(o,hgt);o.position.set(x,0,z);o.rotation.y=Math.random()*6.2832;if(typeof roomAddAt==='function')roomAddAt(o,x,z);else cityGroup.add(o);if(typeof autoSeat==='function')autoSeat(o);if(typeof addAvoid==='function')addAvoid(x,z,1.1,hgt);n++;} // SOLIDO (niente floor): ci sbatti contro, non ci sali dentro
   if(templates.d_gate&&templates.d_gate.children.length){const o=inst('d_gate');fitHeight(o,4.6);o.position.set(0,0,-19);if(typeof roomAddAt==='function')roomAddAt(o,0,-19);else cityGroup.add(o);if(typeof autoSeat==='function')autoSeat(o);}}
 // MURA della caverna che chiudono il covo: sei dentro una sala di pietra + lanterne a muro + trono
 let cavernDone=false;
@@ -559,7 +560,7 @@ function placeCaveWater(){if(caveWaterDone)return;caveWaterDone=true;const G=(ty
   const basin=new THREE.Mesh(new THREE.CircleGeometry(5.4,40),new THREE.MeshStandardMaterial({map:dungeonFloor,color:0x2a2622,roughness:1}));basin.rotation.x=-Math.PI/2;basin.position.set(px,0.015,pz);basin.receiveShadow=true;G.add(basin);
   const waterMat=new THREE.MeshStandardMaterial({color:0x1c3c4a,emissive:0x0a1a26,roughness:0.14,metalness:0.25,transparent:true,opacity:0.88});
   const water=new THREE.Mesh(new THREE.CircleGeometry(4.6,40),waterMat);water.rotation.x=-Math.PI/2;water.position.set(px,0.05,pz);G.add(water);caveWater.push({mesh:water,baseY:0.05});
-  for(let i=0;i<16;i++){const a=i/16*6.2832,r=4.9+Math.random()*0.5,k=Math.random()<0.6?'d_rockmed':'stalag';if(!templates[k]||!templates[k].children.length)continue;const o=inst(k);const rh=0.8+Math.random()*1.1;fitHeight(o,rh);const rx=px+Math.cos(a)*r,rz=pz+Math.sin(a)*r;o.position.set(rx,0,rz);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});G.add(o);if(typeof addAvoid==='function')addAvoid(rx,rz,0.7,rh);if(typeof tagFloor==='function')tagFloor(o);}
+  for(let i=0;i<16;i++){const a=i/16*6.2832,r=4.9+Math.random()*0.5,k=Math.random()<0.6?'d_rockmed':'stalag';if(!templates[k]||!templates[k].children.length)continue;const o=inst(k);const rh=0.8+Math.random()*1.1;fitHeight(o,rh);const rx=px+Math.cos(a)*r,rz=pz+Math.sin(a)*r;o.position.set(rx,0,rz);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});G.add(o);if(typeof addAvoid==='function')addAvoid(rx,rz,0.7,rh);}
   const pl=new THREE.PointLight(0x2f6f9a,0.85,15,2);pl.position.set(px,2.4,pz);G.add(pl);
   // cascata dietro lo stagno
   const wx=px, wz=pz-5.2, LEDGE=7.5;
@@ -588,14 +589,14 @@ function placeCaveStairs(){if(caveStairsDone)return;caveStairsDone=true;const G=
 const DROOMS={
  covo:    {x:0,  z:0,   hw:15,hd:15,kind:'base',  label:'il Covo'},
  // OVEST — regno di Nèfele: piazza + rocca interna
- nefele:  {x:-48,z:0,   hw:13,hd:13,kind:'kingdom',nb:'nefele',label:'Nèfele'},
- nef_keep:{x:-76,z:0,   hw:9, hd:10,kind:'keep',   nb:'nefele',label:'la Rocca di Nèfele'},
+ nefele:  {x:-48,z:0,   hw:16,hd:16,kind:'kingdom',nb:'nefele',label:'Nèfele'},
+ nef_keep:{x:-84,z:0,   hw:11,hd:11,kind:'keep',   nb:'nefele',label:'la Rocca di Nèfele'},
  // EST — regno di Chrýsa: piazza + rocca interna
- chrysa:  {x:48, z:0,   hw:13,hd:13,kind:'kingdom',nb:'chrysa',label:'Chrýsa'},
- chr_keep:{x:76, z:0,   hw:9, hd:10,kind:'keep',   nb:'chrysa',label:'la Rocca di Chrýsa'},
+ chrysa:  {x:48, z:0,   hw:16,hd:16,kind:'kingdom',nb:'chrysa',label:'Chrýsa'},
+ chr_keep:{x:84, z:0,   hw:11,hd:11,kind:'keep',   nb:'chrysa',label:'la Rocca di Chrýsa'},
  // SUD — regno di Òros: piazza + rocca interna (qui la chiave)
- oros:    {x:0,  z:48,  hw:13,hd:13,kind:'kingdom',nb:'oros',  label:'Òros'},
- oros_keep:{x:0, z:76,  hw:10,hd:9, kind:'keep',   nb:'oros',  label:'la Rocca di Òros'},
+ oros:    {x:0,  z:48,  hw:16,hd:16,kind:'kingdom',nb:'oros',  label:'Òros'},
+ oros_keep:{x:0, z:84,  hw:11,hd:11,kind:'keep',   nb:'oros',  label:'la Rocca di Òros'},
  // NORD — caverna vuota + grotta dei cristalli
  vuota:   {x:0,  z:-48, hw:11,hd:11,kind:'empty',  label:'la Caverna Vuota'},
  cristalli:{x:0, z:-78, hw:13,hd:11,kind:'crystal', label:'la Grotta dei Cristalli'},
@@ -629,10 +630,10 @@ function unlockCaveGate(){if(!caveGateLocked)return;caveGateLocked=false;if(cave
 // ostacoli BASSI (h<1) non si aggiungono: ci si cammina/sale sopra (il raggio al suolo mette i piedi in cima)
 function addAvoid(x,z,r,h){h=(h==null?2.2:h);if(h<0.45)return;avoid.push({x:x,z:z,r:r,h:h});} // avatar ~0.9 alto: blocca tutto ≥0.45; solo le roccette <0.45 si scavalcano/saltano
 let _tpFootY=0; // altezza dei piedi dell'avatar (per saltare SOPRA gli ostacoli)
-function hitAvoid(x,z,pad,footY){pad=pad||0;for(let i=0;i<avoid.length;i++){const a=avoid[i],dx=x-a.x,dz=z-a.z,rr=a.r+pad;if(dx*dx+dz*dz<rr*rr){if(footY!=null&&footY>=(a.h||2.2)-0.08)continue;/* sei più in alto dell'ostacolo: ci passi sopra */return true;}}return false;}
+function hitAvoid(x,z,pad){pad=pad||0;for(let i=0;i<avoid.length;i++){const a=avoid[i],dx=x-a.x,dz=z-a.z,rr=a.r+pad;if(dx*dx+dz*dz<rr*rr)return true;}return false;} // SOLIDO: gli oggetti non si attraversano mai (niente scavalco)
 // edifici/acqua/difese del giocatore: li legge dalla griglia (nel covo)
-function solidAt(wx,wz){if(typeof grid==='undefined'||typeof HALF==='undefined'||typeof CELL==='undefined')return false;const cx=Math.round(wx/CELL+HALF),cy=Math.round(wz/CELL+HALF);const e=grid[(typeof key==='function')?key(cx,cy):cx+','+cy];if(!e)return false;const t=e.type;return t==='building'||t==='water'||t==='def';}
-function canStep(x,z){return inWalkable(x,z)&&!solidAt(x,z)&&!inGateStrip(x,z)&&!hitAvoid(x,z,0.5,_tpFootY);}
+function solidAt(wx,wz){if(typeof grid==='undefined'||typeof HALF==='undefined'||typeof CELL==='undefined')return false;const cx=Math.round(wx/CELL+HALF),cy=Math.round(wz/CELL+HALF);const e=grid[(typeof key==='function')?key(cx,cy):cx+','+cy];if(!e)return false;const t=e.type;if(t==='building'||t==='water'||t==='def'||t==='tree')return true;if(t==='deco'){const dd=(typeof DECO!=='undefined')?DECO[e.key]:null;if(dd&&!dd.flower&&!dd.road&&!dd.grass)return true;} /* decorazioni solide (pozzo, casse, statue…): non ci entri dentro */ return false;}
+function canStep(x,z){return inWalkable(x,z)&&!solidAt(x,z)&&!inGateStrip(x,z)&&!hitAvoid(x,z,0.5);}
 // raggio verso il basso SOLO sulle superfici calpestabili (userData.floor): pavimento, scale, cerchio, roccette
 const _tpDownRay=new THREE.Raycaster();const _tpDownDir=new THREE.Vector3(0,-1,0);const _tpFrom=new THREE.Vector3();
 let _floorTargets=null,_floorBuilt=0;
@@ -640,9 +641,9 @@ function tagFloor(o){if(o)o.traverse(m=>{if(m.isMesh)m.userData.floor=true;});}
 function tpGroundY(x,z){if(!tpAvatar)return 0;
   if(!_floorTargets||performance.now()-_floorBuilt>2500){_floorTargets=[];try{scene.traverse(m=>{if(m.isMesh&&m.userData&&m.userData.floor)_floorTargets.push(m);});}catch(e){}_floorBuilt=performance.now();}
   if(!_floorTargets.length)return (tpAvatar._baseY||0);
-  _tpFrom.set(x,10,z);_tpDownRay.set(_tpFrom,_tpDownDir);_tpDownRay.far=13;let hits;try{hits=_tpDownRay.intersectObjects(_floorTargets,false);}catch(e){return (tpAvatar._baseY||0);}
-  for(let i=0;i<hits.length;i++){if(hits[i].point.y<=5.5)return hits[i].point.y;}
-  return hits.length?hits[0].point.y:0;}
+  _tpFrom.set(x,10,z);_tpDownRay.set(_tpFrom,_tpDownDir);_tpDownRay.far=13;let hits;try{hits=_tpDownRay.intersectObjects(_floorTargets,false);}catch(e){return 0;}
+  for(let i=0;i<hits.length;i++){const y=hits[i].point.y;if(y<=2.0)return Math.max(0,y);} // solo suolo e scale (≤2): mai in cima a un prop
+  return 0;}
 // SCALE: salita reale (l'avatar sale, non ci passa dentro)
 const STAIR={sx:12,sz:-3,steps:7,sw:3.2,sd:0.92,sh:0.42};
 function stepHeightAt(wx,wz){const S=STAIR,topY=S.steps*S.sh;if(wx<S.sx-S.sw/2-0.4||wx>S.sx+S.sw/2+0.9)return 0;const bottomZ=S.sz+0.6,topZ=S.sz-S.steps*S.sd;if(wz>bottomZ)return 0;if(wz<=topZ)return topY;return Math.max(0,Math.min(1,(bottomZ-wz)/(bottomZ-topZ)))*topY;}
@@ -676,20 +677,24 @@ function buildDungeonRooms(){if(dungeonRoomsDone)return;dungeonRoomsDone=true;co
   }
   if(templates.d_throne&&templates.d_throne.children.length){const t=inst('d_throne');fitHeight(t,2.8);t.position.set(0,0,-DROOMS.covo.hd+2.6);rGroup('covo').add(t);if(typeof autoSeat==='function')autoSeat(t);addAvoid(0,-DROOMS.covo.hd+2.6,1.4);}
   const mons=['d_undead','d_skel','d_ghost','d_demon'].filter(k=>templates[k]&&templates[k].children&&templates[k].children.length);
-  if(mons.length){const Tn=DROOMS.tana;for(let i=0;i<5;i++){const k=mons[Math.floor(Math.random()*mons.length)];const o=inst(k);fitHeight(o,2.3);const mx=Tn.x+(Math.random()-0.5)*Tn.hw*1.1,mz=Tn.z+(Math.random()-0.5)*Tn.hd*1.1;o.position.set(mx,0,mz);o.rotation.y=Math.random()*6.28;rGroup('tana').add(o);if(typeof autoSeat==='function')autoSeat(o);addAvoid(mx,mz,0.9);caveMonsters.push({obj:o,x:mx,z:mz,hp:3,maxhp:3,av:avoid[avoid.length-1]});}}
+  if(mons.length){const Tn=DROOMS.tana;for(let i=0;i<5;i++){const k=mons[Math.floor(Math.random()*mons.length)];const o=inst(k);fitHeight(o,2.3);const mx=Tn.x+(Math.random()-0.5)*Tn.hw*1.1,mz=Tn.z+(Math.random()-0.5)*Tn.hd*1.1;o.position.set(mx,0,mz);o.rotation.y=Math.random()*6.28;rGroup('tana').add(o);if(typeof autoSeat==='function')autoSeat(o);addAvoid(mx,mz,0.9);caveMonsters.push({obj:o,x:mx,z:mz,hp:5,maxhp:5,av:avoid[avoid.length-1]});}}
   // CANCELLO chiuso all'imbocco della Tana (si apre con la chiave nascosta a Oros)
   if(templates.d_gate&&templates.d_gate.children&&templates.d_gate.children.length){caveGate=inst('d_gate');fitHeight(caveGate,4.4);caveGate.position.set(48,0,-24);caveGate.rotation.y=Math.PI/2;caveGate.traverse(m=>{if(m.isMesh)m.castShadow=true;});rGroup('c_chrysa_tana').add(caveGate);if(typeof autoSeat==='function')autoSeat(caveGate);}
+  // montanti SOLIDI ai lati del cancello (restano anche da aperto: il varco è nel mezzo)
+  if(typeof addAvoid==='function'){addAvoid(44.7,-24,0.85);addAvoid(51.3,-24,0.85);}
 }
 // i regni vicini (async) li ancoro e li metto nel gruppo della loro stanza
-function anchorKingdoms(){if(typeof neighbors==='undefined')return;for(const k in DROOMS){const R=DROOMS[k];if(R.kind!=='kingdom'||!R.nb)continue;const nb=neighbors.find(n=>n.k===R.nb);if(nb&&nb.g&&nb.g.parent!==roomVis[k]){nb.g.position.set(R.x,0,R.z);nb.g.scale.setScalar(1.35);rGroup(k).add(nb.g);if(typeof addAvoid==='function')addAvoid(R.x,R.z,5.2);}}}
+function anchorKingdoms(){if(typeof neighbors==='undefined')return;const S=1.7;for(const k in DROOMS){const R=DROOMS[k];if(R.kind!=='kingdom'||!R.nb)continue;const nb=neighbors.find(n=>n.k===R.nb);if(nb&&nb.g&&nb.g.parent!==roomVis[k]){nb.g.position.set(R.x,0,R.z);nb.g.scale.setScalar(S);rGroup(k).add(nb.g);
+    if(typeof addAvoid==='function'){if(nb._bav&&nb._bav.length){for(const b of nb._bav)addAvoid(R.x+b.x*S,R.z+b.z*S,b.r*S);}else addAvoid(R.x,R.z,6.5);} // una collisione per OGNI edificio: non attraversi le rocchette
+  }}}
 // ===== INTERAZIONI in terza persona: combatti / raccogli / parla-allèati =====
 function placeCollectNodes(){
   const spots=[['covo',6,10],['covo',-11,-10],['covo',11,11],
     ['vuota',0,-48],['vuota',-5,-43],['vuota',6,-52],
     ['cristalli',0,-78],['cristalli',6,-74],['cristalli',-7,-81],['cristalli',4,-83],['cristalli',-5,-73],['cristalli',9,-80],
     ['c_covo_oros',2,28],['nefele',-54,6],['chrysa',54,-6],
-    ['nef_keep',-76,3],['nef_keep',-79,-3],['chr_keep',76,3],['chr_keep',79,-3],
-    ['oros_keep',0,76,'chiave']];
+    ['nef_keep',-82,3],['nef_keep',-86,-3],['chr_keep',82,3],['chr_keep',86,-3],
+    ['oros_keep',0,82,'chiave']];
   for(const sp of spots){const rid=sp[0],x=sp[1],z=sp[2],kind=sp[3]||'cristalli',isKey=kind==='chiave';
     let o;
     if(isKey){o=new THREE.Group();const km=new THREE.MeshStandardMaterial({color:0xffd24a,emissive:0xffae00,emissiveIntensity:1.1,roughness:0.3,metalness:0.6});const s=new THREE.Mesh(new THREE.TorusGeometry(0.22,0.08,8,14),km);s.position.y=1.05;o.add(s);const st=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.55,6),km);st.position.y=0.62;o.add(st);const t1=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.06,0.06),km);t1.position.set(0.1,0.42,0);o.add(t1);}
@@ -702,12 +707,12 @@ function placeCollectNodes(){
 // ===== PROFONDITÀ DEI REGNI: rocche interne (trono+sovrano), cartelli/indicazioni, grotta dei cristalli =====
 function makeSignpost(text,col){
   const g=new THREE.Group();
-  const post=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.12,1.5,6),new THREE.MeshStandardMaterial({color:0x5a4327,roughness:1}));post.position.y=0.75;g.add(post);
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.12,1.08,6),new THREE.MeshStandardMaterial({color:0x5a4327,roughness:1}));post.position.y=0.54;g.add(post);
   const cv=document.createElement('canvas');cv.width=256;cv.height=72;const cx=cv.getContext('2d');
   cx.fillStyle='#3a2a16';cx.fillRect(0,0,256,72);cx.strokeStyle='#e8c877';cx.lineWidth=5;cx.strokeRect(5,5,246,62);
   cx.fillStyle=col||'#ffe9b0';cx.font='bold 34px Georgia';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(text,128,38);
   const tex=new THREE.CanvasTexture(cv);tex.minFilter=THREE.LinearFilter;
-  const board=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.56,0.09),new THREE.MeshBasicMaterial({map:tex}));board.position.y=1.3;g.add(board);
+  const board=new THREE.Mesh(new THREE.BoxGeometry(2.1,0.64,0.09),new THREE.MeshBasicMaterial({map:tex}));board.position.y=1.46;g.add(board);
   return g;
 }
 function placeKingdomDepth(){
@@ -775,8 +780,6 @@ function tpUnlockFootprint(cx,cy){try{
 function tpPrimaryAction(){if(!exploreMode)return;
   // modalità costruzione/semina: posa al posto dell'avatar (sbloccando il terreno)
   if(typeof selKey!=='undefined'&&selKey&&typeof tryPlace==='function'&&typeof cellOfWorld==='function'&&tpAvatar){const c=cellOfWorld(tpAvatar.o.position.x,tpAvatar.o.position.z);if(typeof inB==='function'&&!inB(c[0],c[1])){if(typeof toast==='function')toast('🔨 Qui non puoi costruire: torna nel tuo Covo');return;}tpUnlockFootprint(c[0],c[1]);try{tryPlace(c[0],c[1]);}catch(e){}return;}
-  // arrampicata: salto potenziato per salire su una sporgenza alta davanti a te (tieni avanti il joystick)
-  if(_tpClimb&&(!_tpTarget||_tpTarget.type==='kingdom')){const h=_tpClimb.h;tpJumpV=Math.sqrt(2*24*(h+0.7));if(tpJumpY<=0)tpJumpY=0.01;if(typeof toast==='function')toast('🧗 Ti arrampichi — spingi avanti!',1400);return;}
   if(_tpTarget){tpDoAction();return;}if(tpAvatar){const a=tpAvatar.o.position;let best=null,bd=3.2;for(const m of caveMonsters){if(m.hp<=0)continue;const d=Math.hypot(a.x-m.x,a.z-m.z);if(d<bd){bd=d;best=m;}}for(const g of roomGuards){if(g.hp<=0)continue;const d=Math.hypot(a.x-g.x,a.z-g.z);if(d<bd){bd=d;best=g;}}if(best){_tpTarget={type:'monster',ref:best,d:bd};tpDoAction();}}}
 // ===== MAGIA (tasto B in combattimento): colpo ad AREA a distanza =====
 let _tpMagicCd=0;
@@ -799,16 +802,10 @@ function updTpAction(px,pz){
   const A=document.getElementById('tpA');
   if(!exploreMode){_tpTarget=null;return;}
   _tpTarget=tpFindTarget(px,pz);
-  // arrampicata: ostacolo ALTO proprio davanti (e nient'altro da fare) → 🧗
   _tpClimb=null;
-  if(tpAvatar&&!(typeof selKey!=='undefined'&&selKey)&&(!_tpTarget||_tpTarget.type==='kingdom')&&typeof tpYaw!=='undefined'){
-    const fx=-Math.sin(tpYaw),fz=-Math.cos(tpYaw);
-    for(let i=0;i<avoid.length;i++){const a=avoid[i],dx=a.x-px,dz=a.z-pz,d=Math.hypot(dx,dz)||1;if(d<a.r+1.5&&(dx/d*fx+dz/d*fz)>0.45&&a.h>=1.0&&a.h<=4.3){_tpClimb={x:a.x,z:a.z,h:a.h};break;}}
-  }
   const enemyNear=(typeof tpEnemiesNear==='function'&&tpAvatar)?tpEnemiesNear(px,pz,7.5).length>0:false;
   if(A){if(typeof selKey!=='undefined'&&selKey)A.textContent='🔨';
     else if(_tpTarget){const T=_tpTarget;A.textContent=T.type==='gate'?'🔒':T.type==='collect'?((T.ref&&T.ref.kind==='chiave')?'🔑':'✋'):({monster:'⚔️',kingdom:'🤝',npc:'💬'}[T.type]||'⚔️');}
-    else if(_tpClimb)A.textContent='🧗';
     else A.textContent='⚔️';}
   // tasto B: ✨ magia se c'è un nemico a tiro, altrimenti ⤴️ salto
   const B=document.getElementById('tpB');if(B)B.textContent=enemyNear?'✨':'⤴️';
@@ -829,7 +826,7 @@ const roomGuards=[]; let _roomConquered={}, _betrayed={};
 const GUARD_ROOMS=['nefele','chrysa','oros'];
 function spawnRoomGuards(roomId){
   if(roomGuards.some(g=>g.room===roomId))return false;
-  const Rm=(typeof DROOMS!=='undefined')?DROOMS[roomId]:null; if(!Rm)return false; const N=3;
+  const Rm=(typeof DROOMS!=='undefined')?DROOMS[roomId]:null; if(!Rm)return false; const N=4;
   for(let i=0;i<N;i++){
     const ang=i/N*6.2832+Math.random()*0.5, rr=(Rm.hw||10)-2.4-Math.random()*1.4;
     const gx=Rm.x+Math.cos(ang)*rr, gz=Rm.z+Math.sin(ang)*rr;
@@ -837,7 +834,7 @@ function spawnRoomGuards(roomId){
     if(walker){obj=walker.o;} else {obj=(templates.d_skull&&templates.d_skull.children.length)?inst('d_skull'):new THREE.Group();if(typeof fitHeight==='function'){try{fitHeight(obj,1.5);}catch(e){}}}
     obj.position.set(gx,0,gz);(typeof rGroup==='function'?rGroup(roomId):cityGroup).add(obj);
     if(typeof addAvoid==='function')addAvoid(gx,gz,0.55,1.7);
-    roomGuards.push({obj,x:gx,z:gz,hp:3,maxhp:3,av:avoid[avoid.length-1],room:roomId,home:{x:gx,z:gz},acd:0,walker,speed:2.2,_guard:true});
+    roomGuards.push({obj,x:gx,z:gz,hp:6,maxhp:6,av:avoid[avoid.length-1],room:roomId,home:{x:gx,z:gz},acd:0,walker,speed:2.9,_guard:true});
   }
   return true;
 }
@@ -2102,7 +2099,7 @@ function updAnimals(dt){animals.forEach(a=>{const o=a.obj;if(a.mixer)a.mixer.upd
 // ===== villaggi vicini (autonomi) =====
 const COLORMAP={nefele:'blue',chrysa:'yellow',oros:'red'};
 const neighbors=[];
-async function nbBuild(nb,file,cx,cz){const o=await loadModel(B+'buildings/'+nb.col+'/building_'+file+'_'+nb.col+'.gltf');o.position.set(cx*1.9,0,cz*1.9);o.rotation.y=Math.random()*.4-.2;nb.g.add(o);autoSeat(o);nb.cells[cx+','+cz]=1;}
+async function nbBuild(nb,file,cx,cz){const o=await loadModel(B+'buildings/'+nb.col+'/building_'+file+'_'+nb.col+'.gltf');o.position.set(cx*1.9,0,cz*1.9);o.rotation.y=Math.random()*.4-.2;nb.g.add(o);autoSeat(o);nb.cells[cx+','+cz]=1;if(nb._bav)nb._bav.push({x:cx*1.9,z:cz*1.9,r:1.15});}
 function nbSpawn(nb){const g=new THREE.Group();g.position.set((Math.random()-.5)*4,0,(Math.random()-.5)*4);nb.g.add(g);const a={obj:g,tx:g.position.x,tz:g.position.z,state:'idle',timer:Math.random()*3,speed:0.6+Math.random()*.2,bob:Math.random()*6};nb.agents.push(a);const w=makeWalker(0.42);if(w){a.walker=w;g.add(w.o);}else loadModel(AD+'Rogue.glb').then(m=>{m.scale.setScalar(PS);g.add(m);});}
 const SIGNCOL={blue:0x3b6fb0,yellow:0xd9a93a,red:0xb33b3b};
 function makeSign(col){const g=new THREE.Group();const post=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,1.5,6),new THREE.MeshStandardMaterial({color:0x6b4a28,roughness:1}));post.position.y=0.75;g.add(post);const board=new THREE.Mesh(new THREE.BoxGeometry(0.85,0.4,0.1),new THREE.MeshBasicMaterial({color:col}));board.position.set(0.18,1.2,0);g.add(board);const tip=new THREE.Mesh(new THREE.ConeGeometry(0.2,0.3,4),new THREE.MeshBasicMaterial({color:col}));tip.rotation.z=-Math.PI/2;tip.position.set(0.68,1.2,0);g.add(tip);g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;}
@@ -2121,7 +2118,7 @@ function nbForestRing(nb,count,rad,dense){const toCity=Math.atan2(-nb.g.position
 // il mostro corrompe la terra attorno: alberi contorti + funghi (nemici tanto, alleati poco che resistono con i fiori)
 // ogni villaggio vicino ha il SUO castello pixellabs al centro
 const NB_PALACE={nefele:'m_watchtower',chrysa:'m_castle',oros:'m_fortress',thalassa:'m_castleR',pyra:'m_fortress',krios:'m_castle',selenea:'m_fortress',metalla:'m_castle',dendra:'m_castleR'};
-function nbPalace(nb){const tpl=NB_PALACE[nb.k]||'m_castle';if(!templates[tpl])return;const o=inst(tpl);o.scale.setScalar(1.7);o.position.set(0,0,0);o.rotation.y=Math.random()*0.6-0.3;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});nb.g.add(o);if(typeof autoSeat==='function')autoSeat(o);nb.cells['0,0']=1;}
+function nbPalace(nb){const tpl=NB_PALACE[nb.k]||'m_castle';if(!templates[tpl])return;const o=inst(tpl);o.scale.setScalar(1.7);o.position.set(0,0,0);o.rotation.y=Math.random()*0.6-0.3;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});nb.g.add(o);if(typeof autoSeat==='function')autoSeat(o);nb.cells['0,0']=1;if(nb._bav)nb._bav.push({x:0,z:0,r:2.0});}
 // arredo del villaggio vicino con props già caricati (lanterne, botti, torce, cartello): carattere senza peso extra
 function nbDecor(nb){const ring=(nb._ring||5);const items=['p_lantern','p_barrels','p_torch','p_signpost','p_chest','p_lantern'];const n=4+Math.floor(Math.random()*3);
   for(let i=0;i<n;i++){const tpl=items[i%items.length];if(!templates[tpl])continue;const o=inst(tpl);const a=(i/n)*6.28+Math.random()*0.5,r=ring*0.55+Math.random()*(ring*0.3);o.position.set(Math.cos(a)*r,0,Math.sin(a)*r);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});nb.g.add(o);if(typeof autoSeat==='function')autoSeat(o);}}
@@ -2141,7 +2138,7 @@ async function initNeighbors(){const spec=[
     {k:'nefele',x:-30,z:4,ax:HALF-12,ay:HALF+1, build:[['home_A',-1,0],['home_B',1,0],['tower_B',0,1],['market',1,-1]], defense:'stone', ring:5.6, forest:10},
     {k:'chrysa',x:30,z:-5,ax:HALF+12,ay:HALF-1, build:[['market',-1,0],['home_A',1,1],['blacksmith',-1,-1],['home_B',1,-1]], defense:'wood', ring:5.2, forest:14},
     {k:'oros',x:5,z:30,ax:HALF+1,ay:HALF+12, build:[['home_A',-1,-1],['home_B',1,0],['church',0,1],['home_A',-1,1]], defense:'forest', ring:5.0, forest:26}];
-  for(const s of spec){if(s.k===myKingdom)continue;const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:6,mil:2,timer:40+Math.random()*30,agents:[],ax:s.ax,ay:s.ay,reached:!!reachedNb[s.k],_ring:s.ring};
+  for(const s of spec){if(s.k===myKingdom)continue;const col=COLORMAP[s.k];const g=new THREE.Group();g.position.set(s.x,0,s.z);cityGroup.add(g);const nb={k:s.k,col,g,cells:{},pop:6,mil:2,timer:40+Math.random()*30,agents:[],ax:s.ax,ay:s.ay,reached:!!reachedNb[s.k],_ring:s.ring,_bav:[]};
     for(const [f,cx,cz] of s.build)await nbBuild(nb,f,cx,cz);
     nbPalace(nb);
     // difesa: muro di pietra, palisade di legno, o fitto bosco (ora stalagmiti)
