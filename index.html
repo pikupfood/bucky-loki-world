@@ -369,8 +369,38 @@ function tpJump(){if(exploreMode&&tpAvatar&&tpJumpY<=0.02&&tpJumpV===0){tpJumpV=
 // ancora un pulsante per entrare/uscire dall'esplorazione quando sei in mappa (iso)
 (function(){const b=document.createElement('button');b.id='tpenter';b.textContent='🚶';b.title='Esplora';b.style.cssText='position:fixed;right:12px;bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:60;width:54px;height:54px;border-radius:50%;border:2px solid rgba(255,220,150,.5);background:rgba(28,22,16,.85);color:#ffdca0;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center';document.body.appendChild(b);b.addEventListener('click',()=>{if(!exploreMode)toggleExplore();});
   const style=document.createElement('style');style.textContent='.explore #tpenter{display:none}';document.head.appendChild(style);})();
-window.addEventListener('keydown',e=>{const k=(e.key||'').toLowerCase();if(k==='w'||k==='arrowup')tpInput.f=1;else if(k==='s'||k==='arrowdown')tpInput.b=1;else if(k==='a'||k==='arrowleft')tpInput.l=1;else if(k==='d'||k==='arrowright')tpInput.r=1;else if(k==='q')tpInput.rotL=1;else if(k==='e')tpInput.rotR=1;else if(k==='f'||k==='enter'){if(exploreMode){e.preventDefault();if(typeof tpPrimaryAction==='function')tpPrimaryAction();}}else if(k===' '){if(exploreMode){e.preventDefault();if(typeof tpJump==='function')tpJump();}}else if(k==='shift'||k==='c'){if(exploreMode)tpCrouch=true;}});
-window.addEventListener('keyup',e=>{const k=(e.key||'').toLowerCase();if(k==='w'||k==='arrowup')tpInput.f=0;else if(k==='s'||k==='arrowdown')tpInput.b=0;else if(k==='a'||k==='arrowleft')tpInput.l=0;else if(k==='d'||k==='arrowright')tpInput.r=0;else if(k==='q')tpInput.rotL=0;else if(k==='e')tpInput.rotR=0;else if(k==='shift'||k==='c')tpCrouch=false;});
+// ===== TASTIERA (PC): Z/Q/S/D muoversi · frecce ←→ guardarsi intorno · J attacco (tieni = caricato) · K magia/salto · L abbassati · Spazio salto =====
+let _kAtkDown=0,_kAtkHeld=false,_kAtkRaf=0;
+function _kChargeAnim(){if(!_kAtkHeld)return;const p=Math.min(1,(performance.now()-_kAtkDown)/520);const A=document.getElementById('tpA');if(A){A.style.setProperty('--chg',p);A.classList.toggle('full',p>=1);}_kAtkRaf=requestAnimationFrame(_kChargeAnim);}
+window.addEventListener('keydown',e=>{const k=(e.key||'').toLowerCase();
+  if(k==='z'||k==='w')tpInput.f=1;                 // avanti (Z azerty / W qwerty)
+  else if(k==='s')tpInput.b=1;                     // indietro
+  else if(k==='q'||k==='a')tpInput.l=1;            // sinistra (Q azerty / A qwerty)
+  else if(k==='d')tpInput.r=1;                     // destra
+  else if(k==='arrowleft'){tpInput.rotL=1;if(exploreMode)e.preventDefault();}   // guarda a sinistra
+  else if(k==='arrowright'){tpInput.rotR=1;if(exploreMode)e.preventDefault();}  // guarda a destra
+  else if(k==='arrowup'||k==='arrowdown'){if(exploreMode)e.preventDefault();}
+  else if(k==='j'){if(exploreMode){e.preventDefault();if(!e.repeat&&!_kAtkHeld){
+      const atkCtx=!((typeof selKey!=='undefined'&&selKey)||(typeof _tpTarget!=='undefined'&&_tpTarget&&_tpTarget.type&&_tpTarget.type!=='monster'));
+      if(!atkCtx){if(typeof tpPrimaryAction==='function')tpPrimaryAction();}
+      else{_kAtkHeld=true;_kAtkDown=performance.now();const A=document.getElementById('tpA');if(A){A.classList.add('charging');A.style.setProperty('--chg','0');}cancelAnimationFrame(_kAtkRaf);_kAtkRaf=requestAnimationFrame(_kChargeAnim);}
+    }}}
+  else if(k==='k'){if(exploreMode){e.preventDefault();if(!e.repeat&&typeof tpActionB==='function')tpActionB();}}   // magia / salto
+  else if(k==='l'){if(exploreMode)tpCrouch=true;}                                                                  // abbassati
+  else if(k===' '){if(exploreMode){e.preventDefault();if(typeof tpJump==='function')tpJump();}}                    // salto
+  else if(k==='shift'||k==='c'){if(exploreMode)tpCrouch=true;}                                                     // abbassati (alternativa)
+  else if(k==='f'||k==='enter'){if(exploreMode){e.preventDefault();if(typeof tpPrimaryAction==='function')tpPrimaryAction();}} // attacco rapido (alternativa)
+});
+window.addEventListener('keyup',e=>{const k=(e.key||'').toLowerCase();
+  if(k==='z'||k==='w')tpInput.f=0;
+  else if(k==='s')tpInput.b=0;
+  else if(k==='q'||k==='a')tpInput.l=0;
+  else if(k==='d')tpInput.r=0;
+  else if(k==='arrowleft')tpInput.rotL=0;
+  else if(k==='arrowright')tpInput.rotR=0;
+  else if(k==='j'){if(_kAtkHeld){_kAtkHeld=false;cancelAnimationFrame(_kAtkRaf);const A=document.getElementById('tpA');if(A){A.classList.remove('charging','full');A.style.setProperty('--chg','0');}const el=performance.now()-_kAtkDown;if(el>=520){if(typeof tpChargedAttack==='function')tpChargedAttack();}else{if(typeof tpPrimaryAction==='function')tpPrimaryAction();}}}
+  else if(k==='l'||k==='shift'||k==='c')tpCrouch=false;
+});
 function showExploreHelp(force){try{if(!force&&localStorage.getItem('tuzu_explore_help'))return;}catch(e){}
   if(typeof closeDyn==='function')closeDyn();const d=document.createElement('div');d.className='panel';d.id='dyn';
   d.innerHTML='<div class="card" style="max-width:390px"><div class="em">🚶</div><h2>Comandi · Esplorazione</h2>'+
@@ -965,14 +995,15 @@ function addCasterGlow(obj){try{const sc=obj.scale.y||1;const G=new THREE.Group(
 // ===== PROIETTILI DELLO STREGONE: sfere di energia BRILLANTI con scia — ti colpiscono da lontano (devi schivare / chiudere la distanza) =====
 const enemyShots=[], _shotTrail=[];
 function _spawnTrail(x,z,room){try{const m=new THREE.Mesh(new THREE.SphereGeometry(0.2,8,8),new THREE.MeshBasicMaterial({color:0xcf7bff,transparent:true,opacity:0.6,blending:THREE.AdditiveBlending,depthWrite:false}));m.position.set(x,1.4,z);m.renderOrder=5;(typeof rGroup==='function'?rGroup(room):scene).add(m);_shotTrail.push({m,life:0.32,max:0.32});}catch(e){}}
-function fireShot(g,a){const dx=a.x-g.x,dz=a.z-g.z,d=Math.hypot(dx,dz)||1,ux=dx/d,uz=dz/d;let m;
+function mkShot(x,z,vx,vz,dmg,room,color){let m;
   try{m=new THREE.Group();
-    const halo=new THREE.Mesh(new THREE.SphereGeometry(0.52,14,14),new THREE.MeshBasicMaterial({color:0xb84dff,transparent:true,opacity:0.55,blending:THREE.AdditiveBlending,depthWrite:false}));halo.renderOrder=6;
+    const halo=new THREE.Mesh(new THREE.SphereGeometry(0.52,14,14),new THREE.MeshBasicMaterial({color:(color||0xb84dff),transparent:true,opacity:0.55,blending:THREE.AdditiveBlending,depthWrite:false}));halo.renderOrder=6;
     const core=new THREE.Mesh(new THREE.SphereGeometry(0.3,12,12),new THREE.MeshBasicMaterial({color:0xf5e6ff,transparent:true,opacity:1,blending:THREE.AdditiveBlending,depthWrite:false}));core.renderOrder=7;
     m.add(halo);m.add(core);m.userData._halo=halo;
   }catch(e){return;}
-  m.position.set(g.x,1.4,g.z);(typeof rGroup==='function'?rGroup(g.room):scene).add(m);
-  enemyShots.push({m,x:g.x,z:g.z,vx:ux*9,vz:uz*9,life:2.4,dmg:g.dmg,room:g.room,t:0,_lt:0});
+  m.position.set(x,1.4,z);(typeof rGroup==='function'?rGroup(room):scene).add(m);
+  enemyShots.push({m,x,z,vx,vz,life:2.4,dmg,room,t:0,_lt:0});}
+function fireShot(g,a){const dx=a.x-g.x,dz=a.z-g.z,d=Math.hypot(dx,dz)||1;mkShot(g.x,g.z,dx/d*9,dz/d*9,g.dmg,g.room);
   try{if(typeof floatText==='function')floatText(g.x,2.3,g.z,'✴️','#d9b0ff');}catch(e){}}
 function updEnemyShots(dt){
   // scie che svaniscono
@@ -1052,6 +1083,15 @@ function nyxSummon(nyx,n){const mons=_MONKEYS.filter(k=>templates[k]&&templates[
   for(let i=0;i<n;i++){const ang=Math.random()*6.28,rr=2.4+Math.random()*2.2;const gx=nyx.x+Math.cos(ang)*rr,gz=nyx.z+Math.sin(ang)*rr;const o=inst(mons[Math.floor(Math.random()*mons.length)]);if(typeof fitHeight==='function'){try{fitHeight(o,2.1);}catch(e){}}o.position.set(gx,0,gz);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});(typeof rGroup==='function'?rGroup('tana'):cityGroup).add(o);if(typeof addAvoid==='function')addAvoid(gx,gz,0.55,1.9);roomGuards.push({obj:o,x:gx,z:gz,hp:6,maxhp:6,av:avoid[avoid.length-1],room:'tana',home:{x:gx,z:gz},acd:0,walker:null,speed:2.8,dmg:1,_guard:true,_mon:true});}
   try{if(typeof floatText==='function')floatText(nyx.x,2.8,nyx.z,'🌑 Evoca!','#c9a3ff');}catch(e){}
 }
+// ===== ATTACCHI VARI DI NYXAR: raffica a ventaglio, nova a cerchio, evocazione — a rotazione, oltre alla mischia =====
+let _nyxAtk=0;
+function nyxFan(nyx,a,n,spread){const base=Math.atan2(a.x-nyx.x,a.z-nyx.z);for(let i=0;i<n;i++){const ang=base+(i-(n-1)/2)*spread;if(typeof mkShot==='function')mkShot(nyx.x,nyx.z,Math.sin(ang)*10,Math.cos(ang)*10,nyx.dmg||3,nyx.room,0xd14dff);}try{if(typeof floatText==='function')floatText(nyx.x,2.6,nyx.z,'🌑','#d9b0ff');}catch(e){}}
+function nyxNova(nyx,n){for(let i=0;i<n;i++){const ang=i/n*6.2832;if(typeof mkShot==='function')mkShot(nyx.x,nyx.z,Math.sin(ang)*8,Math.cos(ang)*8,Math.max(2,(nyx.dmg||3)-1),nyx.room,0xff5a7a);}}
+function nyxSpecial(nyx){const a=tpAvatar?tpAvatar.o.position:null;if(!a)return;_nyxAtk=(_nyxAtk+1)%3;
+  if(_nyxAtk===0){nyxFan(nyx,a,3,0.33);if(typeof toast==='function')toast('🌑 Raffica oscura di Nyxar! Schìvala muovendoti 💨',1800);}
+  else if(_nyxAtk===1){nyxNova(nyx,12);if(typeof tpShockwave==='function')tpShockwave(nyx.x,nyx.z);if(typeof toast==='function')toast('🌑 NOVA di Nyxar! Allontànati dal centro 💥',1900);}
+  else{const adds=roomGuards.filter(g=>g.room==='tana'&&!g._final&&g.hp>0).length;if(adds<4){nyxSummon(nyx,2);}else{nyxFan(nyx,a,5,0.26);if(typeof toast==='function')toast('🌑 Raffica ampia! 💨',1500);}}
+}
 function guardsLeft(roomId){let n=0;for(const g of roomGuards)if(g.room===roomId&&g.hp>0)n++;return n;}
 function onRoomCleared(roomId){
   if(_roomConquered[roomId])return; _roomConquered[roomId]=true;
@@ -1082,7 +1122,7 @@ function updRoomCombat(dt){
     const nyx=roomGuards.find(g=>g._final&&g.room==='tana'&&g.hp>0);
     if(allG&&!nyx)spawnNyxar();
     else if(!allG&&!_nyxHinted){_nyxHinted=true;if(typeof toast==='function')toast('🌑 Senti una presenza immane oltre il buio… ma prima devi abbattere i 3 Guardiani (nelle camere del tesoro dei regni).',5600);}
-    else if(nyx){const now=performance.now();if(now>_nyxSummonCd){_nyxSummonCd=now+8000;const adds=roomGuards.filter(g=>g.room==='tana'&&!g._final&&g.hp>0).length;if(adds<3)nyxSummon(nyx,2);}}
+    else if(nyx){const now=performance.now();if(now>_nyxSummonCd){_nyxSummonCd=now+5200;if(typeof nyxSpecial==='function')nyxSpecial(nyx);}}
   }
   for(const g of roomGuards){
     if(g.hp<=0||!g.obj)continue;
@@ -1681,7 +1721,10 @@ function kingdomTier(sc){sc=((sc==null?kingdomScore():sc)|0);let i=0;for(let k=0
 function leagueUp(tr){const b=document.createElement('div');b.style.cssText='position:fixed;left:50%;top:27%;transform:translate(-50%,-50%) scale(.6);z-index:9999;pointer-events:none;background:linear-gradient(135deg,#f6d774,#e7a44b);color:#3a2408;padding:13px 24px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35);text-align:center;font-weight:800;opacity:0;transition:opacity .35s ease,transform .35s cubic-bezier(.2,1.4,.5,1)';b.innerHTML='<div style="font-size:32px;line-height:1">'+tr.em+'</div><div style="font-size:11px;letter-spacing:1px;opacity:.75;margin-top:3px">NUOVA LEGA</div><div style="font-size:19px;margin-top:1px">'+tr.name+'</div>';document.body.appendChild(b);requestAnimationFrame(()=>{b.style.opacity='1';b.style.transform='translate(-50%,-50%) scale(1)';});setTimeout(()=>{b.style.opacity='0';b.style.transform='translate(-50%,-55%) scale(.92)';setTimeout(()=>b.remove(),420);},2500);try{toast('🎉 Nuova lega: '+tr.em+' '+tr.name+'!',3400);}catch(e){}}
 let _lastTierI=-1;function checkLeague(){const i=kingdomTier().i;if(_lastTierI<0){_lastTierI=i;return;}if(i!==_lastTierI){const up=i>_lastTierI;_lastTierI=i;if(up)leagueUp(kingdomTier());}}
 function openStatus(){const gs=kingdomScore(),tr=kingdomTier(gs),er=eraInfo(),se=SEASONS[season];const prog=tr.next?Math.max(0,Math.min(100,Math.round((gs-tr.min)/(tr.next-tr.min)*100))):100;const eraProg=er.next?Math.max(0,Math.min(100,Math.round(er.cur/er.next*100))):100;const bar=(p,c)=>`<div style="height:8px;background:rgba(0,0,0,.14);border-radius:5px;margin:5px 0 11px;overflow:hidden"><i style="display:block;height:100%;width:${p}%;background:${c}"></i></div>`;const row=(l,v)=>`<div style="display:flex;justify-content:space-between;margin-top:3px"><span>${l}</span><b>${v}</b></div>`;const K=KINGDOMS[myKingdom]||KINGDOMS.dendra;const allyEm=(K.allies||[]).map(a=>KINGDOMS[a]?KINGDOMS[a].em:'').join(' ');const enemyEm=kEnemies(myKingdom).map(a=>KINGDOMS[a]?KINGDOMS[a].em:'').join(' ');const kblock=`<div style="font-size:15px;font-weight:800">${K.em} ${kName(myKingdom)}</div><div style="opacity:.85;font-size:11.5px;margin:2px 0 8px">Forte in <b>${K.strong}</b> · Dio ${K.god}<br>🤝 ${allyEm} &nbsp;·&nbsp; ⚔️ ${enemyEm}</div>`;const html=`<div style="text-align:left;font-size:13.5px;line-height:1.5">${kblock}<div style="font-size:16px;font-weight:800">${tr.em} Lega ${tr.name}</div><div style="opacity:.85;margin-top:2px">Gloria <b>🏆 ${gs}</b>${tr.next?' · alla lega '+tr.nextEm+' '+tr.nextName+': <b>'+(tr.next-gs)+'</b>':' · lega massima 👑'}</div>${bar(prog,'linear-gradient(90deg,#e7c66a,#e0a23a)')}<div>${er.em} Stadio: <b>${er.name}</b>${er.next?' <span style="opacity:.7">'+er.cur+'/'+er.next+' edifici</span>':' <span style="opacity:.7">massimo</span>'}</div>${bar(eraProg,'linear-gradient(90deg,#8fd08a,#4fa24a)')}${row(se.em+' Stagione',se.n)}${row('😊 Morale',Math.round(morale))}${(typeof prodBoostT!=='undefined'&&prodBoostT>0)?row('⚡ Produzione ×2',Math.floor(prodBoostT/60)+':'+(Math.floor(prodBoostT%60)<10?'0':'')+Math.floor(prodBoostT%60)):''}</div><button class="btn alt" id="statClose" style="margin-top:12px">Chiudi</button>`;dialog('👑','Stato del regno','',html);const d=document.getElementById('dyn');if(d){const b=d.querySelector('#statClose');if(b)b.onclick=closeDyn;}}
-function drawTop(){let h='';for(const k in RES){if(!CORE_RES[k]&&(R[k]||0)<=0)continue;const warn=(k==='cibo'&&(hungry||R[k]<Math.max(8,operai)));h+=`<div class="res"${warn?' style="box-shadow:0 0 0 2px #e24b4a"':''}><span class="ico">${RES[k]}</span>${fmt(R[k])}${k==='cibo'&&hungry?' ⚠️':''}</div>`;}h+=`<div class="res"><span class="ico">👷</span>${popUsed()}/${operai}</div>`;h+=`<div class="res"><span class="ico">⚔️</span>${soldiers}</div>`;if(morale<30)h+=`<div class="res" title="Morale basso: cura il regno!" style="box-shadow:0 0 0 2px #e24b4a"><span class="ico">😟</span>${Math.round(morale)}</div>`;if(typeof prodBoostT!=='undefined'&&prodBoostT>0){const mm=Math.floor(prodBoostT/60),ss=Math.floor(prodBoostT%60);h+=`<div class="res" title="Produzione ×2" style="box-shadow:0 0 0 2px #e7c66a"><span class="ico">⚡</span>${mm}:${ss<10?'0':''}${ss}</div>`;}const _gs=kingdomScore(),_tr=kingdomTier(_gs);h+=`<div class="res" id="statChip" style="pointer-events:auto;cursor:pointer;box-shadow:0 0 0 2px rgba(231,198,106,.75)" title="Stato del regno — tocca per Gloria, Lega, Stadio e Stagione"><span class="ico">${_tr.em}</span>${_tr.name}<span style="opacity:.5;margin:0 3px">·</span>🏆${_gs}</div>`;document.getElementById('top').innerHTML=h;const sc=document.getElementById('statChip');if(sc)sc.onclick=openStatus;layoutHud();}
+function drawTop(){let h='';for(const k in RES){if(!CORE_RES[k]&&(R[k]||0)<=0)continue;const warn=(k==='cibo'&&(hungry||R[k]<Math.max(8,operai)));h+=`<div class="res"${warn?' style="box-shadow:0 0 0 2px #e24b4a"':''}><span class="ico">${RES[k]}</span>${fmt(R[k])}${k==='cibo'&&hungry?' ⚠️':''}</div>`;}h+=`<div class="res"><span class="ico">👷</span>${popUsed()}/${operai}</div>`;h+=`<div class="res"><span class="ico">⚔️</span>${soldiers}</div>`;if(morale<30)h+=`<div class="res" title="Morale basso: cura il regno!" style="box-shadow:0 0 0 2px #e24b4a"><span class="ico">😟</span>${Math.round(morale)}</div>`;if(typeof prodBoostT!=='undefined'&&prodBoostT>0){const mm=Math.floor(prodBoostT/60),ss=Math.floor(prodBoostT%60);h+=`<div class="res" title="Produzione ×2" style="box-shadow:0 0 0 2px #e7c66a"><span class="ico">⚡</span>${mm}:${ss<10?'0':''}${ss}</div>`;}const _gs=kingdomScore(),_tr=kingdomTier(_gs);h+=`<div class="res" id="statChip" style="pointer-events:auto;cursor:pointer;box-shadow:0 0 0 2px rgba(231,198,106,.75)" title="Stato del regno — tocca per Gloria, Lega, Stadio e Stagione"><span class="ico">${_tr.em}</span>${_tr.name}<span style="opacity:.5;margin:0 3px">·</span>🏆${_gs}</div>`;
+  // PERF: la barra in alto cambia di rado; se è identica NON riscrivere il DOM né rifare il layout (prima costava ~9ms OGNI frame → scatti)
+  if(h===drawTop._last)return;drawTop._last=h;
+  document.getElementById('top').innerHTML=h;const sc=document.getElementById('statChip');if(sc)sc.onclick=openStatus;layoutHud();}
 function drawCats(){const c=document.getElementById('cats');const defs=[['edifici','🏠 Edifici'],['decora','🌳 Decora'],['campi','🌱 Campi'],['animali','🐑 Recinti'],['difesa','🛡️ Difesa'],['monumenti','⛲ Monumenti']];c.innerHTML=defs.map(d=>`<div class="cat${cat===d[0]?' on':''}" data-c="${d[0]}">${d[1]}</div>`).join('');c.querySelectorAll('.cat').forEach(el=>el.onclick=()=>{cat=el.dataset.c;selKey=null;drawCats();drawBuild();});}
 function monUnlocked(){return builtCount>=5||terreLiberate>=1;}
 function drawBuild(){const bar=document.getElementById('build');let src=cat==='edifici'?BUILD:cat==='decora'?DECO:cat==='animali'?PENS:cat==='campi'?CROPS:cat==='difesa'?DEF:MON;let h='';for(const k in src){const d=src[k];const lock=(cat==='monumenti'&&!monUnlocked());const co=(d.cost&&Object.keys(d.cost).length)?Object.entries(d.cost).map(([r,v])=>RES[r]+v).join(' '):(cat==='decora'||cat==='campi'?'gratis':'');const sz=fpSize(d);const szh=(cat==='edifici'||cat==='monumenti'||cat==='difesa')?`<div class="sz">▦ ${sz[0]}×${sz[1]}</div>`:(cat==='animali'?`<div class="sz">${sz[0]}×${sz[1]} · 🐑${d.cap}</div>`:cat==='campi'?`<div class="sz">${d.grow}s</div>`:'');h+=`<div class="bbtn${selKey===k?' sel':''}${lock?' lock':''}" data-k="${k}"><div class="em">${d.em}</div><div class="n">${d.nome}</div><div class="co">${lock?'🔒':co}</div>${szh}</div>`;}bar.innerHTML=h;bar.querySelectorAll('.bbtn').forEach(el=>el.onclick=()=>{if(el.classList.contains('lock')){toast('Si sblocca dopo 5 edifici o 1 terra liberata');return;}selKey=selKey===el.dataset.k?null:el.dataset.k;drawBuild();if(selKey){const dd=src[selKey];if(cat==='animali')toast(dd.nome+': tocca dove metterlo (ci entrano '+dd.cap+' animali)',3200);else if(cat==='campi')toast('Semina '+dd.nome+' '+dd.em+': tocca un quadratino libero (pronto fra '+dd.grow+'s)',3400);else if(cat==='decora')toast(dd.nome+': tocca dove metterlo',2600);else if(cat==='difesa')toast(dd.nome+' '+dd.em+': tocca le caselle per costruire (il muro si allinea da solo)',3200);else{const sz=fpSize(dd);toast(dd.nome+': occupa '+sz[0]+'×'+sz[1]+' quadratini ('+(sz[0]*sz[1])+') — tocca dove metterlo',3200);}}});}
