@@ -182,6 +182,7 @@ html,body{height:100%;overflow:hidden;background:#8fc3e6;font-family:system-ui,-
 <div id="side">
   <div class="sbtn" id="btnWorld"><span>🌍</span><b>Mondo</b><span class="badge" id="worldBadge">0</span></div>
   <div class="sbtn" id="btnMiss"><span>📜</span><b>Missioni</b><span class="badge" id="missBadge">0</span></div>
+  <div class="sbtn" id="btnExplore"><span>🚶</span><b>Esplora</b></div>
   <div class="sbtn" id="btnMenu"><span>☰</span><b>Altro</b></div>
   <div class="sbtn more" id="btnHero"><span>🦸</span><b>Eroi</b></div>
   <div class="sbtn more" id="btnChat"><span>💬</span><b>Tuzu</b></div>
@@ -350,7 +351,7 @@ function tpJump(){if(exploreMode&&tpAvatar&&tpJumpY<=0.02&&tpJumpV===0){tpJumpV=
   C.addEventListener('pointerdown',cDn);C.addEventListener('pointerup',cUp);C.addEventListener('pointerleave',cUp);C.addEventListener('pointercancel',cUp);
 })();
 // ancora un pulsante per entrare/uscire dall'esplorazione quando sei in mappa (iso)
-(function(){const b=document.createElement('button');b.id='tpenter';b.textContent='🚶';b.title='Esplora';b.style.cssText='position:fixed;right:12px;bottom:76px;z-index:60;width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,220,150,.5);background:rgba(28,22,16,.85);color:#ffdca0;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center';document.body.appendChild(b);b.addEventListener('click',()=>{if(!exploreMode)toggleExplore();});
+(function(){const b=document.createElement('button');b.id='tpenter';b.textContent='🚶';b.title='Esplora';b.style.cssText='position:fixed;right:12px;bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:60;width:54px;height:54px;border-radius:50%;border:2px solid rgba(255,220,150,.5);background:rgba(28,22,16,.85);color:#ffdca0;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center';document.body.appendChild(b);b.addEventListener('click',()=>{if(!exploreMode)toggleExplore();});
   const style=document.createElement('style');style.textContent='.explore #tpenter{display:none}';document.head.appendChild(style);})();
 window.addEventListener('keydown',e=>{const k=(e.key||'').toLowerCase();if(k==='w'||k==='arrowup')tpInput.f=1;else if(k==='s'||k==='arrowdown')tpInput.b=1;else if(k==='a'||k==='arrowleft')tpInput.l=1;else if(k==='d'||k==='arrowright')tpInput.r=1;else if(k==='q')tpInput.rotL=1;else if(k==='e')tpInput.rotR=1;else if(k==='f'||k==='enter'){if(exploreMode){e.preventDefault();if(typeof tpPrimaryAction==='function')tpPrimaryAction();}}else if(k===' '){if(exploreMode){e.preventDefault();if(typeof tpJump==='function')tpJump();}}else if(k==='shift'||k==='c'){if(exploreMode)tpCrouch=true;}});
 window.addEventListener('keyup',e=>{const k=(e.key||'').toLowerCase();if(k==='w'||k==='arrowup')tpInput.f=0;else if(k==='s'||k==='arrowdown')tpInput.b=0;else if(k==='a'||k==='arrowleft')tpInput.l=0;else if(k==='d'||k==='arrowright')tpInput.r=0;else if(k==='q')tpInput.rotL=0;else if(k==='e')tpInput.rotR=0;else if(k==='shift'||k==='c')tpCrouch=false;});
@@ -791,9 +792,10 @@ function tpFindTarget(px,pz){let best=null;
 function tpFloat(x,z,txt,col){try{if(typeof floatText==='function')floatText(x,1.8,z,txt,col);}catch(e){}}
 function hitMonster(m){if(!m||m.hp<=0)return;m.hp--;
   if(m.hp<=0){if(m.obj)m.obj.visible=false;const i=avoid.indexOf(m.av);if(i>=0)avoid.splice(i,1);
-    const rew=m._boss?(300+Math.floor(Math.random()*160)):(30+Math.floor(Math.random()*30));R.oro=(R.oro||0)+rew;
+    const rew=m._final?(700+Math.floor(Math.random()*400)):m._boss?(300+Math.floor(Math.random()*160)):(30+Math.floor(Math.random()*30));R.oro=(R.oro||0)+rew;
     if(!m._guard&&typeof monstersBeaten!=='undefined')monstersBeaten++;
-    if(m._boss){if(typeof _bossDefeated!=='undefined'&&m.bossK)_bossDefeated[m.bossK]=1;if(typeof monstersBeaten!=='undefined')monstersBeaten++;tpFloat(m.x,m.z,'👑 +'+rew,'#ffe27a');if(typeof toast==='function')toast('👑 '+(m.bname||'Boss')+' sconfitto! Guardiano del regno abbattuto. +'+rew+' 🪙',5600);}
+    if(m._final){if(typeof nyxarBeaten!=='undefined')nyxarBeaten=1;tpFloat(m.x,m.z,'🏆 +'+rew,'#d8b4ff');if(typeof bigBanner==='function')bigBanner('🏆','VITTORIA','Hai sconfitto Nyxar e spezzato l\'Èrebo!');if(typeof toast==='function')toast('🏆 NYXAR È CADUTO! Hai liberato Dèndoria dal Signore dell\'Èrebo. +'+rew+' 🪙',8000);}
+    else if(m._boss){if(typeof _bossDefeated!=='undefined'&&m.bossK)_bossDefeated[m.bossK]=1;if(typeof monstersBeaten!=='undefined')monstersBeaten++;tpFloat(m.x,m.z,'👑 +'+rew,'#ffe27a');if(typeof toast==='function')toast('👑 '+(m.bname||'Boss')+' sconfitto! Guardiano del regno abbattuto. +'+rew+' 🪙',5600);}
     else{tpFloat(m.x,m.z,'☠ +'+rew,'#ff9a9a');if(typeof toast==='function')toast((m._guard?'⚔️ Guardia abbattuta! +':'⚔️ Mostro sconfitto! +')+rew+' 🪙');}
     if(typeof drawTop==='function')drawTop();if(typeof save==='function')save();
     if(m._guard&&typeof guardsLeft==='function'&&guardsLeft(m.room)===0&&typeof onRoomCleared==='function')onRoomCleared(m.room);}
@@ -913,8 +915,28 @@ function updBossBar(){let bar=document.getElementById('bossbar');
   const boss=(typeof _curRoom!=='undefined')?roomGuards.find(g=>g._boss&&g.hp>0&&g.room===_curRoom):null;
   if(!boss||!exploreMode){if(bar)bar.style.display='none';return;}
   if(!bar){bar=document.createElement('div');bar.id='bossbar';bar.innerHTML='<div class="bn"></div><div class="bt"><div class="bf"></div></div>';document.body.appendChild(bar);
-    const st=document.createElement('style');st.textContent='#bossbar{position:fixed;left:50%;top:94px;transform:translateX(-50%);z-index:58;width:min(74vw,380px);text-align:center;display:none;pointer-events:none}#bossbar .bn{color:#ffd0d0;font-weight:800;font-size:14px;text-shadow:0 1px 3px #000;margin-bottom:3px;letter-spacing:.3px}#bossbar .bt{height:13px;border-radius:7px;background:rgba(40,10,10,.82);border:2px solid rgba(255,120,120,.55);overflow:hidden}#bossbar .bf{height:100%;background:linear-gradient(90deg,#ff4a4a,#ff9a3a);width:100%;transition:width .18s}';document.head.appendChild(st);}
-  bar.style.display='block';bar.querySelector('.bn').textContent='👑 '+(boss.bname||'Guardiano');bar.querySelector('.bf').style.width=Math.max(0,100*boss.hp/boss.maxhp)+'%';
+    const st=document.createElement('style');st.textContent='#bossbar{position:fixed;left:50%;top:124px;transform:translateX(-50%);z-index:58;width:min(74vw,380px);text-align:center;display:none;pointer-events:none}#bossbar .bn{color:#ffd0d0;font-weight:800;font-size:14px;text-shadow:0 1px 3px #000;margin-bottom:3px;letter-spacing:.3px}#bossbar .bt{height:13px;border-radius:7px;background:rgba(40,10,10,.82);border:2px solid rgba(255,120,120,.55);overflow:hidden}#bossbar .bf{height:100%;background:linear-gradient(90deg,#ff4a4a,#ff9a3a);width:100%;transition:width .18s}';document.head.appendChild(st);}
+  bar.style.display='block';bar.querySelector('.bn').textContent=(boss._final?'🌑 ':'👑 ')+(boss.bname||'Guardiano');bar.querySelector('.bf').style.width=Math.max(0,100*boss.hp/boss.maxhp)+'%';
+}
+// ===== BOSS FINALE: Nyxar, Signore dell'Èrebo — appare nella Tana dopo i 3 Guardiani =====
+function spawnNyxar(){const Rm=(typeof DROOMS!=='undefined')?DROOMS.tana:null; if(!Rm)return false; if(roomGuards.some(g=>g._final))return false;
+  let obj=null;
+  if(templates.nyxar&&templates.nyxar.children&&templates.nyxar.children.length)obj=inst('nyxar');
+  else if(templates.d_demon&&templates.d_demon.children&&templates.d_demon.children.length)obj=inst('d_demon');
+  else obj=new THREE.Group();
+  if(typeof fitHeight==='function'){try{fitHeight(obj,4.4);}catch(e){}}
+  const bx=Rm.x, bz=Rm.z-Rm.hd+3.6; obj.position.set(bx,0,bz);obj.rotation.y=0;obj.traverse(m=>{if(m.isMesh)m.castShadow=true;});
+  (typeof rGroup==='function'?rGroup('tana'):cityGroup).add(obj);if(typeof autoSeat==='function')autoSeat(obj);
+  if(typeof addAvoid==='function')addAvoid(bx,bz,1.8,4.4);
+  roomGuards.push({obj,x:bx,z:bz,hp:30,maxhp:30,av:avoid[avoid.length-1],room:'tana',home:{x:bx,z:bz},acd:0,walker:null,speed:2.6,_guard:true,_mon:true,_boss:true,_final:true,dmg:2,bossK:null,bname:'Nyxar · Signore dell\'Èrebo'});
+  _nyxSummonCd=performance.now()+6000;
+  if(typeof toast==='function')toast('🌑 NYXAR, il Signore dell\'Èrebo, si leva! Boss finale — la resa dei conti ⚔️✨',6000);
+  if(typeof bigBanner==='function')bigBanner('🌑','BOSS FINALE','Nyxar, il Dio Caduto, ti sfida!');
+  return true;
+}
+function nyxSummon(nyx,n){const mons=_MONKEYS.filter(k=>templates[k]&&templates[k].children&&templates[k].children.length);if(!mons.length)return;
+  for(let i=0;i<n;i++){const ang=Math.random()*6.28,rr=2.4+Math.random()*2.2;const gx=nyx.x+Math.cos(ang)*rr,gz=nyx.z+Math.sin(ang)*rr;const o=inst(mons[Math.floor(Math.random()*mons.length)]);if(typeof fitHeight==='function'){try{fitHeight(o,2.1);}catch(e){}}o.position.set(gx,0,gz);o.rotation.y=Math.random()*6.28;o.traverse(m=>{if(m.isMesh)m.castShadow=true;});(typeof rGroup==='function'?rGroup('tana'):cityGroup).add(o);if(typeof addAvoid==='function')addAvoid(gx,gz,0.55,1.9);roomGuards.push({obj:o,x:gx,z:gz,hp:4,maxhp:4,av:avoid[avoid.length-1],room:'tana',home:{x:gx,z:gz},acd:0,walker:null,speed:2.7,_guard:true,_mon:true});}
+  try{if(typeof floatText==='function')floatText(nyx.x,2.8,nyx.z,'🌑 Evoca!','#c9a3ff');}catch(e){}
 }
 function guardsLeft(roomId){let n=0;for(const g of roomGuards)if(g.room===roomId&&g.hp>0)n++;return n;}
 function onRoomCleared(roomId){
@@ -940,6 +962,14 @@ function updRoomCombat(dt){
     if(bossK){const b=spawnBoss(cur,bossK);if((spawned||b)&&typeof toast==='function')toast('👑 '+((typeof KINGDOMS!=='undefined'&&KINGDOMS[bossK])?KINGDOMS[bossK].monster:'Il Guardiano')+' custodisce il tesoro! Boss di fine regno — sconfiggilo ⚔️',5200);}
     else if(spawned&&typeof toast==='function')toast('👹 Mostri dell\'Èrebo infestano '+((typeof DROOMS!=='undefined'&&DROOMS[cur])?DROOMS[cur].label:'questa sala')+'! Falli fuori ⚔️',4200);
   }
+  // BOSS FINALE: Nyxar appare nella Tana una volta abbattuti i 3 Guardiani dei regni
+  if(cur==='tana'&&typeof nyxarBeaten!=='undefined'&&!nyxarBeaten){
+    const allG=_bossDefeated.nefele&&_bossDefeated.chrysa&&_bossDefeated.oros;
+    const nyx=roomGuards.find(g=>g._final&&g.room==='tana'&&g.hp>0);
+    if(allG&&!nyx)spawnNyxar();
+    else if(!allG&&!_nyxHinted){_nyxHinted=true;if(typeof toast==='function')toast('🌑 Senti una presenza immane oltre il buio… ma prima devi abbattere i 3 Guardiani (nelle camere del tesoro dei regni).',5600);}
+    else if(nyx){const now=performance.now();if(now>_nyxSummonCd){_nyxSummonCd=now+8000;const adds=roomGuards.filter(g=>g.room==='tana'&&!g._final&&g.hp>0).length;if(adds<3)nyxSummon(nyx,2);}}
+  }
   for(const g of roomGuards){
     if(g.hp<=0||!g.obj)continue;
     if(g.room!==cur){if(g.walker)setWalkerMoving(g.walker,false);continue;}
@@ -958,7 +988,7 @@ function tpKingdomBetray(k){const room=roomOfNb(k);if(!room){if(typeof toast==='
   if(typeof toast==='function')toast('⚔️ Attacchi '+(typeof kName==='function'?kName(k):'il regno')+' sul posto! Le guardie reagiscono',4600);
   if(typeof drawTop==='function')drawTop();if(typeof save==='function')save();}
 // ===== MISSIONI (storia principale + secondarie): diario, obiettivo a schermo, segnalino nel mondo =====
-let _visitedRooms={}, _crystalsCollected=0, _keyFound=false, questDone={}, _questBeacon=null, _qTik=0, _bossDefeated={};
+let _visitedRooms={}, _crystalsCollected=0, _keyFound=false, questDone={}, _questBeacon=null, _qTik=0, _bossDefeated={}, _nyxHinted=false, _nyxSummonCd=0;
 const QUESTS=[
  {id:'explore',main:true,t:'Esplora i tre regni',d:'Raggiungi Nèfele (◄ ovest), Chrýsa (► est) e Òros (▼ sud).',target:{room:'oros'},done:()=>_visitedRooms['nefele']&&_visitedRooms['chrysa']&&_visitedRooms['oros'],rew:{oro:60}},
  {id:'crystals',main:false,t:'Raccogli 6 cristalli',d:'Brillano nelle stanze e nella Grotta dei Cristalli (▲ nord).',target:{room:'cristalli'},done:()=>_crystalsCollected>=6,rew:{oro:60}},
@@ -966,7 +996,8 @@ const QUESTS=[
  {id:'key',main:true,t:'Trova la Chiave',d:'In fondo alla Rocca di Òros (▼ sud, poi avanti).',target:{room:'oros_keep'},done:()=>_keyFound,rew:{oro:90}},
  {id:'tana',main:true,t:'Apri e ripulisci la Tana',d:'Apri il cancello con la chiave (Chrýsa → est) e sconfiggi i mostri.',target:{room:'tana'},done:()=>(typeof caveGateLocked!=='undefined'&&!caveGateLocked)&&caveMonsters.length>0&&caveMonsters.every(m=>m.hp<=0),rew:{oro:140}},
  {id:'conquer',main:true,t:'Conquista un regno',d:'Entra in un regno nemico e abbatti tutte le guardie.',target:{room:'oros'},done:()=>Object.keys(_roomConquered).length>=1,rew:{oro:160}},
- {id:'boss',main:true,t:'Abbatti un Guardiano',d:'Ogni regno ha un boss nella camera del tesoro, in fondo alla rocca.',target:{room:'nef_vault'},done:()=>Object.keys(_bossDefeated).length>=1,rew:{oro:220}}
+ {id:'boss',main:true,t:'Abbatti un Guardiano',d:'Ogni regno ha un boss nella camera del tesoro, in fondo alla rocca.',target:{room:'nef_vault'},done:()=>Object.keys(_bossDefeated).length>=1,rew:{oro:220}},
+ {id:'nyxar',main:true,t:'Sconfiggi Nyxar',d:'Abbatti i 3 Guardiani, poi entra nella Tana: il Signore dell\'Èrebo ti aspetta.',target:{room:'tana'},done:()=>(typeof nyxarBeaten!=='undefined'&&nyxarBeaten>0),rew:{oro:300}}
 ];
 function currentMainQuest(){return QUESTS.find(q=>q.main&&!questDone[q.id]);}
 function questTargetPos(q){if(!q||!q.target)return null;if(q.target.pos)return q.target.pos;if(q.target.room&&typeof DROOMS!=='undefined'&&DROOMS[q.target.room])return [DROOMS[q.target.room].x,DROOMS[q.target.room].z];return null;}
@@ -2742,6 +2773,7 @@ function loadSave(){try{const raw=localStorage.getItem('tuzu_rpg5');const s=raw?
 // ===== MONDO =====
 document.getElementById('btnWorld').onclick=()=>{if(mode==='city')openMap();};
 document.getElementById('btnMiss').onclick=()=>openMiss();
+{const be=document.getElementById('btnExplore');if(be)be.onclick=()=>{if(typeof mode!=='undefined'&&mode!=='city'){if(typeof toast==='function')toast('Esci prima dalla battaglia');return;}if(typeof enterExplore==='function'){if(!exploreMode)enterExplore();}};}
 {const bm=document.getElementById('btnMenu');if(bm)bm.onclick=()=>document.getElementById('side').classList.toggle('open');
  // chiudendo un pannello si richiude anche il menu laterale
  document.querySelectorAll('#side .more').forEach(b=>b.addEventListener('click',()=>document.getElementById('side').classList.remove('open')));}
