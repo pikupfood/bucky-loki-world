@@ -545,7 +545,7 @@ const dungeonStone=(()=>{const s=512,c=document.createElement('canvas');c.width=
   g.fillStyle='#2b2d33';g.fillRect(0,0,s,s); // malta scura fra i blocchi
   const bh=74;for(let y=0,row=0;y<s+bh;y+=bh,row++){const off=(row%2)?70:0;for(let x=-140;x<s;x+=136){
     const bx=x+off+6,by=y+6,bw=136-12,hh=bh-12,v=Math.floor(Math.random()*28-12);
-    g.fillStyle='rgb('+(126+v)+','+(124+v)+','+(130+v)+')';g.fillRect(bx,by,bw,hh);
+    g.fillStyle='rgb('+(82+v)+','+(80+v)+','+(88+v)+')';g.fillRect(bx,by,bw,hh);
     g.strokeStyle='rgba(255,255,255,0.12)';g.lineWidth=2;g.beginPath();g.moveTo(bx,by+hh);g.lineTo(bx,by);g.lineTo(bx+bw,by);g.stroke(); // luce alto-sx
     g.strokeStyle='rgba(0,0,0,0.5)';g.beginPath();g.moveTo(bx+bw,by);g.lineTo(bx+bw,by+hh);g.lineTo(bx,by+hh);g.stroke(); // ombra basso-dx
   }}
@@ -727,7 +727,7 @@ function buildDungeonRooms(){if(dungeonRoomsDone)return;dungeonRoomsDone=true;co
     const along=Math.max(lx,lz);
     const t=dungeonStone.clone();t.wrapS=t.wrapT=THREE.RepeatWrapping;
     t.repeat.set(Math.max(1,Math.round(along/4)),Math.max(1,Math.round(H/4)));t.needsUpdate=true;
-    const mat=new THREE.MeshStandardMaterial({map:t,color:0xffffff,roughness:0.9,metalness:0.05,emissive:0x5a5560,emissiveMap:t,emissiveIntensity:0.6});
+    const mat=new THREE.MeshStandardMaterial({map:t,color:0xffffff,roughness:0.92,metalness:0.05,emissive:0x34323c,emissiveMap:t,emissiveIntensity:0.4});
     const m=new THREE.Mesh(new THREE.BoxGeometry(lx,H,lz),mat);m.position.set(cx,H/2-0.3,cz);rGroup(gid).add(m);};
   const subtract=(a,b,opens)=>{let cur=[[a,b]];for(const [o0,o1] of opens){const nx=[];for(const [s0,s1] of cur){if(o1<=s0||o0>=s1)nx.push([s0,s1]);else{if(o0>s0)nx.push([s0,o0]);if(o1<s1)nx.push([o1,s1]);}}cur=nx;}return cur;};
   const open={};for(const k in DROOMS)open[k]={N:[],S:[],E:[],W:[]};
