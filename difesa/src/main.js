@@ -1,6 +1,6 @@
 // Avvio: scena 3D + interfaccia 2D, camera (trascina, pizzica, rotella), costruzione a quadretti, salvataggio.
 import { World } from './world.js';
-import { G, COLS, ROWS, BUILD, TOWERS, CASTLE, NATURE } from './data.js';
+import { G, COLS, ROWS, BUILD, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, UNITS as UNIT_DEFS } from './data.js';
 import { Scene3D } from './scene3d.js';
 import { drawUi } from './ui.js';
 import { stepFx, parts, ring, text } from './fx.js';
@@ -12,19 +12,20 @@ const uiCanvas = document.getElementById('ui');
 const ctx = uiCanvas.getContext('2d');
 const scene = new Scene3D(glCanvas);
 
-const KEY = 'tuzu_difesa_v3';
+const KEY = 'tuzu_difesa_v3';       // la chiave resta questa: i salvataggi vecchi li converte World
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
 const world = new World(saved.world, Date.now(), (Date.now() & 0xffff) + 1);
 
 const ui = {
   screen: 'title', speed: 1, sound: saved.sound !== false, moved: !!saved.moved,
-  build: null, place: null, sel: null, aiming: false,
-  quests: false, settings: false, daily: false, lost: null, away: world.away,
-  buttons: [], fx: [], fxTop: [], night: 0, shake: 0, flash: 0, time: 0, banner: null, toast: null,
+  build: null, place: null, sel: null, vsel: null, aiming: false,
+  quests: false, settings: false, tech: false, daily: false, lost: null, away: world.away,
+  buttons: [], fx: [], fxTop: [], night: 0, shake: 0, flash: 0, time: 0, banner: null, bannerQ: [], toast: null,
 };
 world.away = null;
-function save() { try { localStorage.setItem(KEY, JSON.stringify({ world, lang: getLang(), sound: ui.sound, moved: ui.moved, cam: scene.view })); } catch (e) { /* senza memoria si gioca lo stesso */ } }
+let frozen = false;      // dopo reset() non si salva più: altrimenti la pagina che si chiude riscrive il salvataggio
+function save() { if (frozen) return; try { localStorage.setItem(KEY, JSON.stringify({ world, lang: getLang(), sound: ui.sound, moved: ui.moved, cam: scene.view })); } catch (e) { /* senza memoria si gioca lo stesso */ } }
 
 const browserLang = (navigator.language || 'it').slice(0, 2);
 setLang(saved.lang || (LANGS.includes(browserLang) ? browserLang : 'it'));
@@ -34,6 +35,8 @@ audio.setSound(ui.sound);
 let quality = 2, slow = 0;
 function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* non tutti i telefoni vibrano */ } }
 function toast(str) { ui.toast = { str, t: 0, T: 2 }; audio.play('no'); }
+/** Una scritta grande al centro; se ce n'è già una, aspetta il suo turno. */
+function banner(str, color, T = 2.4) { ui.bannerQ.push({ str, color, t: 0, T }); }
 
 // ---------- schermo ----------
 const view = { cw: 1, ch: 1, us: 1, vw: 1280, vh: 720, dpr: 1, portrait: false };
@@ -57,7 +60,7 @@ const P = {
 };
 
 // ---------- costruzione a quadretti ----------
-const cellFree = (c, r) => c >= 2 && r >= 2 && c < COLS - 2 && r < ROWS - 2 && world.occ[r * COLS + c] === 0 && !world.natAt(c, r);
+const cellFree = (c, r) => c >= 2 && r >= 2 && c < COLS - 2 && r < ROWS - 2 && world.occ[r * COLS + c] === 0 && !world.natAt(c, r) && world.villageAt(c, r) < 0;
 /** Il quadretto in alto a sinistra di un edificio centrato sul punto del terreno g. */
 function cellFor(type, g) { const D = BUILD[type]; return { c: Math.floor(g.x / G - D.w / 2 + 0.5), r: Math.floor(g.y / G - D.h / 2 + 0.5) }; }
 /** Stato dell'anteprima: quadretti verdi/rossi, se si può confermare e perché no. */
@@ -100,15 +103,18 @@ function confirmPlace() {
 }
 
 // ---------- azioni ----------
-const closeAll = () => { ui.build = null; ui.place = null; ui.sel = null; ui.aiming = false; };
+const UNITS_MSG = { full: 'full', pop: 'needHouses', busy: 'notNow' };
+const world_unit = (type) => UNIT_DEFS[type] || {};
+const closeAll = () => { ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; };
 const A = {
   play() { ui.screen = 'play'; ui.daily = world.daily(Date.now()).available; audio.play('tap'); },
-  buildOpen() { ui.sel = null; ui.aiming = false; ui.build = { cat: ui.lastCat || 'dif' }; audio.play('tap'); },
+  buildOpen() { ui.sel = null; ui.vsel = null; ui.aiming = false; ui.build = { cat: ui.lastCat || 'dif' }; audio.play('tap'); },
   buildClose() { ui.build = null; ui.place = null; audio.play('tap'); },
   cat(cat) { ui.build.cat = cat; ui.lastCat = cat; audio.play('tap'); },
   pick(type) {
     const D = BUILD[type];
     if (D.min > world.d.castle) { toast(t('needCastle', D.min)); return; }
+    if (D.tech && !world.d.tech[D.tech]) { toast(t('why_tech')); return; }
     const cp = world.cap(type);
     if (cp.have >= cp.max) { toast(t('why_cap')); return; }
     ui.place = { type, c: null, r: null, a: null, b: null };
@@ -132,7 +138,17 @@ const A = {
   upgrade(b) { if (!world.upgrade(b)) toast(t('why_cost')); else save(); },
   castleUp() { if (!world.upgradeCastle()) toast(t('why_cost')); else save(); },
   plant(b, crop) { if (world.plant(b, crop, Date.now())) { ui.sel = null; audio.play('build'); save(); } else toast(t('why_cost')); },
-  train(b) { if (!world.train(b)) toast(t(world.trainCheck(b) === 'pop' ? 'needHouses' : 'why_cost')); else save(); },
+  train(b, type) {
+    if (world.train(b, type)) { save(); return; }
+    const why = world.trainCheck(b, type), U = UNITS_MSG[why];
+    toast(why === 'castle' ? t('needCastle', world_unit(type).min) : why === 'tech' ? t('why_tech') : t(U || 'why_cost'));
+  },
+  tech() { ui.tech = !ui.tech; audio.play('tap'); },
+  research(id) { if (!world.research(id)) toast(t('why_cost')); else save(); },
+  buy(r) { if (world.buy(r)) save(); else toast(t(world.buyCheck(r) === 'tech' ? 'why_tech' : 'why_cost')); },
+  vClose() { ui.vsel = null; },
+  attack(i) { if (world.startRaid(i)) { closeAll(); save(); } else toast(t(world.raidCheck(i) === 'noarmy' ? 'needArmy' : 'notNow')); },
+  retreat() { if (world.retreat()) save(); },
   start() { if (world.startNight()) { closeAll(); save(); } },
   speed() { ui.speed = ui.speed === 1 ? 2 : 1; audio.play('tap'); },
   aim() { if (world.spellCd <= 0) { ui.aiming = !ui.aiming; ui.sel = null; audio.play('tap'); } else audio.play('no'); },
@@ -156,7 +172,17 @@ function hitButton(clientX, clientY) {
   }
   return false;
 }
-const TALL = { castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26 };
+const TALL = { castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26, bottega: 60, mercato: 50, miniera: 46, cristalliera: 46 };
+/** Il villaggio sotto il dito: la piazza attorno alla casa del capo, oppure la casa stessa (che sullo schermo sta più in su). */
+function villageUnder(clientX, clientY, g) {
+  for (let i = 0; i < TRIBES.length; i++) {
+    const x = (TRIBES[i].c + 0.5) * G, y = (TRIBES[i].r + 0.5) * G;
+    if (Math.hypot(x - g.x, y - g.y) < 2.4 * G) return i;
+    const p = scene.project(x, y, 50);
+    if (Math.hypot(clientX - p.x, clientY - p.y) < 62 * scene.scaleAt(x, y)) return i;
+  }
+  return -1;
+}
 /** L'edificio sotto il dito: prima i quadretti della base, poi il corpo (che sullo schermo sta più in su). */
 function buildingUnder(clientX, clientY, g) {
   const b0 = world.buildingAt(Math.floor(g.x / G), Math.floor(g.y / G));
@@ -171,7 +197,7 @@ function buildingUnder(clientX, clientY, g) {
 }
 /** Un tocco sul mondo (non su un bottone). kind: 'touch' | 'mouse'. */
 function worldTap(clientX, clientY, kind) {
-  if (ui.screen !== 'play') return;
+  if (ui.screen !== 'play' || world.status === 'raid') return;
   const g = scene.pick(clientX, clientY);
   if (!g) return;
   if (ui.place) {
@@ -182,7 +208,10 @@ function worldTap(clientX, clientY, kind) {
     return;
   }
   if (ui.aiming) { if (world.castSpell(g.x, g.y)) ui.aiming = false; else audio.play('no'); return; }
+  const vi = villageUnder(clientX, clientY, g);
+  if (vi >= 0) { ui.vsel = vi; ui.sel = null; ui.build = null; audio.play('tap'); return; }
   const b = buildingUnder(clientX, clientY, g), now = Date.now();
+  ui.vsel = null;
   if (b) {
     if (b.type === 'campo' && world.crop(b, now).ripe) {
       const got = world.harvest(b, now);
@@ -226,7 +255,7 @@ uiCanvas.addEventListener('pointermove', (e) => {
   } else if (gest.mode === 'pending') {
     if (Math.hypot(e.clientX - gest.x0, e.clientY - gest.y0) > (gest.kind === 'mouse' ? 5 : 9)) gest.mode = gest.onGhost ? 'ghost' : 'pan';
   }
-  if (gest.mode === 'pan' && gest.g0) { scene.dragTo(gest.g0, e.clientX, e.clientY); ui.moved = true; }
+  if (gest.mode === 'pan' && gest.g0) { scene.dragTo(gest.g0, e.clientX, e.clientY); ui.moved = true; ui.follow = false; }
   else if (gest.mode === 'ghost') moveGhost(scene.pick(e.clientX, e.clientY));
 });
 function pointerEnd(e, cancelled) {
@@ -245,7 +274,7 @@ const keys = {};
 window.addEventListener('keydown', (e) => {
   keys[e.key] = true;
   if (e.key === 'Escape') back();
-  else if (e.key === ' ' && ui.screen === 'play' && world.status === 'day' && !ui.place) A.start();
+  else if (e.key === ' ' && ui.screen === 'play' && world.status === 'day' && !ui.place && !ui.tech) A.start();
   else if (e.key === 'f') A.speed();
   else if (e.key === 'b' && ui.screen === 'play') { if (ui.build) A.buildClose(); else A.buildOpen(); }
   else if (e.key === 'Enter' && ui.place) confirmPlace();
@@ -255,10 +284,10 @@ window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 function back() {
   if (ui.lost) ui.lost = null;
   else if (ui.away) ui.away = null;
-  else if (ui.quests || ui.settings) { ui.quests = ui.settings = false; }
+  else if (ui.quests || ui.settings || ui.tech) { ui.quests = ui.settings = ui.tech = false; }
   else if (ui.place) ui.place = null;
   else if (ui.build) ui.build = null;
-  else if (ui.sel || ui.aiming) { ui.sel = null; ui.aiming = false; }
+  else if (ui.sel || ui.vsel != null || ui.aiming) { ui.sel = null; ui.vsel = null; ui.aiming = false; }
   else if (CapApp) { save(); CapApp.exitApp(); }
 }
 let CapApp = null;
@@ -271,17 +300,37 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ---------- eventi del mondo -> effetti e suoni ----------
-const KILL_COL = { orco: '#86b552', predone: '#c79a6b', bruto: '#9c7f7a', spettro: '#bfe9ff', capo: '#6f9c42', campione: '#a070ff' };
+const tribeCol = (i) => { const T = TRIBES[i]; return !T ? '#fff' : T.id === 'neri' ? '#8f86b0' : T.color; };
+const RES_FX = { monete: '#ffd24a', legna: '#e0b98a', pietra: '#dfe1ea', ferro: '#c5ccdb', cristallo: '#9fe9ff' };
 function handleEvents() {
   for (const ev of world.events) {
     switch (ev.k) {
       case 'placed': buzz(12); ring(ui.fx, ev.x, ev.y, 10, 70, 0.4, '#ffe9a8', 4); parts(ui.fx, ev.x, ev.y, 10, 12, '#d9c7a0', 100, 0.5, 4, 260); audio.play('build'); break;
       case 'demolished': parts(ui.fx, ev.x, ev.y, 14, 12, '#b9a98a', 110, 0.5, 4, 260); audio.play('coin'); break;
       case 'upgrade': ring(ui.fx, ev.x, ev.y, 8, ev.castle ? 130 : 64, 0.5, '#ffd24a', 4); parts(ui.fx, ev.x, ev.y, 40, ev.castle ? 30 : 16, '#ffe27a', 120, 0.7, 3.5, 200); audio.play('up'); buzz(15); break;
-      case 'chop': parts(ui.fx, ev.x, ev.y, 18, 10, ev.kind === 'tree' ? '#4f9a4b' : '#a9abb5', 110, 0.5, 4, 280); text(ui.fxTop, ev.x, ev.y, 30, '+' + ev.gain, ev.kind === 'tree' ? '#e0b98a' : '#dfe1ea', 20, 0.8); audio.play('chop', 0.04); buzz(8); break;
+      case 'chop': { const col = { tree: '#4f9a4b', rock: '#a9abb5', iron: '#c0683c', crystal: '#8fe8ff' }[ev.kind], tc = { tree: RES_FX.legna, rock: RES_FX.pietra, iron: RES_FX.ferro, crystal: RES_FX.cristallo }[ev.kind]; parts(ui.fx, ev.x, ev.y, 18, 10, col, 110, 0.5, 4, 280); text(ui.fxTop, ev.x, ev.y, 30, '+' + ev.gain, tc, 20, 0.8); audio.play('chop', 0.04); buzz(8); break; }
+      case 'unknown': toast(t('unknown')); break;
+      case 'tech': banner(t('discovered', t('t_' + ev.id)), '#9fe9ff', 2.6); audio.play('won'); buzz(20); save(); break;
+      case 'bought': audio.play('coin'); break;
       case 'train': ring(ui.fx, ev.x, ev.y, 10, 60, 0.45, '#6fb7ff', 4); audio.play('up'); break;
-      case 'nightStart': audio.play('horn'); ui.banner = { str: `${t('night')} ${ev.night}`, color: '#cfd8ff', t: 0, T: 2.2 }; break;
-      case 'spawn': ring(ui.fx, ev.x, ev.y, 14, ev.boss ? 110 : 56, 0.5, '#d9a8ff', ev.boss ? 5 : 3); break;
+      case 'nightStart': audio.play('horn'); banner(`${t('night')} ${ev.night}`, '#cfd8ff', 2.2); break;
+      case 'spawn': ring(ui.fx, ev.x, ev.y, 14, ev.boss ? 110 : 56, 0.5, tribeCol(ev.tribe), ev.boss ? 5 : 3); break;
+      case 'raidStart': closeAll(); audio.play('horn'); banner(`${t('raidOn')} · ${t('tr_' + TRIBES[ev.i].id)}`, '#ffd0c8', 2.2); ui.follow = true; break;
+      case 'hallShot': parts(ui.fx, ev.tx, ev.ty, 18, 5, '#d9c7a0', 90, 0.3, 3, 240); audio.play('wall', 0.2); break;
+      case 'conquered': {
+        banner(t('conquered'), '#ffe9a8', 2.8); audio.play('won'); buzz([30, 60, 30]); ui.speed = 1;
+        ring(ui.fxTop, ev.x, ev.y, 20, 220, 0.8, MY_COLOR, 6); parts(ui.fxTop, ev.x, ev.y, 60, 34, '#ffe27a', 220, 0.9, 4.5, 260);
+        let k = 0; for (const r in ev.loot) text(ui.fxTop, ev.x - 60 + k++ * 60, ev.y, 90, '+' + ev.loot[r], RES_FX[r], 24, 1.6);
+        save();
+        break;
+      }
+      case 'raidLost': banner(t('raidLost'), '#ff8a80', 2.6); audio.play('lost'); buzz(120); ui.speed = 1; save(); break;
+      case 'retreat': banner(t('retreated'), '#cfd8ff', 2); ui.speed = 1; audio.play('tap'); break;
+      case 'revolt': banner(`${t('revolt')}: ${t('tr_' + TRIBES[ev.i].id)}`, '#ff8a80', 2.8); break;
+      case 'quietNight':
+        banner(`${t('quiet')}  +${ev.reward}`, '#cfd8ff', 2.4); audio.play('cleared'); save();
+        if (world.daily(Date.now()).available) ui.daily = true;
+        break;
       case 'shot': audio.play(ev.type, 0.07); break;
       case 'burn': audio.play('burn', 0.45); break;
       case 'hit': parts(ui.fx, ev.x, ev.y, 20, 3, '#fff3c4', 70, 0.22, 2.6); break;
@@ -295,16 +344,16 @@ function handleEvents() {
         ui.shake = 0.3; buzz(40); audio.play('impact'); audio.play('burst');
         break;
       case 'kill':
-        parts(ui.fx, ev.x, ev.y, 18, ev.boss ? 26 : 9, KILL_COL[ev.type] || '#fff', ev.boss ? 190 : 110, 0.5, ev.boss ? 6 : 4, 260);
+        parts(ui.fx, ev.x, ev.y, 18, ev.boss ? 26 : 9, tribeCol(ev.tribe), ev.boss ? 190 : 110, 0.5, ev.boss ? 6 : 4, 260);
         text(ui.fxTop, ev.x, ev.y, 34, '+' + ev.reward, '#ffd24a', ev.boss ? 26 : 17, 0.8);
         audio.play(ev.boss ? 'impact' : 'kill', 0.05); if (ev.boss) ui.shake = 0.4;
         break;
       case 'struck': parts(ui.fx, ev.x, ev.y, 16, 3, '#d9c7a0', 80, 0.3, 3, 220); audio.play('wall', 0.18); break;
       case 'destroyed': ring(ui.fx, ev.x, ev.y, 8, 60, 0.4, '#ff8a6a', 4); parts(ui.fx, ev.x, ev.y, 12, 16, '#b9a98a', 150, 0.6, 4.5, 300); ui.shake = Math.max(ui.shake, 0.15); audio.play('impact', 0.1); buzz(25); break;
-      case 'soldierDown': parts(ui.fx, ev.x, ev.y, 16, 10, '#6fb7ff', 110, 0.5, 4, 260); break;
+      case 'soldierDown': parts(ui.fx, ev.x, ev.y, 16, 10, MY_COLOR, 110, 0.5, 4, 260); buzz(15); break;
       case 'castleHit': if (ui.flash < 0.12) { ui.flash = 0.4; buzz(30); } ui.shake = Math.max(ui.shake, 0.12); parts(ui.fx, ev.x, ev.y, 40, 3, '#d9c7a0', 110, 0.4, 3.5, 260); audio.play('leak', 0.5); break;
       case 'nightWon':
-        ui.banner = { str: `${t('cleared')}  +${ev.reward}`, color: '#ffe9a8', t: 0, T: 2.6 };
+        banner(`${t('cleared')}  +${ev.reward}`, '#ffe9a8', 2.6);
         audio.play(ev.night % 5 === 0 ? 'won' : 'cleared'); buzz([30, 60, 30]); ui.aiming = false; ui.speed = 1; save();
         if (world.daily(Date.now()).available) ui.daily = true;
         break;
@@ -354,17 +403,24 @@ function frame(now) {
 function tick(real) {
   ui.time += real;
   if (view.portrait) { drawRotate(); return; }
-  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.daily || ui.lost || ui.away;
+  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away;
 
   if (!modal) {
-    const isNight = world.status === 'night', steps = isNight ? ui.speed * 2 : 1, dt = isNight ? real / 2 : real;      // passi piccoli: stabile anche a x2
+    const fight = world.status !== 'day', steps = fight ? ui.speed * 2 : 1, dt = fight ? real / 2 : real;      // passi piccoli: stabile anche a x2
     for (let i = 0; i < steps; i++) { world.update(dt, now); handleEvents(); }
     // camera da tastiera
     const kx = (keys.ArrowRight || keys.d ? 1 : 0) - (keys.ArrowLeft || keys.a ? 1 : 0), ky = (keys.ArrowDown || keys.s ? 1 : 0) - (keys.ArrowUp || keys.w ? 1 : 0);
-    if (kx || ky) { const v = scene.view, sp = v.dist * 0.9 * real; scene.setView(v.x + kx * sp, v.y + ky * sp); ui.moved = true; }
+    if (kx || ky) { const v = scene.view, sp = v.dist * 0.9 * real; scene.setView(v.x + kx * sp, v.y + ky * sp); ui.moved = true; ui.follow = false; }
+    if (world.status === 'raid' && ui.follow && world.soldiers.length) {
+      let sx = 0, sy = 0; for (const sd of world.soldiers) { sx += sd.x; sy += sd.y; }
+      const v = scene.view, n = world.soldiers.length, k = Math.min(1, real * 3), R = world.raid;
+      // in marcia si guarda l'esercito; arrivati, il punto a metà fra l'esercito e la casa del capo
+      const near = Math.hypot(sx / n - R.x, sy / n - R.y) < 420, tx = near ? (sx / n + R.x) / 2 : sx / n, ty = (near ? (sy / n + R.y) / 2 : sy / n) + 40;
+      scene.setView(v.x + (tx - v.x) * k, v.y + (ty - v.y) * k, v.dist + (Math.min(v.dist, 1150) - v.dist) * k);
+    }
     saveT += real; if (saveT > 12) { saveT = 0; save(); }
   }
-  stepFx(ui.fx, real * (world.status === 'night' ? ui.speed : 1)); stepFx(ui.fxTop, real);
+  stepFx(ui.fx, real * (world.status !== 'day' ? ui.speed : 1)); stepFx(ui.fxTop, real);
   ui.night += ((world.status === 'night' ? 1 : 0) - ui.night) * Math.min(1, real * 1.6);
   if (ui.sel && !world.byId.has(ui.sel.b.id)) ui.sel = null;
   if (ui.place) { const st = ui.place.state = placeState(); scene.setGhost({ type: ui.place.type, cells: st.cells, at: st.at || null, line: !!st.line }); }
@@ -375,7 +431,8 @@ function tick(real) {
 
   if (ui.shake > 0) ui.shake = Math.max(0, ui.shake - real);
   if (ui.flash > 0) ui.flash = Math.max(0, ui.flash - real);
-  if (ui.banner) ui.banner.t += real;
+  if (ui.banner) { ui.banner.t += real; if (ui.banner.t >= ui.banner.T) ui.banner = null; }
+  if (!ui.banner && ui.bannerQ.length) ui.banner = ui.bannerQ.shift();
   if (ui.toast) ui.toast.t += real;
   const sh = ui.shake * 12;
   glCanvas.style.transform = sh > 0.1 ? `translate(${(Math.random() - 0.5) * sh}px,${(Math.random() - 0.5) * sh}px)` : '';
@@ -407,7 +464,7 @@ async function shot(name) {
   return name;
 }
 /** Per le prove: cancella il salvataggio e ricarica. */
-function reset() { try { localStorage.removeItem(KEY); } catch (e) { /* niente */ } window.removeEventListener('pagehide', save); location.reload(); }
+function reset() { frozen = true; try { localStorage.removeItem(KEY); } catch (e) { /* niente */ } window.removeEventListener('pagehide', save); location.reload(); }
 
 // Se il telefono toglie il contesto grafico (succede quando l'app va in secondo piano), lo riprendo e ricostruisco la scena.
 glCanvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); console.log('[tuzu] contesto 3D perso'); });
@@ -417,7 +474,7 @@ window.addEventListener('pagehide', save);
 
 scene.build();
 resize();
-if (saved.cam && isFinite(saved.cam.x)) scene.setView(saved.cam.x, saved.cam.y, saved.cam.dist);
+if (saved.cam && isFinite(saved.cam.x) && saved.world && saved.world.v === 4) scene.setView(saved.cam.x, saved.cam.y, saved.cam.dist);      // la mappa vecchia era più piccola
 console.log('[tuzu] avvio ' + view.cw + 'x' + view.ch + ' dpr ' + view.dpr + ' gl ' + (scene.r.getContext().isContextLost() ? 'PERSO' : 'ok') + ' ' + scene.r.capabilities.maxTextureSize);
-window.__tuzu = { world, ui, view, scene, A, tap, P, save, shot, tick, back, kick, blank, reset, NATURE, TOWERS, get quality() { return quality; }, get kicks() { return kicks; } };   // per le prove automatiche
+window.__tuzu = { world, ui, view, scene, A, tap, P, save, shot, tick, back, kick, blank, reset, NATURE, TOWERS, TRIBES, get quality() { return quality; }, get kicks() { return kicks; } };   // per le prove automatiche
 requestAnimationFrame(frame);

@@ -1,7 +1,8 @@
 // Mondo in 3D visto dall'alto (three.js): una sola mappa a quadretti, camera che si sposta e si avvicina.
+// Tutti gli abitanti sono Tuzu: la forma è quella del logo, cambia solo il colore del popolo.
 // Le coordinate di gioco (x, y) diventano (x, altezza, z = y). L'interfaccia resta in 2D sopra e usa project()/pick().
 import * as THREE from '../vendor/three.module.min.js';
-import { G, COLS, ROWS, WORLD_W, WORLD_H, CASTLE, PORTALS, ENEMIES, NATURE, portalsFor, mulberry32 } from './data.js';
+import { G, COLS, ROWS, WORLD_W, WORLD_H, CASTLE, TRIBES, MY_COLOR, ENEMIES, NATURE, mulberry32 } from './data.js';
 import { GRASS, TREE_PAL, DEAD_PAL, paintWorld } from './ground.js';
 
 // ---------- mattoncini: geometrie e materiali condivisi ----------
@@ -100,43 +101,149 @@ function makeTower(type, level) {
   g.userData = u;
   return g;
 }
+/** I pezzi che la scena muove (li tiene in userData): non vanno fusi. */
+function movers(g) { const out = []; for (const k in g.userData) { const v = g.userData[k]; if (Array.isArray(v)) { for (const o of v) if (o && o.isObject3D) out.push(o); } else if (v && v.isObject3D) out.push(v); } return out; }
 
-// ---------- nemici ----------
-const SKIN = {
-  orco: { body: '#4a5a3a', skin: '#86b552', dark: '#2f3a26' },
-  predone: { body: '#7a3f26', skin: '#c79a6b', dark: '#4a2415' },
-  bruto: { body: '#5a4a4a', skin: '#9c7f7a', dark: '#352b2b' },
-  capo: { body: '#3d4a2c', skin: '#6f9c42', dark: '#232b18' },
-  campione: { body: '#2b2140', skin: '#5a4a78', dark: '#150f22' },
-};
-function makeEnemy(type) {
-  const g = grp(null), s = ENEMIES[type].r / 15 * 1.3, inner = grp(g);   // un po' più grandi: si devono leggere bene dall'alto
-  inner.scale.setScalar(s);
-  const u = { inner, s, legs: [] };
-  if (type === 'spettro') {
-    const b = sph(inner, 11, '#cfeeff', 0, 24, 0, { a: 0.82, e: 0x224455 }); b.scale.y = 1.15;
-    const t = cone(inner, 10.5, 20, '#a8dcf5', 0, 9, 0, { mat: { a: 0.7 } }); t.rotation.x = Math.PI;
-    sph(inner, 2.2, '#1b3142', 9, 26, 4, { ns: true }); sph(inner, 2.2, '#1b3142', 9, 26, -4, { ns: true });
-    u.ghost = true;
-  } else {
-    const k = SKIN[type];
-    u.legs.push(sph(inner, 4.4, k.dark, 0, 4, 5.5, { ns: true }), sph(inner, 4.4, k.dark, 0, 4, -5.5, { ns: true }));
-    const b = sph(inner, 10.5, k.body, 0, 15, 0); b.scale.y = 1.05;
-    sph(inner, 8.6, k.skin, 2, 29, 0);
-    const eye = type === 'campione' ? '#ff4a4a' : '#ffe066';
-    sph(inner, 1.8, eye, 9.3, 30, 3.2, { basic: true, ns: true }); sph(inner, 1.8, eye, 9.3, 30, -3.2, { basic: true, ns: true });
-    if (type !== 'predone') { cone(inner, 1.3, 4, '#ffffff', 9, 25.5, 3, { ns: true }); cone(inner, 1.3, 4, '#ffffff', 9, 25.5, -3, { ns: true }); }
-    if (type === 'predone') { const h = cone(inner, 9.5, 13, '#8f2a22', 1, 37, 0, { ns: true }); h.rotation.z = 0.2; }
-    if (type === 'bruto' || type === 'capo' || type === 'campione') {
-      const h1 = cone(inner, 2.4, 11, '#efe9d8', 1, 38, 5.5, { ns: true }); h1.rotation.x = 0.5;
-      const h2 = cone(inner, 2.4, 11, '#efe9d8', 1, 38, -5.5, { ns: true }); h2.rotation.x = -0.5;
-      sph(inner, 5, '#6b6c76', 0, 22, 10, { ns: true }); sph(inner, 5, '#6b6c76', 0, 22, -10, { ns: true });
-    }
-    if (type === 'capo' || type === 'campione') { const c = box(inner, 2, 22, 18, type === 'capo' ? '#a8322a' : '#5b1f8a', -9, 15, 0, { ns: true }); c.rotation.z = -0.25; }
-    const w = cyl(inner, 1.6, 1.6, 20, WOOD_D, 8, 20, 10, { ns: true }); w.rotation.z = -0.5;
-    sph(inner, 4, type === 'campione' ? '#8a4fe0' : type === 'predone' ? '#cfd3dc' : '#7b5230', 13, 28, 10, { ns: true });
-    if (type === 'campione') u.aura = sph(inner, 30, '#aa46ff', 0, 18, 0, { basic: true, a: 0.13, ns: true });
+// ---------- i Tuzu ----------
+// La sagoma del logo (viewBox 150, metà destra del tracciato) fatta girare attorno all'asse: alta 1, larga 0,98.
+function blobGeo() {
+  const pts = [], bz = (a, b, c, d, t) => { const u = 1 - t; return u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d; };
+  for (let i = 0; i <= 8; i++) { const t = i / 8; pts.push(new THREE.Vector2(bz(0, 35, 61, 61, t) / 124, bz(0, 0, 20, 56, t) / 124)); }
+  for (let i = 1; i <= 10; i++) { const t = i / 10; pts.push(new THREE.Vector2(bz(61, 61, 37, 0, t) / 124, bz(56, 96, 124, 124, t) / 124)); }
+  return new THREE.LatheGeometry(pts, 18);
+}
+function mergeGeos(list) {
+  let nv = 0, ni = 0;
+  for (const g of list) { nv += g.attributes.position.count; ni += g.index ? g.index.count : g.attributes.position.count; }
+  const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), ind = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
+  let vo = 0, io = 0;
+  for (const g of list) {
+    const n = g.attributes.position.count;
+    pos.set(g.attributes.position.array, vo * 3); nor.set(g.attributes.normal.array, vo * 3);
+    if (g.index) { const a = g.index.array; for (let k = 0; k < a.length; k++) ind[io + k] = a[k] + vo; io += a.length; }
+    else { for (let k = 0; k < n; k++) ind[io + k] = vo + k; io += n; }
+    vo += n;
   }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); out.setIndex(new THREE.BufferAttribute(ind, 1));
+  return out;
+}
+/** Fonde le maglie ferme di un modello: una sola per materiale (e per ombra sì/no). Così un edificio costa poche
+ *  chiamate di disegno invece di venti. keep = i pezzi che si muovono, da lasciare come sono. */
+function bake(root, keep = []) {
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(), buckets = new Map(), gone = [], m4 = new THREE.Matrix4();
+  const live = (o) => { for (let p = o; p && p !== root; p = p.parent) if (keep.includes(p)) return true; return false; };
+  root.traverse((m) => {
+    if (!m.isMesh || m.isInstancedMesh || live(m)) return;
+    const key = m.material.uuid + (m.castShadow ? 's' : 'n');
+    let b = buckets.get(key);
+    if (!b) { b = { mat: m.material, shadow: m.castShadow, geos: [] }; buckets.set(key, b); }
+    const g = m.geometry.clone(); g.applyMatrix4(m4.multiplyMatrices(inv, m.matrixWorld)); b.geos.push(g); gone.push(m);
+  });
+  for (const m of gone) m.parent.remove(m);
+  for (const b of buckets.values()) {
+    const mesh = new THREE.Mesh(mergeGeos(b.geos), b.mat);
+    mesh.castShadow = b.shadow; mesh.userData.baked = true; root.add(mesh);
+    for (const g of b.geos) g.dispose();
+  }
+  return root;
+}
+/** Toglie un modello dalla scena e libera le maglie fuse. */
+function drop(scene, g) { scene.remove(g); g.traverse((m) => { if (m.userData.baked) m.geometry.dispose(); }); }
+
+// Il viso guarda un po' in su (la camera sta in alto): si gira attorno al centro del corpo e si spinge in fuori.
+function tiltFace(g) { g.translate(0, -0.45, 0); g.rotateZ(0.5); g.scale(1.09, 1.09, 1.09); g.translate(0, 0.45, 0); return g; }
+/** Verso dove guarda un Tuzu che si muove nella direzione ang: sempre verso la camera, girato un po' dalla parte in cui va. */
+const facing = (ang) => Math.PI / 2 - Math.cos(ang) * 0.8;
+// Il viso del logo: due occhi tondi e il sorriso, sul davanti (+x).
+function faceGeo() {
+  const eye = (z) => { const g = new THREE.SphereGeometry(0.066, 10, 8); g.scale(0.45, 1, 1); g.translate(0.452, 0.45, z); return g; };
+  const smile = new THREE.TorusGeometry(0.11, 0.021, 6, 12, 2.3);
+  smile.rotateZ(Math.PI + (Math.PI - 2.3) / 2); smile.rotateY(Math.PI / 2); smile.translate(0.45, 0.35, 0);
+  return tiltFace(mergeGeos([eye(0.153), eye(-0.153), smile]));
+}
+function shineGeo() {
+  const dot = (z) => { const g = new THREE.SphereGeometry(0.022, 6, 5); g.translate(0.484, 0.47, z); return g; };
+  return tiltFace(mergeGeos([dot(0.133), dot(-0.173)]));
+}
+const BLOB_CAP = 360;
+/** Quanto è alto un Tuzu, per tipo. */
+const TUZU_H = { lancia: 32, arco: 30, corazza: 38, villager: 25 };
+for (const k in ENEMIES) TUZU_H[k] = ENEMIES[k].r * 2.5;
+
+const IRON = '#aeb4c2', IRON_D = '#6f7684';
+/** Quello che un Tuzu porta addosso: è l'unica cosa che distingue un tipo dall'altro. Misure per un Tuzu alto 1. */
+function makeGear(kind) {
+  const g = grp(null), u = {};
+  const arm = u.arm = grp(g, 0.12, 0.42, 0.5);       // il braccio con l'arma: ruota quando colpisce
+  const crown = (r, y, col) => { cyl(g, r, r * 0.92, 0.1, col, 0, y, 0, { ns: true }); for (let i = 0; i < 5; i++) { const a = i * Math.PI * 0.4; cone(g, 0.045, 0.13, col, Math.cos(a) * r * 0.86, y + 0.11, Math.sin(a) * r * 0.86, { ns: true, seg: 5 }); } };
+  const cap = (r, y, col, sy = 0.62) => { const h = sph(g, r, col, 0, y, 0, { ns: true }); h.scale.y = sy; return h; };
+  const club = (len, head, col) => { const w = cyl(arm, 0.035, 0.035, len, WOOD_D, 0.1, len * 0.4, 0, { ns: true }); w.rotation.z = -0.5; sph(arm, head, col, 0.1 + len * 0.42, len * 0.76, 0, { ns: true }); };
+  if (kind === 'orco') club(0.5, 0.11, '#7b5230');
+  else if (kind === 'predone') {
+    const b = put(g, geom('band', () => new THREE.TorusGeometry(0.335, 0.035, 6, 16)), M('#f4f1ea'), 0, 0.88, 0, false); b.rotation.x = Math.PI / 2;
+    const f1 = cone(g, 0.05, 0.3, '#f4f1ea', -0.2, 1.06, 0.12, { ns: true, seg: 5 }); f1.rotation.z = 0.5;
+    const d = box(arm, 0.3, 0.04, 0.025, '#d5d9e2', 0.2, 0.08, 0, { ns: true }); d.rotation.z = 0.2;
+  } else if (kind === 'bruto') {
+    cap(0.4, 0.8, IRON_D, 0.7);
+    for (const z of [-0.3, 0.3]) { const h = cone(g, 0.07, 0.3, '#efe9d8', 0, 1.1, z, { ns: true, seg: 6 }); h.rotation.x = z * 1.4; }
+    club(0.62, 0.17, '#55565e');
+  } else if (kind === 'capo') { crown(0.2, 1.0, GOLDC); club(0.6, 0.15, '#7b5230'); }
+  else if (kind === 'campione') {
+    crown(0.22, 1.0, GOLDC);
+    const c = box(g, 0.05, 0.62, 0.74, '#7a1f2a', -0.47, 0.36, 0, { ns: true }); c.rotation.z = -0.22;
+    club(0.66, 0.18, '#f2c230');
+    u.aura = sph(g, 0.82, '#ffd24a', 0, 0.45, 0, { basic: true, a: 0.12, ns: true });
+  } else if (kind === 'lancia') {
+    cap(0.33, 0.88, IRON); cone(g, 0.05, 0.2, '#c2452d', 0, 1.14, 0, { ns: true, seg: 6 });
+    cyl(arm, 0.025, 0.025, 1.35, WOOD_D, 0.12, 0.3, 0, { ns: true }); cone(arm, 0.06, 0.2, '#e1e5ee', 0.12, 1.07, 0, { ns: true, seg: 6 });
+    const sh = cyl(g, 0.22, 0.22, 0.05, '#c2452d', 0.3, 0.4, -0.46, { ns: true }); sh.rotation.x = Math.PI / 2;
+  } else if (kind === 'arco') {
+    cone(g, 0.3, 0.36, '#2f8f5b', -0.03, 1.02, 0, { ns: true, seg: 10 });
+    const b = put(arm, geom('bow', () => new THREE.TorusGeometry(0.3, 0.025, 5, 12, Math.PI)), M(WOOD_L), 0.24, 0.12, 0, false); b.rotation.z = -Math.PI / 2;
+    cyl(arm, 0.008, 0.008, 0.6, '#f4f1ea', 0.24, 0.12, 0, { ns: true });
+    const q = cyl(g, 0.07, 0.07, 0.36, WOOD_D, -0.4, 0.6, -0.2, { ns: true }); q.rotation.z = 0.4;
+  } else if (kind === 'corazza') {
+    cap(0.42, 0.78, IRON, 0.78); box(g, 0.34, 0.2, 0.05, GOLDC, 0.02, 1.08, 0, { ns: true });
+    box(g, 0.05, 0.56, 0.46, IRON_D, 0.36, 0.38, -0.5, { ns: true }); box(g, 0.06, 0.2, 0.16, GOLDC, 0.38, 0.4, -0.5, { ns: true });
+    box(arm, 0.58, 0.06, 0.035, '#e1e5ee', 0.36, 0.14, 0, { ns: true }); box(arm, 0.04, 0.16, 0.05, GOLDC, 0.1, 0.14, 0, { ns: true });
+  } else return null;
+  g.userData = u;
+  return g;
+}
+
+/** Una capanna tonda col tetto del colore del popolo. */
+function makeHut(color, s) {
+  const g = grp(null);
+  cyl(g, 20, 22, 20, '#e6d6b4', 0, 10, 0, { seg: 10 });
+  cone(g, 28, 26, color, 0, 33, 0, { seg: 10 });
+  box(g, 8, 13, 2, '#5c3a1e', 0, 6.5, 21, { ns: true });
+  g.scale.setScalar(s);
+  return g;
+}
+/** Il villaggio di un popolo: la casa del capo con lo stendardo, le capanne, il fuoco. */
+function makeVillage(T, rnd) {
+  const g = grp(null), u = {}, col = T.color, dark = new THREE.Color(col).multiplyScalar(0.78).getStyle();
+  const hall = u.hall = grp(g);
+  cyl(hall, 44, 48, 34, '#e9dcc0', 0, 17, 0, { seg: 14 });
+  cyl(hall, 50, 50, 5, '#8a6a44', 0, 35, 0, { seg: 14, ns: true });
+  cone(hall, 58, 52, col, 0, 63, 0, { seg: 14 });
+  sph(hall, 7, GOLDC, 0, 92, 0, { ns: true });
+  box(hall, 16, 24, 3, '#5c3a1e', 0, 12, 46.5, { ns: true });
+  for (const x of [-24, 24]) box(hall, 9, 9, 3, '#ffd97a', x, 20, 44, { ns: true, e: 0xffb040, ei: 0.7 });
+  cyl(g, 1.8, 1.8, 96, '#4a3020', 58, 48, 26, { ns: true });
+  u.flag = box(g, 30, 18, 1.2, col, 74, 86, 26, { ns: true });
+  // le capanne: tutto attorno, ma non sulla strada verso il castello
+  const out = Math.atan2(T.gate.r - T.r, T.gate.c - T.c);
+  for (let k = 0; k < 6; k++) {
+    const a = out + 0.85 + k * (Math.PI * 2 - 1.7) / 5, rad = 128 + rnd() * 34;
+    const h = makeHut(k % 2 ? dark : col, 0.95 + rnd() * 0.3); h.position.set(Math.cos(a) * rad, 0, Math.sin(a) * rad); h.rotation.y = -a + Math.PI / 2 + Math.PI; g.add(h);
+  }
+  const fx = Math.cos(out) * 96, fz = Math.sin(out) * 96;
+  for (let i = 0; i < 5; i++) { const a = i * 1.257; sph(g, 4.5, '#8d8f96', fx + Math.cos(a) * 11, 3, fz + Math.sin(a) * 11, { ns: true }); }
+  u.fire = cone(g, 6.5, 20, '#ff9d2a', fx, 11, fz, { ns: true, mat: { basic: true, a: 0.92 } });
+  cone(g, 3.6, 12, '#ffe27a', fx, 8, fz, { ns: true, mat: { basic: true, a: 0.95 } });
   g.userData = u;
   return g;
 }
@@ -226,6 +333,54 @@ function makeBarracks() {
   return g;
 }
 
+function makeWorkshop() {
+  const g = grp(null), u = {};
+  box(g, 58, 26, 44, '#e9dcc0', 0, 13, 0);
+  box(g, 59, 3, 45, '#6b4a2b', 0, 14, 0, { ns: true });
+  pyramid(g, 44, 26, '#7b5cc9', 0, 39, 0, 1, 0.8);
+  cyl(g, 5, 5, 20, '#8d8f96', 18, 44, -8);
+  box(g, 10, 15, 1.5, '#5c3a1e', -10, 7.5, 22.4, { ns: true });
+  const w = cyl(g, 6, 6, 1.5, '#9ff0ff', 12, 15, 22.4, { ns: true, mat: { e: 0x3fd0ff, ei: 0.8 } }); w.rotation.x = Math.PI / 2;
+  box(g, 18, 9, 12, WOOD, 36, 4.5, 16);
+  u.flask = sph(g, 5, '#8ff0b0', 33, 14, 16, { e: 0x3fd070, ei: 0.9, ns: true });
+  sph(g, 3.4, '#c9a2ff', 41, 12.4, 17, { e: 0x7a3fe0, ei: 0.9, ns: true });
+  const t = cyl(g, 2.4, 3.4, 26, GOLDC, -14, 52, 4, { ns: true }); t.rotation.z = 0.9;
+  g.userData = u;
+  return g;
+}
+
+function makeMine(ore, glow) {
+  const g = grp(null), u = {};
+  box(g, 70, 3, 62, '#8a8072', 0, 1.5, 0, { ns: true });
+  const rock = (x, y, z, sx, sy, sz, col, a) => { const m = put(g, geom('rock', () => new THREE.DodecahedronGeometry(1)), M(col, { flat: true }), x, y, z); m.scale.set(sx, sy, sz); m.rotation.set(a, a * 2, 0); return m; };
+  rock(-6, 16, -10, 33, 25, 25, '#77706a', 0.5); rock(18, 9, -16, 16, 13, 14, '#6a645e', 1.4);
+  box(g, 20, 22, 6, '#1d1a1c', -6, 11, 13, { ns: true });
+  for (const x of [-17, 5]) box(g, 4, 26, 5, WOOD_D, x, 13, 15);
+  box(g, 30, 4, 6, WOOD, -6, 27, 15);
+  for (const x of [-11, -1]) box(g, 1.6, 1.2, 26, '#55565e', x, 3.6, 28, { ns: true });
+  const cart = u.cart = grp(g, -6, 0, 30);
+  box(cart, 15, 8, 12, WOOD, 0, 9, 0);
+  for (const [x, z] of [[-4, -2], [3, 1], [-1, 3]]) { const m = put(cart, geom('rock', () => new THREE.DodecahedronGeometry(1)), M(ore, glow ? { flat: true, e: glow, ei: 0.7 } : { flat: true }), x, 14.5, z, false); m.scale.setScalar(4.2); m.rotation.set(x, z, 0); }
+  if (glow) for (const [x, y, z, k] of [[22, 12, 8, 1], [28, 8, 0, 0.7], [16, 7, 16, 0.6]]) { const c = octa(g, 7, ore, x, y, z, { e: glow, ei: 0.8, flat: true }); c.scale.set(k, 1.9 * k, k); c.castShadow = true; }
+  else { rock(24, 5, 12, 8, 7, 8, ore, 2.2); rock(30, 4, 2, 6, 5, 6, ore, 0.9); }
+  g.userData = u;
+  return g;
+}
+
+function makeMarket() {
+  const g = grp(null);
+  box(g, 66, 3, 56, '#b89a6a', 0, 1.5, 0, { ns: true });
+  for (const [x, z] of [[-28, -20], [28, -20], [-28, 20], [28, 20]]) cyl(g, 2.2, 2.2, 38, WOOD_D, x, 19, z);
+  for (let i = 0; i < 6; i++) { const b = box(g, 11, 2.4, 50, i % 2 ? '#f4f1ea' : '#c2452d', -27.5 + i * 11, 40 - Math.abs(i - 2.5) * 1.6, 0); b.rotation.z = (i - 2.5) * -0.06; }
+  box(g, 50, 12, 14, WOOD, 0, 6, 12);
+  box(g, 52, 2, 16, WOOD_L, 0, 13, 12, { ns: true });
+  for (const [x, col] of [[-16, '#e8c64a'], [-4, '#f08a2a'], [8, '#7a3fb0']]) sph(g, 4.4, col, x, 17, 12, { ns: true });
+  for (let i = 0; i < 3; i++) cyl(g, 3.4, 3.4, 1.6, GOLDC, 19, 14.8 + i * 1.7, 12, { ns: true });
+  box(g, 14, 12, 12, WOOD_L, -18, 6, -12); box(g, 12, 10, 12, WOOD, -4, 5, -14);
+  const sack = sph(g, 8, '#d9c7a0', 14, 6, -12); sack.scale.y = 0.85;
+  return g;
+}
+
 function makeGate(vertical) {
   const g = grp(null);
   for (const x of [-15, 15]) { box(g, 10, 40, 14, '#9a9ba4', x, 20, 0); pyramid(g, 9, 9, '#b5482f', x, 44.5, 0); }
@@ -234,33 +389,6 @@ function makeGate(vertical) {
   for (const x of [-6, 0, 6]) box(g, 1, 28, 4.6, '#5c3a1e', x, 14, 0, { ns: true });
   box(g, 20, 2.4, 5, '#55565e', 0, 9, 0, { ns: true }); box(g, 20, 2.4, 5, '#55565e', 0, 21, 0, { ns: true });
   if (vertical) g.rotation.y = Math.PI / 2;
-  return g;
-}
-
-function makeSoldier() {
-  const g = grp(null), inner = grp(g), u = { inner };
-  cone(inner, 7, 18, '#3f6fb5', 0, 9, 0);
-  sph(inner, 4.8, '#a9dd8f', 0, 21, 0);
-  const h = sph(inner, 5.4, '#c3c6d0', 0, 23, 0, { ns: true }); h.scale.y = 0.62;
-  cone(inner, 1.6, 5, '#c2452d', 0, 28.5, 0, { ns: true });
-  const sh = cyl(inner, 5.5, 5.5, 1.6, '#c2452d', 6.5, 12, -5, { ns: true }); sh.rotation.z = Math.PI / 2;
-  u.spear = grp(inner, 5, 15, 6);
-  cyl(u.spear, 0.8, 0.8, 30, WOOD_D, 0, 0, 0, { ns: true }); cone(u.spear, 1.9, 6, '#d5d9e2', 0, 18, 0, { ns: true });
-  g.userData = u;
-  return g;
-}
-
-function makePortal(vertical) {
-  const g = grp(null), u = {};
-  for (const z of [-34, 34]) { box(g, 16, 76, 16, '#4d4458', 0, 38, z); cone(g, 9, 16, '#3a3246', 0, 84, z, { seg: 4 }); }
-  box(g, 18, 12, 86, '#4d4458', 0, 80, 0);
-  u.disc = put(g, geom('pdisc', () => new THREE.CircleGeometry(30, 28)), M('#7a35d6', { basic: true, a: 0.85, double: true }), 0, 40, 0, false); u.disc.rotation.y = Math.PI / 2; u.disc.scale.y = 1.2;
-  u.off = put(g, geom('pdisc', () => new THREE.CircleGeometry(30, 28)), M('#241a30', { basic: true, a: 0.7, double: true }), 0, 40, 0, false); u.off.rotation.y = Math.PI / 2; u.off.scale.y = 1.2;
-  u.swirl = grp(g, 1.5, 40, 0);
-  for (let i = 0; i < 3; i++) { const t = put(u.swirl, geom('pring' + i, () => new THREE.TorusGeometry(9 + i * 8, 1.6, 6, 22, 4.2)), M('#ecd9ff', { basic: true, a: 0.75 - i * 0.15 }), 0, 0, 0, false); t.rotation.y = Math.PI / 2; t.userData.sp = 1.6 + i * 0.6; }
-  for (let i = 0; i < 5; i++) { const a = 1.3 + i * 0.9; const st = box(g, 12, 22 + (i % 2) * 10, 11, '#4d4458', Math.cos(a) * 70, 12, Math.sin(a) * 52); st.rotation.y = a; }
-  if (vertical) g.rotation.y = Math.PI / 2;
-  g.userData = u;
   return g;
 }
 
@@ -274,9 +402,13 @@ function makeModel(type, o = {}) {
   else if (type === 'segheria') g = makeSawmill();
   else if (type === 'cava') g = makeQuarry();
   else if (type === 'caserma') g = makeBarracks();
+  else if (type === 'bottega') g = makeWorkshop();
+  else if (type === 'mercato') g = makeMarket();
+  else if (type === 'miniera') g = makeMine('#c0683c', 0);
+  else if (type === 'cristalliera') g = makeMine('#7fe3ff', 0x2fb8e0);
   else if (type === 'cancello') g = makeGate(o.vertical);
   else { g = makeTower(type, o.lvl || 0); g.scale.setScalar(1.08); }
-  return g;
+  return bake(g, movers(g));
 }
 
 const ghostMats = new Map();
@@ -290,7 +422,11 @@ function ghostify(g) {
   return g;
 }
 
-const PITCH = 55 * Math.PI / 180, DIST_MIN = 430, DIST_MAX = 2500, WALL_CAP = 1200;
+const PITCH = 55 * Math.PI / 180, DIST_MIN = 430, DIST_MAX = 3000, WALL_CAP = 1200;
+const c3cache = new Map();
+function c3(col) { let c = c3cache.get(col); if (!c) { c = new THREE.Color(col); c3cache.set(col, c); } return c; }
+/** Chi lavora accanto a un edificio (dx, dy dal centro). */
+const WORKER = { segheria: [46, 30], cava: [-46, 34], miniera: [34, 44], cristalliera: [34, 44], bottega: [-40, 40], mercato: [0, 44] };
 const wallish = (b) => !!b && (b.type === 'recinto' || b.type === 'mura' || b.type === 'cancello');
 
 // ---------- la scena ----------
@@ -321,7 +457,7 @@ export class Scene3D {
     const cam = this.cam, t = this.target;
     cam.position.copy(t).addScaledVector(this.dir, this.dist); cam.lookAt(t); cam.updateMatrixWorld();
     if (this.sun) {
-      const S = Math.max(650, Math.min(1900, this.dist * 0.8)), sc = this.sun.shadow.camera;
+      const S = Math.max(650, Math.min(2300, this.dist * 0.8)), sc = this.sun.shadow.camera;
       this.sun.position.set(t.x - 520, 1000, t.z - 330); this.sun.target.position.set(t.x, 0, t.z); this.sun.target.updateMatrixWorld();
       if (sc.right !== S) { sc.left = -S; sc.right = S; sc.top = S; sc.bottom = -S; sc.updateProjectionMatrix(); }
     }
@@ -364,11 +500,11 @@ export class Scene3D {
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x8a9a70, 1.25); s.add(this.hemi);
     const sun = new THREE.DirectionalLight(0xfff1d8, 1.75);
     sun.castShadow = this.shadowsOn !== false; sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.near = 100; sun.shadow.camera.far = 3200; sun.shadow.bias = -0.0004; sun.shadow.normalBias = 1.5;
+    sun.shadow.camera.near = 100; sun.shadow.camera.far = 4200; sun.shadow.bias = -0.0004; sun.shadow.normalBias = 1.5;
     s.add(sun, sun.target); this.sun = sun;
     const big = new THREE.Mesh(new THREE.PlaneGeometry(14000, 12000), M(GRASS));
     big.rotation.x = -Math.PI / 2; big.position.set(WORLD_W / 2, -0.6, WORLD_H / 2); big.receiveShadow = true; s.add(big);
-    const cv = document.createElement('canvas'); paintWorld(cv, 1);
+    const cv = document.createElement('canvas'); paintWorld(cv, 0.8);
     this.tex = new THREE.CanvasTexture(cv); this.tex.colorSpace = THREE.SRGBColorSpace; this.tex.anisotropy = 4;
     const map = new THREE.Mesh(new THREE.PlaneGeometry(WORLD_W, WORLD_H), new THREE.MeshLambertMaterial({ map: this.tex }));
     map.rotation.x = -Math.PI / 2; map.position.set(WORLD_W / 2, 0, WORLD_H / 2); map.receiveShadow = true; s.add(map);
@@ -389,7 +525,6 @@ export class Scene3D {
     for (let i = 0; i < 520; i++) {
       const x = -1100 + rnd() * (WORLD_W + 2200), z = -900 + rnd() * (WORLD_H + 1700);
       if (x > -30 && x < WORLD_W + 30 && z > -30 && z < WORLD_H + 30) continue;
-      if (PORTALS.some(p => Math.hypot((p.c + 0.5) * G - x, (p.r + 0.5) * G - z) < 150)) continue;
       outer.push({ x, z, r: 20 + rnd() * 16, pal: TREE_PAL[Math.floor(rnd() * TREE_PAL.length)] });
     }
     const o3 = [mk(trunkG, M('#5b3b22'), outer.length), mk(canopy, M('#ffffff'), outer.length), mk(canopy, M('#ffffff'), outer.length)];
@@ -399,6 +534,11 @@ export class Scene3D {
     this.trees = NATURE.filter(n => n.kind === 'tree'); this.rocks = NATURE.filter(n => n.kind === 'rock');
     this.t3 = [mk(trunkG, M('#5b3b22'), this.trees.length), mk(canopy, M('#ffffff'), this.trees.length), mk(canopy, M('#ffffff'), this.trees.length)];
     this.rockIM = mk(geom('rock', () => new THREE.DodecahedronGeometry(1)), M('#8d8f96', { flat: true }), this.rocks.length);
+    // giacimenti: ferro (roccia rugginosa con le vene chiare) e cristallo (punte azzurre)
+    this.irons = NATURE.filter(n => n.kind === 'iron'); this.crystals = NATURE.filter(n => n.kind === 'crystal');
+    this.ironIM = mk(geom('rock', () => new THREE.DodecahedronGeometry(1)), M('#8a4f36', { flat: true }), this.irons.length);
+    this.ironDot = mk(geom('oreDot', () => new THREE.OctahedronGeometry(1)), M('#f0a060', { flat: true, e: 0x803010, ei: 0.5 }), this.irons.length * 3, false);
+    this.crysIM = mk(geom('crys', () => new THREE.OctahedronGeometry(1)), M('#8fe8ff', { flat: true, e: 0x2fb8e0, ei: 0.75 }), this.crystals.length * 3);
     this.cutN = -1;
 
     // mura e recinti a istanze
@@ -409,9 +549,20 @@ export class Scene3D {
     this.wallBase.count = this.wallTop.count = this.post.count = this.rail.count = 0;
     this.rev = -1;
 
-    // portali dell'Èrebo ai quattro bordi
-    this.portals = {};
-    for (const p of PORTALS) { const g = makePortal(p.id === 'nord' || p.id === 'sud'); g.position.set((p.c + 0.5) * G, 0, (p.r + 0.5) * G); s.add(g); this.portals[p.id] = g; }
+    // i villaggi degli altri popoli
+    const vr = mulberry32(77);
+    this.villages = TRIBES.map((T) => { const g = makeVillage(T, vr); bake(g, [g.userData.flag, g.userData.fire]); g.position.set((T.c + 0.5) * G, 0, (T.r + 0.5) * G); s.add(g); return g; });
+
+    // i Tuzu: un solo corpo e un solo viso, disegnati a istanze (il colore è per istanza)
+    const bg = geom('tuzu', blobGeo), fg = geom('tuzuFace', faceGeo);
+    this.blobIM = mk(bg, new THREE.MeshLambertMaterial({ color: 0xffffff }), BLOB_CAP);
+    this.ghostIM = mk(bg, new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, emissive: 0x334455 }), 80, false);
+    this.faceIM = mk(fg, new THREE.MeshBasicMaterial({ color: 0x2b2a33 }), BLOB_CAP, false);
+    this.faceLightIM = mk(fg, new THREE.MeshBasicMaterial({ color: 0xffffff }), 120, false);
+    this.shineIM = mk(geom('tuzuShine', shineGeo), new THREE.MeshBasicMaterial({ color: 0xffffff }), BLOB_CAP, false);
+    this._bq = new THREE.Quaternion(); this._up = new THREE.Vector3(0, 1, 0);
+    this.gear = new Map(); this.nb = this.ng = this.nf = this.nl = 0;
+    for (const im of [this.blobIM, this.ghostIM, this.faceIM, this.faceLightIM, this.shineIM]) im.count = 0;
 
     // quadretti (si vedono solo mentre si costruisce)
     const pts = [], x0 = 2 * G, x1 = (COLS - 2) * G, z0 = 2 * G, z1 = (ROWS - 2) * G;
@@ -432,7 +583,7 @@ export class Scene3D {
     this.ghostBox.frustumCulled = false; this.ghostBox.count = 0; s.add(this.ghostBox);
     this.ghosts = {}; this.ghostOn = null;
 
-    this.bMesh = new Map(); this.enemies = new Map(); this.soldiers = new Map(); this.projs = new Map();
+    this.bMesh = new Map(); this.projs = new Map();
     this._seen = new Set(); this.ready = false; this._t = 0;
     this.place();
   }
@@ -507,8 +658,41 @@ export class Scene3D {
       rq.setFromEuler(e.set(n.tint, n.tint * 2, 0));
       this.rockIM.setMatrixAt(i, m4.compose(P3.set((n.c + 0.5) * G, r * 0.45, (n.r + 0.5) * G), rq, S3.set(r, r * 0.75, r)));
     });
-    for (const im of [...this.t3, this.rockIM]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
+    this.irons.forEach((n, i) => {
+      const gone = world.cutSet.has(n.id), r = gone ? 0 : 14 * n.size, x = (n.c + 0.5) * G, z = (n.r + 0.5) * G;
+      rq.setFromEuler(e.set(n.tint, n.tint * 2, 0));
+      this.ironIM.setMatrixAt(i, m4.compose(P3.set(x, r * 0.45, z), rq, S3.set(r, r * 0.8, r)));
+      for (let k = 0; k < 3; k++) { const a = n.tint + k * 2.1, d = gone ? 0 : 3.2; this.ironDot.setMatrixAt(i * 3 + k, m4.compose(P3.set(x + Math.cos(a) * r * 0.62, r * 0.62 + k * 2, z + Math.sin(a) * r * 0.62), rq, S3.set(d, d, d))); }
+    });
+    this.crystals.forEach((n, i) => {
+      const gone = world.cutSet.has(n.id), x = (n.c + 0.5) * G, z = (n.r + 0.5) * G;
+      for (let k = 0; k < 3; k++) {
+        const a = n.tint * 1.3 + k * 2.1, r = gone ? 0 : (k ? 4.5 : 7) * n.size, d = k ? 9 : 0;
+        rq.setFromEuler(e.set(k ? 0.35 : 0, a, k ? 0.3 : 0));
+        this.crysIM.setMatrixAt(i * 3 + k, m4.compose(P3.set(x + Math.cos(a) * d, r * 1.7, z + Math.sin(a) * d), rq, S3.set(r, r * 2.3, r)));
+      }
+    });
+    for (const im of [...this.t3, this.rockIM, this.ironIM, this.ironDot, this.crysIM]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
     this.cutN = world.cutSet.size;
+  }
+
+  /** Disegna un Tuzu: (x, y) sul terreno, lift = altezza del salto, H = statura, squash = schiacciamento (1 = fermo). */
+  tuzu(x, y, lift, ang, H, squash, color, light, ghost) {
+    const k = 1 / Math.sqrt(squash), m4 = this._m4;
+    m4.compose(this._P3.set(x, lift, y), this._bq.setFromAxisAngle(this._up, -facing(ang)), this._S3.set(H * k, H * squash, H * k));
+    if (ghost) { if (this.ng >= 80) return; this.ghostIM.setMatrixAt(this.ng, m4); this.ghostIM.setColorAt(this.ng++, c3(color)); }
+    else { if (this.nb >= BLOB_CAP) return; this.blobIM.setMatrixAt(this.nb, m4); this.blobIM.setColorAt(this.nb++, c3(color)); }
+    if (light) { if (this.nl < 120) this.faceLightIM.setMatrixAt(this.nl++, m4); }
+    else if (this.nf < BLOB_CAP) { this.shineIM.setMatrixAt(this.nf, m4); this.faceIM.setMatrixAt(this.nf++, m4); }
+  }
+  /** Gli accessori di un Tuzu (uno per creatura viva), allineati al suo corpo. */
+  gearFor(id, kind, x, y, lift, ang, H) {
+    let g = this.gear.get(id);
+    if (g === undefined) { g = makeGear(kind); if (g) this.scene.add(g); this.gear.set(id, g); }
+    this._live.add(id);
+    if (!g) return null;
+    g.position.set(x, lift, y); g.rotation.y = -facing(ang); g.scale.setScalar(H);
+    return g.userData;
   }
 
   /** Allinea la scena al mondo di gioco. */
@@ -531,7 +715,7 @@ export class Scene3D {
       let o = this.bMesh.get(b.id);
       if (!o || o.key !== key) {
         const fresh = !o;
-        if (o) s.remove(o.g);
+        if (o) drop(s, o.g);
         const g = makeModel(b.type, { lvl: b.lvl || 0, castle: world.d.castle, crop, id: b.id, vertical });
         g.position.set(b.x, 0, b.y); s.add(g);
         o = { g, key, sx: g.scale.x, sy: g.scale.y, sz: g.scale.z, pop: (fresh && this.ready) || (!fresh && b.type !== 'campo') ? 0 : 1 };
@@ -554,40 +738,66 @@ export class Scene3D {
         if (u.vines) { const k = f / 0.5; u.vines.forEach((v, i) => { v.rotation.z = Math.sin(time * 1.6 + i * 1.7) * 0.08 + k * 0.22; }); u.bud.scale.setScalar(1 + k * 0.5); u.halo.scale.setScalar(1 + k * 1.6); }
       }
     }
-    for (const [id, o] of this.bMesh) if (!seen.has(id)) { s.remove(o.g); this.bMesh.delete(id); }
+    for (const [id, o] of this.bMesh) if (!seen.has(id)) { drop(s, o.g); this.bMesh.delete(id); }
     this.ready = true;
 
-    // nemici
-    seen.clear();
+    // i Tuzu: nemici, soldati, abitanti
+    this.nb = this.ng = this.nf = this.nl = 0;
+    const live = this._live || (this._live = new Set()); live.clear();
     for (const e of world.enemies) {
-      seen.add(e.id);
-      let g = this.enemies.get(e.id);
-      if (!g) { g = makeEnemy(e.type); s.add(g); this.enemies.set(e.id, g); }
-      const u = g.userData, w = Math.sin(e.anim * Math.PI * 2), lunge = e.striking > 0 ? Math.sin(e.striking / 0.25 * Math.PI) * 9 : 0;
-      g.position.set(e.x, 0, e.y); g.rotation.y = -e.ang;
-      u.inner.scale.setScalar(u.s * (1 + Math.max(0, e.hit) * 1.6));
-      u.inner.position.x = lunge;
-      if (u.ghost) u.inner.position.y = 6 + Math.sin(time * 3 + e.anim) * 3;
-      else { u.inner.position.y = Math.abs(w) * 2.4 * u.s; u.inner.rotation.x = w * 0.09; u.legs[0].position.x = w * 4; u.legs[1].position.x = -w * 4; }
-      if (u.aura) u.aura.scale.setScalar(1 + Math.sin(time * 4) * 0.08);
+      const T = TRIBES[e.tribe] || TRIBES[0], H = TUZU_H[e.type] * (1 + Math.max(0, e.hit) * 1.4);
+      const hop = Math.abs(Math.sin(e.anim * Math.PI)), lunge = e.striking > 0 ? Math.sin(e.striking / 0.25 * Math.PI) * 9 : 0;
+      const x = e.x + Math.cos(e.ang) * lunge, y = e.y + Math.sin(e.ang) * lunge;
+      const lift = e.ghost ? 7 + Math.sin(time * 3 + e.anim) * 3 : hop * H * 0.13, sq = e.ghost ? 1 : 0.94 + hop * 0.14;
+      this.tuzu(x, y, lift, e.ang, H, sq, T.color, T.eyes !== '#2b2a33', e.ghost);
+      const u = this.gearFor('e' + e.id, e.type, x, y, lift, e.ang, H);
+      if (u) { u.arm.rotation.z = e.striking > 0 ? -1.3 * Math.sin(e.striking / 0.25 * Math.PI) : 0; if (u.aura) u.aura.scale.setScalar(1 + Math.sin(time * 4) * 0.08); }
     }
-    for (const [id, g] of this.enemies) if (!seen.has(id)) { s.remove(g); this.enemies.delete(id); }
-
-    // soldati
-    seen.clear();
     for (const sd of world.soldiers) {
-      seen.add(sd.id);
-      let g = this.soldiers.get(sd.id);
-      if (!g) { g = makeSoldier(); s.add(g); this.soldiers.set(sd.id, g); }
-      const u = g.userData;
-      g.position.set(sd.x, Math.abs(Math.sin(sd.anim)) * 1.8, sd.y); g.rotation.y = -sd.ang;
-      u.inner.scale.setScalar(1.15 * (1 + Math.max(0, sd.hit) * 1.4));
-      u.spear.rotation.z = sd.strike > 0 ? -1.2 * Math.sin(sd.strike / 0.2 * Math.PI) : 0;
+      const H = TUZU_H[sd.type] * (1 + Math.max(0, sd.hit) * 1.4), hop = Math.abs(Math.sin(sd.anim));
+      const lift = hop * H * 0.12;
+      this.tuzu(sd.x, sd.y, lift, sd.ang, H, 0.95 + hop * 0.12, MY_COLOR, false, false);
+      const u = this.gearFor('s' + sd.id, sd.type, sd.x, sd.y, lift, sd.ang, H);
+      if (u) u.arm.rotation.z = sd.strike > 0 ? -1.2 * Math.sin(sd.strike / 0.2 * Math.PI) : 0;
     }
-    for (const [id, g] of this.soldiers) if (!seen.has(id)) { s.remove(g); this.soldiers.delete(id); }
+    for (const [id, g] of this.gear) if (!live.has(id)) { if (g) s.remove(g); this.gear.delete(id); }
+    // gli abitanti del tuo regno: di giorno girano fra le case e lavorano, di notte stanno al riparo
+    if (world.status !== 'night') {
+      let n = 0;
+      for (const b of world.d.buildings) {
+        if (n >= 44) break;
+        if (b.type === 'casa') {
+          for (let k = 0; k < 2; k++) {
+            const ph = time * 0.32 + b.id * 1.7 + k * 2.6, f = (p) => [b.x + Math.cos(p) * 54 + Math.cos(p * 2.3 + b.id) * 12, b.y + 60 + Math.sin(p * 1.3 + k) * 15];
+            const [px, py] = f(ph), [qx, qy] = f(ph + 0.05), hop = Math.abs(Math.sin(time * 5 + b.id + k * 2));
+            this.tuzu(px, py, hop * 3, Math.atan2(qy - py, qx - px), TUZU_H.villager * (k ? 0.82 : 1), 0.95 + hop * 0.1, MY_COLOR, false, false); n++;
+          }
+        } else if (WORKER[b.type]) {
+          const o = WORKER[b.type], hop = Math.max(0, Math.sin(time * 4 + b.id * 2.2));
+          this.tuzu(b.x + o[0], b.y + o[1], hop * 5, Math.atan2(-o[1], -o[0]), TUZU_H.villager, 1 - hop * 0.02 + (1 - hop) * 0.02, MY_COLOR, false, false); n++;
+        }
+      }
+    }
+    // i villaggi: chi ci abita, lo stendardo (viola se è una tua colonia), i colpi dell'assalto
+    TRIBES.forEach((T, i) => {
+      const v = world.d.villages[i], g = this.villages[i], u = g.userData, R = world.raid && world.raid.i === i ? world.raid : null;
+      const fc = v.state === 'colony' ? MY_COLOR : T.color;
+      if (u.flagCol !== fc) { u.flag.material = M(fc); u.flagCol = fc; }
+      u.flag.rotation.y = Math.sin(time * 2.2 + i) * 0.18;
+      u.fire.scale.y = 0.85 + Math.sin(time * 12 + i) * 0.18;
+      const w = R && R.hitT > 0 ? 1 + Math.sin(time * 60) * 0.012 : 1; g.scale.set(w, 1, w);
+      if (R) return;                                       // sotto assalto sono fuori i difensori
+      for (let k = 0; k < 5; k++) {
+        const dir = k % 2 ? 1 : -1, a = time * 0.22 * dir + k * 1.26 + i, rad = 150 + (k % 3) * 26 + Math.sin(time * 0.5 + k) * 10;
+        const hop = Math.abs(Math.sin(time * 4.6 + k * 1.9 + i));
+        this.tuzu(g.position.x + Math.cos(a) * rad, g.position.z + Math.sin(a) * rad * 0.8, hop * 3.4, a + dir * Math.PI / 2, TUZU_H.villager * (0.85 + (k % 3) * 0.12), 0.95 + hop * 0.1, T.color, T.eyes !== '#2b2a33', false);
+      }
+    });
+    this.blobIM.count = this.nb; this.ghostIM.count = this.ng; this.faceIM.count = this.shineIM.count = this.nf; this.faceLightIM.count = this.nl;
+    for (const im of [this.blobIM, this.ghostIM, this.faceIM, this.faceLightIM, this.shineIM]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
 
     // proiettili
-    const live = new Set(world.projs);
+    const liveP = new Set(world.projs);
     for (const p of world.projs) {
       let g = this.projs.get(p);
       if (!g) {
@@ -600,15 +810,8 @@ export class Scene3D {
       g.position.set(p.x, p.h || 20, p.y);
       if (p.k === 'arrow') g.rotation.y = -p.ang; else if (p.k === 'boulder') g.rotation.x = time * 6;
     }
-    for (const [p, g] of this.projs) if (!live.has(p)) { s.remove(g); this.projs.delete(p); }
+    for (const [p, g] of this.projs) if (!liveP.has(p)) { s.remove(g); this.projs.delete(p); }
 
-    // portali: accesi quelli da cui arriverà (o sta arrivando) l'attacco
-    const act = portalsFor(world.nextNight);
-    for (const p of PORTALS) {
-      const u = this.portals[p.id].userData, on = act.includes(p);
-      u.disc.visible = on; u.swirl.visible = on; u.off.visible = !on;
-      if (on) for (const t of u.swirl.children) t.rotation.x = time * t.userData.sp;
-    }
   }
 
   /** Ombre accese o spente (si spengono da sole se il telefono fatica). */
