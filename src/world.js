@@ -1,7 +1,7 @@
 // Il regno: regole pure (niente disegno, niente DOM). Griglia, costruzione libera, risorse, colture,
 // notti con i popoli rivali che scendono dai loro villaggi, torri, esercito, assalti, scoperte, missioni.
 import {
-  G, COLS, ROWS, CASTLE, START, SELL_REFUND, BUILD, SHIPS, SHIP_MAX, RIVER_AT, towerCap, UNITS, CASERMA_SLOTS, GUARD_REACH, CASTLE_UP, MAX_CASTLE,
+  G, COLS, ROWS, CASTLE, START, rotStep, ROAD_AT, ON_ROAD, SELL_REFUND, BUILD, SHIPS, SHIP_MAX, RIVER_AT, towerCap, UNITS, CASERMA_SLOTS, GUARD_REACH, CASTLE_UP, MAX_CASTLE,
   castleHp, TOWERS, ENEMIES, CROPS, genWave, hpMul, NATURE, CHOP, TRIBES, VILLAGE_R, REVOLT_NIGHTS, TECHS,
   villageHp, villageGuards, villageLoot, villageTribute, TRADE, TERRAIN, STEP, ALLY_NIGHTS, MAX_ALLIES, TRADES_PER_DAY,
   allyCost, allyHelpers, villageTrade, GOALS, MORALE, moraleK, WORK, WORKER_SPEED, JOBS_MAX, HERO, ROLES, AUTO_RANGE, REGROW_SECS, DIFFS, seasonOf, FOG, FW, FH, RUINS, EVENTS, CHAPTERS, mulberry32, LEVELS, levelK, REL, HERO_POWERS,
@@ -58,7 +58,7 @@ export class World {
         delete o.sold;
         if (o.units) o.units = o.units.filter(u => UNITS[u] && !UNITS[u].hero).slice(0, CASERMA_SLOTS + 2);
         return o;
-      }).filter(b => { const D = BUILD[b.type]; const ok = b.type === 'castello' || (b.c >= 2 && b.r >= 2 && b.c + D.w <= COLS - 2 && b.r + D.h <= ROWS - 2 && VIL_AT[idx(b.c, b.r)] < 0 && VIL_AT[idx(b.c + D.w - 1, b.r + D.h - 1)] < 0 && !TERRAIN[idx(b.c, b.r)] && !TERRAIN[idx(b.c + D.w - 1, b.r + D.h - 1)] && !TERRAIN[idx(b.c + D.w - 1, b.r)] && !TERRAIN[idx(b.c, b.r + D.h - 1)]); if (!ok) flooded.push(b); return ok; });
+      }).filter(b => { const D = BUILD[b.type]; const ok = b.type === 'castello' || (b.c >= 2 && b.r >= 2 && b.c + D.w <= COLS - 2 && b.r + D.h <= ROWS - 2 && VIL_AT[idx(b.c, b.r)] < 0 && VIL_AT[idx(b.c + D.w - 1, b.r + D.h - 1)] < 0 && (D.water ? TERRAIN[idx(b.c, b.r)] === 3 : !TERRAIN[idx(b.c, b.r)] && !TERRAIN[idx(b.c + D.w - 1, b.r + D.h - 1)] && !TERRAIN[idx(b.c + D.w - 1, b.r)] && !TERRAIN[idx(b.c, b.r + D.h - 1)])); if (!ok) flooded.push(b); return ok; });      // (un ponte sta sull'acqua: prima questo controllo lo buttava via a ogni ricarica)
       // quello che non ha più posto (per esempio dov'è arrivato un fiume) si smonta e rende tutto il suo costo
       for (const b of flooded) { const D = BUILD[b.type], L = LEVELS[b.type]; for (const k in D.cost || {}) d.res[k] = (d.res[k] || 0) + D.cost[k]; for (let i = 0; i < (b.lvl || 0) && L && L[i]; i++) for (const k in L[i]) d.res[k] = (d.res[k] || 0) + L[i][k]; }
       this.flooded = flooded.length;
@@ -101,6 +101,7 @@ export class World {
     for (const b of d.buildings) b.hp = this.maxHp(b);      // si riparte sempre di giorno, con tutto riparato
     for (const b of d.buildings) if (b.type === 'caserma') (b.units || []).forEach((u, i) => this.spawnSoldier(b, u, i));
     this.fogInit(); this.ensureHero(); this.rehome();
+    this.offRoad = data ? this.clearRoads() : 0;
     this.stepTrips(now);          // le spedizioni sono andate avanti anche a gioco chiuso
     this.stepFleet(now);          // e anche le navi
     if (!this.d.seenB) { this.d.seenB = {}; this.seeBuilds(Object.keys(BUILD)); }      // all'inizio (e nelle partite di prima) niente è «nuovo»: lo diventa quello che sblocchi da qui in poi
@@ -219,7 +220,8 @@ export class World {
       if (!this.seen(cc, rr)) return 'fog';
       if (VIL_AT[idx(cc, rr)] >= 0) return 'village';
       if (D.water ? TERRAIN[idx(cc, rr)] !== 3 : TERRAIN[idx(cc, rr)]) return D.water ? 'water' : 'terrain';
-      if (RIVER_AT[idx(cc, rr)] > 1 && type !== 'strada') return 'terrain';      // su un guado o sul ponte di una strada non si costruisce
+      if (RIVER_AT[idx(cc, rr)] > 1 && type !== 'strada') return 'terrain';
+      if (ROAD_AT[idx(cc, rr)] && !ON_ROAD[type]) return 'road';      // sulle strade della mappa non si costruisce (richiesta del titolare: «non devono mai esserci»)      // su un guado o sul ponte di una strada non si costruisce
       if (this.occ[idx(cc, rr)] !== 0 || this.natAt(cc, rr)) return 'occupied';
     }
     if (D.shore) { let wet = false; for (let rr = r - 1; rr <= r + D.h && !wet; rr++) for (let cc = c - 1; cc <= c + D.w; cc++) if (inMap(cc, rr) && TERRAIN[idx(cc, rr)] === 3) { wet = true; break; } if (!wet) return 'shore'; }
@@ -232,10 +234,11 @@ export class World {
     this.d.buildings.push(b);
     return b;
   }
-  place(type, c, r) {
+  place(type, c, r, rot = 0) {
     if (this.canPlace(type, c, r) !== 'ok') return null;
     this.pay(BUILD[type].cost);
     const b = this.add(type, c, r);
+    if (rot && rotStep(type)) b.rot = ((rot % 8) + 8) % 8;
     this.rebuild(); this.track('build');
     if (type === 'fucina' && !(b.build > 0)) for (const o of this.soldiers) if (o.ally == null && !o.hero) { o.maxHp = Math.round(UNITS[o.type].hp * 1.2); o.hp = o.maxHp; }
     this.events.push({ k: 'placed', x: b.x, y: b.y, type });
@@ -259,11 +262,11 @@ export class World {
     const locked = BUILD[type].min > this.d.castle;
     return { good, cost, ok: !locked && good.length > 0 && this.afford(cost), why: locked ? 'locked' : !good.length ? (BUILD[type].water ? 'water' : 'occupied') : this.afford(cost) ? 'ok' : 'cost' };
   }
-  placeLine(type, cells) {
+  placeLine(type, cells, rot = 0) {
     const chk = this.lineCheck(type, cells);
     if (!chk.ok) return 0;
     this.pay(chk.cost);
-    for (const q of chk.good) this.add(type, q.c, q.r);
+    for (const q of chk.good) { const b = this.add(type, q.c, q.r); if (rot && rotStep(type)) b.rot = ((rot % 8) + 8) % 8; }
     this.rebuild(); this.track('build', chk.good.length);
     const m = chk.good[chk.good.length >> 1];
     this.events.push({ k: 'placed', x: (m.c + 0.5) * G, y: (m.r + 0.5) * G, type });

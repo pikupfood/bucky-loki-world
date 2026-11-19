@@ -1,6 +1,6 @@
 // Avvio: scena 3D + interfaccia 2D, camera (trascina, pizzica, rotella), costruzione a quadretti, salvataggio.
 import { World } from './world.js';
-import { G, COLS, ROWS, BUILD, BUILD_CATS, SHIPS, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, TERRAIN, RUINS, HERO, LEVEL_MIN, UNITS as UNIT_DEFS } from './data.js';
+import { G, COLS, ROWS, BUILD, BUILD_CATS, SHIPS, ROAD_AT, rotStep, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, TERRAIN, RUINS, HERO, LEVEL_MIN, UNITS as UNIT_DEFS } from './data.js';
 import { Scene3D } from './scene3d.js';
 import { drawUi } from './ui.js';
 import { stepFx, parts, ring, text, smoke, chips, arc } from './fx.js';
@@ -16,7 +16,7 @@ const uiCanvas = document.getElementById('ui');
 const ctx = uiCanvas.getContext('2d');
 const scene = new Scene3D(glCanvas);
 
-const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 5;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
+const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 6;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
 const KEY = 'tuzu_difesa_v3';       // la chiave resta questa: i salvataggi vecchi li converte World
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
@@ -72,7 +72,7 @@ const P = {
 };
 
 // ---------- costruzione a quadretti ----------
-const cellFree = (c, r, self = 0) => c >= 2 && r >= 2 && c < COLS - 2 && r < ROWS - 2 && (world.occ[r * COLS + c] === 0 || world.occ[r * COLS + c] === self) && !world.natAt(c, r) && world.villageAt(c, r) < 0 && !TERRAIN[r * COLS + c];
+const cellFree = (c, r, self = 0) => c >= 2 && r >= 2 && c < COLS - 2 && r < ROWS - 2 && (world.occ[r * COLS + c] === 0 || world.occ[r * COLS + c] === self) && !world.natAt(c, r) && world.villageAt(c, r) < 0 && !TERRAIN[r * COLS + c] && !ROAD_AT[r * COLS + c];
 /** Il quadretto in alto a sinistra di un edificio centrato sul punto del terreno g. */
 function cellFor(type, g) { const D = BUILD[type]; return { c: Math.floor(g.x / G - D.w / 2 + 0.5), r: Math.floor(g.y / G - D.h / 2 + 0.5) }; }
 /** Stato dell'anteprima: quadretti verdi/rossi, se si può confermare e perché no. */
@@ -108,10 +108,10 @@ function confirmPlace() {
   const pl = ui.place; if (!pl) return;
   const st = placeState();
   if (!st.ok) { toast(t(st.why === 'no' ? 'notNow' : 'why_' + (st.why.startsWith('pick') ? 'pick' : st.why))); return; }
-  if (pl.move) { world.moveBuilding(world.byId.get(pl.move), pl.c, pl.r); ui.place = null; save(); return; }
-  if (BUILD[pl.type].line) { world.placeLine(pl.type, st.cells); pl.a = null; pl.b = null; }
+  if (pl.move) { const mb = world.byId.get(pl.move); if (world.moveBuilding(mb, pl.c, pl.r) && rotStep(pl.type)) { mb.rot = pl.rot || 0; world.rev++; } ui.place = null; save(); return; }
+  if (BUILD[pl.type].line) { world.placeLine(pl.type, st.cells, pl.rot || 0); pl.a = null; pl.b = null; }
   else {
-    world.place(pl.type, pl.c, pl.r); pl.c = null;
+    world.place(pl.type, pl.c, pl.r, pl.rot || 0); pl.c = null;
     const cp = world.cap(pl.type);
     if (cp.have >= cp.max) ui.place = null;       // raggiunto il limite: si torna alla scelta
   }
@@ -247,8 +247,12 @@ const A = {
   },
   placeConfirm() { confirmPlace(); },
   placeCancel() { ui.place = null; audio.play('tap'); },
+  /** Gira l'anteprima (prima di posare) di un passo. */
+  placeRotate() { const pl = ui.place, st = pl && rotStep(pl.type); if (!st) return; pl.rot = ((pl.rot || 0) + st) % 8; audio.play('tap'); },
+  /** Gira un oggetto già posato. */
+  rotate(b) { if (world.rotate(b)) { audio.play('tap'); save(); } else toast(t('notNow')); },
   selClose() { ui.sel = null; },
-  move(b) { if (world.moveCheck(b) !== 'ok') { toast(t('notNow')); return; } ui.place = { type: b.type, move: b.id, c: b.c, r: b.r, a: null, b: null }; ui.sel = null; ui.build = null; audio.play('tap'); },
+  move(b) { if (world.moveCheck(b) !== 'ok') { toast(t('notNow')); return; } ui.place = { type: b.type, move: b.id, c: b.c, r: b.r, a: null, b: null, rot: b.rot || 0 }; ui.sel = null; ui.build = null; audio.play('tap'); },
   marketMode() { ui.sell = !ui.sell; audio.play('tap'); },
   sell(r) { if (world.sell(r)) save(); else audio.play('no'); },
   recall(id) { if (world.recallTrip(id)) { ui.map.recall = null; audio.play('coin'); save(); } },
@@ -673,7 +677,7 @@ function tick(real) {
   stepFx(ui.fx, real * (world.status !== 'day' ? ui.speed : 1)); stepFx(ui.fxTop, real);
   ui.night += ((world.status === 'night' ? 1 : 0) - ui.night) * Math.min(1, real * 1.6);
   if (ui.sel && !world.byId.has(ui.sel.b.id)) ui.sel = null;
-  if (ui.place) { const st = ui.place.state = placeState(); scene.setGhost({ type: ui.place.type, cells: st.cells, at: st.at || null, line: !!st.line }); }
+  if (ui.place) { const st = ui.place.state = placeState(); scene.setGhost({ type: ui.place.type, cells: st.cells, at: st.at || null, line: !!st.line, rot: (ui.place.rot || 0) * Math.PI / 4 }); }
   else scene.setGhost(null);
   scene.showGrid(ui.screen === 'play' && !!(ui.build || ui.place));
   scene.setCalm(!!(ui.build || ui.place));
@@ -730,6 +734,7 @@ resize();
 if (view.tall && !(saved.cam && isFinite(saved.cam.x))) scene.setView((CASTLE.c + CASTLE.w / 2) * G, (CASTLE.r + CASTLE.h / 2) * G + 20, 1900);      // a schermo alto si parte più da lontano: di lato si vede meno
 // chi ha già una partita vede una volta che cosa c'è di nuovo; chi comincia adesso no (per lui è tutto nuovo)
 try { const seenNews = +(localStorage.getItem(NEWS_KEY) || 0); if (seenNews < NEWS_V) { if (world.d.night > 0 || world.d.buildings.length > 3) ui.newsDue = true; else localStorage.setItem(NEWS_KEY, String(NEWS_V)); } } catch (e) { /* niente */ }
+if (world.offRoad) setTimeout(() => { banner(t('roadMoved', world.offRoad), '#ffe9a8', 5); save(); }, world.flooded ? 8200 : 2600);
 if (world.flooded) setTimeout(() => { banner(t('riverMoved', world.flooded), '#9fe9ff', 5); save(); }, 2600);
 online.init({ getSnap: () => world.pvpSnap(), onSent: (army) => { world.pvpSend(army); save(); }, onReports: (list) => { for (const r of list) world.pvpApply(r); save(); return list.map(r => r.id); } });
 cloud.init({ key: KEY, beforeLeave: () => save(), getSave: () => JSON.parse(JSON.stringify(world)), t, onLoad: (data) => { frozen = true; try { const cur = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; cur.world = data; localStorage.setItem(KEY, JSON.stringify(cur)); } catch (e) { /* niente */ } window.removeEventListener('pagehide', save); location.reload(); } });

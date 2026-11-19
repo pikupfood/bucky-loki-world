@@ -126,6 +126,7 @@ export function paintWorld(canvas, k) {
   // piazzale del castello
   const cx = (CASTLE.c + CASTLE.w / 2) * G, cy = (CASTLE.r + CASTLE.h / 2) * G;
   glow(c, cx, cy, 250, '204,174,120', 0.95, 0.92);
+  glow(c, cx, cy, 390, '204,174,120', 0.42, 0.94);      // lo spiazzo arriva fin dove si fermano le strade
   for (let i = 0; i < 170; i++) { const a = rnd() * TAU, r = rnd() * 180; ell(c, cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.9, 1.5 + rnd() * 2.5, 1 + rnd() * 1.6, rnd() < 0.5 ? 'rgba(60,45,30,0.3)' : 'rgba(255,240,210,0.35)'); }
 
   // la piazza di ogni villaggio: terra battuta a macchie irregolari, senza contorni tracciati

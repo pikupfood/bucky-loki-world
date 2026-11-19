@@ -2,7 +2,7 @@
 // assedi, eroe più ricco, acqua, trofei e sfida del giorno. Logica pura, come world.js: extend(World) le aggiunge alla classe.
 import {
   G, COLS, ROWS, BUILD, TRIBES, TERRAIN, RUINS, FOG, UNITS, HERO, HERO_ITEMS, ISLAND, LEVELS, LEVEL_MIN, FOOD, specials, siegeCount,
-  REL, giftCost, SHIPS, SHIP_MAX, shipUpCost, SEA, TRADE, villageLoot, LEVEL_MIN_BY, ROAD_AT, ROAD_SPEED, SELL, PVP_UNIT, PVP_TOWER, MY_COLOR, TROPHIES, CHALLENGES, CHALLENGE_REWARD, CHAPTERS, CASERMA_SLOTS, genWave, DIFFS, allyCost, ALLY_NIGHTS, levelK,
+  REL, giftCost, ON_ROAD, rotStep, SHIPS, SHIP_MAX, shipUpCost, SEA, TRADE, villageLoot, LEVEL_MIN_BY, ROAD_AT, ROAD_SPEED, SELL, PVP_UNIT, PVP_TOWER, MY_COLOR, TROPHIES, CHALLENGES, CHALLENGE_REWARD, CHAPTERS, CASERMA_SLOTS, genWave, DIFFS, allyCost, ALLY_NIGHTS, levelK,
 } from './data.js';
 
 const HOUR = 3600000, DAY = 86400000;
@@ -424,6 +424,35 @@ export function extend(World) {
       else if (r.kind === 'defended') { this.cheer(3); this.track('pvpDef'); }
       this.events.push({ k: 'pvp', kind: r.kind, data: d });
       return true;
+    },
+
+    // ---------- ruotare ----------
+    canRotate(b) { return !!b && rotStep(b.type) > 0 && !(b.build > 0); },
+    /** Gira un oggetto già posato di un passo (45° aiuole e statue, 90° gli edifici). */
+    rotate(b) { if (!this.canRotate(b)) return false; b.rot = ((b.rot || 0) + rotStep(b.type)) % 8; this.rev++; this.events.push({ k: 'rotated', x: b.x, y: b.y }); return true; },
+
+    // ---------- strade della mappa sgombre ----------
+    /** Gli edifici finiti su una strada della mappa (le strade cambiano quando cambia la mappa) si spostano nel posto libero più vicino,
+     *  con tutto quello che hanno dentro. Se proprio non c'è posto si smontano e rendono il costo. Rende quanti ne ha spostati. */
+    clearRoads() {
+      let moved = 0;
+      for (const b of [...this.d.buildings]) {
+        const D = BUILD[b.type];
+        if (b.type === 'castello' || ON_ROAD[b.type]) continue;
+        let hit = false; for (let rr = b.r; rr < b.r + D.h && !hit; rr++) for (let cc = b.c; cc < b.c + D.w; cc++) if (ROAD_AT[rr * COLS + cc]) { hit = true; break; }
+        if (!hit) continue;
+        for (let rr = b.r; rr < b.r + D.h; rr++) for (let cc = b.c; cc < b.c + D.w; cc++) if (this.occ[rr * COLS + cc] === b.id) this.occ[rr * COLS + cc] = 0;
+        let best = null;
+        for (let rad = 1; rad <= 16 && !best; rad++) for (let dr = -rad; dr <= rad && !best; dr++) for (let dc = -rad; dc <= rad; dc++) {
+          if (Math.max(Math.abs(dc), Math.abs(dr)) !== rad) continue;
+          if (this.canPlace(b.type, b.c + dc, b.r + dr, true, -1) === 'ok') { best = { c: b.c + dc, r: b.r + dr }; break; }
+        }
+        if (best) { b.c = best.c; b.r = best.r; moved++; }
+        else { const L = LEVELS[b.type]; this.gain(D.cost || {}); for (let i = 0; i < (b.lvl || 0) && L && L[i]; i++) this.gain(L[i]); this.d.buildings = this.d.buildings.filter(q => q !== b); this.flooded = (this.flooded || 0) + 1; }
+        this.rebuild();
+      }
+      if (moved) { this.rehome(); for (const s of this.soldiers) { s.x = s.hx; s.y = s.hy; } }
+      return moved;
     },
 
     // ---------- ponti ----------

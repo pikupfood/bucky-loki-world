@@ -184,6 +184,12 @@ const RIVER_RAW = [];        // { path, modes }: serve alla seconda parte, dopo 
 export const STEP = new Float32Array(COLS * ROWS);
 export const ROADS = [];              // { pts: [{x, y}], main }  (main = porta al castello)
 export const ROAD_AT = new Uint8Array(COLS * ROWS);
+/** Quello che si può posare su una strada della mappa: solo ciò che la sbarra (o altra strada). Mai case, campi, torri, botteghe. */
+export const ON_ROAD = { strada: 1, recinto: 1, mura: 1, cancello: 1 };
+/** Di quanto gira un oggetto a ogni tocco di «Ruota», in ottavi di giro (0 = non si gira: i pezzi in fila si orientano da soli, porti e
+ *  porticcioli guardano l'acqua, lampioni e alberi sono tondi). Aiuole e statue girano di 45°, gli edifici di 90°. b.rot va da 0 a 7. */
+export const rotStep = (type) => (type === 'aiuola' || type === 'statua' ? 1 : { mura: 1, recinto: 1, strada: 1, ponte: 1, cancello: 1, porto: 1, scalo: 1, lampione: 1, albero: 1 }[type] ? 0 : 2);
+export const HOME_R = 8;               // attorno al castello le strade della mappa non entrano
 const DIR8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 /** Distanze (pesate con STEP) da un gruppo di quadretti, girando attorno al rilievo. */
 export function terrainFlow(targets) {
@@ -223,7 +229,13 @@ export function terrainFlow(targets) {
     }
     return out;
   };
-  const lay = (cells, main) => {
+  // Le strade si fermano al bordo del villaggio (HOME_R quadretti dal centro del castello): lì dentro è tutto del giocatore, e siccome sulle
+  // strade non si costruisce, una strada che arrivasse fino al portone gli taglierebbe il villaggio in due. Una strada che ci passa in mezzo si spezza.
+  const lay = (all, main) => {
+    const out = (q) => Math.hypot(q[0] + 0.5 - CASTLE.c - 1.5, q[1] + 0.5 - CASTLE.r - 1.5) > HOME_R, runs = []; let run = [];
+    for (const q of all) { if (out(q)) run.push(q); else { if (run.length) runs.push(run); run = []; } } if (run.length) runs.push(run);
+    if (runs.length !== 1 || runs[0].length !== all.length) { for (const part of runs) lay(part, main); return; }
+    const cells = all;
     if (cells.length < 3) return;
     for (const [c, r] of cells) { STEP[r * COLS + c] = 0.42; ROAD_AT[r * COLS + c] = 1; }
     let pts = cells.filter((_, i) => i % 3 === 0 || i === cells.length - 1).map(([c, r]) => ({ x: (c + 0.5) * G, y: (r + 0.5) * G }));

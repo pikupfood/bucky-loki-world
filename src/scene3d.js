@@ -478,6 +478,7 @@ function levelMarks(g, lvl, w = 34, h = 44) {
   }
   if (lvl >= 2) for (const [x, z] of [[-w, w * 0.8], [w, w * 0.8]]) { cyl(g, 4, 5, 9, '#8f8f98', x, 4.5, z, { seg: 8 }); ball(g, 4.4, GOLDC, x, 12, z, { e: 0x8a6410, ei: 0.35 }); }
 }
+const ROT_Q = [0, 1, 2, 3, 4, 5, 6, 7].map(i => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), i * Math.PI / 4));
 const RAIL_Q = [0, 1, 2, 3].map(i => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), i * Math.PI / 2));
 
 // ---------- navi ----------
@@ -1316,7 +1317,7 @@ export class Scene3D {
       if (spec.at) {
         let g = this.ghosts[spec.type];
         if (!g) { g = ghostify(makeModel(spec.type, { castle: 1, id: 0 })); this.ghosts[spec.type] = g; this.scene.add(g); }
-        g.visible = true; g.position.set(spec.at.x, 2, spec.at.y); this.ghostOn = g;
+        g.visible = true; g.position.set(spec.at.x, 2, spec.at.y); g.rotation.y = spec.rot || 0; this.ghostOn = g;
       }
     }
   }
@@ -1365,9 +1366,10 @@ export class Scene3D {
       }
       if (b.type === 'strada') continue;        // le strade sono dipinte sulla mappa (più sotto)
       if (b.type === 'aiuola' && nB < DECO_CAP) {
-        this.bedIM.setMatrixAt(nB, m4.compose(P3.set(b.x, 3, b.y), q, S3.set(1, 1, 1)));
-        this.bedLeaf.setMatrixAt(nB++, m4.compose(P3.set(b.x, 6.4, b.y), q, S3.set(13, 4.6, 13)));
-        for (let k = 0; k < 4; k++) { const a = b.id * 1.3 + k * 1.571; this.bedFlower.setMatrixAt(nF, m4.compose(P3.set(b.x + Math.cos(a) * 7.5, 10.5, b.y + Math.sin(a) * 7.5), q, S3.set(3.3, 3.3, 3.3))); this.bedFlower.setColorAt(nF++, col.set(FLOWERS[(b.id + k) % FLOWERS.length])); }
+        const qb = ROT_Q[(b.rot || 0) % 8];
+        this.bedIM.setMatrixAt(nB, m4.compose(P3.set(b.x, 3, b.y), qb, S3.set(1, 1, 1)));
+        this.bedLeaf.setMatrixAt(nB++, m4.compose(P3.set(b.x, 6.4, b.y), qb, S3.set(13, 4.6, 13)));
+        for (let k = 0; k < 4; k++) { const a = b.id * 1.3 + k * 1.571 - (b.rot || 0) * Math.PI / 4; this.bedFlower.setMatrixAt(nF, m4.compose(P3.set(b.x + Math.cos(a) * 7.5, 10.5, b.y + Math.sin(a) * 7.5), q, S3.set(3.3, 3.3, 3.3))); this.bedFlower.setColorAt(nF++, col.set(FLOWERS[(b.id + k) % FLOWERS.length])); }
       } else if (b.type === 'lampione' && nL < 300) {
         this.lampPole.setMatrixAt(nL, m4.compose(P3.set(b.x, 17, b.y), q, S3.set(1, 1, 1)));
         this.lampHead.setMatrixAt(nL++, m4.compose(P3.set(b.x, 37, b.y), q, S3.set(1, 1, 1)));
@@ -1485,7 +1487,7 @@ export class Scene3D {
       else if (b.type === 'castello') key = 'C' + world.d.castle;
       else if (b.type === 'cancello') { vertical = (wallish(world.buildingAt(b.c, b.r - 1)) || wallish(world.buildingAt(b.c, b.r + 1))) && !(wallish(world.buildingAt(b.c - 1, b.r)) || wallish(world.buildingAt(b.c + 1, b.r))); key = vertical ? 'V' : 'H'; }
       else key = 'L' + (b.lvl || 0);
-      let rot = 0, ships = null;
+      let rot = (b.rot || 0) * Math.PI / 4, ships = null;
       if (b.type === 'scalo' || b.type === 'porto') { const big = b.type === 'scalo', docks = world.d.buildings.filter(x => x.type === b.type && !(x.build > 0)), k = docks.indexOf(b), idle = world.d.fleet.filter(q => !q.job), nBig = world.d.buildings.filter(x => x.type === 'scalo' && !(x.build > 0)).length; ships = k < 0 ? [] : big ? idle.slice(k * 3, k * 3 + 3) : idle.slice(nBig * 3 + k, nBig * 3 + k + 1); key += '|' + ships.map(q => q.type[0] + q.lvl).join(''); }
       if (b.type === 'porto' || b.type === 'scalo') {      // verso l'acqua più vicina
         let wx = 0, wy = 0; const c0 = Math.floor(b.x / G), r0 = Math.floor(b.y / G);

@@ -1,6 +1,6 @@
 // Interfaccia 2D sopra il mondo 3D. Stile "immediato": a ogni frame si disegna e si registrano
 // le aree toccabili in ui.buttons. S = { c, world, ui, vw, vh, P, A, now }.
-import { G, BUILD, BUILD_CATS, TOWERS, CROPS, CROP_ORDER, CASTLE_UP, UNITS, UNIT_ORDER, CASERMA_SLOTS, TRIBES, MY_COLOR, TECHS, TECH_ORDER, TRADE, TRADE_ORDER, CAT_ORDER, NATURE, moraleK, waveSummary, ENEMIES, LEVELS, LEVEL_MIN, levelK, TRAITS, REL, giftCost, SELL, SELL_ORDER } from './data.js';
+import { G, BUILD, BUILD_CATS, TOWERS, CROPS, CROP_ORDER, CASTLE_UP, UNITS, UNIT_ORDER, CASERMA_SLOTS, TRIBES, MY_COLOR, TECHS, TECH_ORDER, TRADE, TRADE_ORDER, CAT_ORDER, NATURE, moraleK, waveSummary, ENEMIES, LEVELS, LEVEL_MIN, levelK, TRAITS, REL, giftCost, SELL, SELL_ORDER, rotStep } from './data.js';
 import { VEIL } from './ground.js';
 import { drawTower } from './icons.js';
 import { drawFx, tracePoly } from './fx.js';
@@ -675,6 +675,13 @@ function buildBar(S) {
   cross(c, x + w - 32, y + (tall ? 29 : 32), 11);
 }
 
+/** La freccia che gira (il bottone «Ruota»). */
+function rotIcon(c, x, y, s, col = '#fff') {
+  c.strokeStyle = col; c.fillStyle = col; c.lineWidth = Math.max(2, s * 0.22); c.lineCap = 'round';
+  c.beginPath(); c.arc(x, y, s * 0.78, -Math.PI * 0.15, Math.PI * 1.35); c.stroke();
+  const a = -Math.PI * 0.15, px = x + Math.cos(a) * s * 0.78, py = y + Math.sin(a) * s * 0.78;
+  c.beginPath(); c.moveTo(px + s * 0.42, py - s * 0.5); c.lineTo(px + s * 0.3, py + s * 0.34); c.lineTo(px - s * 0.46, py - s * 0.1); c.closePath(); c.fill();
+}
 function placeBar(S) {
   const { c, world, ui, vw, vh, A } = S, pl = ui.place, st = pl.state || { why: 'pick', ok: false }, D = BUILD[pl.type];
   const w = Math.min(660, vw - 16), h = 82, x = vw / 2 - w / 2, y = vh - h - 12;
@@ -684,7 +691,9 @@ function placeBar(S) {
   const n = st.n || 1;
   if (D.line && st.n > 1) txt(c, '×' + st.n, x + 92 + width(c, t('b_' + pl.type), 21, 700, true) + 10, y + 28, 18, CREAM, 'left', 800);
   txt(c, t(pl.type === 'ponte' && st.why === 'pickStart' ? 'why_bridge' : 'why_' + st.why), x + 92, y + 57, 16, st.ok || st.why.startsWith('pick') ? '#bfe9a8' : BAD, 'left', 700);
-  if (pl.move) txt(c, t('moving'), x + w - 170, y + 42, 16, DIM, 'right', 700); else costRow(c, world, D.cost, x + w - 236, y + 41, 19, n);
+  const canRot = rotStep(pl.type) > 0, shift = canRot ? 72 : 0;
+  if (pl.move) txt(c, t('moving'), x + w - 170 - shift, y + 42, 16, DIM, 'right', 700); else costRow(c, world, D.cost, x + w - 236 - shift, y + 41, 19, n);
+  if (canRot) { button(c, ui, x + w - 224, y + 11, 64, 60, '', { color: '#2f5d7a', tag: 'placeRotate' }, A.placeRotate); rotIcon(c, x + w - 192, y + 41, 15); }
   button(c, ui, x + w - 150, y + 11, 64, 60, '', { color: '#2f7d3a', disabled: !st.ok, tag: 'placeOk' }, A.placeConfirm);
   check(c, x + w - 118, y + 41, 15, st.ok ? '#fff' : '#9a948a');
   button(c, ui, x + w - 76, y + 11, 64, 60, '', { color: '#7a3a2c', tag: 'placeCancel' }, A.placeCancel);
@@ -712,6 +721,7 @@ function selPanel(S) {
   button(c, ui, x + w - 52, y + 8, 42, 42, '', { color: '#5c4330', r: 21, tag: 'selClose' }, A.selClose);
   cross(c, x + w - 31, y + 29, 9);
   if (world.moveCheck(b) === 'ok') button(c, ui, tallB ? x + 16 : b.type === 'caserma' ? x + w - 596 : x + w - 172, tallB ? y + 80 : y + 9, 104, 36, t('move'), { color: '#5c4330', fs: 15, r: 10, tag: 'move' }, () => A.move(b));
+  if (world.canRotate(b)) { const wideB = b.type === 'caserma' && !tallB, rx = tallB ? x + w - 176 : wideB ? x + 300 : x + w - 284, ry = wideB ? y + 44 : y + 9; button(c, ui, rx, ry, 104, wideB ? 32 : 36, t('rotate'), { color: '#2f5d7a', fs: 15, r: 10, dx: 10, tag: 'rotate' }, () => A.rotate(b)); rotIcon(c, rx + 17, ry + (wideB ? 16 : 18), 8); }
   const demol = (bx, by, bw = 150) => { const back = world.refund(b); button(c, ui, bx, by, bw, 50, t(ui.demoAsk === b.id ? 'sure' : 'demolish'), { color: ui.demoAsk === b.id ? '#a8322a' : '#7a3a2c', fs: 17, tag: 'demolish' }, () => A.demolish(b)); return back; };
   const by = y + h - 62;
 
@@ -947,7 +957,7 @@ function newsPanel(S) {
   ribbon(c, vw / 2, y - 19, Math.min(w - 60, 320), 44, t('news'), '#8a2f24', 24);
   txt(c, t('newsSub'), vw / 2, y + 52, 15, PEN2, 'center', 700);
   const icon = [(ix, iy) => { c.beginPath(); c.moveTo(ix - 16, iy + 8); c.bezierCurveTo(ix - 6, iy - 12, ix + 4, iy + 14, ix + 16, iy - 8); c.strokeStyle = '#d8c79a'; c.lineWidth = 13; c.lineCap = 'round'; c.stroke(); c.strokeStyle = '#4fb4de'; c.lineWidth = 8; c.stroke(); },
-    (ix, iy) => buildIcon(c, 'scalo', ix, iy, 15, 0), (ix, iy) => V.shipIcon(c, 'guerra', ix, iy - 2, 16, 2), (ix, iy) => Y.mapIcon(c, ix, iy, 13), (ix, iy) => Z.globeIcon(c, ix, iy, 14)];
+    (ix, iy) => buildIcon(c, 'scalo', ix, iy, 15, 0), (ix, iy) => V.shipIcon(c, 'guerra', ix, iy - 2, 16, 2), (ix, iy) => rotIcon(c, ix, iy, 13, '#7a2c1e'), (ix, iy) => Z.globeIcon(c, ix, iy, 14)];
   for (let i = 0; i < 5; i++) {
     const ry = y + 84 + i * rowH;
     c.beginPath(); c.arc(x + 44, ry + rowH / 2 - 6, 24, 0, TAU); c.fillStyle = 'rgba(122,84,40,0.14)'; c.fill(); c.strokeStyle = 'rgba(122,84,40,0.45)'; c.lineWidth = 1.4; c.stroke();
