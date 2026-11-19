@@ -1,5 +1,7 @@
 // Mondo in 3D visto dall'alto (three.js): una sola mappa a quadretti, camera che si sposta e si avvicina.
 // Tutti gli abitanti sono Tuzu: la forma è quella del logo, cambia solo il colore del popolo.
+// Stile «giocattolo morbido»: forme tonde, superfici lisce con un alone chiaro sui bordi, luce calda;
+// in uscita un passaggio di rifinitura (bordi dello schermo sfocati come in una miniatura, bagliori, colori caldi).
 // Le coordinate di gioco (x, y) diventano (x, altezza, z = y). L'interfaccia resta in 2D sopra e usa project()/pick().
 import * as THREE from '../vendor/three.module.min.js';
 import { G, COLS, ROWS, WORLD_W, WORLD_H, CASTLE, TRIBES, MY_COLOR, ENEMIES, NATURE, PEAKS, HILLS, LAKES, lakeEdge, mulberry32 } from './data.js';
@@ -8,13 +10,34 @@ import { GRASS, paintWorld } from './ground.js';
 // ---------- mattoncini: geometrie e materiali condivisi ----------
 const geos = new Map(), mats = new Map();
 function geom(key, make) { let g = geos.get(key); if (!g) { g = make(); geos.set(key, g); } return g; }
+/** Alone chiaro sui bordi (come la plastica morbida controluce) e, per la pelle dei Tuzu, un po' di luce propria. */
+function soften(m, rim = 0.2, glow = 0) {
+  m.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>',
+      'float rimK = pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 2.4);\n\toutgoingLight += diffuseColor.rgb * (rimK * ' + rim.toFixed(2) + ' + ' + glow.toFixed(2) + ');\n\t#include <opaque_fragment>');
+  };
+  m.customProgramCacheKey = () => 'soft' + rim + '|' + glow;
+  return m;
+}
+/** Una scatola con gli spigoli arrotondati (facce 3×3, gli spigoli seguono un raggio r; le normali sono lisce). */
+function roundBoxGeo(w, h, d, r) {
+  const g = new THREE.BoxGeometry(w, h, d, 3, 3, 3), p = g.attributes.position, n = g.attributes.normal, S = [w / 2, h / 2, d / 2], v = [0, 0, 0], q = [0, 0, 0];
+  for (let i = 0; i < p.count; i++) {
+    v[0] = p.getX(i); v[1] = p.getY(i); v[2] = p.getZ(i);
+    let len = 0;
+    for (let a = 0; a < 3; a++) { const sg = Math.sign(v[a]), inner = S[a] - r, t = Math.abs(v[a]) > S[a] * 0.5 ? sg * S[a] : sg * inner; q[a] = sg * inner; v[a] = t - q[a]; len += v[a] * v[a]; }
+    len = Math.sqrt(len) || 1;
+    p.setXYZ(i, q[0] + v[0] / len * r, q[1] + v[1] / len * r, q[2] + v[2] / len * r); n.setXYZ(i, v[0] / len, v[1] / len, v[2] / len);
+  }
+  return g;
+}
 function M(color, o) {
   const key = color + (o ? JSON.stringify(o) : '');
   let m = mats.get(key);
   if (!m) {
     m = o && o.basic
       ? new THREE.MeshBasicMaterial({ color, transparent: o.a != null, opacity: o.a ?? 1, side: o.double ? THREE.DoubleSide : THREE.FrontSide, depthWrite: o.a == null })
-      : new THREE.MeshLambertMaterial({ color, emissive: o && o.e ? o.e : 0x000000, emissiveIntensity: o && o.ei != null ? o.ei : 1, transparent: !!(o && o.a != null), opacity: o && o.a != null ? o.a : 1, flatShading: !(o && o.smooth) });
+      : soften(new THREE.MeshLambertMaterial({ color, emissive: o && o.e ? o.e : 0x000000, emissiveIntensity: o && o.ei != null ? o.ei : 1, transparent: !!(o && o.a != null), opacity: o && o.a != null ? o.a : 1, flatShading: !!(o && o.flat) }));
     mats.set(key, m);
   }
   return m;
@@ -26,10 +49,13 @@ function put(parent, g, m, x, y, z, shadow) {
   parent.add(mesh);
   return mesh;
 }
-const box = (p, w, h, d, col, x, y, z, o) => put(p, geom(`b${w}|${h}|${d}`, () => new THREE.BoxGeometry(w, h, d)), M(col, o), x, y, z, !(o && o.ns));
+// tonde solo le parti grosse: una scatola tonda costa nove volte una a spigoli
+const box = (p, w, h, d, col, x, y, z, o) => { const mn = Math.min(w, h, d), r = mn >= 8 ? Math.min(3.6, mn * 0.22) : 0; return put(p, geom(`b${w}|${h}|${d}`, () => (r ? roundBoxGeo(w, h, d, r) : new THREE.BoxGeometry(w, h, d))), M(col, o), x, y, z, !(o && o.ns)); };
 const cyl = (p, rt, rb, h, col, x, y, z, o) => put(p, geom(`c${rt}|${rb}|${h}|${(o && o.seg) || 14}`, () => new THREE.CylinderGeometry(rt, rb, h, (o && o.seg) || 14)), M(col, o && o.mat), x, y, z, !(o && o.ns));
 const cone = (p, r, h, col, x, y, z, o) => put(p, geom(`k${r}|${h}|${(o && o.seg) || 14}`, () => new THREE.ConeGeometry(r, h, (o && o.seg) || 14)), M(col, o && o.mat), x, y, z, !(o && o.ns));
 const sph = (p, r, col, x, y, z, o) => put(p, geom(`s${r}`, () => new THREE.SphereGeometry(r, 14, 10)), M(col, o), x, y, z, !(o && o.ns));
+/** Un sasso o un cespuglio tondo (poche facce, ma liscio). */
+const ball = (p, r, col, x, y, z, o) => put(p, geom(`i${r}`, () => new THREE.IcosahedronGeometry(r, r < 3 ? 0 : 1)), M(col, o), x, y, z, !(o && o.ns));
 const octa = (p, r, col, x, y, z, o) => put(p, geom(`o${r}`, () => new THREE.OctahedronGeometry(r)), M(col, o), x, y, z, false);
 function pyramid(p, r, h, col, x, y, z, sx = 1, sz = 1) { const m = cone(p, r, h, col, x, y, z, { seg: 4 }); m.rotation.y = Math.PI / 4; m.scale.set(sx, 1, sz); return m; }
 /** Tetto a due falde, col colmo lungo x: largo w, alto h, profondo d. */
@@ -123,7 +149,7 @@ function blobGeo() {
   const pts = [], bz = (a, b, c, d, t) => { const u = 1 - t; return u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d; };
   for (let i = 0; i <= 8; i++) { const t = i / 8; pts.push(new THREE.Vector2(bz(0, 35, 61, 61, t) / 124, bz(0, 0, 20, 56, t) / 124)); }
   for (let i = 1; i <= 10; i++) { const t = i / 10; pts.push(new THREE.Vector2(bz(61, 61, 37, 0, t) / 124, bz(56, 96, 124, 124, t) / 124)); }
-  return new THREE.LatheGeometry(pts, 18);
+  return new THREE.LatheGeometry(pts, 14);
 }
 function mergeGeos(list) {
   let nv = 0, ni = 0;
@@ -181,14 +207,24 @@ function tiltFace(g) { g.translate(0, -0.45, 0); g.rotateZ(0.5); g.scale(1.09, 1
 const facing = (ang) => Math.PI / 2 - Math.cos(ang) * 0.8;
 // Il viso del logo: due occhi tondi e il sorriso, sul davanti (+x).
 function faceGeo() {
-  const eye = (z) => { const g = new THREE.SphereGeometry(0.066, 10, 8); g.scale(0.45, 1, 1); g.translate(0.452, 0.45, z); return g; };
+  const eye = (z) => { const g = new THREE.SphereGeometry(0.08, 12, 9); g.scale(0.42, 1.08, 1); g.translate(0.45, 0.455, z); return g; };
   const smile = new THREE.TorusGeometry(0.11, 0.021, 6, 12, 2.3);
   smile.rotateZ(Math.PI + (Math.PI - 2.3) / 2); smile.rotateY(Math.PI / 2); smile.translate(0.45, 0.35, 0);
   return tiltFace(mergeGeos([eye(0.153), eye(-0.153), smile]));
 }
 function shineGeo() {
-  const dot = (z) => { const g = new THREE.SphereGeometry(0.022, 6, 5); g.translate(0.484, 0.47, z); return g; };
-  return tiltFace(mergeGeos([dot(0.133), dot(-0.173)]));
+  const dot = (z, r, y) => { const g = new THREE.SphereGeometry(r, 7, 5); g.translate(0.487, y, z); return g; };
+  return tiltFace(mergeGeos([dot(0.128, 0.03, 0.482), dot(-0.178, 0.03, 0.482), dot(0.172, 0.014, 0.432), dot(-0.134, 0.014, 0.432)]));
+}
+// Le guance rosa: due dischetti appoggiati sul viso, ai lati del sorriso.
+function cheekGeo() {
+  const one = (k) => { const g = new THREE.SphereGeometry(0.078, 10, 7); g.scale(0.16, 0.7, 1); g.rotateY(-k * 0.66); g.translate(0.392, 0.335, k * 0.285); return g; };
+  return tiltFace(mergeGeos([one(1), one(-1)]));
+}
+// Braccine ai fianchi e piedini davanti, del colore del corpo.
+function limbGeo() {
+  const part = (r, sx, sy, sz, x, y, z, tilt) => { const g = new THREE.SphereGeometry(r, 7, 5); g.scale(sx, sy, sz); if (tilt) g.rotateX(tilt); g.translate(x, y, z); return g; };
+  return mergeGeos([part(0.1, 0.9, 1.4, 0.8, 0.1, 0.36, 0.49, 0.5), part(0.1, 0.9, 1.4, 0.8, 0.1, 0.36, -0.49, -0.5), part(0.11, 1.3, 0.6, 0.95, 0.21, 0.045, 0.2), part(0.11, 1.3, 0.6, 0.95, 0.21, 0.045, -0.2)]);
 }
 const BLOB_CAP = 360;
 /** Quanto è alto un Tuzu, per tipo. */
@@ -322,12 +358,12 @@ function makeHouse(id) {
   for (const x of [-17, 15]) {
     box(g, 9, 9, 1.6, '#ffd97a', x, 20, 22.2, { ns: true, e: 0xffb040, ei: 0.75 }); box(g, 1.1, 9, 2, WOOD_D, x, 20, 22.5, { ns: true }); box(g, 9, 1.1, 2, WOOD_D, x, 20, 22.5, { ns: true });
     box(g, 11, 2.6, 3.6, '#5f8f4a', x, 14, 23.4, { ns: true });
-    for (let k = 0; k < 3; k++) octa(g, 1.5, FLOWER[(k + id) % 3], x - 3.4 + k * 3.4, 16.2, 24.2);
+    for (let k = 0; k < 3; k++) ball(g, 1.7, FLOWER[(k + id) % 3], x - 3.4 + k * 3.4, 16.4, 24.2, { ns: true });
   }
   for (const z of [-9, 9]) { box(g, 1.6, 9, 9, '#ffd97a', 27.2, 20, z, { ns: true, e: 0xffb040, ei: 0.75 }); box(g, 2, 1.1, 9, WOOD_D, 27.4, 20, z, { ns: true }); }
   if (id % 3 === 0) { cyl(g, 4.6, 4.6, 9, WOOD, 30, 4.5, 20, { seg: 8 }); cyl(g, 4.9, 4.9, 1.2, '#55565e', 30, 6.6, 20, { seg: 8, ns: true }); }
   else if (id % 3 === 1) { for (let i = 0; i < 3; i++) { const l = cyl(g, 2.4, 2.4, 14, WOOD_L, -31.5, 2.4 + (i === 2 ? 4.2 : 0), -6 + (i === 2 ? 2.5 : i * 5), { seg: 6 }); l.rotation.x = Math.PI / 2; } }
-  else { octa(g, 7, '#4c9c50', 31, 4, -14); octa(g, 5, '#57a857', 30, 3.4, -4); }
+  else { ball(g, 7.5, '#4c9c50', 31, 5, -14); ball(g, 5.5, '#57a857', 30, 4, -4); }
   g.scale.setScalar(1.2);
   return g;
 }
@@ -547,11 +583,62 @@ export class Scene3D {
     this.dir = new THREE.Vector3(0, Math.sin(PITCH), Math.cos(PITCH));
     this.target = new THREE.Vector3((CASTLE.c + CASTLE.w / 2) * G, 0, (CASTLE.r + CASTLE.h / 2) * G + 20);
     this.dist = 1150;
+    this.post = true; this.calm = false; this.nightK = 0;
+    this._initPost();
   }
+
+  /** Prepara il passaggio di rifinitura. Se il telefono non regge le tele a colori estesi, si disegna diretto. */
+  _initPost() {
+    const r = this.r;
+    this.postOk = r.capabilities.isWebGL2 && (r.extensions.has('EXT_color_buffer_float') || r.extensions.has('EXT_color_buffer_half_float'));
+    if (!this.postOk) return;
+    r.info.autoReset = false;
+    const rt = (o) => new THREE.WebGLRenderTarget(4, 4, Object.assign({ type: THREE.HalfFloatType, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter }, o));
+    this.rtA = rt({ depthBuffer: true, samples: 4 }); this.rtB = rt(); this.rtC = rt();
+    this.fsCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const vs = 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+    this.blurMat = new THREE.ShaderMaterial({
+      uniforms: { t: { value: null }, d: { value: new THREE.Vector2() } }, vertexShader: vs, depthTest: false, depthWrite: false,
+      fragmentShader: 'uniform sampler2D t; uniform vec2 d; varying vec2 vUv; void main() { vec3 c = texture2D(t, vUv).rgb * 0.227; c += (texture2D(t, vUv + d * 1.385).rgb + texture2D(t, vUv - d * 1.385).rgb) * 0.316; c += (texture2D(t, vUv + d * 3.231).rgb + texture2D(t, vUv - d * 3.231).rgb) * 0.0703; gl_FragColor = vec4(min(c, vec3(8.0)), 1.0); }',
+    });
+    this.outMat = new THREE.ShaderMaterial({
+      uniforms: { t: { value: null }, b: { value: null }, exposure: { value: 0.9 }, dof: { value: 1 }, bloom: { value: 0.3 }, night: { value: 0 } }, vertexShader: vs, depthTest: false, depthWrite: false,
+      fragmentShader: [
+        'uniform sampler2D t; uniform sampler2D b; uniform float exposure; uniform float dof; uniform float bloom; uniform float night; varying vec2 vUv;',
+        'vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }',
+        'void main() {',
+        '  vec3 sharp = texture2D(t, vUv).rgb, soft = texture2D(b, vUv).rgb;',
+        '  float k = smoothstep(0.25, 0.6, abs(vUv.y - 0.46)) * dof;',                       // nitido al centro, sfocato in alto e in basso
+        '  vec3 c = mix(sharp, soft, k);',
+        '  c += max(soft - vec3(1.35), 0.0) * bloom + soft * 0.015;',                         // bagliore delle parti più chiare, e un velo morbido
+        '  c = aces(c * exposure);',
+        '  c = pow(c, vec3(1.0 / 2.2));',
+        '  float l = dot(c, vec3(0.299, 0.587, 0.114));',
+        '  c = mix(vec3(l), c, 1.13) * mix(vec3(1.02, 1.0, 0.975), vec3(0.95, 0.98, 1.06), night);',   // più saturo; caldo di giorno, freddo di notte
+        '  gl_FragColor = vec4(c, 1.0);',
+        '}'].join('\n'),
+    });
+    this.fsQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.blurMat); this.fsQuad.frustumCulled = false;
+    this.fsScene = new THREE.Scene(); this.fsScene.add(this.fsQuad);
+  }
+  /** Non tutti i telefoni sanno disegnare su queste tele: si prova una volta; se non va, prima senza antialias, poi niente rifinitura. */
+  _testPost() {
+    const r = this.r, gl = r.getContext(), ok = (t) => { r.setRenderTarget(t); const good = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE; r.setRenderTarget(null); return good; };
+    try {
+      if (!ok(this.rtA)) { const w = this.rtA.width, h = this.rtA.height; this.rtA.dispose(); this.rtA = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, depthBuffer: true, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter }); }
+      if (!ok(this.rtA) || !ok(this.rtB)) this.postOk = false;
+    } catch (e) { this.postOk = false; }
+    if (!this.postOk) console.log('[tuzu] rifinitura non disponibile su questo dispositivo');
+  }
+  /** Rifinitura accesa o spenta (si spegne da sola se il telefono fatica). */
+  setPost(on) { this.post = on; }
+  /** Con la griglia di costruzione aperta la sfocatura si attenua: serve vedere bene dove si mette. */
+  setCalm(on) { this.calm = on; }
 
   resize(w, h, dpr) {
     this.w = w; this.h = h;
     this.r.setPixelRatio(dpr); this.r.setSize(w, h, false);
+    if (this.postOk) { const W = Math.max(4, Math.round(w * dpr)), H = Math.max(4, Math.round(h * dpr)); this.rtA.setSize(W, H); this.rtB.setSize(W >> 2, H >> 2); this.rtC.setSize(W >> 2, H >> 2); if (!this._tested) { this._tested = true; this._testPost(); } }
     this.cam.aspect = w / h; this.cam.updateProjectionMatrix();
     this.place();
   }
@@ -601,8 +688,8 @@ export class Scene3D {
     const s = new THREE.Scene();
     s.background = new THREE.Color('#a8cdb4');                     // foschia chiara all'orizzonte: dà profondità
     s.fog = new THREE.Fog(s.background, 3000, 8600);
-    this.hemi = new THREE.HemisphereLight(0xe6f1ff, 0x7d9a58, 1.9); s.add(this.hemi);
-    const sun = new THREE.DirectionalLight(0xffedc8, 2.7);
+    this.hemi = new THREE.HemisphereLight(0xeaf2ff, 0x8fae6c, 1.5); s.add(this.hemi);
+    const sun = new THREE.DirectionalLight(0xffe4b8, 2.5);
     sun.castShadow = this.shadowsOn !== false; sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.camera.near = 100; sun.shadow.camera.far = 4600; sun.shadow.bias = -0.0004; sun.shadow.normalBias = 1.5;
     s.add(sun, sun.target); this.sun = sun;
@@ -620,30 +707,35 @@ export class Scene3D {
     const rnd = mulberry32(21);
 
     // alberi: un tronco, tre chiome e tre coni per albero (le chiome o i coni che non servono hanno scala zero)
-    const canG = geom('leaf', () => new THREE.IcosahedronGeometry(1, 0)), coneG = geom('pine', () => new THREE.ConeGeometry(1, 1, 7)), trunkG = geom('ftrunk', () => new THREE.CylinderGeometry(0.15, 0.22, 1, 5));
-    const treeSet = (n, shadow) => ({ trunk: mk(trunkG, M('#6a4528'), n, shadow), can: [0, 1, 2].map(() => mk(canG, M('#ffffff'), n, shadow)), cone: [0, 1, 2].map(() => mk(coneG, M('#ffffff'), n, shadow)), all: null });
+    const canG = geom('leaf', () => new THREE.SphereGeometry(1, 7, 4)), coneG = geom('pine', () => new THREE.ConeGeometry(1, 1, 7, 1, true)), trunkG = geom('ftrunk', () => new THREE.CylinderGeometry(0.15, 0.22, 1, 6));
+    const treeSet = (list, shadow) => {
+      const slot = []; let a = 0, b = 0;
+      for (const t of list) slot.push(t.tint < 4 ? a++ : b++);
+      return { slot, trunk: mk(trunkG, M('#6a4528'), list.length, shadow), can: [0, 1, 2].map(() => mk(canG, M('#ffffff'), a, shadow)), cone: [0, 1, 2].map(() => mk(coneG, M('#ffffff'), b, shadow)) };
+    };
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+    /** tint dice la specie (0-3 latifoglia, 4-5 pino) e deve essere quella con cui è stato creato l'insieme. */
     const tree = (T, i, x, z, r, tint, seed, y0 = 0) => {
+      const k = T.slot[i], pine = tint >= 4;
       q.setFromAxisAngle(UP, seed);
-      if (r <= 0) { T.trunk.setMatrixAt(i, zero); for (let k = 0; k < 3; k++) { T.can[k].setMatrixAt(i, zero); T.cone[k].setMatrixAt(i, zero); } return; }
-      if (tint >= 4) {
+      if (r <= 0) { T.trunk.setMatrixAt(i, zero); for (let j = 0; j < 3; j++) (pine ? T.cone : T.can)[j].setMatrixAt(k, zero); return; }
+      if (pine) {
         const pal = PINE[tint - 4];
         T.trunk.setMatrixAt(i, m4.compose(P3.set(x, y0 + r * 0.42, z), q, S3.set(r * 0.9, r * 0.84, r * 0.9)));
-        for (let k = 0; k < 3; k++) { const w = r * (1.02 - k * 0.25); T.cone[k].setMatrixAt(i, m4.compose(P3.set(x, y0 + r * (1.12 + k * 0.74), z), q, S3.set(w, r * (1.36 - k * 0.14), w))); T.cone[k].setColorAt(i, col.set(pal[k])); T.can[k].setMatrixAt(i, zero); }
+        for (let j = 0; j < 3; j++) { const w = r * (1.02 - j * 0.25); T.cone[j].setMatrixAt(k, m4.compose(P3.set(x, y0 + r * (1.12 + j * 0.74), z), q, S3.set(w, r * (1.36 - j * 0.14), w))); T.cone[j].setColorAt(k, col.set(pal[j])); }
       } else {
         const pal = LEAF[tint], c = Math.cos(seed), sn = Math.sin(seed);
         T.trunk.setMatrixAt(i, m4.compose(P3.set(x, y0 + r * 0.62, z), q, S3.set(r, r * 1.24, r)));
-        T.can[0].setMatrixAt(i, m4.compose(P3.set(x, y0 + r * 1.62, z), q, S3.set(r * 1.04, r * 0.92, r * 1.04))); T.can[0].setColorAt(i, col.set(pal[0]));
-        T.can[1].setMatrixAt(i, m4.compose(P3.set(x + c * r * 0.56, y0 + r * 1.3, z + sn * r * 0.56), q, S3.set(r * 0.7, r * 0.64, r * 0.7))); T.can[1].setColorAt(i, col.set(pal[2]));
-        T.can[2].setMatrixAt(i, m4.compose(P3.set(x - c * r * 0.34, y0 + r * 2.12, z - sn * r * 0.3), q, S3.set(r * 0.68, r * 0.62, r * 0.68))); T.can[2].setColorAt(i, col.set(pal[1]));
-        for (let k = 0; k < 3; k++) T.cone[k].setMatrixAt(i, zero);
+        T.can[0].setMatrixAt(k, m4.compose(P3.set(x, y0 + r * 1.62, z), q, S3.set(r * 1.06, r * 0.94, r * 1.06))); T.can[0].setColorAt(k, col.set(pal[0]));
+        T.can[1].setMatrixAt(k, m4.compose(P3.set(x + c * r * 0.56, y0 + r * 1.3, z + sn * r * 0.56), q, S3.set(r * 0.72, r * 0.66, r * 0.72))); T.can[1].setColorAt(k, col.set(pal[2]));
+        T.can[2].setMatrixAt(k, m4.compose(P3.set(x - c * r * 0.34, y0 + r * 2.12, z - sn * r * 0.3), q, S3.set(r * 0.7, r * 0.64, r * 0.7))); T.can[2].setColorAt(k, col.set(pal[1]));
       }
     };
     const flush = (T) => { for (const im of [T.trunk, ...T.can, ...T.cone]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; } };
     this._tree = tree; this._flush = flush;
 
     // colline: cupole d'erba, con qualche albero in cima
-    const hillIM = mk(geom('hill', () => new THREE.SphereGeometry(1, 11, 7)), M('#ffffff'), HILLS.length, true);
+    const hillIM = mk(geom('hill', () => new THREE.SphereGeometry(1, 20, 12)), M('#ffffff'), HILLS.length, true);
     hillIM.receiveShadow = true;
     const deco = [];                                              // alberi fissi: sulle colline e fuori dalla mappa
     HILLS.forEach((H, i) => {
@@ -658,7 +750,7 @@ export class Scene3D {
       if (x > -30 && x < WORLD_W + 30 && z > -30 && z < WORLD_H + 30) continue;
       deco.push({ x, z, r: 20 + rnd() * 18, tint: Math.floor(rnd() * 6), seed: rnd() * 6.283, y: 0 });
     }
-    const dT = treeSet(deco.length, false);
+    const dT = treeSet(deco, false);
     deco.forEach((t, i) => tree(dT, i, t.x, t.z, t.r, t.tint, t.seed, t.y)); flush(dT);
 
     // montagne: coni a facce nette, con la neve in cima; attorno alla mappa, cime più grandi che sfumano nella foschia
@@ -672,8 +764,11 @@ export class Scene3D {
       const x = side < 2 ? -400 + t * (WORLD_W + 800) : side === 2 ? -off : WORLD_W + off, z = side === 0 ? -off : side === 1 ? WORLD_H + off * 0.8 : -400 + t * (WORLD_H + 800);
       const r = 230 + rnd() * 300; peaks.push({ x, z, r, h: r * (1.5 + rnd() * 1.1), rot: rnd() * 6.283, snow: true, k: rnd(), far: true });
     }
-    const peakIM = mk(geom('peak', () => new THREE.ConeGeometry(1, 1, 6)), M('#ffffff'), peaks.length, true), snowN = peaks.filter(p => p.snow).length;
-    const snowIM = mk(geom('peak', () => new THREE.ConeGeometry(1, 1, 6)), M('#f6f8fc'), snowN, false);
+    // cime arrotondate: un cono liscio con la punta smussata
+    const peakG = geom('peak', () => { const pts = []; for (let i = 0; i <= 5; i++) { const u = i / 5; pts.push(new THREE.Vector2(i === 5 ? 0 : (1 - u) * (1 + 0.14 * Math.sin(u * Math.PI)) + 0.04, u - 0.5 - (u > 0.7 ? (u - 0.7) * (u - 0.7) * 0.9 : 0))); } return new THREE.LatheGeometry(pts, 9); });
+    const peakIM = mk(peakG, M('#ffffff'), peaks.length, true), snowN = peaks.filter(p => p.snow).length;
+    peakIM.castShadow = true;
+    const snowIM = mk(peakG, M('#f6f8fc'), snowN, false);
     let sn = 0; const cA = new THREE.Color('#7d7872'), cB = new THREE.Color('#a39c92');
     peaks.forEach((p, i) => {
       q.setFromAxisAngle(UP, p.rot);
@@ -702,7 +797,7 @@ export class Scene3D {
 
     // natura dentro la mappa: alberi e rocce che si possono togliere
     this.trees = NATURE.filter(n => n.kind === 'tree'); this.rocks = NATURE.filter(n => n.kind === 'rock');
-    this.tT = treeSet(this.trees.length, true);
+    this.tT = treeSet(this.trees, true);
     this.rockIM = mk(geom('rock', () => new THREE.DodecahedronGeometry(1)), M('#8d8f96', { flat: true }), this.rocks.length);
     // giacimenti: ferro (roccia rugginosa con le vene chiare) e cristallo (punte azzurre)
     this.irons = NATURE.filter(n => n.kind === 'iron'); this.crystals = NATURE.filter(n => n.kind === 'crystal');
@@ -712,8 +807,8 @@ export class Scene3D {
     this.cutN = -1;
 
     // mura e recinti a istanze
-    this.wallBase = mk(geom('wallB', () => new THREE.BoxGeometry(G, 30, G)), M('#9a9ba4'), WALL_CAP);
-    this.wallTop = mk(geom('wallT', () => new THREE.BoxGeometry(22, 9, 22)), M('#b2b3be'), WALL_CAP);
+    this.wallBase = mk(geom('wallB', () => roundBoxGeo(G, 30, G, 4)), M('#a3a4ae'), WALL_CAP);
+    this.wallTop = mk(geom('wallT', () => roundBoxGeo(22, 9, 22, 2.6)), M('#bcbdc8'), WALL_CAP);
     this.post = mk(geom('fpost', () => new THREE.CylinderGeometry(3.2, 3.8, 24, 7)), M(WOOD_D), WALL_CAP);
     this.rail = mk(geom('frail', () => new THREE.BoxGeometry(G, 3.4, 2.6)), M(WOOD_L), WALL_CAP * 4, false);
     this.wallBase.count = this.wallTop.count = this.post.count = this.rail.count = 0;
@@ -726,14 +821,17 @@ export class Scene3D {
 
     // i Tuzu: un solo corpo e un solo viso, disegnati a istanze (il colore è per istanza)
     const bg = geom('tuzu', blobGeo), fg = geom('tuzuFace', faceGeo);
-    this.blobIM = mk(bg, new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 46, specular: 0x4a4a55 }), BLOB_CAP);      // lucidi come caramelle
+    const skin = soften(new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 22, specular: 0x26262e }), 0.3, 0.03);      // pelle morbida, appena lucida
+    this.blobIM = mk(bg, skin, BLOB_CAP);
+    this.limbIM = mk(geom('tuzuLimb', limbGeo), skin, BLOB_CAP);
+    this.cheekIM = mk(geom('tuzuCheek', cheekGeo), new THREE.MeshBasicMaterial({ color: 0xff7f9f, transparent: true, opacity: 0.62, depthWrite: false }), BLOB_CAP, false);
     this.ghostIM = mk(bg, new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, emissive: 0x334455 }), 80, false);
     this.faceIM = mk(fg, new THREE.MeshBasicMaterial({ color: 0x2b2a33 }), BLOB_CAP, false);
     this.faceLightIM = mk(fg, new THREE.MeshBasicMaterial({ color: 0xffffff }), 120, false);
     this.shineIM = mk(geom('tuzuShine', shineGeo), new THREE.MeshBasicMaterial({ color: 0xffffff }), BLOB_CAP, false);
     this._bq = new THREE.Quaternion(); this._up = new THREE.Vector3(0, 1, 0);
     this.gear = new Map(); this.nb = this.ng = this.nf = this.nl = 0;
-    for (const im of [this.blobIM, this.ghostIM, this.faceIM, this.faceLightIM, this.shineIM]) im.count = 0;
+    for (const im of [this.blobIM, this.limbIM, this.cheekIM, this.ghostIM, this.faceIM, this.faceLightIM, this.shineIM]) im.count = 0;
 
     // quadretti (si vedono solo mentre si costruisce)
     const pts = [], x0 = 2 * G, x1 = (COLS - 2) * G, z0 = 2 * G, z1 = (ROWS - 2) * G;
@@ -861,7 +959,7 @@ export class Scene3D {
     const k = 1 / Math.sqrt(squash), m4 = this._m4;
     m4.compose(this._P3.set(x, lift, y), this._bq.setFromAxisAngle(this._up, -facing(ang)), this._S3.set(H * k, H * squash, H * k));
     if (ghost) { if (this.ng >= 80) return; this.ghostIM.setMatrixAt(this.ng, m4); this.ghostIM.setColorAt(this.ng++, c3(color)); }
-    else { if (this.nb >= BLOB_CAP) return; this.blobIM.setMatrixAt(this.nb, m4); this.blobIM.setColorAt(this.nb++, c3(color)); }
+    else { if (this.nb >= BLOB_CAP) return; this.blobIM.setMatrixAt(this.nb, m4); this.limbIM.setMatrixAt(this.nb, m4); this.cheekIM.setMatrixAt(this.nb, m4); this.limbIM.setColorAt(this.nb, c3(color)); this.blobIM.setColorAt(this.nb++, c3(color)); }
     if (light) { if (this.nl < 120) this.faceLightIM.setMatrixAt(this.nl++, m4); }
     else if (this.nf < BLOB_CAP) { this.shineIM.setMatrixAt(this.nf, m4); this.faceIM.setMatrixAt(this.nf++, m4); }
   }
@@ -975,8 +1073,8 @@ export class Scene3D {
         this.tuzu(g.position.x + px, g.position.z + pz, hop * 3.4, Math.atan2(qz - pz, qx - px), TUZU_H.villager * (0.82 + (k % 3) * 0.13), 0.95 + hop * 0.1, T.color, T.eyes !== '#2b2a33', false);
       }
     });
-    this.blobIM.count = this.nb; this.ghostIM.count = this.ng; this.faceIM.count = this.shineIM.count = this.nf; this.faceLightIM.count = this.nl;
-    for (const im of [this.blobIM, this.ghostIM, this.faceIM, this.faceLightIM, this.shineIM]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
+    this.blobIM.count = this.limbIM.count = this.cheekIM.count = this.nb; this.ghostIM.count = this.ng; this.faceIM.count = this.shineIM.count = this.nf; this.faceLightIM.count = this.nl;
+    for (const im of [this.blobIM, this.limbIM, this.cheekIM, this.ghostIM, this.faceIM, this.faceLightIM, this.shineIM]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
 
     // proiettili
     const liveP = new Set(world.projs);
@@ -1002,11 +1100,29 @@ export class Scene3D {
   /** Di notte la luce si fa fredda e bassa (il velo scuro con le luci lo disegna l'interfaccia sopra). */
   setNight(n) {
     if (!this.sun) return;
-    this.sun.intensity = 2.7 - n * 1.5;
+    this.sun.intensity = 2.5 - n * 1.4;
     this.sun.color.setRGB(1 - n * 0.4, 0.93 - n * 0.22, 0.78 + n * 0.2);
-    this.hemi.intensity = 1.9 - n * 0.75;
+    this.hemi.intensity = 1.5 - n * 0.55;
     for (const w of this.water) w.material.emissiveIntensity = 0.35 - n * 0.2;
+    this.nightK = n;
   }
 
-  render() { if (this.scene) this.r.render(this.scene, this.cam); }
+  render() {
+    if (!this.scene) return;
+    const r = this.r;
+    if (!this.postOk || !this.post) { r.setRenderTarget(null); r.info.reset(); r.render(this.scene, this.cam); return; }
+    r.info.reset();
+    r.setRenderTarget(this.rtA); r.render(this.scene, this.cam);
+    this.calls = r.info.render.calls; this.tris = r.info.render.triangles;
+    const q = this.fsQuad, B = this.blurMat, w = this.rtB.width, h = this.rtB.height;
+    const pass = (src, dst, dx, dy) => { B.uniforms.t.value = src.texture; B.uniforms.d.value.set(dx, dy); r.setRenderTarget(dst); r.render(this.fsScene, this.fsCam); };
+    q.material = B;
+    pass(this.rtA, this.rtB, 1 / w, 0); pass(this.rtB, this.rtC, 0, 1 / h); pass(this.rtC, this.rtB, 2 / w, 0); pass(this.rtB, this.rtC, 0, 2 / h);
+    const U = this.outMat.uniforms;
+    U.t.value = this.rtA.texture; U.b.value = this.rtC.texture; U.night.value = this.nightK;
+    U.dof.value = (this.calm ? 0.3 : 1) * Math.max(0.3, Math.min(0.95, 1.25 - this.dist / 2600));      // da lontano meno sfocato: la mappa si deve leggere
+    U.bloom.value = 0.3 + this.nightK * 0.7;
+    q.material = this.outMat;
+    r.setRenderTarget(null); r.render(this.fsScene, this.fsCam);
+  }
 }

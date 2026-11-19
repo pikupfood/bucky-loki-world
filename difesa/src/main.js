@@ -397,7 +397,7 @@ function frame(now) {
   // se per un paio di secondi i fotogrammi sono lenti, abbasso la qualità (una tacca alla volta)
   if (!document.hidden && raw < 0.25) {
     slow = raw > 1 / 27 ? slow + 1 : Math.max(0, slow - 2);
-    if (slow > 90 && quality > 0) { quality--; slow = 0; scene.setShadows(quality >= 1); resize(); console.log('[tuzu] qualita -> ' + quality); }
+    if (slow > 90 && quality > 0) { quality--; slow = 0; scene.setShadows(quality >= 1); scene.setPost(quality === 2); resize(); console.log('[tuzu] qualita -> ' + quality); }
   }
   tick(real);
   frames++;
@@ -433,6 +433,7 @@ function tick(real) {
   if (ui.place) { const st = ui.place.state = placeState(); scene.setGhost({ type: ui.place.type, cells: st.cells, at: st.at || null, line: !!st.line }); }
   else scene.setGhost(null);
   scene.showGrid(ui.screen === 'play' && !!(ui.build || ui.place));
+  scene.setCalm(!!(ui.build || ui.place));
   scene.sync(world, ui.time, now);
   scene.setNight(ui.night);
 
