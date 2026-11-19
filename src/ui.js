@@ -952,7 +952,7 @@ function hints(S) {
 function newsPanel(S) {
   const { c, ui, vw, vh, A } = S, tall = S.tall;
   dim(S, 0.68);
-  const w = Math.min(760, vw - 20), rowH = tall ? 86 : 64, h = 96 + 5 * rowH + 84, x = vw / 2 - w / 2, y = Math.max(26, vh / 2 - h / 2);
+  const w = Math.min(760, vw - 20), rowH = tall ? 88 : 70, h = 96 + 5 * rowH + 84, x = vw / 2 - w / 2, y = Math.max(26, vh / 2 - h / 2);
   scroll(c, x, y, w, h, 18);
   ribbon(c, vw / 2, y - 19, Math.min(w - 60, 320), 44, t('news'), '#8a2f24', 24);
   txt(c, t('newsSub'), vw / 2, y + 52, 15, PEN2, 'center', 700);

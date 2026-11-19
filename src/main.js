@@ -43,6 +43,8 @@ audio.setSound(ui.sound); audio.setMusic(ui.music);
 let quality = ui.q === 'auto' ? (saved.qa === 0 || saved.qa === 1 ? saved.qa : 2) : ui.q, slow = 0, skip = 0;
 function setQuality(q) { quality = q; scene.setShadows(q >= 1); scene.setPost(q === 2); resize(); }
 function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* non tutti i telefoni vibrano */ } }
+/** L'approdo da cui partono e a cui tornano le navi: il primo Porto, altrimenti il primo Porticciolo. */
+const harbour = () => world.d.buildings.find(b => b.type === 'scalo' && !(b.build > 0)) || world.d.buildings.find(b => b.type === 'porto' && !(b.build > 0)) || null;
 function toast(str) { ui.toast = { str, t: 0, T: 2 }; audio.play('no'); }
 /** Una scritta grande al centro; se ce n'è già una, aspetta il suo turno. */
 function banner(str, color, T = 2.4) { ui.bannerQ.push({ str, color, t: 0, T }); }
@@ -499,8 +501,8 @@ function handleEvents() {
       case 'tripDone': audio.play('hey'); buzz(20); break;
       case 'shipNew': banner(t('sea_built'), '#9fe9ff', 2.2); audio.play('build'); break;
       case 'shipUp': audio.play('cleared'); break;
-      case 'shipOut': audio.play('horn'); break;
-      case 'shipBack': audio.play(ev.win === 0 || ev.robbed ? 'sad' : 'hey'); buzz(20); break;
+      case 'shipOut': audio.play('horn'); scene.sail(world, ev.type || 'mercantile', ev.lvl || 0, harbour(), false); break;
+      case 'shipBack': audio.play(ev.win === 0 || ev.robbed ? 'sad' : 'hey'); buzz(20); scene.sail(world, ev.type || 'mercantile', ev.lvl || 0, harbour(), true); break;
       case 'pvp': banner(reportLine({ kind: ev.kind, data: ev.data }), ev.kind === 'won' || ev.kind === 'defended' ? '#9ff0b4' : ev.kind === 'bounced' ? '#cfd8ff' : '#ff8a80', 3.4); audio.play(ev.kind === 'won' || ev.kind === 'defended' ? 'won' : 'sad'); buzz(30); if (!ui.online) ui.onlineNew = (ui.onlineNew || 0) + 1; save(); break;
       case 'meal': if (ev.fed < 0.5) { banner(t('hungry'), '#ff8a80', 2.8); audio.play('sad'); } break;
       case 'gift': audio.play('coin'); parts(ui.fxTop, ev.x, ev.y, 60, 14, '#ff8fb0', 120, 0.9, 4.5, 160); break;

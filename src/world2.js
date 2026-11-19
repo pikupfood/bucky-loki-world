@@ -541,14 +541,14 @@ export function extend(World) {
       if (!q || q.n <= 0) return false;
       if (buy) this.d.res.monete -= q.coins; else this.d.res[res] -= q.n;
       s.job = { kind: 'trade', at: now, ms: q.ms, tier, res, n: q.n, coins: q.coins, buy: buy ? 1 : 0, escort: this.hasEscort() ? 1 : 0 };
-      this.track('sail'); this.events.push({ k: 'shipOut', kind: 'trade' }); this.rev++;
+      this.track('sail'); this.events.push({ k: 'shipOut', kind: 'trade', type: s.type, lvl: s.lvl }); this.rev++;
       return true;
     },
     sendExplore(s, tier, now = this.now) {
       const E = SEA.explore[tier];
       if (!E || !s || s.type !== 'veliero' || !this.shipFit(s) || this.status !== 'day') return false;
       s.job = { kind: 'explore', at: now, ms: this.shipMs(s, E.mins), tier };
-      this.track('sail'); this.events.push({ k: 'shipOut', kind: 'explore' }); this.rev++;
+      this.track('sail'); this.events.push({ k: 'shipOut', kind: 'explore', type: s.type, lvl: s.lvl }); this.rev++;
       return true;
     },
     warShips() { return this.d.fleet.filter(s => s.type === 'guerra' && this.shipFit(s)); },
@@ -566,7 +566,7 @@ export function extend(World) {
       if (kind === 'raid' && !this.seaRaidOk(i)) return false;
       const g = ++this.d.shipId, slow = Math.min(...list.map(s => s.lvl)), ms = Math.round((kind === 'raid' ? SEA.raidMins : SEA.fightMins) * 60000 * (1 - SEA.fast * slow));
       for (const s of list) s.job = { kind, at: now, ms, g, i: kind === 'raid' ? i : -1 };
-      this.track('sail'); this.events.push({ k: 'shipOut', kind }); this.rev++;
+      this.track('sail'); this.events.push({ k: 'shipOut', kind, type: 'guerra', lvl: Math.max(...list.map(s => s.lvl)) }); this.rev++;
       return true;
     },
     /** Fa tornare le navi il cui viaggio è finito (vale anche per il tempo passato a gioco chiuso) e scrive i rapporti. */
@@ -605,10 +605,10 @@ export function extend(World) {
           this.gain(loot); if (win) this.cheer(2);
           const hurt = win ? 0.3 * Math.min(1, d / Math.max(1, a)) : 0.55;
           for (const q of list) { q.hp = Math.max(1, Math.round(q.hp - this.shipHpMax(q) * hurt)); q.job = null; }
-          reps.push({ kind: j.kind, win: win ? 1 : 0, a, d, loot, i: raid ? j.i : -1, plv, ships: list.length });
+          reps.push({ kind: j.kind, win: win ? 1 : 0, a, d, loot, i: raid ? j.i : -1, plv, ships: list.length, lvl: Math.max(...list.map(q => q.lvl)) });
         }
       }
-      for (const r of reps) { this.d.seaReports.push(r); this.events.push({ k: 'shipBack', kind: r.kind, win: r.win, robbed: r.robbed }); }
+      for (const r of reps) { this.d.seaReports.push(r); this.events.push({ k: 'shipBack', kind: r.kind, win: r.win, robbed: r.robbed, type: r.ship || 'guerra', lvl: r.lvl || 0 }); }
       if (this.d.seaReports.length > 12) this.d.seaReports.splice(0, this.d.seaReports.length - 12);
       this.rev++;
     },

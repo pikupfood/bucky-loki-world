@@ -1184,6 +1184,20 @@ export class Scene3D {
       s.add(bake(g));
     }
 
+    // barche che vanno e vengono: una per ogni tratto lungo di fiume (fra un ponte o un guado e l'altro) e una vela su ogni lago.
+    // Sono solo figura (non sono navi della flotta): fanno vedere che per quell'acqua si naviga.
+    this.boats = []; this.sails = [];
+    { let n = 0;
+      const boat = (kind, scale) => { const g = bake(makeShip(kind, 0)); g.scale.setScalar(scale); s.add(g); return g; };
+      for (const R of RIVERS) {
+        let run = [];
+        const flush = () => { if (run.length >= 46 && this.boats.length < 9) { this.boats.push({ g: boat(n % 3 === 0 ? 'mercantile' : 'pesca', n % 3 === 0 ? 0.78 : 0.92), pts: run, ph: n * 1.7, sp: 24 + (n % 3) * 7 }); n++; } run = []; };
+        for (const p of R.pts) { const c = Math.floor(p.x / G), r = Math.floor(p.y / G); if (c >= 0 && r >= 0 && c < COLS && r < ROWS && RIVER_AT[r * COLS + c] === 1) run.push(p); else flush(); }
+        flush();
+      }
+      LAKES.forEach((L, i) => { this.boats.push({ g: boat(i % 2 ? 'veliero' : 'pesca', i % 2 ? 0.7 : 0.9), lake: L, k: i === 4 ? 0.66 : 0.5, dir: i % 2 ? 1 : -1, ph: i * 2.1 }); });
+    }
+
     { const ix = (ISLAND.c + 0.5) * G, iz = (ISLAND.r + 0.5) * G, R = (ISLAND.rad + 0.62) * G;       // l'isola: sabbia attorno, prato sopra
       const sand = new THREE.Mesh(geom('isl', () => new THREE.SphereGeometry(1, 18, 8)), M('#d8c79a')); sand.scale.set(R, 5, R * 0.94); sand.position.set(ix, 0.4, iz); sand.receiveShadow = true; s.add(sand);
       const top = new THREE.Mesh(geom('isl', () => new THREE.SphereGeometry(1, 18, 8)), M(GRASS)); top.scale.set(R * 0.84, 6.4, R * 0.78); top.position.set(ix, 0.8, iz); top.receiveShadow = true; s.add(top); }
@@ -1470,6 +1484,27 @@ export class Scene3D {
     const s = this.scene, dt = Math.max(0, Math.min(0.1, time - this._t));
     this._t = time;
     if (world.season !== this.season) this.setSeason(world.season);
+    // le barche di figura e le navi della flotta in partenza o in arrivo
+    for (const B of this.boats || []) {
+      let x, y, ang;
+      if (B.lake) { const a = time * 0.05 * B.dir + B.ph; x = B.lake.x + Math.cos(a) * B.lake.rx * B.k; y = B.lake.y + Math.sin(a) * B.lake.ry * B.k; ang = Math.atan2(-Math.sin(a) * B.lake.rx * B.dir, Math.cos(a) * B.lake.ry * B.dir); }
+      else { const len = B.pts.length - 1, u = (time * B.sp / 15 + B.ph * 40) % (len * 2), f = u <= len ? u : len * 2 - u, i = Math.min(len - 1, Math.floor(f)), k = f - i, p = B.pts[i], q2 = B.pts[i + 1], dir = u <= len ? 1 : -1; x = p.x + (q2.x - p.x) * k; y = p.y + (q2.y - p.y) * k; ang = Math.atan2((q2.x - p.x) * dir, (q2.y - p.y) * dir); }
+      B.g.visible = world.seen(Math.floor(x / G), Math.floor(y / G));
+      if (!B.g.visible) continue;
+      B.g.position.set(x, 1 + Math.sin(time * 2 + B.ph) * 0.6, y);
+      let d = ang - B.g.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); B.g.rotation.y += d * Math.min(1, dt * 2.2 + (B.init ? 0 : 1)); B.init = true;
+      B.g.rotation.z = Math.sin(time * 1.3 + B.ph) * 0.03;
+    }
+    for (let n = (this.sails || []).length - 1; n >= 0; n--) {
+      const S = this.sails[n]; S.d += dt * 62;
+      let i = 0, acc = S.d; while (i < S.pts.length - 2 && acc > S.seg[i]) { acc -= S.seg[i]; i++; }
+      const p = S.pts[i], q2 = S.pts[i + 1], k = Math.min(1, acc / (S.seg[i] || 1)), x = p.x + (q2.x - p.x) * k, y = p.y + (q2.y - p.y) * k, left = S.total - S.d;
+      S.g.position.set(x, 1 + Math.sin(time * 2.2) * 0.6, y);
+      let d = Math.atan2(q2.x - p.x, q2.y - p.y) - S.g.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); S.g.rotation.y += d * Math.min(1, dt * 3 + (S.d < 4 ? 1 : 0));
+      const sc = S.arriving ? Math.min(1, 0.15 + S.d / 90) * Math.min(1, Math.max(0, left / 40 + 0.4)) : Math.min(1, Math.max(0, left / 110));
+      S.g.scale.setScalar(Math.max(0.01, sc));
+      if (left <= 0) { drop(s, S.g); this.sails.splice(n, 1); }
+    }
     if (this.fogRev !== world.fogRev) this._fog(world);
     this.fogMesh.visible = world.fogA.includes(0);
     this.fogMat.opacity = 0.96; this.fogMat.color.setRGB(0.95 - this.nightK * 0.6, 0.965 - this.nightK * 0.55, 0.99 - this.nightK * 0.4);
@@ -1635,6 +1670,34 @@ export class Scene3D {
 
   /** Ombre accese o spente (si spengono da sole se il telefono fatica). */
   setShadows(on) { this.shadowsOn = on; if (this.sun) this.sun.castShadow = on; }
+
+  /** Una nave della flotta che parte dal porto b (o ci torna): la si vede fare un tratto sull'acqua, poi sparisce lontano (o compare da lontano e attracca). */
+  sail(world, type, lvl, b, arriving) {
+    if (!b || !this.sails || this.sails.length >= 4) return;
+    const c0 = Math.floor(b.x / G), r0 = Math.floor(b.y / G), wet = (i) => TERRAIN[i] === 3 && !world.occ[i];
+    let start = -1, bd = 1e9;
+    for (let dr = -4; dr <= 4; dr++) for (let dc = -4; dc <= 4; dc++) { const c = c0 + dc, r = r0 + dr; if (c < 0 || r < 0 || c >= COLS || r >= ROWS || !wet(r * COLS + c)) continue; const d = dc * dc + dr * dr; if (d < bd) { bd = d; start = r * COLS + c; } }
+    if (start < 0) return;
+    const dist = new Map([[start, 0]]), prev = new Map(), queue = [start]; let far = start;
+    while (queue.length) {
+      const i = queue.shift(), d = dist.get(i); if (d >= 30) continue;
+      const c = i % COLS, r = (i / COLS) | 0;
+      for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        const nc = c + dc, nr = r + dr; if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue;
+        const ni = nr * COLS + nc; if (dist.has(ni) || !wet(ni) || (dc && dr && (!wet(r * COLS + nc) || !wet(nr * COLS + c)))) continue;
+        dist.set(ni, d + 1); prev.set(ni, i); queue.push(ni);
+        if (d + 1 > dist.get(far)) far = ni;
+      }
+    }
+    let pts = []; for (let i = far; i != null; i = prev.get(i)) pts.push({ x: (i % COLS + 0.5) * G, y: (((i / COLS) | 0) + 0.5) * G });
+    if (pts.length < 4) return;
+    pts.reverse();
+    for (let k = 0; k < 2; k++) { const o = [pts[0]]; for (let i = 0; i < pts.length - 1; i++) { const p = pts[i], q2 = pts[i + 1]; o.push({ x: p.x * 0.75 + q2.x * 0.25, y: p.y * 0.75 + q2.y * 0.25 }, { x: p.x * 0.25 + q2.x * 0.75, y: p.y * 0.25 + q2.y * 0.75 }); } o.push(pts[pts.length - 1]); pts = o; }
+    if (arriving) pts.reverse();
+    const seg = []; let total = 0; for (let i = 0; i < pts.length - 1; i++) { const L = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y); seg.push(L); total += L; }
+    const g = bake(makeShip(type, lvl)); g.position.set(pts[0].x, 1, pts[0].y); g.rotation.y = Math.atan2(pts[1].x - pts[0].x, pts[1].y - pts[0].y); this.scene.add(g);
+    this.sails.push({ g, pts, seg, total, d: 0, arriving: !!arriving });
+  }
 
   /** Di notte la luce si fa fredda e bassa (il velo scuro con le luci lo disegna l'interfaccia sopra). */
   setNight(n) {
