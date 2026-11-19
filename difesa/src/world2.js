@@ -2,7 +2,7 @@
 // assedi, eroe più ricco, acqua, trofei e sfida del giorno. Logica pura, come world.js: extend(World) le aggiunge alla classe.
 import {
   G, COLS, ROWS, BUILD, TRIBES, TERRAIN, RUINS, FOG, UNITS, HERO, HERO_ITEMS, ISLAND, LEVELS, LEVEL_MIN, FOOD, specials, siegeCount,
-  REL, giftCost, ROAD_AT, ROAD_SPEED, SELL, TROPHIES, CHALLENGES, CHALLENGE_REWARD, CHAPTERS, CASERMA_SLOTS, genWave, DIFFS, allyCost, ALLY_NIGHTS, levelK,
+  REL, giftCost, ROAD_AT, ROAD_SPEED, SELL, PVP_UNIT, PVP_TOWER, MY_COLOR, TROPHIES, CHALLENGES, CHALLENGE_REWARD, CHAPTERS, CASERMA_SLOTS, genWave, DIFFS, allyCost, ALLY_NIGHTS, levelK,
 } from './data.js';
 
 const HOUR = 3600000, DAY = 86400000;
@@ -362,6 +362,66 @@ export function extend(World) {
       this.d.rebuild = left;
       if (n) { this.track('build', n); this.events.push({ k: 'placed', x: this.castle.x, y: this.castle.y, type: 'mura' }); }
       return n;
+    },
+
+    // ---------- il mondo online ----------
+    /** I soldati a casa che si possono mandare in giro per il mondo, per tipo (gli eroi restano a difendere). */
+    pvpArmy() { const o = {}; for (const b of this.d.buildings) if (b.type === 'caserma') for (const u of b.units || []) if (PVP_UNIT[u]) o[u] = (o[u] || 0) + 1; return o; },
+    /** Quanto è forte il villaggio in difesa: castello, torri, mura, soldati a casa, eroi. */
+    pvpPower() {
+      let p = 60 * this.d.castle, mura = 0, rec = 0;
+      for (const b of this.d.buildings) {
+        if (b.build > 0) continue;
+        if (PVP_TOWER[b.type]) p += PVP_TOWER[b.type][Math.min(2, b.lvl || 0)];
+        else if (b.type === 'mura') mura++; else if (b.type === 'recinto') rec++;
+        else if (b.type === 'caserma') for (const u of b.units || []) p += PVP_UNIT[u] || 0;
+      }
+      p += Math.min(240, mura * 2) + Math.min(60, rec * 0.5);
+      if (this.hasHero()) p += 30 + 8 * this.d.hero.lvl + (this.hasSecond() ? 25 : 0);
+      return Math.round(p);
+    },
+    /** La fotografia che il gioco manda al mondo. */
+    pvpSnap() {
+      const loot = {}; for (const k of ['monete', 'legna', 'pietra', 'ferro', 'cristallo']) loot[k] = Math.max(0, Math.floor(this.d.res[k] || 0));
+      return { castle: this.d.castle, night: this.d.night, power: this.pvpPower(), army: this.pvpArmy(), loot, extra: this.trophies().filter(o => o.done).length * 20 + (this.d.stats.conquer || 0) * 30, color: MY_COLOR };
+    },
+    /** I soldati partono: escono dalle caserme. Rende quanti ne sono partiti davvero. */
+    pvpSend(army) {
+      let n = 0;
+      for (const u in army) for (let k = 0; k < (army[u] || 0); k++) {
+        const b = this.d.buildings.find(o => o.type === 'caserma' && (o.units || []).includes(u));
+        if (!b) break;
+        b.units.splice(b.units.indexOf(u), 1);
+        const s = this.soldiers.find(o => !o.dead && o.home === b.id && o.type === u); if (s) s.dead = true;
+        n++;
+      }
+      this.soldiers = this.soldiers.filter(s => !s.dead); this.rev++;
+      return n;
+    },
+    /** I sopravvissuti tornano: nelle caserme dove c'è posto. Rende quanti sono rientrati. */
+    pvpBack(army) {
+      let n = 0;
+      for (const u in army || {}) for (let k = 0; k < (army[u] || 0); k++) {
+        if (!UNITS[u] || UNITS[u].hero) continue;
+        const b = this.d.buildings.find(o => o.type === 'caserma' && !(o.build > 0) && (o.units || []).length < this.slots(o));
+        if (!b) return n;
+        (b.units = b.units || []).push(u); this.spawnSoldier(b, u); n++;
+      }
+      this.rev++;
+      return n;
+    },
+    /** Un rapporto arrivato dal mondo: bottino e soldati che tornano, oppure quello che ti hanno portato via. Vero se era nuovo. */
+    pvpApply(r) {
+      const seen = this.d.pvpSeen || (this.d.pvpSeen = []);
+      if (!r || !r.id || seen.includes(r.id)) return false;
+      seen.push(r.id); if (seen.length > 80) seen.splice(0, seen.length - 80);
+      const d = r.data || {};
+      if (r.kind === 'won') { for (const k in d.loot || {}) if (k in this.d.res) this.d.res[k] += Math.max(0, d.loot[k] | 0); this.pvpBack(d.back); this.cheer(3); this.track('pvpWin'); }
+      else if (r.kind === 'lost' || r.kind === 'bounced') this.pvpBack(d.back);
+      else if (r.kind === 'raided') { for (const k in d.lost || {}) if (k in this.d.res) this.d.res[k] = Math.max(0, this.d.res[k] - Math.max(0, d.lost[k] | 0)); this.cheer(-4); }
+      else if (r.kind === 'defended') { this.cheer(3); this.track('pvpDef'); }
+      this.events.push({ k: 'pvp', kind: r.kind, data: d });
+      return true;
     },
 
     // ---------- trofei e sfida del giorno ----------

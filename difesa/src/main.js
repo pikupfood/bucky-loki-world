@@ -6,6 +6,8 @@ import { drawUi } from './ui.js';
 import { stepFx, parts, ring, text, smoke, chips, arc } from './fx.js';
 import { mapPick } from './ui3.js';
 import * as cloud from './cloud.js';
+import * as online from './online.js';
+import { reportLine } from './ui4.js';
 import { t, setLang, getLang, LANGS } from './i18n.js';
 import * as audio from './audio.js';
 
@@ -23,6 +25,7 @@ const ui = {
   screen: 'title', speed: 1, sound: saved.sound !== false, moved: !!saved.moved, seenVillage: !!saved.seenVillage,
   build: null, place: null, sel: null, vsel: null, aiming: false,
   quests: false, settings: false, tech: false, daily: false, lost: null, away: world.away,
+  online: null, onlineNew: 0,
   map: null, squad: null, qtab: 0, reportOpen: false, q: saved.q === 0 || saved.q === 1 || saved.q === 2 ? saved.q : 'auto', cloud: cloud.state,
   roles: false, story: null, rallyPick: false, fogSel: null, guideOpen: null, music: saved.music !== false, newGame: !saved.world, diffPick: 'normale',
   buttons: [], fx: [], fxTop: [], night: 0, shake: 0, flash: 0, time: 0, banner: null, bannerQ: [], toast: null,
@@ -114,7 +117,7 @@ function confirmPlace() {
 // ---------- azioni ----------
 const UNITS_MSG = { full: 'full', pop: 'needHouses', busy: 'notNow' };
 const world_unit = (type) => UNIT_DEFS[type] || {};
-const closeAll = () => { ui.resInfo = false; ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; };
+const closeAll = () => { ui.resInfo = false; ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; ui.online = null; };
 const A = {
   play() { if (ui.newGame) { world.setDiff(ui.diffPick); ui.newGame = false; save(); } ui.screen = 'play'; ui.daily = world.daily(Date.now()).available; audio.play('tap'); },
   diffPick(k) { ui.diffPick = k; audio.play('tap'); },
@@ -144,6 +147,42 @@ const A = {
   claimChallenge() { const n = world.claimChallenge(Date.now()); if (n) { audio.play('cleared'); buzz(20); save(); } },
   rebuild() { const n = world.rebuildLost(); if (n) { audio.play('build'); save(); } else toast(t('why_cost')); },
   rebuildSkip() { world.d.rebuild = []; audio.play('tap'); save(); },
+  // ---------- il mondo online ----------
+  onlineOpen() {
+    closeAll(); ui.squad = null; ui.onlineNew = 0;
+    const me = online.state.me;
+    ui.online = { tab: 'map', sel: null, pick: null, msg: '', msgT: 0, bad: false, cam: { x: me ? me.x : 0, y: me ? me.y : 0, z: view.tall ? 17 : 22 }, loadT: 99 };
+    audio.play('page'); onlineRefresh(true);
+  },
+  onlineClose() { ui.online = null; audio.play('tap'); },
+  onlineTab(k) { ui.online.tab = k; ui.online.pick = null; audio.play('tap'); },
+  onlineAccount() { ui.online = null; cloud.open(); },
+  onlineZoom(f) { const c = ui.online.cam; c.z = Math.max(3.5, Math.min(44, c.z * f)); },
+  onlineHome() { const me = online.state.me, U = ui.online; if (me) { U.cam.x = me.x; U.cam.y = me.y; U.sel = me.id; U.pick = null; } audio.play('tap'); },
+  onlineFocus(id) { const v = online.byId(id), U = ui.online; if (v) { U.cam.x = v.x; U.cam.y = v.y; U.sel = id; } },
+  onlineTap(wx, wy) {
+    const U = ui.online; let best = null, bd = Math.max(1.4, 22 / U.cam.z) ** 2;
+    for (const v of online.state.villages) { const dd = (v.x - wx) ** 2 + (v.y - wy) ** 2; if (dd < bd) { bd = dd; best = v; } }
+    U.sel = best ? best.id : null; U.pick = null; U.msgT = 0; audio.play('tap');
+  },
+  onlineJoin() { cloud.ask(t('on_nameTitle'), [{ ph: t('on_namePh'), max: 18 }], t('on_join'), async ([name]) => { if (name.length < 3) { onlineSay(t('on_nameShort'), true); return; } world.d.pvpName = name; const k = await online.join(name); if (k) onlineSay(t('on_e_' + k), true); else { A.onlineHome(); save(); } }); },
+  onlineRename() { cloud.ask(t('on_nameTitle'), [{ ph: t('on_namePh'), max: 18 }], t('ok'), async ([name]) => { if (name.length < 3) { onlineSay(t('on_nameShort'), true); return; } world.d.pvpName = name; const k = await online.join(name); if (k) onlineSay(t('on_e_' + k), true); save(); }); },
+  onlinePickOpen(mode, target, march) { const U = ui.online; U.tab = 'map'; U.sel = target; U.pick = { mode, target, march: march || null, army: {}, mins: 60 }; A.onlineFocus(target); audio.play('tap'); },
+  onlinePick(u, d) { const P = ui.online.pick, have = world.pvpArmy(); if (!P) return; if (u == null) { P.army = { ...have }; } else { const n = Math.max(0, Math.min(have[u] || 0, (P.army[u] || 0) + d)); if (n) P.army[u] = n; else delete P.army[u]; } audio.play('tap'); },
+  onlineMins(m) { ui.online.pick.mins = m; audio.play('tap'); },
+  onlineBack() { ui.online.pick = null; audio.play('tap'); },
+  async onlineGo() {
+    const U = ui.online, P = U.pick; if (!P || online.state.busy) return;
+    const army = {}; for (const k in P.army) if (P.army[k] > 0) army[k] = P.army[k];
+    const k = P.mode === 'rally' ? await online.rallyOpen(P.target, P.mins, army) : P.mode === 'join' ? await online.rallyJoin(P.march, army) : await online.attack(P.target, army);
+    if (!ui.online) return;
+    if (k) { onlineSay(t('on_e_' + k), true); audio.play('no'); } else { ui.online.pick = null; onlineSay(t(P.mode === 'attack' ? 'on_sent' : 'on_rallySent'), false); audio.play('horn'); save(); }
+  },
+  async onlineLaunch(id) { const k = await online.rallyLaunch(id); if (k) onlineSay(t('on_e_' + k), true); else audio.play('horn'); },
+  onlineAllyCreate() { cloud.ask(t('on_create'), [{ ph: t('on_allyPh'), max: 20 }, { ph: t('on_tagPh'), max: 4 }], t('on_create'), async ([name, tag]) => { const k = await online.allianceCreate(name, tag); if (k) onlineSay(t('on_e_' + k), true); }); },
+  async onlineAllyJoin(id) { const k = await online.allianceJoin(id); if (k) onlineSay(t('on_e_' + k), true); else audio.play('won'); },
+  async onlineAllyLeave() { const k = await online.allianceLeave(); if (k) onlineSay(t('on_e_' + k), true); },
+  async onlineKick(id) { const k = await online.allianceKick(id); if (k) onlineSay(t('on_e_' + k), true); },
   quality(q) { ui.q = q; slow = 0; setQuality(q === 'auto' ? 2 : q); save(); audio.play('tap'); },
   account() { ui.settings = false; cloud.open(); audio.play('tap'); },
   guideToggle() { const g = world.goal(); ui.guideOpen = !(ui.guideOpen == null ? !!g && g.i < 12 : ui.guideOpen); audio.play('tap'); },
@@ -312,6 +351,8 @@ uiCanvas.addEventListener('pointerdown', (e) => {
   if (view.portrait) return;
   try { uiCanvas.setPointerCapture(e.pointerId); } catch (err) { /* puntatori finti nelle prove */ }
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ui.online && ptrs.size === 2) { const p = pinchInfo(); gest = { mode: 'wpinch', d: p.d }; return; }
+  if (ui.online && ptrs.size === 1) { const lx = e.clientX / view.us, ly = e.clientY / view.us; let top = null; for (let i = ui.buttons.length - 1; i >= 0; i--) { const b = ui.buttons[i]; if (lx >= b.x && lx <= b.x + b.w && ly >= b.y && ly <= b.y + b.h) { top = b; break; } } if (top && top.tag === 'worldArea') { gest = { mode: 'wpan', x0: e.clientX, y0: e.clientY, cx: ui.online.cam.x, cy: ui.online.cam.y, moved: false, fn: top.fn }; return; } }
   if (ptrs.size === 2) { if (gest && gest.mode === 'ui') return; const p = pinchInfo(); gest = { mode: 'pinch', d: p.d, g0: scene.pick(p.mx, p.my) }; return; }
   if (ptrs.size > 2) return;
   if (hitButton(e.clientX, e.clientY, e.pointerType === 'mouse' ? 0 : 10)) { gest = { mode: 'ui' }; return; }
@@ -322,6 +363,8 @@ uiCanvas.addEventListener('pointermove', (e) => {
   const p = ptrs.get(e.pointerId);
   if (!p) { if (e.pointerType === 'mouse' && ui.place && ui.screen === 'play') { const lx = e.clientX / view.us, ly = e.clientY / view.us; if (!ui.buttons.some(b => lx >= b.x && lx <= b.x + b.w && ly >= b.y && ly <= b.y + b.h)) moveGhost(scene.pick(e.clientX, e.clientY)); } return; }
   p.x = e.clientX; p.y = e.clientY;
+  if (gest && ui.online && gest.mode === 'wpan') { const dx = e.clientX - gest.x0, dy = e.clientY - gest.y0; if (Math.hypot(dx, dy) > 8) gest.moved = true; if (gest.moved) { const z = ui.online.cam.z * view.us; ui.online.cam.x = Math.max(-110, Math.min(110, gest.cx - dx / z)); ui.online.cam.y = Math.max(-110, Math.min(110, gest.cy - dy / z)); } return; }
+  if (gest && ui.online && gest.mode === 'wpinch' && ptrs.size >= 2) { const q = pinchInfo(); A.onlineZoom(q.d / gest.d); gest.d = q.d; return; }
   if (!gest || ui.screen !== 'play') return;
   if (gest.mode === 'pinch' && ptrs.size >= 2) {
     const q = pinchInfo();
@@ -337,13 +380,14 @@ uiCanvas.addEventListener('pointermove', (e) => {
 function pointerEnd(e, cancelled) {
   if (!ptrs.has(e.pointerId)) return;
   ptrs.delete(e.pointerId);
+  if (gest && gest.mode === 'wpan' && !gest.moved && !cancelled && ui.online) gest.fn(gest.x0 / view.us, gest.y0 / view.us);
   if (gest && gest.mode === 'pending' && !cancelled) worldTap(gest.x0, gest.y0, gest.kind);
   if (ptrs.size === 0) gest = null;
   else if (gest && gest.mode === 'pinch') { const q = [...ptrs.values()][0]; gest = { mode: 'pan', g0: scene.pick(q.x, q.y) }; }
 }
 uiCanvas.addEventListener('pointerup', (e) => pointerEnd(e, false));
 uiCanvas.addEventListener('pointercancel', (e) => pointerEnd(e, true));
-uiCanvas.addEventListener('wheel', (e) => { e.preventDefault(); if (ui.screen !== 'play' || view.portrait) return; scene.zoomAt(e.deltaY > 0 ? 1.12 : 0.89, e.clientX, e.clientY); ui.moved = true; }, { passive: false });
+uiCanvas.addEventListener('wheel', (e) => { e.preventDefault(); if (ui.online) { if (ui.online.tab === 'map') A.onlineZoom(e.deltaY > 0 ? 0.88 : 1.14); return; } if (ui.screen !== 'play' || view.portrait) return; scene.zoomAt(e.deltaY > 0 ? 1.12 : 0.89, e.clientX, e.clientY); ui.moved = true; }, { passive: false });
 uiCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 const keys = {};
@@ -365,6 +409,7 @@ function back() {
   else if (cloud.state.open) cloud.close();
   else if (ui.story != null) A.storyOk();
   else if (ui.reportOpen) A.reportOk();
+  else if (ui.online) { if (ui.online.pick) ui.online.pick = null; else ui.online = null; }
   else if (ui.map) ui.map = null;
   else if (ui.squad != null) ui.squad = null;
   else if (ui.quests || ui.settings || ui.tech || ui.roles) { ui.quests = ui.settings = ui.tech = ui.roles = false; }
@@ -409,6 +454,7 @@ function handleEvents() {
       case 'ruin': { banner(t('ruinGot'), '#ffe27a', 2.6); if (ev.item) banner(t('itemGot', t('it_' + ev.item)), '#ffe9a8', 2.8); audio.play('cleared'); let k = 0; for (const r in ev.loot) text(ui.fxTop, ev.x + k++ * 64, ev.y, 60, '+' + ev.loot[r], RES_FX[r], 24, 1.6); save(); break; }
       case 'scout': audio.play('hey'); break;
       case 'tripDone': audio.play('hey'); buzz(20); break;
+      case 'pvp': banner(reportLine({ kind: ev.kind, data: ev.data }), ev.kind === 'won' || ev.kind === 'defended' ? '#9ff0b4' : ev.kind === 'bounced' ? '#cfd8ff' : '#ff8a80', 3.4); audio.play(ev.kind === 'won' || ev.kind === 'defended' ? 'won' : 'sad'); buzz(30); if (!ui.online) ui.onlineNew = (ui.onlineNew || 0) + 1; save(); break;
       case 'meal': if (ev.fed < 0.5) { banner(t('hungry'), '#ff8a80', 2.8); audio.play('sad'); } break;
       case 'gift': audio.play('coin'); parts(ui.fxTop, ev.x, ev.y, 60, 14, '#ff8fb0', 120, 0.9, 4.5, 160); break;
       case 'order': ring(ui.fx, ev.x, ev.y, 8, 54, 0.4, '#fff6a0', 4); break;
@@ -508,6 +554,17 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+function onlineSay(msg, bad) { if (ui.online) { ui.online.msg = msg; ui.online.msgT = 6; ui.online.bad = !!bad; ui.online.tab = ui.online.tab || 'map'; } else toast(msg); }
+/** Sincronizza col mondo (manda la fotografia, riceve i rapporti) e, a schermo aperto, rilegge tutto. */
+let onlineBusy = false;
+async function onlineRefresh(full) {
+  if (onlineBusy || !cloud.state.user || online.state.ready === false) return;
+  onlineBusy = true;
+  try { await online.sync(); if (full || ui.online) await online.load(); if (ui.online && ui.online.cam && online.state.me && ui.online.loadT === 99) { ui.online.cam.x = online.state.me.x; ui.online.cam.y = online.state.me.y; ui.online.loadT = 0; } } catch (e) { /* si riprova al prossimo giro */ }
+  onlineBusy = false;
+}
+let onlineT = 20;
+
 /** Fumo dagli edifici malconci e polvere sotto chi corre: piccole cose che fanno sembrare vera una battaglia. */
 let fxT = 0;
 function ambientFx() {
@@ -543,8 +600,10 @@ function tick(real) {
   if (ui.screen === 'play' && ui.story == null && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && world.storyDue() >= 0) { ui.story = world.storyDue(); audio.play('page'); closeAll(); }
   ui.reportOpen = ui.screen === 'play' && world.d.reports.length > 0 && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && ui.story == null && !ui.eventOpen;
   if (ui.map && ui.map.msgT > 0) ui.map.msgT -= real;
+  if (ui.online && ui.online.msgT > 0) ui.online.msgT -= real;
+  onlineT += real; if (onlineT > (ui.online ? 20 : 120)) { onlineT = 0; if (ui.screen === 'play' && (ui.online || world.status === 'day')) onlineRefresh(false); }
   if (ui.screen === 'play' && (ui.map || ui.reportOpen || ui.settings || ui.quests)) world.stepTrips(Date.now());      // a pannello aperto il mondo è fermo, ma le spedizioni no
-  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away || ui.roles || ui.story != null || ui.eventOpen || ui.map || ui.reportOpen || cloud.state.open;
+  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away || ui.roles || ui.story != null || ui.eventOpen || ui.map || ui.online || ui.reportOpen || cloud.state.open;
 
   if (!modal) {
     const fight = world.status !== 'day', steps = fight ? ui.speed * 2 : 1, dt = fight ? real / 2 : real;      // passi piccoli: stabile anche a x2
@@ -620,8 +679,9 @@ scene.build();
 if (quality < 2) { scene.setShadows(quality >= 1); scene.setPost(false); }
 resize();
 if (view.tall && !(saved.cam && isFinite(saved.cam.x))) scene.setView((CASTLE.c + CASTLE.w / 2) * G, (CASTLE.r + CASTLE.h / 2) * G + 20, 1900);      // a schermo alto si parte più da lontano: di lato si vede meno
+online.init({ getSnap: () => world.pvpSnap(), onSent: (army) => { world.pvpSend(army); save(); }, onReports: (list) => { for (const r of list) world.pvpApply(r); save(); return list.map(r => r.id); } });
 cloud.init({ key: KEY, getSave: () => JSON.parse(JSON.stringify(world)), t, onLoad: (data) => { frozen = true; try { const cur = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; cur.world = data; localStorage.setItem(KEY, JSON.stringify(cur)); } catch (e) { /* niente */ } window.removeEventListener('pagehide', save); location.reload(); } });
 if (saved.cam && isFinite(saved.cam.x) && saved.world && saved.world.map === 3) scene.setView(saved.cam.x, saved.cam.y, saved.cam.dist);      // la mappa vecchia era più piccola
 console.log('[tuzu] avvio ' + view.cw + 'x' + view.ch + ' dpr ' + view.dpr + ' gl ' + (scene.r.getContext().isContextLost() ? 'PERSO' : 'ok') + ' ' + scene.r.capabilities.maxTextureSize);
-window.__tuzu = { world, ui, view, scene, A, tap, P, save, shot, tick, back, kick, blank, reset, NATURE, TOWERS, TRIBES, cloud, get quality() { return quality; }, get kicks() { return kicks; } };   // per le prove automatiche
+window.__tuzu = { world, ui, view, scene, A, tap, P, save, shot, tick, back, kick, blank, reset, NATURE, TOWERS, TRIBES, cloud, online, get quality() { return quality; }, get kicks() { return kicks; } };   // per le prove automatiche
 requestAnimationFrame(frame);

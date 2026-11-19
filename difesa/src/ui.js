@@ -7,6 +7,7 @@ import { drawFx, tracePoly } from './fx.js';
 import { t, has, LANGS, getLang } from './i18n.js';
 import * as X from './ui2.js';
 import * as Y from './ui3.js';
+import * as Z from './ui4.js';
 
 const F = '"Trebuchet MS","Segoe UI",Roboto,sans-serif';
 const GOLD = '#e9c46a', CREAM = '#f5ecd7', DIM = '#cbbf9f', BAD = '#e8897e', TAU = Math.PI * 2;
@@ -461,6 +462,12 @@ function hud(S) {
   button(c, ui, bx, 10, 54, 48, '', { color: '#2f5d7a', tag: 'map' }, A.mapOpen);
   Y.mapIcon(c, bx + 27, 34, 12);
   if (world.d.trips.length) { c.beginPath(); c.arc(bx + 50, 14, 11, 0, TAU); c.fillStyle = '#2f7d5a'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, String(world.d.trips.length), bx + 50, 15, 14, '#fff', 'center', 800); }
+  if (!(tall && (isNight || raid))) {      // il mondo online (in verticale, di notte, lascia il posto alla velocità)
+    bx -= 64;
+    button(c, ui, bx, 10, 54, 48, '', { color: '#22506e', tag: 'online' }, A.onlineOpen);
+    Z.globeIcon(c, bx + 27, 34, 13);
+    if (ui.onlineNew) { c.beginPath(); c.arc(bx + 50, 14, 11, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, String(ui.onlineNew), bx + 50, 15, 14, '#fff', 'center', 800); }
+  }
   if (isNight || raid) { bx -= 76; button(c, ui, bx, 10, 66, 48, 'x' + ui.speed, { color: ui.speed > 1 ? '#8a5a1c' : '#3b3229', fs: 22, tag: 'speed' }, A.speed); }
 
   {
@@ -948,10 +955,11 @@ function drawAll(S) {
   else if (ui.story != null) X.storyPanel(S, K);
   else if (ui.eventOpen) X.eventPanel(S, K);
   else if (ui.reportOpen) Y.reportPanel(S, K);
+  else if (ui.online) Z.worldPanel(S, K);
   else if (ui.map) Y.mapPanel(S, K);
   else if (ui.roles) X.rolesPanel(S, K);
   else if (ui.quests) questsPanel(S);
   else if (ui.tech) techPanel(S);
   else if (ui.settings) settingsPanel(S);
-  if (!(ui.lost || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.reportOpen || ui.roles || ui.quests || ui.tech || ui.settings)) Y.finger(S, K);
+  if (!(ui.lost || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.reportOpen || ui.roles || ui.quests || ui.tech || ui.settings || ui.online)) Y.finger(S, K);
 }

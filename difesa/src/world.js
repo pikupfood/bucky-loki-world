@@ -35,7 +35,7 @@ function fresh(now) {
   return {
     v: 4, map: 3, res: { ...START }, castle: 1, night: 0, nextId: 2, goal: 0, mood: 0, stats: {},
     diff: World.RULES.diff, roles: { bosco: 0, pietra: 0, campi: 0, cantiere: 0 }, rally: null, hero: { lvl: 1, xp: 0, items: {} }, weather: 'sole',
-    trips: [], reports: [], fed: 1, trophy: {}, crowns: 0, chal: null, endAt: 0, rebuild: [],
+    trips: [], reports: [], fed: 1, trophy: {}, crowns: 0, chal: null, endAt: 0, rebuild: [], pvpSeen: [], pvpName: '',
     event: null, evNight: 0, fog: null, ruins: {}, met: {}, shards: [], story: -1, extra: 0,
     buildings: [{ id: 1, type: 'castello', c: CASTLE.c, r: CASTLE.r, hp: castleHp(1) }],
     cut: [], tech: {}, villages: TRIBES.map(t => ({ level: t.level, state: 'free', since: 0, until: 0, trades: 0, rel: REL.start })),
@@ -67,7 +67,8 @@ export class World {
       if (d.stats.conquer == null) d.stats.conquer = d.villages.filter(v => v.state === 'colony').length;
       d.dailyDay = data.dailyDay || 0; d.streak = data.streak || 0; d.lastSeen = data.lastSeen || now;
       d.diff = DIFFS[data.diff] ? data.diff : 'facile';                  // i salvataggi di prima restano com'erano
-      for (const k of ['rally', 'weather', 'event', 'evNight', 'ruins', 'met', 'shards', 'story', 'extra', 'fed', 'trophy', 'crowns', 'chal', 'endAt']) if (data[k] != null) d[k] = data[k];
+      for (const k of ['rally', 'weather', 'event', 'evNight', 'ruins', 'met', 'shards', 'story', 'extra', 'fed', 'trophy', 'crowns', 'chal', 'endAt', 'pvpName']) if (data[k] != null) d[k] = data[k];
+      if (Array.isArray(data.pvpSeen)) d.pvpSeen = data.pvpSeen.slice(-80);
       if (Array.isArray(data.rebuild)) d.rebuild = data.rebuild.filter(o => o && BUILD[o.type] && BUILD[o.type].cost).slice(0, 300);
       if (data.fed == null && !(data.res && data.res.cibo > 0)) d.res.cibo = 60;      // una partita di prima del cibo: una scorta per non trovarsi subito alla fame
       if (Array.isArray(data.trips)) d.trips = data.trips.filter(tr => tr && isFinite(tr.x) && isFinite(tr.at) && tr.ms > 0);

@@ -16,6 +16,7 @@ export function init(c) {
   try { if (Object.keys(localStorage).some(k => k.startsWith('sb-bpipowfznqcnfxhezaez-auth-token'))) boot(); } catch (e) { /* senza memoria si gioca lo stesso */ }
   window.addEventListener('pagehide', () => { if (dirty && state.user) push(); });
 }
+export async function getClient() { return client(); }
 async function client() {
   if (supa) return supa;
   const m = await import(/* @vite-ignore */ LIB);
@@ -146,4 +147,22 @@ function render() {
   on('acSave', () => run(async () => { if (await push(true)) say(t('cloudDone')); }));
   on('acKeep', () => run(async () => { state.ask = null; await push(true); state.open = false; }));
   on('acTake', () => { const row = state.ask.row; state.ask = null; take(row); });
+}
+
+// ---------- una finestrella per scrivere una o due parole (il nome del villaggio, dell'alleanza) ----------
+let askBox = null;
+/** fields: [{ ph: testo d'esempio, max }] · cb(valori) viene chiamata solo se conferma. */
+export function ask(title, fields, okLabel, cb) {
+  if (typeof document === 'undefined') return;
+  if (askBox) askBox.remove();
+  askBox = document.createElement('div'); state.open = true;
+  askBox.style.cssText = 'position:fixed;inset:0;z-index:21;display:flex;align-items:center;justify-content:center;background:rgba(8,8,18,.74);font-family:"Trebuchet MS","Segoe UI",Roboto,sans-serif;color:#f5ecd7';
+  const inputs = fields.map((f, i) => '<input id="askF' + i + '" type="text" maxlength="' + (f.max || 20) + '" placeholder="' + esc(f.ph || '') + '" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;min-height:44px;margin:6px 0;padding:8px 12px;border-radius:10px;border:2px solid rgba(233,196,106,.5);background:#2a2118;color:#f5ecd7;font-weight:600;font-size:16px;font-family:inherit">').join('');
+  const btn = (id, label, bg) => '<button id="' + id + '" style="flex:1;min-height:46px;border-radius:12px;border:2px solid rgba(255,236,170,.7);background:' + bg + ';color:#f5ecd7;font-weight:800;font-size:17px;font-family:inherit;cursor:pointer">' + esc(label) + '</button>';
+  askBox.innerHTML = '<div style="width:min(92vw,400px);background:#1a140e;border:2px solid rgba(233,196,106,.6);border-radius:16px;padding:16px 18px"><div style="font-weight:800;font-size:21px;color:#f2cf73;margin-bottom:8px">' + esc(title) + '</div>' + inputs + '<div style="display:flex;gap:10px;margin-top:10px">' + btn('askNo', t('close'), '#3b3229') + btn('askOk', okLabel, '#2f7d3a') + '</div></div>';
+  document.body.appendChild(askBox);
+  const done = (ok) => { const vals = fields.map((_, i) => (askBox.querySelector('#askF' + i).value || '').trim()); askBox.remove(); askBox = null; state.open = false; if (ok) cb(vals); };
+  askBox.querySelector('#askNo').onclick = () => done(false);
+  askBox.querySelector('#askOk').onclick = () => done(true);
+  const first = askBox.querySelector('#askF0'); if (first) first.focus();
 }

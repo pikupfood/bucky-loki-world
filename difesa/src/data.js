@@ -489,3 +489,7 @@ export const ROAD_SPEED = 1.3;
 // ---------- al mercato si vende anche: { give: quanto dai, get: monete } ----------
 export const SELL = { legna: { give: 40, get: 20 }, pietra: { give: 30, get: 24 }, cibo: { give: 20, get: 16 }, ferro: { give: 15, get: 36 }, cristallo: { give: 8, get: 48 } };
 export const SELL_ORDER = ['legna', 'pietra', 'cibo', 'ferro', 'cristallo'];
+
+// ---------- il mondo online: quanto vale ogni cosa nella forza di un villaggio (le stesse cifre stanno nel server: tools/dw_online.sql) ----------
+export const PVP_UNIT = { lancia: 10, arco: 11, corazza: 26, cavallo: 18, cura: 9, ariete: 22 };
+export const PVP_TOWER = { arcieri: [20, 34, 56], mago: [26, 44, 72], catapulta: [30, 50, 80], braciere: [24, 40, 66], radici: [14, 22, 34] };
