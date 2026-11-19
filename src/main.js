@@ -1,13 +1,13 @@
 // Avvio: scena 3D + interfaccia 2D, camera (trascina, pizzica, rotella), costruzione a quadretti, salvataggio.
 import { World } from './world.js';
-import { G, COLS, ROWS, BUILD, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, TERRAIN, RUINS, HERO, LEVEL_MIN, UNITS as UNIT_DEFS } from './data.js';
+import { G, COLS, ROWS, BUILD, BUILD_CATS, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, TERRAIN, RUINS, HERO, LEVEL_MIN, UNITS as UNIT_DEFS } from './data.js';
 import { Scene3D } from './scene3d.js';
 import { drawUi } from './ui.js';
 import { stepFx, parts, ring, text, smoke, chips, arc } from './fx.js';
 import { mapPick } from './ui3.js';
 import * as cloud from './cloud.js';
 import * as online from './online.js';
-import { reportLine } from './ui4.js';
+import { reportLine, threats } from './ui4.js';
 import { t, setLang, getLang, LANGS } from './i18n.js';
 import * as audio from './audio.js';
 
@@ -160,6 +160,15 @@ const A = {
   onlineZoom(f) { const c = ui.online.cam; c.z = Math.max(3.5, Math.min(44, c.z * f)); },
   onlineHome() { const me = online.state.me, U = ui.online; if (me) { U.cam.x = me.x; U.cam.y = me.y; U.sel = me.id; U.pick = null; } audio.play('tap'); },
   onlineFocus(id) { const v = online.byId(id), U = ui.online; if (v) { U.cam.x = v.x; U.cam.y = v.y; U.sel = id; } },
+  onlineShow(id) { const U = ui.online; U.tab = 'map'; U.pick = null; A.onlineFocus(id); if (U.cam.z < 14) U.cam.z = 18; audio.play('tap'); },
+  /** Il villaggio del computer più vicino che il mio esercito può battere con margine. */
+  onlineFind() {
+    const me = online.state.me, U = ui.online; if (!me) return;
+    const pw = online.armyPower(world.pvpArmy()); let best = null, bd = 1e9;
+    for (const v of online.state.villages) { if (v.kind !== 'npc' || online.shielded(v) || online.defenseOf(v) * 1.15 > pw) continue; const d = Math.hypot(v.x - me.x, v.y - me.y); if (d < bd) { bd = d; best = v; } }
+    if (!best) { onlineSay(t(pw ? 'on_findNone' : 'on_noArmy'), true); audio.play('no'); return; }
+    U.pick = null; A.onlineFocus(best.id); if (U.cam.z < 14) U.cam.z = 18; onlineSay(t('on_findOk', best.name), false); audio.play('tap');
+  },
   onlineTap(wx, wy) {
     const U = ui.online; let best = null, bd = Math.max(1.4, 22 / U.cam.z) ** 2;
     for (const v of online.state.villages) { const dd = (v.x - wx) ** 2 + (v.y - wy) ** 2; if (dd < bd) { bd = dd; best = v; } }
@@ -187,8 +196,8 @@ const A = {
   account() { ui.settings = false; cloud.open(); audio.play('tap'); },
   guideToggle() { const g = world.goal(); ui.guideOpen = !(ui.guideOpen == null ? !!g && g.i < 12 : ui.guideOpen); audio.play('tap'); },
   buildOpen() { ui.sel = null; ui.vsel = null; ui.aiming = false; ui.build = { cat: ui.lastCat || 'dif' }; audio.play('tap'); },
-  buildClose() { ui.build = null; ui.place = null; audio.play('tap'); },
-  cat(cat) { ui.build.cat = cat; ui.lastCat = cat; audio.play('tap'); },
+  buildClose() { if (ui.build && world.seeBuilds(BUILD_CATS[ui.build.cat])) save(); ui.build = null; ui.place = null; audio.play('tap'); },
+  cat(cat) { if (world.seeBuilds(BUILD_CATS[ui.build.cat])) save(); ui.build.cat = cat; ui.lastCat = cat; audio.play('tap'); },
   pick(type) {
     const D = BUILD[type];
     if (D.min > world.d.castle) { toast(t('needCastle', D.min)); return; }
@@ -564,6 +573,7 @@ async function onlineRefresh(full) {
   onlineBusy = false;
 }
 let onlineT = 20;
+const warned = new Set();
 
 /** Fumo dagli edifici malconci e polvere sotto chi corre: piccole cose che fanno sembrare vera una battaglia. */
 let fxT = 0;
@@ -601,6 +611,8 @@ function tick(real) {
   ui.reportOpen = ui.screen === 'play' && world.d.reports.length > 0 && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && ui.story == null && !ui.eventOpen;
   if (ui.map && ui.map.msgT > 0) ui.map.msgT -= real;
   if (ui.online && ui.online.msgT > 0) ui.online.msgT -= real;
+  for (const m of threats()) if (!warned.has(m.id)) { warned.add(m.id); banner(t('on_threat', m.from || (online.byId(m.village_id) || {}).name || '?'), '#ff8a80', 3.6); audio.play('horn'); buzz(40); }
+  ui.onlineDanger = threats().length;
   onlineT += real; if (onlineT > (ui.online ? 20 : 120)) { onlineT = 0; if (ui.screen === 'play' && (ui.online || world.status === 'day')) onlineRefresh(false); }
   if (ui.screen === 'play' && (ui.map || ui.reportOpen || ui.settings || ui.quests)) world.stepTrips(Date.now());      // a pannello aperto il mondo è fermo, ma le spedizioni no
   const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away || ui.roles || ui.story != null || ui.eventOpen || ui.map || ui.online || ui.reportOpen || cloud.state.open;

@@ -51,7 +51,7 @@ function oldPaper(src, key) {
   return fogSk;
 }
 /** La rosa dei venti stampata sulla carta. */
-function compass(c, x, y, r) {
+export function compass(c, x, y, r) {
   c.save(); c.translate(x, y);
   c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fillStyle = 'rgba(243,229,194,0.82)'; c.fill(); c.strokeStyle = 'rgba(78,53,29,0.85)'; c.lineWidth = 1.6; c.stroke();
   c.beginPath(); c.arc(0, 0, r * 0.78, 0, TAU); c.strokeStyle = 'rgba(78,53,29,0.4)'; c.lineWidth = 1; c.stroke();
@@ -66,7 +66,7 @@ function compass(c, x, y, r) {
   c.restore();
 }
 /** Un cartiglio di pergamena col nome, sotto un segnalino. */
-function tag(c, K, s, x, y, col) {
+export function tag(c, K, s, x, y, col) {
   const w = K.width(c, s, 11.5, 800) + 14;
   c.beginPath(); c.roundRect(x - w / 2, y - 8.5, w, 17, 5); c.fillStyle = '#f5e8c8'; c.fill(); c.strokeStyle = '#4e351d'; c.lineWidth = 1.3; c.stroke();
   K.txt(c, s, x, y + 0.5, 11.5, col || K.PEN, 'center', 800);

@@ -550,7 +550,8 @@ function hud(S) {
     bx -= 64;
     button(c, ui, bx, 10, 54, 48, '', { color: '#22506e', tag: 'online' }, A.onlineOpen);
     Z.globeIcon(c, bx + 27, 34, 13);
-    if (ui.onlineNew) { c.beginPath(); c.arc(bx + 50, 14, 11, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, String(ui.onlineNew), bx + 50, 15, 14, '#fff', 'center', 800); }
+    if (ui.onlineDanger) { const p = 0.5 + Math.sin(ui.time * 7) * 0.5; c.beginPath(); c.roundRect(bx - 2, 8, 58, 52, 14); c.strokeStyle = 'rgba(255,74,58,' + (0.5 + p * 0.5) + ')'; c.lineWidth = 3; c.stroke(); c.beginPath(); c.arc(bx + 50, 14, 11, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, '!', bx + 50, 15, 15, '#fff', 'center', 800); }
+    else if (ui.onlineNew) { c.beginPath(); c.arc(bx + 50, 14, 11, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, String(ui.onlineNew), bx + 50, 15, 14, '#fff', 'center', 800); }
   }
   if (isNight || raid) { bx -= 76; button(c, ui, bx, 10, 66, 48, 'x' + ui.speed, { color: ui.speed > 1 ? '#8a5a1c' : '#5c4330', fs: 22, tag: 'speed' }, A.speed); }
 
@@ -582,7 +583,7 @@ function hud(S) {
   // in basso a sinistra: costruire; in basso a destra: la notte
   // se il pannello aperto arriva fin lì, i due bottoni grandi si fanno da parte (il pannello ha la sua ✕)
   const hideL = ui.box && ui.box[0] < 14 + 208 + 6, hideR = ui.box && ui.box[1] > vw - 14 - 230 - 6;
-  if (!hideL) { button(c, ui, 14, vh - 14 - 66, 208, 66, t('buildBtn'), { color: '#8a5a1c', fs: 24, dx: 16, tag: 'build' }, A.buildOpen); hammer(c, 44, vh - 14 - 31, 17); }
+  if (!hideL) { button(c, ui, 14, vh - 14 - 66, 208, 66, t('buildBtn'), { color: '#8a5a1c', fs: 24, dx: 16, tag: 'build' }, A.buildOpen); hammer(c, 44, vh - 14 - 31, 17); if (Object.keys(BUILD).some(ty => world.isNewBuild(ty))) { c.beginPath(); c.arc(14 + 208 - 6, vh - 14 - 66 + 6, 9, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, '!', 14 + 208 - 6, vh - 14 - 66 + 7, 13, '#fff', 'center', 800); } }
   if (!isNight) {
     if (!ui.sel && ui.vsel == null) { X.incoming(S, K); X.rebuildPill(S, K); }
     const pulse = world.towers() ? 0.5 + Math.sin(ui.time * 4) * 0.5 : 0;
@@ -633,6 +634,7 @@ function buildBar(S) {
   panel(c, x, y, w, h, 14, 0.94); block(ui, x, y, w, h);
   if (tall) { const tw = (w - 24 - 52 - 4 * 6) / 5; CAT_ORDER.forEach((cat, i) => button(c, ui, x + 12 + i * (tw + 6), y + 10, tw, 38, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#5c4330', fs: 15.5, r: 9, tag: 'cat_' + cat }, () => A.cat(cat))); }
   else CAT_ORDER.forEach((cat, i) => button(c, ui, x + 12, y + 9 + i * 32, 150, 28, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#5c4330', fs: 15.5, r: 9, tag: 'cat_' + cat }, () => A.cat(cat)));
+  CAT_ORDER.forEach((cat, i) => { if (cat === ui.build.cat || !BUILD_CATS[cat].some(ty => world.isNewBuild(ty))) return; const dx = tall ? x + 12 + i * ((w - 24 - 52 - 4 * 6) / 5 + 6) + (w - 24 - 52 - 4 * 6) / 5 - 5 : x + 12 + 150 - 4, dy = tall ? y + 13 : y + 12 + i * 32; c.beginPath(); c.arc(dx, dy, 6, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.stroke(); });
   const x0 = tall ? x + 12 : x + 12 + 150 + 14;
   const cw = tall ? (w - 24 - gap * (cols - 1)) / cols : Math.min(122, Math.floor((w - (x0 - x) - 62) / list.length) - gap), small = cw < 112;       // con tante carte si stringono
   list.forEach((ty, i) => {
@@ -664,6 +666,7 @@ function buildBar(S) {
       else costRow(c, world, D.cost, mx, by + ch - 22, small ? 14.5 : 15.5);
       if (cp.max !== Infinity && !full) txt(c, `${cp.have}/${cp.max}`, bx + cw - 9, by + 14, 11.5, PEN2, 'right', 800);
     }
+    if (world.isNewBuild(ty)) { const s = t('newTag'), nw = width(c, s, 11, 800) + 14; c.beginPath(); c.roundRect(bx - 3, by - 5, nw, 19, 6); c.fillStyle = '#c0392b'; c.fill(); c.strokeStyle = '#5a1c12'; c.lineWidth = 1.5; c.stroke(); txt(c, s, bx - 3 + nw / 2, by + 5, 11, '#fff3d6', 'center', 800); }
     ui.buttons.push({ x: bx, y: by, w: cw, h: ch, tag: 'card_' + ty, fn: () => A.pick(ty) });
   });
   button(c, ui, x + w - 54, y + (tall ? 7 : 10), 44, 44, '', { color: '#7a3a2c', r: 22, tag: 'buildClose' }, A.buildClose);

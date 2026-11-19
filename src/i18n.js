@@ -148,6 +148,8 @@ const S = {
     g_porto: 'Costruisci un porto', gt_porto: 'In «Economia» c\'è il Porto: va sulla riva di un lago e pesca.', g_ponte: 'Pezzi di ponte: {v}', gt_ponte: 'In «Mura» c\'è il Ponte: si tira sull\'acqua, come una strada.',
     rebuildN: 'Ricostruisci ({v})',
     // ---- il mondo online
+    on_reg_heart: 'Cuore dei Regni', on_reg_north: 'Terre di Brina', on_reg_south: 'Sabbie Dorate', on_reg_east: 'Bosco Rosso', on_reg_west: 'Colline Verdi',
+    on_threat: '{v} marcia su di te!', on_findNone: 'Nessun villaggio è alla tua portata. Addestra altri soldati.', on_findOk: 'Puoi battere {v}.', newTag: 'Nuovo',
     on_tab_map: 'Mondo', on_tab_rank: 'Classifica', on_tab_ally: 'Alleanza', on_tab_reports: 'Rapporti', on_legPlayer: 'Persone vere', on_legNpc: 'Computer', on_player: 'Giocatore', on_npc: 'Villaggio del computer',
     on_needAccount: 'Per entrare nel mondo serve un account: così il tuo villaggio resta sulla mappa di tutti.', on_soon: 'Il mondo online arriva presto.', on_loading: 'Sto cercando il mondo…',
     on_net: 'Non riesco a collegarmi al mondo.', on_hintJoin: 'Qui ci sono i villaggi di tutti i giocatori e quelli del computer. Metti anche il tuo sulla mappa.', on_join: 'Entra nel mondo',
@@ -313,6 +315,8 @@ const S = {
     g_porto: 'Construis un port', gt_porto: 'Dans « Économie » il y a le Port : il va au bord d\'un lac et pêche.', g_ponte: 'Morceaux de pont : {v}', gt_ponte: 'Dans « Murs » il y a le Pont : on le tire sur l\'eau, comme une route.',
     rebuildN: 'Reconstruire ({v})',
     // ---- il mondo online
+    on_reg_heart: 'Cœur des Royaumes', on_reg_north: 'Terres du Givre', on_reg_south: 'Sables Dorés', on_reg_east: 'Bois Rouge', on_reg_west: 'Collines Vertes',
+    on_threat: '{v} marche sur toi !', on_findNone: 'Aucun village n\'est à ta portée. Entraîne d\'autres soldats.', on_findOk: 'Tu peux battre {v}.', newTag: 'Nouveau',
     on_tab_map: 'Monde', on_tab_rank: 'Classement', on_tab_ally: 'Alliance', on_tab_reports: 'Rapports', on_legPlayer: 'Vraies personnes', on_legNpc: 'Ordinateur', on_player: 'Joueur', on_npc: 'Village de l\'ordinateur',
     on_needAccount: 'Pour entrer dans le monde il faut un compte : ton village reste ainsi sur la carte de tous.', on_soon: 'Le monde en ligne arrive bientôt.', on_loading: 'Je cherche le monde…',
     on_net: 'Connexion au monde impossible.', on_hintJoin: 'Ici se trouvent les villages de tous les joueurs et ceux de l\'ordinateur. Mets aussi le tien sur la carte.', on_join: 'Entrer dans le monde',
@@ -477,6 +481,8 @@ const S = {
     g_porto: 'Build a harbour', gt_porto: 'In "Economy" there is the Harbour: it goes on a lake shore and fishes.', g_ponte: 'Bridge pieces: {v}', gt_ponte: 'In "Walls" there is the Bridge: draw it over water, like a road.',
     rebuildN: 'Rebuild ({v})',
     // ---- il mondo online
+    on_reg_heart: 'Heart of the Realms', on_reg_north: 'Frostlands', on_reg_south: 'Golden Sands', on_reg_east: 'Redwood', on_reg_west: 'Green Hills',
+    on_threat: '{v} is marching on you!', on_findNone: 'No village is within your reach. Train more soldiers.', on_findOk: 'You can beat {v}.', newTag: 'New',
     on_tab_map: 'World', on_tab_rank: 'Ranking', on_tab_ally: 'Alliance', on_tab_reports: 'Reports', on_legPlayer: 'Real people', on_legNpc: 'Computer', on_player: 'Player', on_npc: 'Computer village',
     on_needAccount: 'You need an account to enter the world: that way your village stays on everyone\'s map.', on_soon: 'The online world is coming soon.', on_loading: 'Looking for the world…', on_net: 'Cannot reach the world.',
     on_hintJoin: 'Here are the villages of all players and those of the computer. Put yours on the map too.', on_join: 'Enter the world', on_nameTitle: 'Your village name', on_namePh: 'For example: Lumi Town',

@@ -4,7 +4,7 @@
 import * as cloud from './cloud.js';
 
 /** ready: le tabelle ci sono (null = non si sa) · me: il mio villaggio nel mondo · il resto: quello che tutti vedono */
-export const state = { ready: null, me: null, villages: [], alliances: [], marches: [], troops: [], reports: [], busy: false, err: '', at: 0, loadedAt: 0, offset: 0 };
+export const state = { ready: null, me: null, villages: [], alliances: [], marches: [], troops: [], reports: [], incoming: [], busy: false, err: '', at: 0, loadedAt: 0, offset: 0 };
 let cfg = null;      // { getSnap(), onReports(list) -> ids, onSent(army) }
 export function init(c) { cfg = c; }
 
@@ -35,8 +35,20 @@ export async function sync(name) {
     state.ready = true; state.me = r.me; state.err = ''; state.at = Date.now();
     if (r.now) state.offset = Date.parse(r.now) - Date.now();
     if (r.reports && r.reports.length) { const ids = cfg.onReports(r.reports); if (ids && ids.length) await rpc('dw_ack', { p_ids: ids }); }
+    await watch();
     return true;
   } catch (e) { const k = why(e); if (k === 'soon') state.ready = false; state.err = k === 'name_needed' ? '' : k; if (k === 'name_needed') { state.ready = true; state.me = null; } return false; }
+}
+/** Chi sta marciando contro di me (si chiede a ogni giro, anche a mappa chiusa: così il gioco può avvisare). */
+async function watch() {
+  if (!state.me) { state.incoming = []; return; }
+  try {
+    const s = await cloud.getClient(), q = await s.from('dw_marches').select('id,village_id,target_id,status,kind,arrive_at').eq('target_id', state.me.id).eq('status', 'march').limit(10);
+    if (q.error) return;
+    const list = q.data || [], ids = [...new Set(list.map(m => m.village_id))];
+    if (ids.length) { const n = await s.from('dw_villages').select('id,name').in('id', ids); if (!n.error) for (const m of list) m.from = ((n.data || []).find(v => v.id === m.village_id) || {}).name || ''; }
+    state.incoming = list;
+  } catch (e) { /* si riprova al prossimo giro */ }
 }
 /** Legge tutto il mondo: villaggi, alleanze, eserciti in marcia, i miei rapporti. */
 export async function load() {

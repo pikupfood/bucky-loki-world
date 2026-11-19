@@ -424,6 +424,13 @@ export function extend(World) {
       return true;
     },
 
+    // ---------- costruzioni appena sbloccate (l'etichetta «Nuovo» nel catalogo) ----------
+    /** Si può costruire adesso (castello e scoperta ci sono)? */
+    buildOpen(ty) { const D = BUILD[ty]; return !!D && D.cost && D.min <= this.d.castle && (!D.tech || !!this.d.tech[D.tech]); },
+    isNewBuild(ty) { return this.buildOpen(ty) && !(this.d.seenB || {})[ty]; },
+    /** Il giocatore ha guardato queste carte: non sono più nuove. Rende quante lo erano. */
+    seeBuilds(list) { let n = 0; const s = this.d.seenB || (this.d.seenB = {}); for (const ty of list || []) if (this.buildOpen(ty) && !s[ty]) { s[ty] = 1; n++; } return n; },
+
     // ---------- trofei e sfida del giorno ----------
     trophyHave(k) {
       const S = this.d.stats;
