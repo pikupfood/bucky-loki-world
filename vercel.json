@@ -1,8 +1,20 @@
 {
   "cleanUrls": true,
+  "redirects": [
+    { "source": "/difesa", "destination": "/", "permanent": false },
+    { "source": "/difesa/:path*", "destination": "/:path*", "permanent": false }
+  ],
   "headers": [
     {
+      "source": "/",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
+    },
+    {
       "source": "/index.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
+    },
+    {
+      "source": "/src/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
     },
     {
