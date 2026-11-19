@@ -123,7 +123,7 @@ function confirmPlace() {
 // ---------- azioni ----------
 const UNITS_MSG = { full: 'full', pop: 'needHouses', busy: 'notNow' };
 const world_unit = (type) => UNIT_DEFS[type] || {};
-const closeAll = () => { ui.resInfo = false; ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; ui.online = null; ui.fleet = null; };
+const closeAll = () => { ui.squad = null; ui.resInfo = false; ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; ui.online = null; ui.fleet = null; };
 const A = {
   play() { if (ui.newGame) { world.setDiff(ui.diffPick); ui.newGame = false; save(); } ui.screen = 'play'; ui.daily = world.daily(Date.now()).available; audio.play('tap'); },
   diffPick(k) { ui.diffPick = k; audio.play('tap'); },
@@ -224,7 +224,7 @@ const A = {
   quality(q) { ui.q = q; slow = 0; setQuality(q === 'auto' ? 2 : q); save(); audio.play('tap'); },
   account() { ui.settings = false; cloud.open(); audio.play('tap'); },
   guideToggle() { const g = world.goal(); ui.guideOpen = !(ui.guideOpen == null ? !!g && g.i < 12 : ui.guideOpen); audio.play('tap'); },
-  buildOpen() { ui.sel = null; ui.vsel = null; ui.aiming = false; ui.build = { cat: ui.lastCat || 'dif' }; audio.play('tap'); },
+  buildOpen() { ui.sel = null; ui.vsel = null; ui.squad = null; ui.aiming = false; ui.build = { cat: ui.lastCat || 'dif' }; audio.play('tap'); },
   buildClose() { if (ui.build && world.seeBuilds(BUILD_CATS[ui.build.cat])) save(); ui.build = null; ui.place = null; audio.play('tap'); },
   cat(cat) { if (world.seeBuilds(BUILD_CATS[ui.build.cat])) save(); ui.build.cat = cat; ui.lastCat = cat; audio.play('tap'); },
   pick(type) {
@@ -348,9 +348,16 @@ function worldTap(clientX, clientY, kind) {
     const reach = Math.max(30, 26 / Math.max(0.05, scene.scaleAt(g.x, g.y))), near = world.squadNear(g.x, g.y, reach);
     if (ui.squad != null) {
       if (near >= 0 && near !== ui.squad) { ui.squad = near; audio.play('tap'); return; }
+      if (near === ui.squad) { ui.squad = null; audio.play('tap'); return; }                 // toccati di nuovo: si lasciano andare
       if (world.raid && Math.hypot(g.x - world.raid.x, g.y - world.raid.y) < 110) { A.squadAttack(); return; }
-      if (near < 0) { if (world.order(ui.squad, g.x, g.y)) audio.play('tap'); else toast(t('orderBad')); return; }
-    } else if (near >= 0 && !world.buildingAt(Math.floor(g.x / G), Math.floor(g.y / G))) { ui.squad = near; ui.sel = null; ui.vsel = null; ui.build = null; audio.play('hey'); return; }
+      const under = world.buildingAt(Math.floor(g.x / G), Math.floor(g.y / G));
+      if (under && !BUILD[under.type].deco && !BUILD[under.type].line) ui.squad = null;      // hai toccato un edificio: vuoi lui, non mandarci i soldati (il tocco prosegue sotto)
+      else {
+        if (world.order(ui.squad, g.x, g.y)) { audio.play('tap'); if (world.status === 'day') ui.squad = null; }      // di giorno, dato l'ordine la scelta finisce; in battaglia resta, per l'ordine dopo
+        else toast(t('orderBad'));
+        return;
+      }
+    } else if (near >= 0 && !ui.build && !world.buildingAt(Math.floor(g.x / G), Math.floor(g.y / G))) { ui.squad = near; ui.sel = null; ui.vsel = null; ui.build = null; audio.play('hey'); return; }
   }
   if (world.status === 'raid') return;
   if (ui.place) {

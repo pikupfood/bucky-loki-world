@@ -313,12 +313,14 @@ export function squadBar(S, K) {
   if (!list.length) { ui.squad = null; return; }
   for (const s of list) { K.tracePoly(c, P.circle(s.x, s.y, 17, 16)); c.strokeStyle = 'rgba(255,246,160,0.95)'; c.lineWidth = 2.5; c.stroke(); }
   const raid = world.status === 'raid', label = (ui.squad === 0 ? t('squadHero') : t('squadN', list.length)) + ' · ' + t('squadHint');
-  const lw = K.width(c, label, 16.5, 800), w = lw + 96 + (raid ? 170 : 0), x = vw / 2 - w / 2, y = S.tall ? 228 : 108;
-  K.panel(c, x, y, w, 46, 23, 0.92); K.block(ui, x, y, w, 46);
-  K.tuzuIcon(c, ui.squad === 0 ? 'eroe' : list[0].type, x + 26, y + 26, 10, MY_COLOR);
-  K.txt(c, label, x + 46, y + 24, 16.5, '#ffe9a8', 'left', 800);
-  if (raid) K.button(c, ui, x + 56 + lw, y + 6, 160, 34, t('squadAttack'), { color: '#a8322a', fs: 14.5, r: 10, tag: 'squadAttack' }, A.squadAttack);
-  K.button(c, ui, x + w - 42, y + 6, 34, 34, '', { color: '#5c4330', r: 17, tag: 'squadClose' }, A.squadClose); K.cross(c, x + w - 25, y + 23, 7);
+  const lw = K.width(c, label, 16.5, 800), w = lw + 118 + (raid ? 170 : 0), x = vw / 2 - w / 2, y = S.tall ? 228 : 108;
+  K.panel(c, x, y, w, 52, 26, 0.92); K.block(ui, x, y, w, 52);
+  K.tuzuIcon(c, ui.squad === 0 ? 'eroe' : list[0].type, x + 26, y + 29, 10, MY_COLOR);
+  K.txt(c, label, x + 46, y + 27, 16.5, '#ffe9a8', 'left', 800);
+  if (raid) K.button(c, ui, x + 56 + lw, y + 9, 160, 34, t('squadAttack'), { color: '#a8322a', fs: 14.5, r: 10, tag: 'squadAttack' }, A.squadAttack);
+  // la ✕ è grande, e tutta la parte destra della striscia la preme (su un telefono 34 punti erano pochi: il titolare non riusciva a chiudere)
+  K.button(c, ui, x + w - 52, y + 4, 44, 44, '', { color: '#7a3a2c', r: 22, tag: 'squadClose' }, A.squadClose); K.cross(c, x + w - 30, y + 26, 9);
+  ui.buttons.push({ x: x + w - (raid ? 62 : 84), y: y - 8, w: raid ? 70 : 92, h: 68, tag: 'squadCloseWide', fn: A.squadClose });
 }
 
 // ---------- i trofei ----------
