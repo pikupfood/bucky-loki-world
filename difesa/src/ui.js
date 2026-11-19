@@ -118,6 +118,12 @@ function hammer(c, x, y, s) {
   c.beginPath(); c.roundRect(-s * 0.62, -s * 0.9, s * 1.24, s * 0.5, s * 0.1); c.fill(); c.stroke();
   c.restore();
 }
+/** Due frecce opposte: lo scambio. */
+function swap(c, x, y, s, col = '#fff') {
+  c.strokeStyle = col; c.lineWidth = s * 0.3; c.lineCap = 'round'; c.lineJoin = 'round';
+  c.beginPath(); c.moveTo(x - s, y - s * 0.45); c.lineTo(x + s, y - s * 0.45); c.moveTo(x + s * 0.4, y - s); c.lineTo(x + s, y - s * 0.45); c.lineTo(x + s * 0.4, y + s * 0.1);
+  c.moveTo(x + s, y + s * 0.5); c.lineTo(x - s, y + s * 0.5); c.moveTo(x - s * 0.4, y - s * 0.05); c.lineTo(x - s, y + s * 0.5); c.lineTo(x - s * 0.4, y + s * 1.05); c.stroke();
+}
 function check(c, x, y, s, col = '#fff') { c.strokeStyle = col; c.lineWidth = s * 0.3; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath(); c.moveTo(x - s * 0.7, y); c.lineTo(x - s * 0.15, y + s * 0.55); c.lineTo(x + s * 0.75, y - s * 0.55); c.stroke(); }
 function cross(c, x, y, s, col = '#fff') { c.strokeStyle = col; c.lineWidth = s * 0.3; c.lineCap = 'round'; c.beginPath(); c.moveTo(x - s * 0.6, y - s * 0.6); c.lineTo(x + s * 0.6, y + s * 0.6); c.moveTo(x + s * 0.6, y - s * 0.6); c.lineTo(x - s * 0.6, y + s * 0.6); c.stroke(); }
 
@@ -279,12 +285,15 @@ function worldLayer(S) {
   if (!quiet) TRIBES.forEach((T, i) => {
     const v = world.d.villages[i], x = (T.c + 0.5) * G, y = (T.r + 0.5) * G, p = P.pt(x, y, 135);
     if (!onScreen(S, p, 90)) return;
-    const col = v.state === 'colony', s = `${t('tr_' + T.id)} · ${col ? t('colony') : t('level') + ' ' + v.level}`, w = width(c, s, 15, 800) + 44;
-    c.beginPath(); c.roundRect(p.x - w / 2, p.y - 13, w, 26, 13); c.fillStyle = 'rgba(26,20,14,0.82)'; c.fill();
+    const col = v.state === 'colony', s = `${t('tr_' + T.id)} · ${col ? t('colony') : v.state === 'ally' ? t('allyTag') : t('level') + ' ' + v.level}`, w = width(c, s, 15, 800) + 44;
+    c.beginPath(); c.roundRect(p.x - w / 2, p.y - 13, w, 26, 13); c.fillStyle = v.state === 'ally' ? 'rgba(28,62,44,0.9)' : 'rgba(26,20,14,0.82)'; c.fill();
     if (ui.vsel === i) { c.strokeStyle = 'rgba(255,224,120,0.95)'; c.lineWidth = 2; c.stroke(); }
     tuzu2d(c, p.x - w / 2 + 16, p.y, 8, col ? MY_COLOR : T.color, col ? INK : T.eyes);
     txt(c, s, p.x - w / 2 + 31, p.y + 1, 15, CREAM, 'left', 800);
-    if (ui.vsel !== i && world.raidCheck(i) === 'ok') { bubble(c, p.x, p.y - 38 + bob, 14, '#a8322a'); cross(c, p.x, p.y - 38 + bob, 7); }
+    if (ui.vsel !== i && world.status === 'day' && P.sc(x, y) > 0.3) {      // un invito a toccare: spade se puoi attaccare, scambio se è amico
+      if (v.state !== 'free' && world.tradeCheck(i) === 'ok') { bubble(c, p.x, p.y - 38 + bob, 14, '#2f7d5a'); swap(c, p.x, p.y - 38 + bob, 7); }
+      else if (world.raidCheck(i) === 'ok') { bubble(c, p.x, p.y - 38 + bob, 14, '#a8322a'); cross(c, p.x, p.y - 38 + bob, 7); }
+    }
   });
   if (world.raid) { const R = world.raid, p = P.pt(R.x, R.y, 150), w = 120 * P.sc(R.x, R.y); bar(c, p.x - w / 2, p.y - 30, w, 7, R.hp / R.maxHp, '#e0452f'); }
   drawFx(c, ui.fx, P);
@@ -577,32 +586,54 @@ function selPanel(S) {
   }
 }
 
-/** Il villaggio toccato: chi sono, quanto sono forti, cosa si vince; oppure il tributo della colonia. */
+/** Una riga «dai questo → ricevi quello». */
+function tradeRow(c, world, tr, x, y, size) {
+  const g0 = Object.keys(tr.give)[0], g1 = Object.keys(tr.get)[0], r = size * 0.44, s0 = String(tr.give[g0]), s1 = '+' + tr.get[g1];
+  RES_ICON[g0](c, x + r, y, r); txt(c, s0, x + r * 2 + 5, y + 1, size, (world.d.res[g0] || 0) >= tr.give[g0] ? RES_COL[g0] : BAD, 'left', 800);
+  let xx = x + r * 2 + 5 + width(c, s0, size, 800) + 12;
+  c.strokeStyle = CREAM; c.lineWidth = 2.4; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath(); c.moveTo(xx, y); c.lineTo(xx + 20, y); c.moveTo(xx + 13, y - 6); c.lineTo(xx + 20, y); c.lineTo(xx + 13, y + 6); c.stroke();
+  xx += 32; RES_ICON[g1](c, xx + r, y, r); txt(c, s1, xx + r * 2 + 5, y + 1, size, RES_COL[g1], 'left', 800);
+  return xx + r * 2 + 5 + width(c, s1, size, 800);
+}
+/** Il villaggio toccato. Nemico: attaccalo o proponi un'alleanza. Alleato o colonia: scambia risorse. */
 function villagePanel(S) {
   const { c, world, ui, vw, vh, A } = S, i = ui.vsel, T = TRIBES[i], v = world.village(i);
-  const w = 660, h = 178, x = vw / 2 - w / 2, y = vh - h - 12, col = v.state === 'colony';
+  const w = 720, h = 196, x = vw / 2 - w / 2, y = vh - h - 12, col = v.state === 'colony', ally = v.state === 'ally', by = y + h - 60;
   panel(c, x, y, w, h, 14, 0.95); block(ui, x, y, w, h);
   tuzu2d(c, x + 44, y + 38, 22, T.color, T.eyes);
-  txt(c, `${t('tr_' + T.id)} · ${col ? t('colony') : t('level') + ' ' + v.level}`, x + 82, y + 26, 22, '#ffe9a8', 'left', 800);
+  txt(c, `${t('tr_' + T.id)} · ${col ? t('colony') : ally ? t('allyTag') : t('level') + ' ' + v.level}`, x + 82, y + 26, 22, '#ffe9a8', 'left', 800);
   button(c, ui, x + w - 52, y + 8, 42, 42, '', { color: '#3b3229', r: 21, tag: 'vClose' }, A.vClose);
   cross(c, x + w - 31, y + 29, 9);
-  if (col) {
-    txt(c, t('colonyInfo'), x + 82, y + 54, 16, DIM, 'left', 600);
-    const s = `${t('tribute')} ${t('perMin')}`;
-    txt(c, s, x + 22, y + 100, 17, DIM); costRowPlain(c, v.tribute, x + 22 + width(c, s, 17) + 14, y + 100, 19);
-    txt(c, t('revoltIn', v.revoltIn), x + 22, y + 142, 17, '#ffd0c8', 'left', 700);
+
+  if (col || ally) {
+    // amici: cosa ti danno, e lo scambio del giorno
+    if (col) { const s = `${t('tribute')} ${t('perMin')}`; txt(c, s, x + 82, y + 56, 16, DIM, 'left', 600); costRowPlain(c, v.tribute, x + 82 + width(c, s, 16, 600) + 12, y + 56, 17); }
+    else txt(c, t('allyInfo', v.helpers), x + 82, y + 56, 16, DIM, 'left', 600);
+    txt(c, col ? t('revoltIn', v.revoltIn) : t('allyLeft', v.allyLeft), x + 22, y + 96, 16, (col ? v.revoltIn : v.allyLeft) <= 2 ? '#ffd0c8' : '#bfe9a8', 'left', 700);
+    const chk = world.tradeCheck(i);
+    button(c, ui, x + 20, by, 170, 50, t('trade'), { color: '#2f7d5a', disabled: chk !== 'ok', fs: 21, tag: 'trade' }, () => A.trade(i));
+    const ex = tradeRow(c, world, v.trade, x + 206, by + 25, 18);
+    txt(c, chk === 'done' ? t('tradeDone') : chk === 'tech' ? t('why_tech') : t('tradeLeft', v.tradesLeft), ex + 16, by + 26, 14, chk === 'done' || chk === 'tech' ? BAD : DIM, 'left', 600);
+    if (ally) {
+      const ac = world.allyCheck(i);
+      if (ac !== 'allied') button(c, ui, x + w - 262, by, 120, 50, t('renew'), { color: '#5b4a8a', disabled: ac !== 'ok', fs: 17, tag: 'ally' }, () => A.ally(i));
+      button(c, ui, x + w - 132, by, 112, 50, t('breakAlly'), { color: '#7a3a2c', fs: 17, tag: 'breakAlly' }, () => A.breakAlly(i));
+    }
     return;
   }
+  // nemici: chi difende, cosa si vince, cosa chiedono per allearsi
   let gx = x + 82 + width(c, t('guards'), 16, 600) + 26;
   txt(c, t('guards'), x + 82, y + 56, 16, DIM, 'left', 600);
   for (const k in v.guards) { enemyIcon(c, k, gx, y + 56, 0.72, T.color, T.eyes); txt(c, '×' + v.guards[k], gx + 21, y + 57, 16, CREAM, 'left', 800); gx += 70; }
-  txt(c, t('loot'), x + 22, y + 96, 16, DIM, 'left', 600); costRowPlain(c, v.loot, x + 22 + width(c, t('loot'), 16, 600) + 14, y + 96, 18);
+  txt(c, t('loot'), x + 22, y + 96, 15, DIM, 'left', 600); costRowPlain(c, v.loot, x + 22 + width(c, t('loot'), 15, 600) + 10, y + 96, 16);
+  txt(c, t('allyGift'), x + 400, y + 96, 15, DIM, 'left', 600); costRow(c, world, v.allyCost, x + 400 + width(c, t('allyGift'), 15, 600) + 10, y + 96, 16, 1, true);
   const chk = world.raidCheck(i), st = world.armyStrength();
-  button(c, ui, x + 20, y + h - 60, 230, 50, t('attack'), { color: '#a8322a', disabled: chk !== 'ok', fs: 22, tag: 'attack' }, () => A.attack(i));
-  if (chk !== 'ok') { txt(c, chk === 'noarmy' ? t('needArmy') : t('notNow'), x + 270, y + h - 34, 17, BAD, 'left', 700); return; }
-  const odds = world.raidOdds(i), s = `${t('army')}: ${st.n}`;
-  txt(c, s, x + 270, y + h - 34, 17, CREAM, 'left', 700);
-  txt(c, t('odds_' + odds), x + 270 + width(c, s, 17, 700) + 18, y + h - 34, 17, odds === 'low' ? BAD : odds === 'even' ? '#ffd24a' : '#9ff0b4', 'left', 800);
+  button(c, ui, x + 20, by, 190, 50, t('attack'), { color: '#a8322a', disabled: chk !== 'ok', fs: 21, tag: 'attack' }, () => A.attack(i));
+  if (chk !== 'ok') txt(c, chk === 'noarmy' ? t('needArmy') : t('notNow'), x + 222, by + 26, 15, BAD, 'left', 700);
+  else { const odds = world.raidOdds(i); txt(c, `${t('army')}: ${st.n}`, x + 222, by + 15, 15, CREAM, 'left', 700); txt(c, t('odds_' + odds), x + 222, by + 36, 15, odds === 'low' ? BAD : odds === 'even' ? '#ffd24a' : '#9ff0b4', 'left', 800); }
+  const ac = world.allyCheck(i);
+  button(c, ui, x + 400, by, 190, 50, t('ally'), { color: '#5b4a8a', disabled: ac !== 'ok', fs: 21, tag: 'ally' }, () => A.ally(i));
+  if (ac !== 'ok' && ac !== 'cost') txt(c, ac === 'castle' ? t('needCastle', Math.min(5, v.level)) : ac === 'max' ? t('maxAllies') : t('notNow'), x + 602, by + 26, 14, BAD, 'left', 700);
 }
 
 /** Le scoperte della Bottega. */
@@ -650,6 +681,7 @@ function hints(S) {
     else if (world.count('casa') === 0) hint = t('hintHouse');
     else if (L >= 2 && world.count('caserma') === 0) hint = t('hintBarracks');
     else if (L >= 2 && army > 0 && army < 4) hint = t('hintArmy');
+    else if (world.d.night >= 1 && !ui.seenVillage) hint = t('hintVillage');
     else if (army >= 4 && world.d.villages[0].state === 'free' && world.d.villages[0].level === 1) hint = t('hintRaid');
     else if (L >= 2 && world.count('bottega') === 0) hint = t('hintWorkshop');
     else if (world.count('bottega') && !world.d.tech.ferro) hint = t('hintTech');
@@ -737,10 +769,13 @@ function titleScreen(S) {
   langRow(S, vw / 2, y0 + 414);
 }
 
+let vig = null;
 /** Disegna tutta l'interfaccia in coordinate logiche (0..vw, 0..vh). */
 export function drawUi(S) {
   const { c, ui, vw, vh } = S;
   ui.buttons.length = 0;
+  if (!vig || vig.w !== vw || vig.h !== vh) { vig = { w: vw, h: vh, g: c.createRadialGradient(vw / 2, vh / 2, vh * 0.42, vw / 2, vh / 2, Math.hypot(vw, vh) * 0.56) }; vig.g.addColorStop(0, 'rgba(10,16,30,0)'); vig.g.addColorStop(1, 'rgba(10,16,30,0.3)'); }
+  c.fillStyle = vig.g; c.fillRect(0, 0, vw, vh);
   worldLayer(S);
   if (ui.screen === 'title') { titleScreen(S); return; }
   if (ui.flash > 0) { c.fillStyle = `rgba(220,40,30,${Math.min(0.3, ui.flash * 0.6)})`; c.fillRect(0, 0, vw, vh); }

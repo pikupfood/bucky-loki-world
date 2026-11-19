@@ -1,6 +1,6 @@
 // Avvio: scena 3D + interfaccia 2D, camera (trascina, pizzica, rotella), costruzione a quadretti, salvataggio.
 import { World } from './world.js';
-import { G, COLS, ROWS, BUILD, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, UNITS as UNIT_DEFS } from './data.js';
+import { G, COLS, ROWS, BUILD, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, TERRAIN, UNITS as UNIT_DEFS } from './data.js';
 import { Scene3D } from './scene3d.js';
 import { drawUi } from './ui.js';
 import { stepFx, parts, ring, text } from './fx.js';
@@ -18,14 +18,14 @@ try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) {
 const world = new World(saved.world, Date.now(), (Date.now() & 0xffff) + 1);
 
 const ui = {
-  screen: 'title', speed: 1, sound: saved.sound !== false, moved: !!saved.moved,
+  screen: 'title', speed: 1, sound: saved.sound !== false, moved: !!saved.moved, seenVillage: !!saved.seenVillage,
   build: null, place: null, sel: null, vsel: null, aiming: false,
   quests: false, settings: false, tech: false, daily: false, lost: null, away: world.away,
   buttons: [], fx: [], fxTop: [], night: 0, shake: 0, flash: 0, time: 0, banner: null, bannerQ: [], toast: null,
 };
 world.away = null;
 let frozen = false;      // dopo reset() non si salva più: altrimenti la pagina che si chiude riscrive il salvataggio
-function save() { if (frozen) return; try { localStorage.setItem(KEY, JSON.stringify({ world, lang: getLang(), sound: ui.sound, moved: ui.moved, cam: scene.view })); } catch (e) { /* senza memoria si gioca lo stesso */ } }
+function save() { if (frozen) return; try { localStorage.setItem(KEY, JSON.stringify({ world, lang: getLang(), sound: ui.sound, moved: ui.moved, seenVillage: ui.seenVillage, cam: scene.view })); } catch (e) { /* senza memoria si gioca lo stesso */ } }
 
 const browserLang = (navigator.language || 'it').slice(0, 2);
 setLang(saved.lang || (LANGS.includes(browserLang) ? browserLang : 'it'));
@@ -60,7 +60,7 @@ const P = {
 };
 
 // ---------- costruzione a quadretti ----------
-const cellFree = (c, r) => c >= 2 && r >= 2 && c < COLS - 2 && r < ROWS - 2 && world.occ[r * COLS + c] === 0 && !world.natAt(c, r) && world.villageAt(c, r) < 0;
+const cellFree = (c, r) => c >= 2 && r >= 2 && c < COLS - 2 && r < ROWS - 2 && world.occ[r * COLS + c] === 0 && !world.natAt(c, r) && world.villageAt(c, r) < 0 && !TERRAIN[r * COLS + c];
 /** Il quadretto in alto a sinistra di un edificio centrato sul punto del terreno g. */
 function cellFor(type, g) { const D = BUILD[type]; return { c: Math.floor(g.x / G - D.w / 2 + 0.5), r: Math.floor(g.y / G - D.h / 2 + 0.5) }; }
 /** Stato dell'anteprima: quadretti verdi/rossi, se si può confermare e perché no. */
@@ -147,7 +147,10 @@ const A = {
   research(id) { if (!world.research(id)) toast(t('why_cost')); else save(); },
   buy(r) { if (world.buy(r)) save(); else toast(t(world.buyCheck(r) === 'tech' ? 'why_tech' : 'why_cost')); },
   vClose() { ui.vsel = null; },
-  attack(i) { if (world.startRaid(i)) { closeAll(); save(); } else toast(t(world.raidCheck(i) === 'noarmy' ? 'needArmy' : 'notNow')); },
+  ally(i) { if (world.ally(i)) save(); else { const w = world.allyCheck(i); toast(w === 'castle' ? t('needCastle', Math.min(5, world.d.villages[i].level)) : w === 'max' ? t('maxAllies') : w === 'cost' ? t('why_cost') : t('notNow')); } },
+  breakAlly(i) { if (world.breakAlly(i)) save(); },
+  trade(i) { if (world.trade(i)) save(); else { const w = world.tradeCheck(i); toast(t(w === 'done' ? 'tradeDone' : w === 'tech' ? 'why_tech' : w === 'cost' ? 'why_cost' : 'notNow')); } },
+  attack(i) { if (world.startRaid(i)) { closeAll(); save(); } else { const w = world.raidCheck(i); toast(t(w === 'noarmy' ? 'needArmy' : w === 'ally' ? 'isAlly' : 'notNow')); } },
   retreat() { if (world.retreat()) save(); },
   start() { if (world.startNight()) { closeAll(); save(); } },
   speed() { ui.speed = ui.speed === 1 ? 2 : 1; audio.play('tap'); },
@@ -172,6 +175,7 @@ function hitButton(clientX, clientY) {
   }
   return false;
 }
+const DUMMY = 0; void DUMMY;
 const TALL = { castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26, bottega: 60, mercato: 50, miniera: 46, cristalliera: 46 };
 /** Il villaggio sotto il dito: la piazza attorno alla casa del capo, oppure la casa stessa (che sullo schermo sta più in su). */
 function villageUnder(clientX, clientY, g) {
@@ -209,7 +213,7 @@ function worldTap(clientX, clientY, kind) {
   }
   if (ui.aiming) { if (world.castSpell(g.x, g.y)) ui.aiming = false; else audio.play('no'); return; }
   const vi = villageUnder(clientX, clientY, g);
-  if (vi >= 0) { ui.vsel = vi; ui.sel = null; ui.build = null; audio.play('tap'); return; }
+  if (vi >= 0) { ui.vsel = vi; ui.seenVillage = true; ui.sel = null; ui.build = null; audio.play('tap'); save(); return; }
   const b = buildingUnder(clientX, clientY, g), now = Date.now();
   ui.vsel = null;
   if (b) {
@@ -326,6 +330,9 @@ function handleEvents() {
       }
       case 'raidLost': banner(t('raidLost'), '#ff8a80', 2.6); audio.play('lost'); buzz(120); ui.speed = 1; save(); break;
       case 'retreat': banner(t('retreated'), '#cfd8ff', 2); ui.speed = 1; audio.play('tap'); break;
+      case 'allied': banner(`${t('allied')}: ${t('tr_' + TRIBES[ev.i].id)}`, '#9ff0b4', 2.6); audio.play('won'); buzz(20); ring(ui.fxTop, ev.x, ev.y, 20, 200, 0.8, MY_COLOR, 6); parts(ui.fxTop, ev.x, ev.y, 60, 26, '#bfe9a8', 200, 0.9, 4.5, 260); break;
+      case 'allyEnd': banner(`${t('allyEnd')}: ${t('tr_' + TRIBES[ev.i].id)}`, '#ffd0c8', 2.6); break;
+      case 'traded': { audio.play('coin'); let k = 0; for (const r in ev.get) text(ui.fxTop, ev.x + k++ * 60, ev.y, 90, '+' + ev.get[r], RES_FX[r], 24, 1.4); break; }
       case 'revolt': banner(`${t('revolt')}: ${t('tr_' + TRIBES[ev.i].id)}`, '#ff8a80', 2.8); break;
       case 'quietNight':
         banner(`${t('quiet')}  +${ev.reward}`, '#cfd8ff', 2.4); audio.play('cleared'); save();
@@ -474,7 +481,7 @@ window.addEventListener('pagehide', save);
 
 scene.build();
 resize();
-if (saved.cam && isFinite(saved.cam.x) && saved.world && saved.world.v === 4) scene.setView(saved.cam.x, saved.cam.y, saved.cam.dist);      // la mappa vecchia era più piccola
+if (saved.cam && isFinite(saved.cam.x) && saved.world && saved.world.map === 2) scene.setView(saved.cam.x, saved.cam.y, saved.cam.dist);      // la mappa vecchia era più piccola
 console.log('[tuzu] avvio ' + view.cw + 'x' + view.ch + ' dpr ' + view.dpr + ' gl ' + (scene.r.getContext().isContextLost() ? 'PERSO' : 'ok') + ' ' + scene.r.capabilities.maxTextureSize);
 window.__tuzu = { world, ui, view, scene, A, tap, P, save, shot, tick, back, kick, blank, reset, NATURE, TOWERS, TRIBES, get quality() { return quality; }, get kicks() { return kicks; } };   // per le prove automatiche
 requestAnimationFrame(frame);

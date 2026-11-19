@@ -3,16 +3,17 @@
 import {
   G, COLS, ROWS, CASTLE, START, SELL_REFUND, BUILD, towerCap, UNITS, CASERMA_SLOTS, GUARD_REACH, CASTLE_UP, MAX_CASTLE,
   castleHp, TOWERS, ENEMIES, CROPS, genWave, hpMul, NATURE, CHOP, TRIBES, VILLAGE_R, REVOLT_NIGHTS, TECHS,
-  villageHp, villageGuards, villageLoot, villageTribute, TRADE, mulberry32,
+  villageHp, villageGuards, villageLoot, villageTribute, TRADE, TERRAIN, STEP, ALLY_NIGHTS, MAX_ALLIES, TRADES_PER_DAY,
+  allyCost, allyHelpers, villageTrade, mulberry32,
 } from './data.js';
 
 const N = COLS * ROWS, DAY = 86400000, AWAY_CAP = 2 * 3600 * 1000, RAID_MAX = 240;
 const DAILY = [50, 75, 100, 125, 150, 200, 300];
-export const QUEST_SLOTS = [['kills', 'nights'], ['harvest', 'build'], ['chop', 'train', 'conquer']];
+export const QUEST_SLOTS = [['kills', 'nights', 'ally'], ['harvest', 'build'], ['chop', 'train', 'conquer']];
 const QUESTS = {
   kills: { goal: 30, inc: 20, reward: 50 }, nights: { goal: 3, inc: 2, reward: 80 },
   harvest: { goal: 4, inc: 2, reward: 40 }, build: { goal: 5, inc: 3, reward: 50 },
-  chop: { goal: 8, inc: 4, reward: 40 }, train: { goal: 2, inc: 1, reward: 50 }, conquer: { goal: 1, inc: 0, reward: 150 },
+  chop: { goal: 8, inc: 4, reward: 40 }, train: { goal: 2, inc: 1, reward: 50 }, conquer: { goal: 1, inc: 0, reward: 150 }, ally: { goal: 1, inc: 0, reward: 80 },
 };
 const MULT = { physical: (e) => 1 - e.armor, magic: (e) => 1 - e.mres, fire: (e) => 1 - e.mres * 0.5 };
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
@@ -31,9 +32,9 @@ for (let r = CASTLE.r; r < CASTLE.r + CASTLE.h; r++) for (let c = CASTLE.c; c < 
 
 function fresh(now) {
   return {
-    v: 4, res: { ...START }, castle: 1, night: 0, nextId: 2,
+    v: 4, map: 2, res: { ...START }, castle: 1, night: 0, nextId: 2,
     buildings: [{ id: 1, type: 'castello', c: CASTLE.c, r: CASTLE.r, hp: castleHp(1) }],
-    cut: [], tech: {}, villages: TRIBES.map(t => ({ level: t.level, state: 'free', since: 0 })),
+    cut: [], tech: {}, villages: TRIBES.map(t => ({ level: t.level, state: 'free', since: 0, until: 0, trades: 0 })),
     quests: QUEST_SLOTS.map(() => ({ n: 0, p: 0 })), seen: {}, dailyDay: 0, streak: 0, lastSeen: now,
   };
 }
@@ -42,8 +43,8 @@ export class World {
   constructor(data, now = Date.now(), seed = 1) {
     const d = fresh(now);
     if (data && (data.v === 3 || data.v === 4) && Array.isArray(data.buildings) && data.buildings.some(b => b.type === 'castello')) {
-      // la versione 3 aveva una mappa più piccola: gli edifici si spostano insieme al castello
-      const old = data.v === 3, dc = old ? CASTLE.c - 27 : 0, dr = old ? CASTLE.r - 19 : 0;
+      // le mappe più vecchie erano più piccole: gli edifici si spostano insieme al castello, la natura si rifà
+      const was = data.buildings.find(b => b.type === 'castello'), old = data.map !== 2, dc = CASTLE.c - was.c, dr = CASTLE.r - was.r;
       for (const k in START) if (data.res && isFinite(data.res[k])) d.res[k] = data.res[k];
       d.castle = Math.max(1, Math.min(MAX_CASTLE, data.castle || 1)); d.night = data.night || 0; d.nextId = data.nextId || 2;
       d.buildings = data.buildings.filter(b => BUILD[b.type]).map(b => {
@@ -52,10 +53,10 @@ export class World {
         delete o.sold;
         if (o.units) o.units = o.units.filter(u => UNITS[u]).slice(0, CASERMA_SLOTS);
         return o;
-      }).filter(b => { const D = BUILD[b.type]; return b.type === 'castello' || (b.c >= 2 && b.r >= 2 && b.c + D.w <= COLS - 2 && b.r + D.h <= ROWS - 2 && VIL_AT[idx(b.c, b.r)] < 0 && VIL_AT[idx(b.c + D.w - 1, b.r + D.h - 1)] < 0); });
+      }).filter(b => { const D = BUILD[b.type]; return b.type === 'castello' || (b.c >= 2 && b.r >= 2 && b.c + D.w <= COLS - 2 && b.r + D.h <= ROWS - 2 && VIL_AT[idx(b.c, b.r)] < 0 && VIL_AT[idx(b.c + D.w - 1, b.r + D.h - 1)] < 0 && !TERRAIN[idx(b.c, b.r)] && !TERRAIN[idx(b.c + D.w - 1, b.r + D.h - 1)] && !TERRAIN[idx(b.c + D.w - 1, b.r)] && !TERRAIN[idx(b.c, b.r + D.h - 1)]); });
       d.cut = !old && Array.isArray(data.cut) ? data.cut.filter(i => NATURE[i]) : [];
       Object.assign(d.tech, data.tech || {});
-      if (Array.isArray(data.villages)) data.villages.forEach((v, i) => { if (d.villages[i] && v) d.villages[i] = { level: v.level || TRIBES[i].level, state: v.state === 'colony' ? 'colony' : 'free', since: v.since || 0 }; });
+      if (Array.isArray(data.villages)) data.villages.forEach((v, i) => { if (d.villages[i] && v) d.villages[i] = { level: v.level || TRIBES[i].level, state: v.state === 'colony' || v.state === 'ally' ? v.state : 'free', since: v.since || 0, until: v.until || 0, trades: v.trades || 0 }; });
       if (Array.isArray(data.quests)) data.quests.forEach((q, i) => { if (d.quests[i] && q) d.quests[i] = { n: q.n || 0, p: q.p || 0 }; });
       Object.assign(d.seen, data.seen || {});
       d.dailyDay = data.dailyDay || 0; d.streak = data.streak || 0; d.lastSeen = data.lastSeen || now;
@@ -126,10 +127,10 @@ export class World {
     const ghost = mode === 'ghost';
     const extra = (i) => {
       let x = 0;
-      const n = NAT_AT[i]; if (n && !this.cutSet.has(n - 1)) x += 2;
+      const n = NAT_AT[i]; if (n && !this.cutSet.has(n - 1)) x += 3;
       if (ghost) return x;
       const b = this.blockAt(i, false);
-      if (b) { if (mode === 'army') x += BUILD[b.type].gate ? 0 : 14; else if (b.type !== 'castello') x += 10 + b.hp / 3; }
+      if (b) { if (mode === 'army') x += BUILD[b.type].gate ? 0 : 28; else if (b.type !== 'castello') x += 20 + b.hp / 1.5; }
       return x;
     };
     while (heap.length) {
@@ -138,10 +139,11 @@ export class World {
       const c = i % COLS, r = (i / COLS) | 0;
       for (const [dc, dr] of DIRS) {
         const nc = c + dc, nr = r + dr;
-        if (!inMap(nc, nr)) continue;
+        if (!inMap(nc, nr) || TERRAIN[idx(nc, nr)]) continue;      // montagne, colline e laghi non si attraversano
+        if (dc && dr && (TERRAIN[idx(nc, r)] || TERRAIN[idx(c, nr)])) continue;
         // in diagonale non si passa fra due edifici che si toccano per lo spigolo (stessa regola di stepEnemy)
         if (dc && dr && (mode === 'army' ? this.armyBlock(idx(nc, r)) || this.armyBlock(idx(c, nr)) : this.blockAt(idx(nc, r), ghost) || this.blockAt(idx(c, nr), ghost))) continue;
-        const ni = idx(nc, nr), nv = v + (dc && dr ? 1.414 : 1) + extra(ni);
+        const ni = idx(nc, nr), nv = v + (dc && dr ? 1.414 : 1) * STEP[ni] + extra(ni);      // sulle strade si va più svelti
         if (nv < dist[ni]) { dist[ni] = nv; push(nv, ni); }
       }
     }
@@ -166,7 +168,7 @@ export class World {
   popUsed() { let p = 0; for (const b of this.d.buildings) p += b.units ? b.units.length : 0; return p; }
 
   // ---------- costruzione ----------
-  /** 'ok' oppure il motivo: 'locked' | 'tech' | 'cap' | 'bounds' | 'village' | 'occupied' | 'cost' */
+  /** 'ok' oppure il motivo: 'locked' | 'tech' | 'cap' | 'bounds' | 'village' | 'terrain' | 'occupied' | 'cost' */
   canPlace(type, c, r, free = false, extra = 0) {
     const D = BUILD[type];
     if (!D || !D.cost) return 'locked';
@@ -177,6 +179,7 @@ export class World {
     if (c < 2 || r < 2 || c + D.w > COLS - 2 || r + D.h > ROWS - 2) return 'bounds';
     for (let rr = r; rr < r + D.h; rr++) for (let cc = c; cc < c + D.w; cc++) {
       if (VIL_AT[idx(cc, rr)] >= 0) return 'village';
+      if (TERRAIN[idx(cc, rr)]) return 'terrain';
       if (this.occ[idx(cc, rr)] !== 0 || this.natAt(cc, rr)) return 'occupied';
     }
     if (this.enemies.length) { const x0 = c * G, y0 = r * G, x1 = (c + D.w) * G, y1 = (r + D.h) * G; for (const e of this.enemies) if (e.x > x0 - 8 && e.x < x1 + 8 && e.y > y0 - 8 && e.y < y1 + 8) return 'occupied'; }
@@ -369,7 +372,7 @@ export class World {
   }
   walkable(x, y) {
     const c = Math.floor(x / G), r = Math.floor(y / G);
-    if (!inMap(c, r)) return false;
+    if (!inMap(c, r) || TERRAIN[idx(c, r)]) return false;
     const id = this.occ[idx(c, r)];
     if (id <= 0) return true;
     const D = BUILD[this.byId.get(id).type];
@@ -400,7 +403,7 @@ export class World {
     let best = -1, bd = F[idx(c, r)];
     for (const [dc, dr] of DIRS) {
       const nc = c + dc, nr = r + dr;
-      if (!inMap(nc, nr) || (dc && dr && (this.armyBlock(idx(nc, r)) || this.armyBlock(idx(c, nr))))) continue;      // niente spigoli tagliati
+      if (!inMap(nc, nr) || (dc && dr && (this.armyBlock(idx(nc, r)) || this.armyBlock(idx(c, nr)) || TERRAIN[idx(nc, r)] || TERRAIN[idx(c, nr)]))) continue;      // niente spigoli tagliati
       const v = F[idx(nc, nr)]; if (v < bd - 1e-4) { bd = v; best = idx(nc, nr); }
     }
     if (best < 0) return false;
@@ -431,11 +434,63 @@ export class World {
   waveK(n = this.nextNight) { const exp = TRIBES.filter(t => t.from <= n).length, a = this.attackers(n).length; return a ? 0.55 + 0.45 * a / exp : 0; }
   village(i) {
     const T = TRIBES[i], v = this.d.villages[i];
-    return { ...v, i, id: T.id, good: T.good, x: (T.c + 0.5) * G, y: (T.r + 0.5) * G, hp: villageHp(v.level), guards: villageGuards(v.level), loot: villageLoot(T, v.level), tribute: villageTribute(T, v.level), revoltIn: v.state === 'colony' ? Math.max(0, REVOLT_NIGHTS - (this.d.night - v.since)) : 0 };
+    return {
+      ...v, i, id: T.id, good: T.good, wants: T.wants, x: (T.c + 0.5) * G, y: (T.r + 0.5) * G, hp: villageHp(v.level), guards: villageGuards(v.level),
+      loot: villageLoot(T, v.level), tribute: villageTribute(T, v.level), allyCost: allyCost(T, v.level), helpers: allyHelpers(v.level), trade: villageTrade(T),
+      tradesLeft: Math.max(0, TRADES_PER_DAY - (v.trades || 0)),
+      revoltIn: v.state === 'colony' ? Math.max(0, REVOLT_NIGHTS - (this.d.night - v.since)) : 0,
+      allyLeft: v.state === 'ally' ? Math.max(0, v.until - this.d.night) : 0,
+    };
   }
-  /** 'ok' | 'own' | 'busy' | 'noarmy' */
+  allies() { let n = 0; for (const v of this.d.villages) if (v.state === 'ally') n++; return n; }
+  /** Proporre (o rinnovare) un'alleanza: 'ok' | 'own' | 'allied' | 'busy' | 'castle' | 'max' | 'cost' */
+  allyCheck(i) {
+    const v = this.d.villages[i], T = TRIBES[i];
+    if (!v || v.state === 'colony') return 'own';
+    if (v.state === 'ally' && v.until - this.d.night > 2) return 'allied';      // si rinnova solo verso la fine
+    if (this.status !== 'day') return 'busy';
+    if (this.d.castle < Math.min(MAX_CASTLE, v.level)) return 'castle';         // un popolo forte non si allea con un villaggio piccolo
+    if (v.state !== 'ally' && this.allies() >= MAX_ALLIES) return 'max';
+    return this.afford(allyCost(T, v.level)) ? 'ok' : 'cost';
+  }
+  /** Alleanza: per qualche notte quel popolo non ti attacca, manda guerrieri a difenderti e scambia risorse. */
+  ally(i) {
+    if (this.allyCheck(i) !== 'ok') return false;
+    const v = this.d.villages[i];
+    this.pay(allyCost(TRIBES[i], v.level));
+    v.until = (v.state === 'ally' ? v.until : this.d.night) + ALLY_NIGHTS; v.state = 'ally';
+    this.rev++; this.track('ally');
+    this.events.push({ k: 'allied', i, x: (TRIBES[i].c + 0.5) * G, y: (TRIBES[i].r + 0.5) * G });
+    return true;
+  }
+  /** Rompere l'alleanza (per esempio per poterli attaccare). */
+  breakAlly(i) {
+    const v = this.d.villages[i];
+    if (!v || v.state !== 'ally' || this.status !== 'day') return false;
+    v.state = 'free'; v.until = 0; this.rev++;
+    this.events.push({ k: 'allyEnd', i, broken: true });
+    return true;
+  }
+  /** Scambio con un villaggio amico (alleato o colonia): 'ok' | 'foe' | 'busy' | 'done' | 'tech' | 'cost' */
+  tradeCheck(i) {
+    const v = this.d.villages[i], T = TRIBES[i];
+    if (!v || v.state === 'free') return 'foe';
+    if (this.status !== 'day') return 'busy';
+    if ((v.trades || 0) >= TRADES_PER_DAY) return 'done';
+    if ((T.good === 'ferro' || T.good === 'cristallo') && !this.d.tech[T.good]) return 'tech';      // un materiale va prima scoperto
+    return this.afford(villageTrade(T).give) ? 'ok' : 'cost';
+  }
+  trade(i) {
+    if (this.tradeCheck(i) !== 'ok') return false;
+    const tr = villageTrade(TRIBES[i]), v = this.d.villages[i];
+    this.pay(tr.give); this.gain(tr.get); v.trades = (v.trades || 0) + 1;
+    this.events.push({ k: 'traded', i, get: tr.get, x: (TRIBES[i].c + 0.5) * G, y: (TRIBES[i].r + 0.5) * G });
+    return true;
+  }
+  /** 'ok' | 'own' | 'ally' | 'busy' | 'noarmy' */
   raidCheck(i) {
     const v = this.d.villages[i];
+    if (v && v.state === 'ally') return 'ally';
     if (!v || v.state !== 'free') return 'own';
     if (this.status !== 'day') return 'busy';
     return this.soldiers.some(s => !s.dead) ? 'ok' : 'noarmy';
@@ -488,9 +543,11 @@ export class World {
     for (const s of this.soldiers) { s.raid = false; s.target = null; s.hp = s.maxHp; }
     this.rev++;
   }
-  /** Dopo una notte superata: le colonie contano i giorni, e a un certo punto si ribellano. */
+  /** Dopo una notte superata: le colonie contano i giorni e a un certo punto si ribellano; le alleanze scadono. */
   afterNight() {
     this.d.villages.forEach((v, i) => {
+      v.trades = 0;
+      if (v.state === 'ally' && this.d.night >= v.until) { v.state = 'free'; v.until = 0; this.events.push({ k: 'allyEnd', i }); return; }
       if (v.state !== 'colony' || this.d.night - v.since < REVOLT_NIGHTS) return;
       v.state = 'free'; v.level = Math.min(9, v.level + 1);
       this.events.push({ k: 'revolt', i, level: v.level });
@@ -518,6 +575,15 @@ export class World {
     q.sort((a, b) => a.t - b.t);
     for (const e of q) this.d.seen[e.type] = 1;
     this.queue = q; this.waveT = 0; this.status = 'night'; this.castleHit = false; this.nightKills = 0;
+    // gli alleati mandano i loro guerrieri: si mettono attorno al castello e all'alba tornano a casa
+    let slot = 0;
+    this.d.villages.forEach((v, i) => {
+      if (v.state !== 'ally') return;
+      for (let j = 0; j < allyHelpers(v.level); j++, slot++) {
+        const a = slot * 0.9 + 0.5, hx = this.castle.x + Math.cos(a) * 118, hy = this.castle.y + Math.sin(a) * 104, hp = Math.round(UNITS.lancia.hp * (1 + 0.2 * (v.level - 1)));
+        this.soldiers.push({ id: this.uid++, type: 'lancia', ally: i, home: 0, slot, x: hx, y: hy, hx, hy, hp, maxHp: hp, cd: 0, target: null, anim: 0, ang: a, hit: 0, strike: 0, raid: false, ox: 0, oy: 0 });
+      }
+    });
     this.events.push({ k: 'nightStart', night: n });
     return true;
   }
@@ -614,7 +680,7 @@ export class World {
       const nc = c + dc, nr = r + dr;
       if (!inMap(nc, nr)) continue;
       // niente passaggi in diagonale fra due muri che si toccano per lo spigolo
-      if (dc && dr && (this.blockAt(idx(c + dc, r), e.ghost) || this.blockAt(idx(c, r + dr), e.ghost))) continue;
+      if (dc && dr && (this.blockAt(idx(c + dc, r), e.ghost) || this.blockAt(idx(c, r + dr), e.ghost) || TERRAIN[idx(c + dc, r)] || TERRAIN[idx(c, r + dr)])) continue;
       const v = F[idx(nc, nr)];
       if (v < bd - 1e-4) { bd = v; best = idx(nc, nr); }
     }
@@ -627,7 +693,8 @@ export class World {
       return;
     }
     const tx = (best % COLS + 0.5) * G + e.ox, ty = (((best / COLS) | 0) + 0.5) * G + e.oy;
-    const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) || 1, v = e.speed * e.slowF;
+    const away = Math.hypot(e.x - this.castle.x, e.y - this.castle.y) > 15 * G;
+    const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) || 1, v = e.speed * e.slowF * (away ? 2 : 1);
     e.x += dx / d * v * dt; e.y += dy / d * v * dt;
     e.ang = lerpAngle(e.ang, Math.atan2(dy, dx), Math.min(1, dt * 10));
     e.anim += dt * v * 0.085;
@@ -771,6 +838,7 @@ export class World {
 
   dawn() {
     this.status = 'day'; this.enemies = []; this.projs = []; this.queue = [];
+    this.soldiers = this.soldiers.filter(s => s.ally == null);
     for (const b of this.d.buildings) { b.hp = this.maxHp(b); b.burning = false; }
     for (const s of this.soldiers) { s.hp = s.maxHp; s.target = null; }
     this.fields(); this.rev++;
