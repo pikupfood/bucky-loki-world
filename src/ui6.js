@@ -53,7 +53,8 @@ const left = (s, now) => Math.max(0, s.job.at + s.job.ms - now);
 
 function shipsTab(S, K, x, y, w, h) {
   const { c, world, ui, A, now } = S, F = world.d.fleet, U = ui.fleet, tall = S.tall;
-  const newH = tall ? 232 : 118, rowH = 58, listH = h - newH - 12, all = Math.max(1, Math.floor(listH / rowH)), per = F.length > all ? Math.max(1, Math.floor((listH - 36) / rowH)) : all, pages = Math.max(1, Math.ceil(F.length / per));      // con più pagine, l'ultima riga lascia il posto alle frecce
+  const fixAll = world.repairAllCost(), fixRow = fixAll && fixAll.n >= 2 ? 20 : 0;      // due o più navi da riparare: un bottone solo le sistema tutte
+  const newH = (tall ? 232 : 118) + fixRow, rowH = 58, listH = h - newH - 12, all = Math.max(1, Math.floor(listH / rowH)), per = F.length > all ? Math.max(1, Math.floor((listH - 36) / rowH)) : all, pages = Math.max(1, Math.ceil(F.length / per));      // con più pagine, l'ultima riga lascia il posto alle frecce
   U.page = Math.max(0, Math.min(pages - 1, U.page || 0));
   if (!F.length) K.wrap(c, t(world.harbours().length ? 'sea_empty' : 'sea_noPort'), x + w / 2, y + listH / 2 - 10, Math.min(520, w - 40), 16.5, K.CREAM, 23);
   F.slice(U.page * per, U.page * per + per).forEach((s, i) => {
@@ -78,9 +79,10 @@ function shipsTab(S, K, x, y, w, h) {
   if (pages > 1) { K.button(c, ui, x + w - 150, y + listH - 34, 44, 30, '‹', { color: '#5c4330', disabled: U.page <= 0, fs: 20, r: 9, tag: 'shPrev' }, () => A.fleetPage(-1)); K.txt(c, (U.page + 1) + '/' + pages, x + w - 78, y + listH - 18, 13.5, K.CREAM, 'center', 800); K.button(c, ui, x + w - 50, y + listH - 34, 44, 30, '›', { color: '#5c4330', disabled: U.page >= pages - 1, fs: 20, r: 9, tag: 'shNext' }, () => A.fleetPage(1)); }
   // una nave nuova
   const ny = y + h - newH, cols = tall ? 1 : 3, cw = (w - (cols - 1) * 10) / cols, ch = tall ? 70 : 92;
-  K.rule(c, x, ny, w); K.txt(c, t('sea_new') + ' · ' + t('sea_slots', F.length, world.fleetSlots()), x, ny + 15, 13.5, K.DIM, 'left', 800);
+  K.rule(c, x, ny, w); K.txt(c, t('sea_new') + ' · ' + t('sea_slots', F.length, world.fleetSlots()), x, ny + 15 + fixRow / 2, 13.5, K.DIM, 'left', 800);
+  if (fixRow) { const bw = 210, bx = x + w - bw; K.button(c, ui, bx, ny + 6, bw, 34, t('sea_fixAll'), { color: '#2f5d7a', disabled: !world.afford(fixAll.cost), fs: 15, r: 10, tag: 'shFixAll' }, A.fleetRepairAll); K.costRow(c, world, fixAll.cost, bx - 8 - 66, ny + 24, 13.5, 1, true); }
   SHIP_ORDER.forEach((ty, i) => {
-    const bx = x + (i % cols) * (cw + 10), by = ny + 26 + Math.floor(i / cols) * (ch + 6), chk = world.shipCheck(ty), ok = chk === 'ok';
+    const bx = x + (i % cols) * (cw + 10), by = ny + 26 + fixRow + Math.floor(i / cols) * (ch + 6), chk = world.shipCheck(ty), ok = chk === 'ok';
     K.card(c, bx, by, cw, ch, ok);
     shipIcon(c, ty, bx + 36, by + ch / 2 - 6, 18, 0);
     K.head(c, t('ship_' + ty), bx + 74, by + 20, 16, ok ? '#ffe9a8' : '#b9b2a4');

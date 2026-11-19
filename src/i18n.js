@@ -1,5 +1,9 @@
 // Testi del gioco. La lingua si cambia sempre dal titolo e dalle impostazioni.
-export const LANGS = ['it', 'fr', 'en'];
+// Italiano, francese e inglese stanno qui sotto. Le altre dieci stanno in `lang/<codice>.js` (fatte da `tools/lang/build.mjs`) e si
+// caricano solo quando qualcuno le sceglie; finché non sono arrivate, e per una chiave che mancasse, si legge l'inglese.
+export const LANGS = ['it', 'en', 'fr', 'es', 'pt', 'de', 'ru', 'tr', 'ar', 'hi', 'zh', 'ja', 'ko'];
+export const LANG_NAMES = { it: 'Italiano', en: 'English', fr: 'Français', es: 'Español', pt: 'Português', de: 'Deutsch', ru: 'Русский', tr: 'Türkçe', ar: 'العربية', hi: 'हिन्दी', zh: '中文', ja: '日本語', ko: '한국어' };
+export const BUILT_IN = ['it', 'fr', 'en'];
 
 const S = {
   it: {
@@ -92,7 +96,7 @@ const S = {
     building: 'in costruzione', why_fog: 'Prima va esplorato',
     fogTitle: 'Terra inesplorata', fogInfo: 'Sotto le nuvole non sai cosa c\'è.', ruinTitle: 'Rovine', ruinInfo: 'Qualcuno ha lasciato qualcosa fra le colonne.',
     sendScout: 'Manda un esploratore', scoutBusy: 'Di notte non si esplora', scoutFull: 'Ne hai già due in giro',
-    found: 'Scoperti', ruinGot: 'Tesoro delle rovine', grew: 'I villaggi vicini sono più forti', beat: 'batte', shardGot: 'Frammento della Lanterna: {v} su 9',
+    found: 'Scoperti', ruinGot: 'Tesoro delle rovine', grew: 'I villaggi vicini sono più forti', beat: 'batte', warWon: '{v} batte {w}', shardGot: 'Frammento della Lanterna: {v} su 9',
     lantern: 'Lanterna', chapter: 'Capitolo {v}', goOn: 'Continua',
     ev_plusWorker: '+1 abitante', ev_allyMore: 'Alleanza +{v} notti', ev_allyLess: 'Alleanza −{v} notti', ev_nothing: 'Non succede niente',
     ev_mercante: 'Un mercante di passaggio', evt_mercante: 'Ha il carro pieno di materiali e fa un buon prezzo.', eva_mercante: 'Compra', evb_mercante: 'No, grazie',
@@ -152,16 +156,16 @@ const S = {
     on_threat: '{v} marcia su di te!', on_findNone: 'Nessun villaggio è alla tua portata. Addestra altri soldati.', on_findOk: 'Puoi battere {v}.', newTag: 'Nuovo',
     riverMoved: 'Qui ora c\'è acqua: {v} edifici smontati e rimborsati',
     news: 'Novità', newsSub: 'Che cosa c\'è di nuovo, e dove trovarlo', newsOk: 'Ho capito',
-    news1t: 'Scheda «Acqua»', news1: 'In «Costruisci» c\'è una scheda nuova. Porticciolo, Porto, Faro e Ponte ora stanno lì.',
-    news2t: 'Faro', news2: 'In «Acqua», col castello al livello 3. Va sulla riva: le navi tornano prima e i pirati rubano meno.',
+    news1t: 'Tredici lingue', news1: 'Sul titolo e nelle Impostazioni: tocca il bottone della lingua e scegli la tua.',
+    news2t: 'Scheda «Acqua» e Faro', news2: 'In «Costruisci»: Porticciolo, Porto, Ponte e il Faro, che fa tornare prima le navi e tiene lontani i pirati.',
     news3t: 'Giardino e Pozzo', news3: 'In «Bellezza». Alzano il morale del villaggio.',
     news4t: 'Raccogli e risemina', news4: 'Con due campi maturi compare un bottone sotto la guida. Un tocco raccoglie tutto e risemina.',
-    news5t: 'Flotta a portata di mano', news5: 'Chi ha un porto trova l\'ancora in alto a destra, sotto il morale. Apre la flotta.',
+    news5t: 'Flotta a portata di mano', news5: 'Chi ha un porto trova l\'ancora in alto a destra, sotto il morale. «Ripara tutte» sistema la flotta in un tocco.',
     why_bridge: 'Tocca l\'acqua: il ponte va da riva a riva',
     why_road: 'Sulla strada non si costruisce', roadMoved: 'Edifici tolti dalla strada e messi lì accanto: {v}',
     rotate: 'Ruota',
     harvestAll: 'Raccogli e risemina: {v}',
-    fleet: 'Flotta', sea_slots: 'Navi {v}/{w}', sea_berths: 'posti nave: {v}', lvl_scalo: 'Una nave in più, navi di livello più alto', b_scalo: 'Porto', k_scalo: 'La casa della flotta', cat_acqua: 'Acqua', b_faro: 'Faro', k_faro: 'Navi più svelte, meno pirati', b_giardino: 'Giardino', k_giardino: 'Morale +9', b_pozzo: 'Pozzo', k_pozzo: 'Morale +4', sea_faro: 'Il Faro guida le navi: i pirati colpiscono la metà delle volte.',
+    fleet: 'Flotta', sea_slots: 'Navi {v}/{w}', sea_berths: 'posti nave: {v}', lvl_scalo: 'Una nave in più, navi di livello più alto', b_scalo: 'Porto', k_scalo: 'La casa della flotta', langTitle: 'Lingua', sea_fixAll: 'Ripara tutte', cat_acqua: 'Acqua', b_faro: 'Faro', k_faro: 'Navi più svelte, meno pirati', b_giardino: 'Giardino', k_giardino: 'Morale +9', b_pozzo: 'Pozzo', k_pozzo: 'Morale +4', sea_faro: 'Il Faro guida le navi: i pirati colpiscono la metà delle volte.',
     sea_tab_ships: 'Navi', sea_tab_trade: 'Commercio', sea_tab_explore: 'Esplora', sea_tab_war: 'Battaglia', ship_mercantile: 'Mercantile', ship_veliero: 'Veliero', ship_guerra: 'Nave da guerra',
     sk_mercantile: 'Compra e vende lontano', sk_veliero: 'Esplora i mari', sk_guerra: 'Combatte e fa da scorta',
     sn_mercantile_0: 'Chiatta', sn_mercantile_1: 'Cocca', sn_mercantile_2: 'Caravella', sn_mercantile_3: 'Galeone', sn_mercantile_4: 'Vascello',
@@ -286,7 +290,7 @@ const S = {
     building: 'en chantier', why_fog: "Il faut d'abord explorer",
     fogTitle: 'Terre inexplorée', fogInfo: "Sous les nuages, tu ne sais pas ce qu'il y a.", ruinTitle: 'Ruines', ruinInfo: "Quelqu'un a laissé quelque chose entre les colonnes.",
     sendScout: 'Envoyer un éclaireur', scoutBusy: "La nuit, on n'explore pas", scoutFull: 'Deux éclaireurs sont déjà partis',
-    found: 'Découverts', ruinGot: 'Trésor des ruines', grew: 'Les villages voisins sont plus forts', beat: 'bat', shardGot: 'Fragment de la Lanterne : {v} sur 9',
+    found: 'Découverts', ruinGot: 'Trésor des ruines', grew: 'Les villages voisins sont plus forts', beat: 'bat', warWon: '{v} bat {w}', shardGot: 'Fragment de la Lanterne : {v} sur 9',
     lantern: 'Lanterne', chapter: 'Chapitre {v}', goOn: 'Continuer',
     ev_plusWorker: '+1 habitant', ev_allyMore: 'Alliance +{v} nuits', ev_allyLess: 'Alliance −{v} nuits', ev_nothing: 'Il ne se passe rien',
     ev_mercante: 'Un marchand de passage', evt_mercante: 'Son chariot est plein de matériaux et il fait un bon prix.', eva_mercante: 'Acheter', evb_mercante: 'Non, merci',
@@ -348,16 +352,16 @@ const S = {
     on_threat: '{v} marche sur toi !', on_findNone: 'Aucun village n\'est à ta portée. Entraîne d\'autres soldats.', on_findOk: 'Tu peux battre {v}.', newTag: 'Nouveau',
     riverMoved: 'Ici il y a de l\'eau : {v} bâtiments démontés et remboursés',
     news: 'Nouveautés', newsSub: 'Ce qui est nouveau, et où le trouver', newsOk: 'Compris',
-    news1t: 'Onglet « Eau »', news1: 'Dans « Construire » il y a un nouvel onglet. Petit port, Port, Phare et Pont sont là.',
-    news2t: 'Phare', news2: 'Dans « Eau », avec le château au niveau 3. Sur la rive : les navires rentrent plus vite et les pirates volent moins.',
+    news1t: 'Treize langues', news1: 'Sur le titre et dans les Réglages : touche le bouton de la langue et choisis la tienne.',
+    news2t: 'Onglet « Eau » et Phare', news2: 'Dans « Construire » : Petit port, Port, Pont et le Phare, qui fait rentrer les navires plus vite et éloigne les pirates.',
     news3t: 'Jardin et Puits', news3: 'Dans « Beauté ». Ils font monter le moral du village.',
     news4t: 'Récolter et ressemer', news4: 'Avec deux champs mûrs, un bouton apparaît sous le guide. Un toucher récolte tout et ressème.',
-    news5t: 'La flotte sous la main', news5: 'Avec un port, l\'ancre est en haut à droite, sous le moral. Elle ouvre la flotte.',
+    news5t: 'La flotte sous la main', news5: 'Avec un port, l\'ancre est en haut à droite, sous le moral. « Tout réparer » remet la flotte en état d\'un toucher.',
     why_bridge: 'Touche l\'eau : le pont va d\'une rive à l\'autre',
     why_road: 'On ne construit pas sur la route', roadMoved: 'Bâtiments retirés de la route et posés à côté : {v}',
     rotate: 'Tourner',
     harvestAll: 'Récolter et ressemer : {v}',
-    fleet: 'Flotte', sea_slots: 'Navires {v}/{w}', sea_berths: 'places de navire : {v}', lvl_scalo: 'Un navire de plus, navires de niveau plus haut', b_scalo: 'Port', k_scalo: 'La maison de la flotte', cat_acqua: 'Eau', b_faro: 'Phare', k_faro: 'Navires plus rapides, moins de pirates', b_giardino: 'Jardin', k_giardino: 'Moral +9', b_pozzo: 'Puits', k_pozzo: 'Moral +4', sea_faro: 'Le Phare guide les navires : les pirates frappent une fois sur deux.',
+    fleet: 'Flotte', sea_slots: 'Navires {v}/{w}', sea_berths: 'places de navire : {v}', lvl_scalo: 'Un navire de plus, navires de niveau plus haut', b_scalo: 'Port', k_scalo: 'La maison de la flotte', langTitle: 'Langue', sea_fixAll: 'Tout réparer', cat_acqua: 'Eau', b_faro: 'Phare', k_faro: 'Navires plus rapides, moins de pirates', b_giardino: 'Jardin', k_giardino: 'Moral +9', b_pozzo: 'Puits', k_pozzo: 'Moral +4', sea_faro: 'Le Phare guide les navires : les pirates frappent une fois sur deux.',
     sea_tab_ships: 'Navires', sea_tab_trade: 'Commerce', sea_tab_explore: 'Explorer', sea_tab_war: 'Bataille', ship_mercantile: 'Marchand', ship_veliero: 'Voilier', ship_guerra: 'Navire de guerre',
     sk_mercantile: 'Achète et vend au loin', sk_veliero: 'Explore les mers', sk_guerra: 'Combat et escorte',
     sn_mercantile_0: 'Barge', sn_mercantile_1: 'Cogue', sn_mercantile_2: 'Caravelle', sn_mercantile_3: 'Galion', sn_mercantile_4: 'Vaisseau',
@@ -483,7 +487,7 @@ const S = {
     building: 'under construction', why_fog: 'Explore it first',
     fogTitle: 'Unexplored land', fogInfo: 'Under the clouds you do not know what is there.', ruinTitle: 'Ruins', ruinInfo: 'Someone left something among the columns.',
     sendScout: 'Send a scout', scoutBusy: 'No exploring at night', scoutFull: 'Two scouts are already out',
-    found: 'Discovered', ruinGot: 'Treasure of the ruins', grew: 'Neighboring villages grew stronger', beat: 'beats', shardGot: 'Lantern shard: {v} of 9',
+    found: 'Discovered', ruinGot: 'Treasure of the ruins', grew: 'Neighboring villages grew stronger', beat: 'beats', warWon: '{v} beats {w}', shardGot: 'Lantern shard: {v} of 9',
     lantern: 'Lantern', chapter: 'Chapter {v}', goOn: 'Continue',
     ev_plusWorker: '+1 villager', ev_allyMore: 'Alliance +{v} nights', ev_allyLess: 'Alliance −{v} nights', ev_nothing: 'Nothing happens',
     ev_mercante: 'A passing merchant', evt_mercante: 'His cart is full of materials and the price is good.', eva_mercante: 'Buy', evb_mercante: 'No, thanks',
@@ -543,16 +547,16 @@ const S = {
     on_threat: '{v} is marching on you!', on_findNone: 'No village is within your reach. Train more soldiers.', on_findOk: 'You can beat {v}.', newTag: 'New',
     riverMoved: 'There is water here now: {v} buildings refunded',
     news: 'What\'s new', newsSub: 'What is new, and where to find it', newsOk: 'Got it',
-    news1t: 'The "Water" tab', news1: 'There is a new tab in "Build". Harbour, Port, Lighthouse and Bridge are there now.',
-    news2t: 'Lighthouse', news2: 'In "Water", with castle level 3. It goes on the shore: ships come back sooner and pirates steal less.',
+    news1t: 'Thirteen languages', news1: 'On the title screen and in Settings: tap the language button and pick yours.',
+    news2t: 'The "Water" tab and Lighthouse', news2: 'In "Build": Harbour, Port, Bridge and the Lighthouse, which brings ships home sooner and keeps pirates away.',
     news3t: 'Garden and Well', news3: 'In "Beauty". They raise the village morale.',
     news4t: 'Harvest and replant', news4: 'With two ripe fields a button appears under the guide. One tap harvests everything and replants.',
-    news5t: 'Fleet within reach', news5: 'With a port, the anchor is at the top right, under morale. It opens the fleet.',
+    news5t: 'Fleet within reach', news5: 'With a port, the anchor is at the top right, under morale. "Repair all" fixes the fleet in one tap.',
     why_bridge: 'Tap the water: the bridge spans bank to bank',
     why_road: 'You cannot build on the road', roadMoved: 'Buildings moved off the road, right beside it: {v}',
     rotate: 'Rotate',
     harvestAll: 'Harvest and replant: {v}',
-    fleet: 'Fleet', sea_slots: 'Ships {v}/{w}', sea_berths: 'ship berths: {v}', lvl_scalo: 'One more ship, higher ship levels', b_scalo: 'Port', k_scalo: 'Home of the fleet', cat_acqua: 'Water', b_faro: 'Lighthouse', k_faro: 'Faster ships, fewer pirates', b_giardino: 'Garden', k_giardino: 'Morale +9', b_pozzo: 'Well', k_pozzo: 'Morale +4', sea_faro: 'The Lighthouse guides the ships: pirates strike half as often.',
+    fleet: 'Fleet', sea_slots: 'Ships {v}/{w}', sea_berths: 'ship berths: {v}', lvl_scalo: 'One more ship, higher ship levels', b_scalo: 'Port', k_scalo: 'Home of the fleet', langTitle: 'Language', sea_fixAll: 'Repair all', cat_acqua: 'Water', b_faro: 'Lighthouse', k_faro: 'Faster ships, fewer pirates', b_giardino: 'Garden', k_giardino: 'Morale +9', b_pozzo: 'Well', k_pozzo: 'Morale +4', sea_faro: 'The Lighthouse guides the ships: pirates strike half as often.',
     sea_tab_ships: 'Ships', sea_tab_trade: 'Trade', sea_tab_explore: 'Explore', sea_tab_war: 'Battle', ship_mercantile: 'Merchant', ship_veliero: 'Sailing ship', ship_guerra: 'Warship',
     sk_mercantile: 'Buys and sells far away', sk_veliero: 'Explores the seas', sk_guerra: 'Fights and escorts',
     sn_mercantile_0: 'Barge', sn_mercantile_1: 'Cog', sn_mercantile_2: 'Caravel', sn_mercantile_3: 'Galleon', sn_mercantile_4: 'Great ship',
@@ -589,10 +593,27 @@ const S = {
 };
 
 let cur = 'it';
-export function setLang(l) { if (S[l]) cur = l; }
+const loading = {};
+/** Sceglie la lingua. Una lingua non ancora caricata arriva un attimo dopo: nel frattempo si legge l'inglese. */
+export function setLang(l) {
+  if (!LANGS.includes(l)) return;
+  cur = l;
+  if (!S[l] && !loading[l]) loading[l] = import('./lang/' + l + '.js').then(m => { S[l] = m.default; }).catch(() => { loading[l] = null; });
+}
+/** Per le prove: aspetta che la lingua scelta sia caricata. */
+export function langReady() { return loading[cur] || Promise.resolve(); }
+// L'arabo si scrive da destra: il gioco disegna ogni scritta come una riga a sé, da sinistra. Un segno invisibile (RLM) prima e dopo
+// tiene al loro posto il punto finale e un numero messo all'inizio, che altrimenti finirebbero dalla parte sbagliata.
+const ARAB = /[\u0600-\u06ff]/;
 export function getLang() { return cur; }
-export function t(k, v, w) { let s = S[cur][k] ?? S.it[k] ?? k; if (v != null) s = s.replace('{v}', v); if (w != null) s = s.replace('{w}', w); return s; }
+export function t(k, v, w) {
+  let s = (S[cur] && S[cur][k]) ?? (cur === 'it' || cur === 'fr' ? S.it[k] : S.en[k]) ?? S.it[k] ?? k;
+  if (v != null) s = s.replace('{v}', v); if (w != null) s = s.replace('{w}', w);
+  return cur === 'ar' && ARAB.test(s) ? '\u200f' + s + '\u200f' : s;
+}
 /** Per le prove: le chiavi che mancano in una lingua rispetto all'italiano. */
-export function missing() { const out = []; for (const l of LANGS) for (const k in S.it) if (!(k in S[l])) out.push(l + ':' + k); return out; }
+export function missing() { const out = []; for (const l of BUILT_IN) for (const k in S.it) if (!(k in S[l])) out.push(l + ':' + k); return out; }
 /** Per le prove: vero se la chiave esiste in italiano. */
 export function has(k) { return k in S.it; }
+/** Per gli attrezzi (tools/): il dizionario intero di una lingua. */
+export function dict(l) { return S[l]; }

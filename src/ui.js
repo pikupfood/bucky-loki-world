@@ -4,7 +4,7 @@ import { G, BUILD, BUILD_CATS, TOWERS, CROPS, CROP_ORDER, CASTLE_UP, UNITS, UNIT
 import { VEIL } from './ground.js';
 import { drawTower } from './icons.js';
 import { drawFx, tracePoly } from './fx.js';
-import { t, has, LANGS, getLang } from './i18n.js';
+import { t, has, LANGS, LANG_NAMES, getLang } from './i18n.js';
 import * as X from './ui2.js';
 import * as Y from './ui3.js';
 import * as Z from './ui4.js';
@@ -100,12 +100,15 @@ function title2(c, s, x, y, size, color) {
   const g = c.createLinearGradient(0, y - size * 0.5, 0, y + size * 0.5); g.addColorStop(0, shade(color, 0.5)); g.addColorStop(0.55, color); g.addColorStop(1, shade(color, -0.28));
   c.fillStyle = g; c.fillText(s, x, y);
 }
+const CJK = /[\u2e80-\u9fff\uff00-\uffef]/, NO_START = '，。！？、：；）」』》…,.!?:;)';
 function wrap(c, s, x, y, maxW, size, color, lh, align = 'center') {
   c.font = `600 ${size}px ${F}`;
   let line = '', yy = y;
-  for (const w of s.split(' ')) {
-    if (c.measureText(line + w).width > maxW && line) { txt(c, line.trim(), x, yy, size, color, align, 600); line = ''; yy += lh; }
-    line += w + ' ';
+  const toks = [];
+  for (const w of s.split(' ')) { if (CJK.test(w)) { const ch = Array.from(w); ch.forEach((q, i) => toks.push([q, i === ch.length - 1 ? ' ' : ''])); } else toks.push([w, ' ']); }
+  for (const [w, glue] of toks) {
+    if (c.measureText((line + w).trim()).width > maxW && line.trim() && !NO_START.includes(w)) { txt(c, line.trim(), x, yy, size, color, align, 600); line = ''; yy += lh; }
+    line += w + glue;
   }
   if (line.trim()) txt(c, line.trim(), x, yy, size, color, align, 600);
   return yy;
@@ -315,7 +318,7 @@ function button(c, ui, x, y, w, h, label, o, fn) {
   c.beginPath(); c.roundRect(x + 2.2, y + 2.2, w - 4.4, h - 4.4, Math.max(2, r - 2)); c.strokeStyle = o.disabled ? 'rgba(255,255,255,0.12)' : (o.stroke || 'rgba(255,236,170,0.72)'); c.lineWidth = 1.5; c.stroke();
   if (!o.disabled) { c.beginPath(); c.roundRect(x + 4.5, y + 4, w - 9, h * 0.36, Math.max(2, r - 4)); c.fillStyle = 'rgba(255,255,255,0.13)'; c.fill(); }
   if (label) {
-    const fs = o.fs || 22, lx = x + w / 2 + (o.dx || 0), ly = y + h / 2 + 1;
+    const fs = fit(c, label, w - 14 - 2 * Math.abs(o.dx || 0), o.fs || 22, 800), lx = x + w / 2 + (o.dx || 0), ly = y + h / 2 + 1;      // la scritta si stringe da sola: in tedesco o in russo è spesso più lunga
     if (!o.disabled) txt(c, label, lx, ly + 1.6, fs, 'rgba(0,0,0,0.42)', 'center', 800);
     txt(c, label, lx, ly, fs, o.disabled ? '#9a948a' : (o.fg || CREAM), 'center', 800);
   }
@@ -346,10 +349,24 @@ const ICON_K = { predone: 0.85, bruto: 1.15, capo: 1.25, campione: 1.35 };
 const enemyIcon = (c, ty, x, y, k, color, eyes) => tuzuIcon(c, ty, x, y, 15 * k * (ICON_K[ty] || 1), color, eyes);
 
 function langRow(S, cx, y) {
-  const { c, ui, A } = S, bw = 62, gap = 10, total = LANGS.length * (bw + gap) + 150;
+  const { c, ui, A } = S, lw = 210, gap = 12, sw = 150, total = lw + gap + sw;
   let x = cx - total / 2;
-  for (const l of LANGS) { button(c, ui, x, y, bw, 44, l.toUpperCase(), { color: getLang() === l ? '#8a5a1c' : '#5c4330', fs: 18 }, () => A.lang(l)); x += bw + gap; }
-  button(c, ui, x, y, 150, 44, `${t('sound')}: ${ui.sound ? t('on') : t('off')}`, { color: '#5c4330', fs: 17 }, A.sound);
+  const nm = LANG_NAMES[getLang()];
+  button(c, ui, x, y, lw, 44, '', { color: '#2f5d7a', tag: 'langOpen' }, A.langOpen);
+  Z.globeIcon(c, x + 26, y + 22, 12); txt(c, nm, x + 48, y + 23, fit(c, nm, lw - 78, 18, 700), '#fff3d6', 'left', 700); txt(c, '▾', x + lw - 20, y + 23, 16, '#fff3d6', 'center', 700);
+  x += lw + gap;
+  const sl = `${t('sound')}: ${ui.sound ? t('on') : t('off')}`;
+  button(c, ui, x, y, sw, 44, sl, { color: '#5c4330', fs: fit(c, sl, sw - 16, 17, 700) }, A.sound);
+}
+/** La scelta della lingua: tredici bottoni, ognuno col nome scritto nella sua lingua. */
+function langPanel(S) {
+  const { c, ui, vw, vh, A } = S, tall = S.tall, cols = tall ? 3 : 5, rows = Math.ceil(LANGS.length / cols), bw = tall ? 204 : 170, bh = 56, gap = 10;
+  dim(S, 0.7);
+  const w = cols * bw + (cols - 1) * gap + 40, h = 74 + rows * (bh + gap) + 66, x = vw / 2 - w / 2, y = Math.max(20, vh / 2 - h / 2);
+  panel(c, x, y, w, h, 16, 0.97); block(ui, x, y, w, h);
+  head(c, t('langTitle'), vw / 2, y + 38, 26, '#f2cf73', 'center');
+  LANGS.forEach((l, i) => { const bx = x + 20 + (i % cols) * (bw + gap), by = y + 74 + Math.floor(i / cols) * (bh + gap), on = getLang() === l; button(c, ui, bx, by, bw, bh, LANG_NAMES[l], { color: on ? '#8a5a1c' : '#5c4330', fs: 20, r: 12, tag: 'lang_' + l }, () => A.lang(l)); });
+  button(c, ui, vw / 2 - 110, y + h - 60, 220, 46, t('close'), { color: '#5c4330', fs: 18, tag: 'langClose' }, A.langClose);
 }
 
 // =====================================================================
@@ -968,7 +985,7 @@ function newsPanel(S) {
   scroll(c, x, y, w, h, 18);
   ribbon(c, vw / 2, y - 19, Math.min(w - 60, 320), 44, t('news'), '#8a2f24', 24);
   txt(c, t('newsSub'), vw / 2, y + 52, 15, PEN2, 'center', 700);
-  const icon = [(ix, iy) => buildIcon(c, 'scalo', ix, iy, 15, 0), (ix, iy) => buildIcon(c, 'faro', ix, iy + 3, 15, 0), (ix, iy) => buildIcon(c, 'giardino', ix, iy, 15, 0), (ix, iy) => buildIcon(c, 'campo', ix, iy, 15, 0), (ix, iy) => V.anchorIcon(c, ix, iy, 15, '#7a2c1e')];
+  const icon = [(ix, iy) => Z.globeIcon(c, ix, iy, 14), (ix, iy) => buildIcon(c, 'faro', ix, iy + 3, 15, 0), (ix, iy) => buildIcon(c, 'giardino', ix, iy, 15, 0), (ix, iy) => buildIcon(c, 'campo', ix, iy, 15, 0), (ix, iy) => V.anchorIcon(c, ix, iy, 15, '#7a2c1e')];
   for (let i = 0; i < 5; i++) {
     const ry = y + 84 + i * rowH;
     c.beginPath(); c.arc(x + 44, ry + rowH / 2 - 6, 24, 0, TAU); c.fillStyle = 'rgba(122,84,40,0.14)'; c.fill(); c.strokeStyle = 'rgba(122,84,40,0.45)'; c.lineWidth = 1.4; c.stroke();
@@ -1085,7 +1102,7 @@ function drawAll(S) {
   c.fillStyle = vig.g; c.fillRect(0, 0, vw, vh);
   worldLayer(S);
   X.marks(S, K);
-  if (ui.screen === 'title') { titleScreen(S); return; }
+  if (ui.screen === 'title') { titleScreen(S); if (ui.langPick) langPanel(S); return; }
   if (ui.flash > 0) { c.fillStyle = `rgba(220,40,30,${Math.min(0.3, ui.flash * 0.6)})`; c.fillRect(0, 0, vw, vh); }
   villageArrows(S);
   hud(S);
@@ -1117,5 +1134,6 @@ function drawAll(S) {
   else if (ui.quests) questsPanel(S);
   else if (ui.tech) techPanel(S);
   else if (ui.settings) settingsPanel(S);
-  if (!(ui.lost || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.reportOpen || ui.roles || ui.quests || ui.tech || ui.settings || ui.online || ui.fleet || ui.seaOpen || ui.news)) Y.finger(S, K);
+  if (ui.langPick) langPanel(S);
+  if (!(ui.lost || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.reportOpen || ui.roles || ui.quests || ui.tech || ui.settings || ui.online || ui.fleet || ui.seaOpen || ui.news || ui.langPick)) Y.finger(S, K);
 }

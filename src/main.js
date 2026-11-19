@@ -16,7 +16,7 @@ const uiCanvas = document.getElementById('ui');
 const ctx = uiCanvas.getContext('2d');
 const scene = new Scene3D(glCanvas);
 
-const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 7;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
+const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 8;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
 const KEY = 'tuzu_difesa_v3';       // la chiave resta questa: i salvataggi vecchi li converte World
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
@@ -36,7 +36,7 @@ let frozen = false;      // dopo reset() non si salva più: altrimenti la pagina
 function save() { if (frozen) return; try { localStorage.setItem(KEY, JSON.stringify({ world, lang: getLang(), sound: ui.sound, music: ui.music, moved: ui.moved, seenVillage: ui.seenVillage, cam: scene.view, q: ui.q, qa: quality })); } catch (e) { /* senza memoria si gioca lo stesso */ } cloud.touch(); }
 
 const browserLang = (navigator.language || 'it').slice(0, 2);
-setLang(saved.lang || (LANGS.includes(browserLang) ? browserLang : 'it'));
+setLang(saved.lang || (LANGS.includes(browserLang) ? browserLang : 'en'));      // una lingua che non abbiamo: inglese
 audio.setSound(ui.sound); audio.setMusic(ui.music);
 
 // qualità grafica: 2 = piena, 1 = meno pixel, 0 = meno pixel e niente ombre (scende da sola se il telefono fatica)
@@ -123,7 +123,7 @@ function confirmPlace() {
 // ---------- azioni ----------
 const UNITS_MSG = { full: 'full', pop: 'needHouses', busy: 'notNow' };
 const world_unit = (type) => UNIT_DEFS[type] || {};
-const closeAll = () => { ui.squad = null; ui.resInfo = false; ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; ui.online = null; ui.fleet = null; };
+const closeAll = () => { ui.squad = null; ui.resInfo = false; ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; ui.online = null; ui.fleet = null; ui.langPick = false; };
 const A = {
   play() { if (ui.newGame) { world.setDiff(ui.diffPick); ui.newGame = false; save(); } ui.screen = 'play'; ui.daily = world.daily(Date.now()).available; audio.play('tap'); },
   diffPick(k) { ui.diffPick = k; audio.play('tap'); },
@@ -165,6 +165,7 @@ const A = {
   fleetBuild(type) { const k = world.shipCheck(type); if (world.buildShip(type)) save(); else toast(t(k === 'cost' ? 'why_cost' : k === 'busy' ? 'notNow' : 'sea_e_' + k)); },
   fleetUp(id) { const s = world.ship(id); if (world.shipUp(s)) save(); else toast(t(world.shipUpCheck(s) === 'port' ? 'sea_needPortLvl' : 'why_cost')); },
   fleetRepair(id) { if (world.repairShip(world.ship(id))) { audio.play('build'); save(); } else toast(t('why_cost')); },
+  fleetRepairAll() { if (world.repairAll()) { audio.play('build'); save(); } else toast(t('why_cost')); },
   fleetScrap(id) { const U = ui.fleet; if (U.scrap !== id) { U.scrap = id; audio.play('tap'); return; } U.scrap = null; if (world.scrapShip(world.ship(id))) { audio.play('coin'); save(); } },
   fleetPick(id) { ui.fleet.ship = id; ui.fleet.n = 0; audio.play('tap'); },
   fleetBuy(b) { ui.fleet.buy = !!b; audio.play('tap'); },
@@ -295,7 +296,9 @@ const A = {
   quests() { ui.quests = !ui.quests; ui.sel = null; audio.play('tap'); },
   claimQuest(i) { const n = world.claimQuest(i); if (n) { audio.play('cleared'); buzz(20); save(); } },
   settings() { ui.settings = !ui.settings; ui.sel = null; audio.play('tap'); },
-  lang(l) { setLang(l); save(); audio.play('tap'); },
+  lang(l) { setLang(l); ui.langPick = false; save(); audio.play('tap'); },
+  langOpen() { ui.langPick = true; audio.play('tap'); },
+  langClose() { ui.langPick = false; audio.play('tap'); },
   sound() { ui.sound = !ui.sound; audio.setSound(ui.sound); save(); audio.play('tap'); },
   claimDaily() { const n = world.claimDaily(Date.now()); ui.daily = false; if (n) { audio.play('cleared'); save(); } },
   lostOk() { ui.lost = null; audio.play('tap'); },
@@ -502,7 +505,7 @@ function handleEvents() {
       case 'heroDown': banner(t('heroDown'), '#ff8a80', 2.6); audio.play('sad'); parts(ui.fx, ev.x, ev.y, 16, 14, MY_COLOR, 130, 0.6, 4, 260); break;
       case 'heroPower': if (ev.kind === 'slam') { ring(ui.fxTop, ev.x, ev.y, 10, ev.r, 0.4, '#ffe27a', 6); parts(ui.fxTop, ev.x, ev.y, 8, 20, '#fff6c9', 200, 0.5, 4.5, 300); ui.shake = 0.3; } else { ring(ui.fxTop, ev.x, ev.y, 20, 260, 0.9, '#ff9d2a', 5); } buzz(30); break;
       case 'grew': banner(t('grew'), '#ffd0c8', 2.6); break;
-      case 'war': banner(`${t('tr_' + TRIBES[ev.a].id)} ${t('beat')} ${t('tr_' + TRIBES[ev.b].id)}`, '#cfd8ff', 2.8); break;
+      case 'war': banner(t('warWon', t('tr_' + TRIBES[ev.a].id), t('tr_' + TRIBES[ev.b].id)), '#cfd8ff', 2.8); break;
       case 'event': audio.play('event'); break;
       case 'shard': banner(t('shardGot', ev.n), '#ffe27a', 3); audio.play('won'); break;
       case 'found': banner(`${t('found')}: ${t('tr_' + TRIBES[ev.i].id)}`, '#9fe9ff', 2.8); audio.play('hey'); ring(ui.fxTop, ev.x, ev.y, 20, 220, 0.9, '#ffffff', 5); break;

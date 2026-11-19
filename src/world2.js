@@ -523,6 +523,9 @@ export function extend(World) {
     },
     repairCost(s) { const miss = Math.round(this.shipHpMax(s) - s.hp); return miss > 0 ? { legna: Math.ceil(miss * SEA.repair) } : null; },
     repairShip(s) { const c = s && !s.job ? this.repairCost(s) : null; if (!c || !this.afford(c)) return false; this.pay(c); s.hp = this.shipHpMax(s); this.rev++; return true; },
+    /** Tutte le navi ammaccate che sono in porto: quante sono e quanto costa ripararle insieme. */
+    repairAllCost() { let n = 0, legna = 0; for (const s of this.d.fleet) { if (s.job) continue; const c = this.repairCost(s); if (c) { n++; legna += c.legna; } } return n ? { n, cost: { legna } } : null; },
+    repairAll() { const q = this.repairAllCost(); if (!q || !this.afford(q.cost)) return 0; this.pay(q.cost); for (const s of this.d.fleet) if (!s.job) s.hp = this.shipHpMax(s); this.rev++; return q.n; },
     /** Smontare una nave libera il posto e rende metà del suo costo. */
     scrapShip(s) {
       if (!s || s.job) return false;
