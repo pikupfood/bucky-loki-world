@@ -208,11 +208,12 @@ function hand(c, x, y, ang, s) {
   c.fillStyle = MY_COLOR; c.beginPath(); c.roundRect(-12 * s, 41 * s, 26 * s, 10 * s, 3 * s); c.fill(); c.stroke();
   c.restore();
 }
-const BUILD_STEP = { towers: ['dif', 'arcieri'], casa: ['eco', 'casa'], walls: ['mura', 'recinto'], campo: ['eco', 'campo'], strada: ['mura', 'strada'], aiuola: ['bel', 'aiuola'], segheria: ['eco', 'segheria'], cava: ['eco', 'cava'], caserma: ['dif', 'caserma'] };
+const BUILD_STEP = { porto: ['eco', 'porto'], ponte: ['mura', 'ponte'], towers: ['dif', 'arcieri'], casa: ['eco', 'casa'], walls: ['mura', 'recinto'], campo: ['eco', 'campo'], strada: ['mura', 'strada'], aiuola: ['bel', 'aiuola'], segheria: ['eco', 'segheria'], cava: ['eco', 'cava'], caserma: ['dif', 'caserma'] };
 /** Cosa indicare adesso: { tag } (un bottone) oppure { x, y, h } (un punto del mondo), o null. */
 export function hintFor(S) {
   const { world, ui } = S, g = world.goal();
-  if (!g || g.i > 18 || world.status !== 'day') return null;
+  if (ui.resInfo) return null;
+  if (!g || (g.i > 22 && !['sell', 'porto', 'ponte'].includes(g.kind)) || world.status !== 'day') return null;
   if (ui.map) return g.kind === 'explore' && !g.done && ui.map.sel && (ui.map.sel.kind === 'fog' || ui.map.sel.kind === 'ruin') ? { tag: 'scout' } : null;      // a mappa aperta si indica solo dentro la mappa
   if (g.done) return { tag: 'goalClaim' };
   const B = BUILD_STEP[g.kind];
@@ -223,6 +224,9 @@ export function hintFor(S) {
   }
   if (ui.build || ui.place) return null;
   if (g.kind === 'night') return { tag: 'night' };
+  if (g.kind === 'level') { if (ui.sel) return { tag: 'levelUp' }; const b = world.d.buildings.find(o => world.levelCheck(o) === 'ok') || world.d.buildings.find(o => o.type === 'casa'); return b ? { x: b.x, y: b.y + 20, h: 0 } : null; }
+  if (g.kind === 'sell') { if (ui.sel && ui.sel.b.type === 'mercato') return { tag: ui.sell ? 'sell_legna' : 'marketMode' }; const b = world.d.buildings.find(o => o.type === 'mercato'); return b ? { x: b.x, y: b.y + 20, h: 0 } : null; }
+  if (g.kind === 'order') { if (ui.squad != null) return null; const sd = world.soldiers.find(o => !o.dead && o.ally == null); return sd ? { x: sd.x, y: sd.y, h: 30 } : null; }
   if (g.kind === 'explore') return { tag: 'map' };
   if (g.kind === 'castle') return ui.sel && ui.sel.b.type === 'castello' ? { tag: 'castleUp' } : { x: world.castle.x, y: world.castle.y + 30, h: 0 };
   if (g.kind === 'send' || g.kind === 'sendRock') {

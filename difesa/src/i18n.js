@@ -142,6 +142,10 @@ const S = {
     tip_sp_bianchi: 'Cura i compagni vicini: colpiscilo per primo.', tip_sp_arancioni: 'Grosso, e abbatte le mura.', tip_sp_rosa: 'Non si lascia rallentare.', tip_sp_argento: 'Corazzato contro tutto. Servono tante torri.',
     move: 'Sposta', moving: 'Lo sposti: è gratis', why_no: 'Adesso non si può', sellMode: 'Vendi', buyMode: 'Compra', sellHint: 'Qui vendi quello che hai in più.',
     recallAsk: 'Richiama: +15', tripAt: 'alle {v}',
+    sure: 'Sicuro?', plantAll: 'Semina tutti', resTitle: 'Quanto rende il villaggio', eatLine: 'A notte si mangiano {v} porzioni',
+    g_level: 'Migliora un edificio', gt_level: 'Tocca una casa e premi «Migliora»: ospita più abitanti.', g_order: 'Comanda un gruppo di soldati', gt_order: 'Tocca un soldato, poi tocca dove deve andare il suo gruppo.',
+    g_gift: 'Fai un regalo a un popolo', gt_gift: 'Tocca un villaggio e premi «Regalo»: sale la simpatia.', g_sell: 'Vendi qualcosa al mercato', gt_sell: 'Tocca il Mercato, premi «Vendi» e scegli quello che ti avanza.',
+    g_porto: 'Costruisci un porto', gt_porto: 'In «Economia» c\'è il Porto: va sulla riva di un lago e pesca.', g_ponte: 'Pezzi di ponte: {v}', gt_ponte: 'In «Mura» c\'è il Ponte: si tira sull\'acqua, come una strada.',
   },
   fr: {
     title: 'Les Royaumes de Tuzu', subtitle: 'Ton village parmi les peuples Tuzu',
@@ -285,6 +289,10 @@ const S = {
     tip_sp_rosa: 'Il ne se laisse pas ralentir.', tip_sp_argento: 'Cuirassé contre tout. Il faut beaucoup de tours.',
     move: 'Déplacer', moving: 'Tu le déplaces : c\'est gratuit', why_no: 'Pas maintenant', sellMode: 'Vendre', buyMode: 'Acheter', sellHint: 'Ici tu vends ce que tu as en trop.',
     recallAsk: 'Rappeler : +15', tripAt: 'à {v}',
+    sure: 'Sûr ?', plantAll: 'Semer partout', resTitle: 'Ce que produit le village', eatLine: 'Chaque nuit on mange {v} portions',
+    g_level: 'Améliore un bâtiment', gt_level: 'Touche une maison et appuie sur « Améliorer » : elle loge plus d\'habitants.', g_order: 'Commande un groupe de soldats', gt_order: 'Touche un soldat, puis touche où son groupe doit aller.',
+    g_gift: 'Offre un présent à un peuple', gt_gift: 'Touche un village et appuie sur « Présent » : la sympathie monte.', g_sell: 'Vends quelque chose au marché', gt_sell: 'Touche le Marché, appuie sur « Vendre » et choisis ce que tu as en trop.',
+    g_porto: 'Construis un port', gt_porto: 'Dans « Économie » il y a le Port : il va au bord d\'un lac et pêche.', g_ponte: 'Morceaux de pont : {v}', gt_ponte: 'Dans « Murs » il y a le Pont : on le tire sur l\'eau, comme une route.',
   },
   en: {
     title: 'The Realms of Tuzu', subtitle: 'Your village among the Tuzu peoples',
@@ -426,6 +434,10 @@ const S = {
     tip_sp_argento: 'Armoured against everything. You need many towers.',
     move: 'Move', moving: 'Moving it is free', why_no: 'Not now', sellMode: 'Sell', buyMode: 'Buy', sellHint: 'Sell what you have too much of.',
     recallAsk: 'Call back: +15', tripAt: 'at {v}',
+    sure: 'Sure?', plantAll: 'Sow all', resTitle: 'What the village makes', eatLine: '{v} portions are eaten each night',
+    g_level: 'Improve a building', gt_level: 'Tap a house and press "Improve": it holds more villagers.', g_order: 'Command a group of soldiers', gt_order: 'Tap a soldier, then tap where the group should go.',
+    g_gift: 'Give a present to a people', gt_gift: 'Tap a village and press "Present": friendship goes up.', g_sell: 'Sell something at the market', gt_sell: 'Tap the Market, press "Sell" and pick what you have too much of.',
+    g_porto: 'Build a harbour', gt_porto: 'In "Economy" there is the Harbour: it goes on a lake shore and fishes.', g_ponte: 'Bridge pieces: {v}', gt_ponte: 'In "Walls" there is the Bridge: draw it over water, like a road.',
   },
 };
 

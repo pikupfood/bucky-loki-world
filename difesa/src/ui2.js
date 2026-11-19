@@ -11,7 +11,7 @@ const TAU = Math.PI * 2, INK = '#2b2a33';
 export function guideFace(S, K, x, y, r, color = MY_COLOR, hat = true) {
   const { c, ui } = S, bob = Math.sin(ui.time * 2.6) * r * 0.06;
   c.beginPath(); c.arc(x, y, r, 0, TAU); c.fillStyle = '#3a2f55'; c.fill(); c.strokeStyle = 'rgba(233,196,106,0.8)'; c.lineWidth = 2.5; c.stroke();
-  c.save(); c.beginPath(); c.arc(x, y, r - 1.5, 0, TAU); c.clip(); K.tuzu2d(c, x, y + r * 0.24 + bob, r * 0.8, color); c.restore();
+  c.save(); c.beginPath(); c.arc(x, y, r - 1.5, 0, TAU); c.clip(); K.tuzu2dNow(c, x, y + r * 0.24 + bob, r * 0.8, color); c.restore();
   if (!hat) return;
   c.beginPath(); c.moveTo(x - r * 0.52, y - r * 0.52 + bob); c.lineTo(x + r * 0.06, y - r * 1.3 + bob); c.lineTo(x + r * 0.52, y - r * 0.52 + bob); c.closePath(); c.fillStyle = '#f2c230'; c.fill(); c.strokeStyle = '#8a6410'; c.lineWidth = 2; c.stroke();
   c.beginPath(); c.arc(x + r * 0.06, y - r * 1.3 + bob, r * 0.1, 0, TAU); c.fillStyle = '#fff'; c.fill();
@@ -115,7 +115,7 @@ export function barracks(S, K, b, x, y, w, h) {
     else K.costRow(c, world, U.cost, bx + 9, cy + 91, 13, 1, true);
     ui.buttons.push({ x: bx, y: cy, w: cw, h: ch, tag: 'train_' + u, fn: () => A.train(b, u) });
   });
-  K.button(c, ui, x + w - 482, y + 9, 92, 36, t('demolish'), { color: '#7a3a2c', fs: 13.5, r: 10, tag: 'demolish' }, () => A.demolish(b));
+  K.button(c, ui, x + w - 482, y + 9, 92, 36, t(ui.demoAsk === b.id ? 'sure' : 'demolish'), { color: ui.demoAsk === b.id ? '#a8322a' : '#7a3a2c', fs: 13.5, r: 10, tag: 'demolish' }, () => A.demolish(b));
 }
 
 /** Gli abitanti e i loro mestieri. */
@@ -251,6 +251,26 @@ export function marks(S, K) {
     else { c.fillStyle = 'rgba(255,255,255,0.85)'; for (let i = 0; i < 80; i++) { const x = (i * 137.5 + Math.sin(ui.time * 0.8 + i) * 22 + ui.time * 12) % (vw + 40) - 20, y = (i * 53.7 + ui.time * (36 + (i % 5) * 9)) % (vh + 20) - 10; c.beginPath(); c.arc(x, y, 1.6 + (i % 3) * 0.8, 0, TAU); c.fill(); } }
     c.restore();
   }
+}
+
+/** Quanto rende il villaggio: una riga per risorsa, al minuto; per il cibo anche quanto se ne mangia a notte. (Si apre toccando le risorse.) */
+export function resPanel(S, K) {
+  const { c, world, ui, A } = S, prod = world.production(), keys = ['monete', 'legna', 'pietra'];
+  if (world.d.tech.ferro || world.d.res.ferro >= 1) keys.push('ferro');
+  if (world.d.tech.cristallo || world.d.res.cristallo >= 1) keys.push('cristallo');
+  keys.push('grano', 'cibo');
+  const x = 14, y = 64, w = 366, h = 62 + keys.length * 30 + 46;
+  K.panel(c, x, y, w, h, 14, 0.97); ui.buttons.push({ x, y, w, h, tag: 'resClose', fn: A.resInfo });
+  K.txt(c, t('resTitle'), x + 16, y + 24, 17, '#f2cf73', 'left', 800);
+  keys.forEach((k, i) => {
+    const yy = y + 56 + i * 30, v = prod[k] || 0, s = (v > 0 ? '+' : '') + (Math.round(v * 10) / 10) + ' ' + t('perMin');
+    K.txt(c, String(Math.floor(world.d.res[k] || 0)), x + 44, yy + 1, 16, K.RES_COL[k], 'left', 800);
+    K.txt(c, t('r_' + k), x + 104, yy + 1, 14, K.DIM, 'left', 600);
+    K.txt(c, v ? s : '—', x + w - 16, yy + 1, 15, v > 0 ? '#9ff0b4' : K.DIM, 'right', 800);
+    K.RES_ICON[k](c, x + 24, yy, 9);
+  });
+  const st = world.fedState(), yy = y + 56 + keys.length * 30 + 6;
+  K.wrap(c, t('eatLine', world.mouths()) + (st === 'off' ? ' · ' + t('food_off') : ''), x + 16, yy, w - 32, 13.5, st === 'hungry' ? K.BAD : K.CREAM, 18, 'left');
 }
 
 /** Gli oggetti che l'eroe ha trovato: una fila di icone (quelli che mancano, in ombra). */

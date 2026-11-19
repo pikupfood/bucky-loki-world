@@ -198,6 +198,7 @@ export function extend(World) {
       if (this.giftCheck(i) !== 'ok') return false;
       const v = this.d.villages[i];
       this.pay(giftCost(v.level)); this.addRel(i, REL.gift); v.gift = 1; this.rev++;
+      this.track('gift');
       this.events.push({ k: 'gift', i, x: (TRIBES[i].c + 0.5) * G, y: (TRIBES[i].r + 0.5) * G });
       return true;
     },
@@ -260,6 +261,7 @@ export function extend(World) {
       const list = this.soldiers.filter(s => !s.dead && s.ally == null && s.home === home);
       if (!list.length) return false;
       list.forEach((s, k) => { s.ord = 1; s.hold = this.status === 'raid' ? 1 : 0; s.hx = x + ((k % 3) - 1) * 26; s.hy = y + Math.floor(k / 3) * 24; s.target = null; s.path = null; });
+      this.track('order');
       this.events.push({ k: 'order', x, y });
       return true;
     },
@@ -307,6 +309,7 @@ export function extend(World) {
     sell(res) {
       if (this.sellCheck(res) !== 'ok') return false;
       this.d.res[res] -= SELL[res].give; this.d.res.monete += SELL[res].get;
+      this.track('sell');
       this.events.push({ k: 'sold', res, n: SELL[res].get });
       return true;
     },

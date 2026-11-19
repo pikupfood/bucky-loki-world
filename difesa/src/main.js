@@ -112,7 +112,7 @@ function confirmPlace() {
 // ---------- azioni ----------
 const UNITS_MSG = { full: 'full', pop: 'needHouses', busy: 'notNow' };
 const world_unit = (type) => UNIT_DEFS[type] || {};
-const closeAll = () => { ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; };
+const closeAll = () => { ui.resInfo = false; ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; };
 const A = {
   play() { if (ui.newGame) { world.setDiff(ui.diffPick); ui.newGame = false; save(); } ui.screen = 'play'; ui.daily = world.daily(Date.now()).available; audio.play('tap'); },
   diffPick(k) { ui.diffPick = k; audio.play('tap'); },
@@ -173,10 +173,17 @@ const A = {
   marketMode() { ui.sell = !ui.sell; audio.play('tap'); },
   sell(r) { if (world.sell(r)) save(); else audio.play('no'); },
   recall(id) { if (world.recallTrip(id)) { ui.map.recall = null; audio.play('coin'); save(); } },
-  demolish(b) { if (world.demolish(b)) { ui.sel = null; save(); } },
+  // demolire chiede conferma: il primo tocco prepara («Sicuro?»), il secondo demolisce
+  demolish(b) { if (ui.demoAsk !== b.id) { ui.demoAsk = b.id; ui.demoT = 3; audio.play('tap'); return; } ui.demoAsk = null; if (world.demolish(b)) { ui.sel = null; save(); } },
+  resInfo() { ui.resInfo = !ui.resInfo; audio.play('tap'); },
+  plantAll() { ui.plantAll = !ui.plantAll; audio.play('tap'); },
   upgrade(b) { if (!world.upgrade(b)) toast(t('why_cost')); else save(); },
   castleUp() { if (!world.upgradeCastle()) toast(t('why_cost')); else save(); },
-  plant(b, crop) { if (world.plant(b, crop, Date.now())) { ui.sel = null; audio.play('build'); save(); } else toast(t('why_cost')); },
+  plant(b, crop) {
+    if (!world.plant(b, crop, Date.now())) { toast(t('why_cost')); return; }
+    if (ui.plantAll) for (const o of world.d.buildings) if (o.type === 'campo' && !o.crop && !(o.build > 0)) world.plant(o, crop, Date.now());      // «semina tutti»: finché bastano le monete
+    ui.sel = null; audio.play('build'); save();
+  },
   train(b, type) {
     if (world.train(b, type)) { save(); return; }
     const why = world.trainCheck(b, type), U = UNITS_MSG[why];
@@ -500,7 +507,14 @@ function frame(now) {
 /** Fumo dagli edifici malconci e polvere sotto chi corre: piccole cose che fanno sembrare vera una battaglia. */
 let fxT = 0;
 function ambientFx() {
-  if (world.status === 'day' || ui.fx.length > 260) return;
+  if (world.status === 'day') {        // di giorno: un filo di fumo dai camini (solo da vicino, e pochi alla volta)
+    if (ui.fx.length > 90 || scene.view.dist > 1900 || Math.random() < 0.45) return;
+    const list = world.d.buildings.filter(b => (b.type === 'casa' || b.type === 'fucina' || b.type === 'taverna') && !(b.build > 0));
+    const b = list[Math.floor(Math.random() * list.length)];
+    if (b) { const p = scene.project(b.x, b.y, 60); if (p.x > -40 && p.x < view.cw + 40 && p.y > -40 && p.y < view.ch + 40) smoke(ui.fx, b.x + (b.type === 'casa' ? 18 : 12), b.y - 14, b.type === 'casa' ? 72 : 80, b.type === 'fucina' ? '#8a8480' : '#efeae2', 5.5, 2.4, 0.3); }
+    return;
+  }
+  if (ui.fx.length > 260) return;
   let n = 0;
   for (const b of world.d.buildings) {
     if (n > 12 || BUILD[b.type].deco) continue;
@@ -554,6 +568,7 @@ function tick(real) {
   scene.sync(world, ui.time, now);
   scene.setNight(ui.night);
 
+  if (ui.demoAsk != null) { ui.demoT -= real; if (ui.demoT <= 0 || !ui.sel || ui.sel.b.id !== ui.demoAsk) ui.demoAsk = null; }
   if (ui.shake > 0) ui.shake = Math.max(0, ui.shake - real);
   if (ui.flash > 0) ui.flash = Math.max(0, ui.flash - real);
   if (ui.banner) { ui.banner.t += real; if (ui.banner.t >= ui.banner.T) ui.banner = null; }

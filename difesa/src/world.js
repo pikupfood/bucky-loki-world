@@ -483,7 +483,8 @@ export class World {
       case 'morale': have = this.morale(); break;
       case 'army': have = this.popUsed(); break;
       case 'tech': have = Object.keys(this.d.tech).length; break;
-      case 'harvest': case 'ally': case 'trade': case 'conquer': case 'explore': have = S[kind] || 0; break;
+      case 'harvest': case 'ally': case 'trade': case 'conquer': case 'explore': case 'sell': case 'gift': case 'order': have = S[kind] || 0; break;
+      case 'level': have = S.levels || 0; break;
       default: have = this.count(kind);
     }
     return { i, kind, need, have: Math.min(need, have), done: have >= need, reward, total: GOALS.length };
