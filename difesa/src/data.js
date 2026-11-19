@@ -215,8 +215,15 @@ export const UNITS = {
   lancia:  { hp: 90,  dmg: 10, rate: 0.7, speed: 80, range: 0,   cost: { monete: 25 } },
   arco:    { hp: 60,  dmg: 11, rate: 0.9, speed: 80, range: 160, cost: { monete: 30, legna: 20 }, min: 3 },
   corazza: { hp: 220, dmg: 20, rate: 0.8, speed: 72, range: 0,   cost: { monete: 60, ferro: 30 }, tech: 'ferro' },
+  // cavaliere: veloce · guaritore: non colpisce, cura chi ha vicino (heal = vita al secondo) · ariete: lento, sfonda la casa del capo (siege = quante volte il danno)
+  cavallo: { hp: 150, dmg: 15, rate: 0.6, speed: 135, range: 0,  cost: { monete: 70, ferro: 15 }, min: 3, tech: 'ferro' },
+  cura:    { hp: 70,  dmg: 0,  rate: 1,   speed: 82, range: 0,   heal: 8, cost: { monete: 50, legna: 30 }, min: 3 },
+  ariete:  { hp: 260, dmg: 6,  rate: 1.4, speed: 56, range: 0,   siege: 9, cost: { legna: 120, ferro: 20 }, min: 4, tech: 'ferro' },
+  // l'eroe non si addestra: arriva col castello al livello 2 e cresce con le battaglie
+  eroe:    { hp: 260, dmg: 18, rate: 0.6, speed: 100, range: 0,  hero: true, cost: {} },
 };
-export const UNIT_ORDER = ['lancia', 'arco', 'corazza'];
+export const UNIT_ORDER = ['lancia', 'arco', 'corazza', 'cavallo', 'cura', 'ariete'];
+export const HERO = { name: 'Lumi', perLvl: { hp: 60, dmg: 4 }, xp: (L) => 20 + 15 * L, max: 10, shout: { cd: 40, secs: 8, k: 1.5 }, slam: { cd: 25, r: 115, dmg: 60 } };
 export const CASERMA_SLOTS = 4;
 export const GUARD_REACH = 320;        // di notte i soldati escono contro chi passa entro questa distanza dal loro posto
 
@@ -351,3 +358,48 @@ export const NATURE = (function () {
   return out;
 })();
 export const CHOP = { tree: { res: 'legna', gain: 7 }, rock: { res: 'pietra', gain: 6 }, iron: { res: 'ferro', gain: 8, tech: 'ferro' }, crystal: { res: 'cristallo', gain: 6, tech: 'cristallo' } };
+
+// ---------- cantieri: secondi per costruire (i pezzi in fila e la bellezza piccola compaiono subito) ----------
+const TIMES = { casa: 6, campo: 3, segheria: 6, cava: 7, mercato: 7, bottega: 8, miniera: 8, cristalliera: 9, mulino: 8, fucina: 9, arcieri: 6, radici: 6, caserma: 9, mago: 7, catapulta: 8, braciere: 7, fontana: 5, taverna: 8, statua: 6 };
+for (const k in TIMES) BUILD[k].time = TIMES[k];
+
+// ---------- mestieri: gli abitanti con un mestiere lavorano da soli (gli altri aspettano i tuoi tocchi) ----------
+// bosco: taglia gli alberi vicini · pietra: spacca rocce e giacimenti scoperti · campi: raccoglie e risemina · cantiere: i cantieri vanno più svelti
+export const ROLES = ['bosco', 'pietra', 'campi', 'cantiere'];
+export const AUTO_RANGE = 22;          // quanto lontano dal castello va a lavorare chi ha un mestiere (quadretti)
+export const REGROW_SECS = 70;         // ogni tanto un albero tagliato ricresce
+
+// ---------- difficoltà ----------
+// wave: quanti nemici · hp: quanto robusti · grow: quanto in più a ogni notte che passa
+export const DIFFS = { facile: { wave: 1, hp: 1, grow: 0 }, normale: { wave: 1.6, hp: 1.25, grow: 0.06 }, difficile: { wave: 2.3, hp: 1.5, grow: 0.12 } };
+export const DIFF_ORDER = ['facile', 'normale', 'difficile'];
+
+// ---------- stagioni (cambiano ogni 3 notti) e tempo ----------
+// primavera: i campi crescono più svelti · estate: morale +5 · autunno: raccolti +25% · inverno: campi lenti, nemici più lenti
+export const SEASONS = ['primavera', 'estate', 'autunno', 'inverno'];
+export const SEASON_NIGHTS = 3;
+export const seasonOf = (night) => SEASONS[Math.floor(night / SEASON_NIGHTS) % 4];
+
+// ---------- nebbia: la mappa lontana è coperta dalle nuvole finché non la esplori ----------
+export const FOG = { cell: 6, start: 25, scout: 9, cost: 30, speed: 130 };
+export const FW = Math.ceil(COLS / FOG.cell), FH = Math.ceil(ROWS / FOG.cell);
+
+// ---------- rovine: sparse lontano, con un piccolo tesoro per chi le raggiunge ----------
+export const RUINS = (function () {
+  const rnd = mulberry32(555), out = [];
+  for (let guard = 0; out.length < 10 && guard < 4000; guard++) {
+    const c = 6 + Math.floor(rnd() * (COLS - 12)), r = 6 + Math.floor(rnd() * (ROWS - 12));
+    if (TERRAIN[r * COLS + c] || ROAD_AT[r * COLS + c] || Math.hypot(c - CASTLE.c, r - CASTLE.r) < 30) continue;
+    if (TRIBES.some(t => Math.hypot(t.c - c, t.r - r) < 12) || out.some(o => Math.hypot(o.c - c, o.r - r) < 22)) continue;
+    const k = out.length;
+    out.push({ id: k, c, r, loot: [{ monete: 150 }, { legna: 120, pietra: 80 }, { ferro: 40 }, { cristallo: 25 }, { monete: 100, ferro: 30 }][k % 5] });
+  }
+  return out;
+})();
+
+// ---------- eventi a sorpresa: capitano all'alba, e chiedono una scelta ----------
+export const EVENTS = ['mercante', 'festa', 'carestia', 'tesoro', 'drago', 'profughi', 'ambasciatore', 'aiuto'];
+
+// ---------- il racconto: la Lanterna dei Tuzu si è rotta in nove frammenti, uno per popolo ----------
+// capitolo → quanti frammenti servono per sbloccarlo (0 = inizio, 1 = dopo la prima notte)
+export const CHAPTERS = [{ id: 0 }, { id: 1, night: 1 }, { id: 2, shards: 1 }, { id: 3, shards: 3 }, { id: 4, shards: 6 }, { id: 5, shards: TRIBES.length }];

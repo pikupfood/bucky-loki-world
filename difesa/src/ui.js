@@ -5,6 +5,7 @@ import { VEIL } from './ground.js';
 import { drawTower } from './icons.js';
 import { drawFx, tracePoly } from './fx.js';
 import { t, has, LANGS, getLang } from './i18n.js';
+import * as X from './ui2.js';
 
 const F = '"Trebuchet MS","Segoe UI",Roboto,sans-serif';
 const GOLD = '#e9c46a', CREAM = '#f5ecd7', DIM = '#cbbf9f', BAD = '#e8897e', TAU = Math.PI * 2;
@@ -85,6 +86,11 @@ function tuzuIcon(c, kind, x, y, s, color, eyes = INK) {
   else if (kind === 'capo') { crown(); club('#7b5230'); }
   else if (kind === 'campione') { crown(); club('#f2c230'); }
   else if (kind === 'attrezzo') { c.beginPath(); c.ellipse(0, -50, 52, 13, 0, 0, TAU); c.fillStyle = '#e8cf7a'; c.fill(); c.strokeStyle = '#8a6a20'; c.lineWidth = 4; c.stroke(); c.beginPath(); c.arc(0, -52, 26, Math.PI, 0); c.closePath(); c.fillStyle = '#d9bd62'; c.fill(); c.stroke(); c.strokeStyle = '#6f4526'; c.lineWidth = 7; c.beginPath(); c.moveTo(60, 50); c.lineTo(66, -24); c.stroke(); c.fillStyle = '#aeb4c2'; c.fillRect(54, -40, 30, 18); }
+  else if (kind === 'cavallo') { helm('#aeb4c2'); c.fillStyle = '#3f9cf2'; c.beginPath(); c.moveTo(-4, -70); c.lineTo(-30, -96); c.lineTo(-22, -66); c.closePath(); c.fill(); c.strokeStyle = '#c08e58'; c.lineWidth = 7; c.beginPath(); c.moveTo(40, 40); c.lineTo(96, -50); c.stroke(); c.beginPath(); c.moveTo(104, -64); c.lineTo(86, -50); c.lineTo(100, -40); c.closePath(); c.fillStyle = '#e1e5ee'; c.fill(); }
+  else if (kind === 'cura') { helm('#f4f1ea'); c.fillStyle = '#e0452f'; c.fillRect(-5, -66, 10, 26); c.fillRect(-13, -58, 26, 10); c.strokeStyle = '#6f4526'; c.lineWidth = 6; c.beginPath(); c.moveTo(64, 56); c.lineTo(64, -50); c.stroke(); c.beginPath(); c.arc(64, -62, 13, 0, TAU); c.fillStyle = '#8ff0b0'; c.fill(); }
+  else if (kind === 'ariete') { helm('#6f7684'); c.beginPath(); c.roundRect(24, 14, 78, 24, 10); c.fillStyle = '#9b6b3d'; c.fill(); c.strokeStyle = 'rgba(30,20,10,0.7)'; c.lineWidth = 4; c.stroke(); c.beginPath(); c.roundRect(88, 10, 22, 32, 6); c.fillStyle = '#6f7684'; c.fill(); c.stroke(); }
+  else if (kind === 'eroe') { crown(); c.fillStyle = '#c2452d'; c.beginPath(); c.moveTo(-56, -10); c.lineTo(-84, 60); c.lineTo(-40, 52); c.closePath(); c.fill(); c.strokeStyle = '#e9edf5'; c.lineWidth = 9; c.beginPath(); c.moveTo(56, 30); c.lineTo(92, -44); c.stroke(); c.strokeStyle = '#f2c230'; c.lineWidth = 8; c.beginPath(); c.moveTo(48, 12); c.lineTo(72, 24); c.stroke(); }
+  else if (kind === 'esplora') { c.beginPath(); c.moveTo(-40, -44); c.lineTo(0, -96); c.lineTo(40, -44); c.closePath(); c.fillStyle = '#3f7a66'; c.fill(); c.strokeStyle = '#17482e'; c.lineWidth = 4; c.stroke(); c.strokeStyle = '#f2c230'; c.lineWidth = 12; c.beginPath(); c.moveTo(50, 6); c.lineTo(88, -8); c.stroke(); }
   else if (kind === 'lancia') { helm('#aeb4c2'); c.strokeStyle = '#6f4526'; c.lineWidth = 6; c.beginPath(); c.moveTo(64, 56); c.lineTo(64, -68); c.stroke(); c.beginPath(); c.moveTo(64, -94); c.lineTo(53, -66); c.lineTo(75, -66); c.closePath(); c.fillStyle = '#e1e5ee'; c.fill(); }
   else if (kind === 'arco') { c.beginPath(); c.moveTo(-34, -46); c.lineTo(0, -92); c.lineTo(34, -46); c.closePath(); c.fillStyle = '#2f8f5b'; c.fill(); c.strokeStyle = '#17482e'; c.lineWidth = 4; c.stroke(); c.strokeStyle = '#c08e58'; c.lineWidth = 7; c.beginPath(); c.arc(50, 4, 40, -1.2, 1.2); c.stroke(); }
   else if (kind === 'corazza') { helm('#aeb4c2'); c.fillStyle = '#f2c230'; c.fillRect(-6, -86, 12, 22); c.beginPath(); c.roundRect(40, -8, 40, 56, 8); c.fillStyle = '#6f7684'; c.fill(); c.strokeStyle = 'rgba(30,34,44,0.8)'; c.lineWidth = 4; c.stroke(); }
@@ -303,6 +309,7 @@ function worldLayer(S) {
   }
   // i villaggi: nome e forza; quando l'esercito è pronto, un invito a toccarli
   if (!quiet) TRIBES.forEach((T, i) => {
+    if (!world.known(i)) return;
     const v = world.d.villages[i], x = (T.c + 0.5) * G, y = (T.r + 0.5) * G, p = P.pt(x, y, 135);
     if (!onScreen(S, p, 90)) return;
     const col = v.state === 'colony', s = `${t('tr_' + T.id)} · ${col ? t('colony') : v.state === 'ally' ? t('allyTag') : t('level') + ' ' + v.level}`, w = width(c, s, 15, 800) + 44;
@@ -368,10 +375,10 @@ function hud(S) {
     panel(c, vw / 2 - bw / 2 - 12, 64, bw + 24, 30, 10);
     bar(c, vw / 2 - bw / 2, 73, bw, 12, raid.hp / raid.maxHp, '#e0452f');
   } else {            // giorno / notte
-    const label = `${isNight ? t('night') : t('day')} ${world.nextNight}`, lw = width(c, label, 24, 800) + 64;
+    const label = `${isNight ? t('night') : t('day')} ${world.nextNight} · ${t('s_' + world.season)}`, lw = width(c, label, 21, 800) + 64;
     panel(c, vw / 2 - lw / 2, 10, lw, 48);
     if (isNight) moon(c, vw / 2 - lw / 2 + 28, 34, 12); else sun(c, vw / 2 - lw / 2 + 28, 34, 8);
-    txt(c, label, vw / 2 - lw / 2 + 50, 35, 24, isNight ? '#cfd8ff' : '#ffe9a8', 'left', 800);
+    txt(c, label, vw / 2 - lw / 2 + 50, 35, 21, isNight ? '#cfd8ff' : '#ffe9a8', 'left', 800);
     if (isNight) {      // la vita del castello, sempre in vista durante l'attacco
       const f = world.castle.hp / world.maxHp(world.castle), bw = 250;
       panel(c, vw / 2 - bw / 2 - 12, 64, bw + 24, 30, 10);
@@ -408,24 +415,27 @@ function hud(S) {
     tuzuIcon(c, 'lancia', vw - 14 - w2 + 26, vh - 14 - 20, 12, MY_COLOR);
     txt(c, s, vw - 14 - w2 + 48, vh - 14 - 22, 20, CREAM, 'left');
     button(c, ui, 14, vh - 14 - 66, 208, 66, t('retreat'), { color: '#7a3a2c', fs: 24, tag: 'retreat' }, A.retreat);
+    X.heroButtons(S, K, vw - 14 - w2 - 12, vh - 14 - 34);
     return;
   }
   if (ui.place) { placeBar(S); return; }
   if (ui.build) { buildBar(S); return; }
   if (ui.vsel != null) villagePanel(S);
   else if (ui.sel) selPanel(S);
+  else if (ui.fogSel) X.fogPanel(S, K);
 
   // in basso a sinistra: costruire; in basso a destra: la notte
   button(c, ui, 14, vh - 14 - 66, 208, 66, t('buildBtn'), { color: '#8a5a1c', fs: 24, dx: 16, tag: 'build' }, A.buildOpen);
   hammer(c, 44, vh - 14 - 31, 17);
   if (!isNight) {
-    if (!ui.sel && ui.vsel == null) incoming(S);
+    if (!ui.sel && ui.vsel == null && !ui.fogSel) X.incoming(S, K);
     const pulse = world.towers() ? 0.5 + Math.sin(ui.time * 4) * 0.5 : 0;
     button(c, ui, vw - 14 - 230, vh - 14 - 66, 230, 66, t('startNight'), { color: '#2f7d3a', fs: 25, stroke: `rgba(255,236,170,${0.7 + pulse * 0.3})`, tag: 'night' }, A.start);
   } else {
     const s = `${t('enemies')}: ${world.remaining}`, w2 = width(c, s, 20) + 36;
     panel(c, vw - 14 - w2, vh - 14 - 46, w2, 46);
     txt(c, s, vw - 14 - w2 / 2, vh - 14 - 22, 20, CREAM, 'center');
+    X.heroButtons(S, K, vw - 14 - w2 - (world.d.castle >= 3 ? 98 : 12), vh - 14 - 36);
     if (world.d.castle >= 3) {      // il Fulmine del castello
       const cx = vw - 14 - w2 - 54, cy = vh - 14 - 36, r = 34, ready = world.spellCd <= 0;
       c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.fillStyle = ui.aiming ? '#8a5a1c' : ready ? '#4b3a8a' : '#33303a'; c.fill();
@@ -510,7 +520,7 @@ function card(c, x, y, w, h, ok) {
 function selPanel(S) {
   const { c, world, ui, vw, vh, A, now } = S, b = ui.sel.b, D = BUILD[b.type], L = world.d.castle;
   const crops = b.type === 'campo' && !b.crop, cards = crops || b.type === 'caserma' || b.type === 'mercato';
-  const w = cards ? 680 : 640, h = b.type === 'castello' ? 214 : cards ? 196 : 138, x = vw / 2 - w / 2, y = vh - h - 12;
+  const w = b.type === 'caserma' ? 800 : cards ? 680 : 640, h = b.type === 'castello' ? 214 : cards ? 196 : 138, x = vw / 2 - w / 2, y = vh - h - 12;
   panel(c, x, y, w, h, 14, 0.95); block(ui, x, y, w, h);
   buildIcon(c, b.type, x + 42, y + 36, 22, ui.time);
   const lvl = TOWERS[b.type] ? ` · ${t('level')} ${(b.lvl || 0) + 1}` : b.type === 'castello' ? ` · ${t('level')} ${L}` : '';
@@ -532,6 +542,7 @@ function selPanel(S) {
     demol(x + w - 170, by);
   } else if (b.type === 'castello') {
     txt(c, t('castleInfo', 2 + 2 * L), x + 82, y + 54, 16, DIM, 'left', 600);
+    if (world.hasHero()) { const H = world.d.hero; tuzuIcon(c, 'eroe', x + w - 190, y + 30, 13, MY_COLOR); txt(c, `${t('u_eroe')} · ${t('level')} ${H.lvl}`, x + w - 168, y + 30, 15, world.heroUnit() ? '#ffe9a8' : BAD, 'left', 800); }
     const chk = world.castleCheck();
     if (chk === 'max') txt(c, t('maxed'), x + 22, y + 130, 19, DIM);
     else {
@@ -566,26 +577,7 @@ function selPanel(S) {
       demol(x + w - 170, by);
     }
   } else if (b.type === 'caserma') {
-    // l'esercito: chi c'è dentro, e tre tipi di Tuzu da addestrare
-    const units = b.units || [], room = units.length < CASERMA_SLOTS, noPop = room && world.popUsed() >= world.popMax();
-    const head = `${t('soldiers')} ${units.length}/${CASERMA_SLOTS}` + (noPop ? ' · ' + t('needHouses') : '');
-    txt(c, head, x + 82, y + 54, 17, noPop ? BAD : DIM);
-    units.forEach((u, k) => tuzuIcon(c, u, x + 110 + width(c, head, 17) + k * 36, y + 50, 12, MY_COLOR));
-    const cw = 160, ch = 106, gap = 8;
-    UNIT_ORDER.forEach((u, k) => {
-      const U = UNITS[u], bx = x + 20 + k * (cw + gap), cy = y + 74, chk = world.trainCheck(b, u), ok = chk === 'ok', shut = chk === 'castle' || chk === 'tech';
-      card(c, bx, cy, cw, ch, ok);
-      c.globalAlpha = shut ? 0.4 : 1; tuzuIcon(c, u, bx + 28, cy + 34, 17, MY_COLOR); c.globalAlpha = 1;
-      txt(c, t('u_' + u), bx + 58, cy + 22, 16, shut ? '#9a948a' : CREAM, 'left', 800);
-      txt(c, `${t('hp')} ${U.hp}`, bx + 58, cy + 43, 13, DIM, 'left', 600);
-      txt(c, `${t('dmg')} ${U.dmg}` + (U.range ? ' · ' + t('ranged') : ''), bx + 14, cy + 66, 13, DIM, 'left', 600);
-      if (chk === 'castle') { lock(c, bx + 22, cy + 88, 7); txt(c, t('needCastle', U.min), bx + 38, cy + 88, 13, DIM, 'left', 700); }
-      else if (chk === 'tech') { lock(c, bx + 22, cy + 88, 7); txt(c, t('needTech', t('t_' + U.tech)), bx + 38, cy + 88, 13, DIM, 'left', 700); }
-      else if (chk === 'full') txt(c, t('full'), bx + 14, cy + 88, 14, DIM, 'left', 700);
-      else costRow(c, world, U.cost, bx + 14, cy + 88, 15, 1, true);
-      ui.buttons.push({ x: bx, y: cy, w: cw, h: ch, tag: 'train_' + u, fn: () => A.train(b, u) });
-    });
-    demol(x + w - 156, y + h - 62, 140);
+    X.barracks(S, K, b, x, y, w, h);
   } else if (b.type === 'mercato') {
     txt(c, t('marketHint'), x + 82, y + 54, 16, DIM, 'left', 600);
     const cw = 118, ch = 106, gap = 8;
@@ -729,11 +721,12 @@ function hints(S) {
 function settingsPanel(S) {
   const { c, ui, vw, vh, A } = S;
   dim(S, 0.6);
-  const h = 300, y0 = vh / 2 - h / 2;
-  panel(c, vw / 2 - 250, y0, 500, h, 18, 0.96);
-  title2(c, t('settings'), vw / 2, y0 + 58, 44, '#f2cf73');
-  langRow(S, vw / 2, y0 + 112);
-  button(c, ui, vw / 2 - 110, y0 + 194, 220, 60, t('close'), { color: '#3b3229', fs: 24, tag: 'close' }, A.settings);
+  const h = 372, y0 = vh / 2 - h / 2;
+  panel(c, vw / 2 - 260, y0, 520, h, 18, 0.96);
+  title2(c, t('settings'), vw / 2, y0 + 46, 36, '#f2cf73');
+  langRow(S, vw / 2, y0 + 86);
+  X.settingsExtra(S, K, vw / 2, y0 + 150);
+  button(c, ui, vw / 2 - 110, y0 + h - 66, 220, 50, t('close'), { color: '#3b3229', fs: 22, tag: 'close' }, A.settings);
 }
 
 function questsPanel(S) {
@@ -802,10 +795,12 @@ function titleScreen(S) {
   title2(c, t('title'), vw / 2, y0 + 60, 78, '#f2cf73');
   txt(c, t('subtitle'), vw / 2, y0 + 128, 30, '#d7dcf5', 'center', 600);
   wrap(c, t('lore'), vw / 2, y0 + 200, 780, 22, CREAM, 32);
-  button(c, ui, vw / 2 - 150, y0 + 290, 300, 84, t('play'), { color: '#2f7d3a', fs: 36, tag: 'play' }, A.play);
+  if (ui.newGame) X.titleDiff(S, K, vw / 2, y0 + 258);
+  button(c, ui, vw / 2 - 150, y0 + (ui.newGame ? 312 : 290), 300, ui.newGame ? 72 : 84, t('play'), { color: '#2f7d3a', fs: 36, tag: 'play' }, A.play);
   langRow(S, vw / 2, y0 + 414);
 }
 
+const K = { txt, width, panel, title2, wrap, button, block, dim, bar, bubble, moon, cross, card, heart, lock, coin, costRow, costRowPlain, tuzu2d, tuzuIcon, enemyIcon, tracePoly, CREAM, DIM, BAD, GOLD };
 let vig = null;
 /** Disegna tutta l'interfaccia in coordinate logiche (0..vw, 0..vh). */
 export function drawUi(S) {
@@ -814,11 +809,12 @@ export function drawUi(S) {
   if (!vig || vig.w !== vw || vig.h !== vh) { vig = { w: vw, h: vh, g: c.createRadialGradient(vw / 2, vh / 2, vh * 0.42, vw / 2, vh / 2, Math.hypot(vw, vh) * 0.56) }; vig.g.addColorStop(0, 'rgba(10,16,30,0)'); vig.g.addColorStop(1, 'rgba(10,16,30,0.3)'); }
   c.fillStyle = vig.g; c.fillRect(0, 0, vw, vh);
   worldLayer(S);
+  X.marks(S, K);
   if (ui.screen === 'title') { titleScreen(S); return; }
   if (ui.flash > 0) { c.fillStyle = `rgba(220,40,30,${Math.min(0.3, ui.flash * 0.6)})`; c.fillRect(0, 0, vw, vh); }
   villageArrows(S);
   hud(S);
-  guide(S);
+  X.guide(S, K);
   hints(S);
   if (ui.banner && ui.banner.t < ui.banner.T) {
     const u = ui.banner.t / ui.banner.T, a = u < 0.15 ? u / 0.15 : u > 0.8 ? (1 - u) / 0.2 : 1;
@@ -831,6 +827,9 @@ export function drawUi(S) {
   if (ui.lost) lostPanel(S);
   else if (ui.away) awayPanel(S);
   else if (ui.daily) dailyPanel(S);
+  else if (ui.story != null) X.storyPanel(S, K);
+  else if (ui.eventOpen) X.eventPanel(S, K);
+  else if (ui.roles) X.rolesPanel(S, K);
   else if (ui.quests) questsPanel(S);
   else if (ui.tech) techPanel(S);
   else if (ui.settings) settingsPanel(S);

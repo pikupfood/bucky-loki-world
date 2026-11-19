@@ -1,6 +1,6 @@
 // Avvio: scena 3D + interfaccia 2D, camera (trascina, pizzica, rotella), costruzione a quadretti, salvataggio.
 import { World } from './world.js';
-import { G, COLS, ROWS, BUILD, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, TERRAIN, UNITS as UNIT_DEFS } from './data.js';
+import { G, COLS, ROWS, BUILD, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, TERRAIN, RUINS, HERO, UNITS as UNIT_DEFS } from './data.js';
 import { Scene3D } from './scene3d.js';
 import { drawUi } from './ui.js';
 import { stepFx, parts, ring, text } from './fx.js';
@@ -21,15 +21,16 @@ const ui = {
   screen: 'title', speed: 1, sound: saved.sound !== false, moved: !!saved.moved, seenVillage: !!saved.seenVillage,
   build: null, place: null, sel: null, vsel: null, aiming: false,
   quests: false, settings: false, tech: false, daily: false, lost: null, away: world.away,
+  roles: false, story: null, rallyPick: false, fogSel: null, guideOpen: null, music: saved.music !== false, newGame: !saved.world, diffPick: 'normale',
   buttons: [], fx: [], fxTop: [], night: 0, shake: 0, flash: 0, time: 0, banner: null, bannerQ: [], toast: null,
 };
 world.away = null;
 let frozen = false;      // dopo reset() non si salva più: altrimenti la pagina che si chiude riscrive il salvataggio
-function save() { if (frozen) return; try { localStorage.setItem(KEY, JSON.stringify({ world, lang: getLang(), sound: ui.sound, moved: ui.moved, seenVillage: ui.seenVillage, cam: scene.view })); } catch (e) { /* senza memoria si gioca lo stesso */ } }
+function save() { if (frozen) return; try { localStorage.setItem(KEY, JSON.stringify({ world, lang: getLang(), sound: ui.sound, music: ui.music, moved: ui.moved, seenVillage: ui.seenVillage, cam: scene.view })); } catch (e) { /* senza memoria si gioca lo stesso */ } }
 
 const browserLang = (navigator.language || 'it').slice(0, 2);
 setLang(saved.lang || (LANGS.includes(browserLang) ? browserLang : 'it'));
-audio.setSound(ui.sound);
+audio.setSound(ui.sound); audio.setMusic(ui.music);
 
 // qualità grafica: 2 = piena, 1 = meno pixel, 0 = meno pixel e niente ombre (scende da sola se il telefono fatica)
 let quality = 2, slow = 0;
@@ -105,9 +106,23 @@ function confirmPlace() {
 // ---------- azioni ----------
 const UNITS_MSG = { full: 'full', pop: 'needHouses', busy: 'notNow' };
 const world_unit = (type) => UNIT_DEFS[type] || {};
-const closeAll = () => { ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; };
+const closeAll = () => { ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; };
 const A = {
-  play() { ui.screen = 'play'; ui.daily = world.daily(Date.now()).available; audio.play('tap'); },
+  play() { if (ui.newGame) { world.setDiff(ui.diffPick); ui.newGame = false; save(); } ui.screen = 'play'; ui.daily = world.daily(Date.now()).available; audio.play('tap'); },
+  diffPick(k) { ui.diffPick = k; audio.play('tap'); },
+  diff(k) { if (world.setDiff(k)) { save(); audio.play('tap'); } },
+  music() { ui.music = !ui.music; audio.setMusic(ui.music); save(); audio.play('tap'); },
+  roles() { ui.roles = !ui.roles; ui.sel = null; ui.vsel = null; audio.play('tap'); },
+  role(r, d) { world.setRole(r, (world.d.roles[r] || 0) + d); save(); audio.play('tap'); },
+  stay(b) { if (world.toggleStay(b)) { save(); audio.play('tap'); } },
+  rallyPick() { ui.rallyPick = true; ui.sel = null; audio.play('tap'); },
+  rallyClear() { world.setRally(null); save(); audio.play('tap'); },
+  heroPower(k) { if (world.heroPower(k)) audio.play(k === 'shout' ? 'shout' : 'impact'); else audio.play('no'); },
+  eventChoose(k) { if (world.eventChoose(k)) { audio.play('coin'); save(); } else toast(t('why_cost')); },
+  storyOk() { world.storySeen(); ui.story = null; audio.play('page'); save(); },
+  fogClose() { ui.fogSel = null; },
+  scout() { const f = ui.fogSel; if (!f) return; if (world.sendScout(f.x, f.y)) { ui.fogSel = null; save(); } else { const w = world.scoutCheck(); toast(t(w === 'cost' ? 'why_cost' : w === 'full' ? 'scoutFull' : 'scoutBusy')); } },
+  guideToggle() { const g = world.goal(); ui.guideOpen = !(ui.guideOpen == null ? !!g && g.i < 12 : ui.guideOpen); audio.play('tap'); },
   buildOpen() { ui.sel = null; ui.vsel = null; ui.aiming = false; ui.build = { cat: ui.lastCat || 'dif' }; audio.play('tap'); },
   buildClose() { ui.build = null; ui.place = null; audio.play('tap'); },
   cat(cat) { ui.build.cat = cat; ui.lastCat = cat; audio.play('tap'); },
@@ -148,7 +163,7 @@ const A = {
   buy(r) { if (world.buy(r)) save(); else toast(t(world.buyCheck(r) === 'tech' ? 'why_tech' : 'why_cost')); },
   vClose() { ui.vsel = null; },
   claimGoal() { if (world.claimGoal()) save(); },
-  moraleInfo() { ui.toast = { str: t('moraleTip'), t: 0, T: 3.2 }; audio.play('tap'); },
+  moraleInfo() { A.roles(); },
   ally(i) { if (world.ally(i)) save(); else { const w = world.allyCheck(i); toast(w === 'castle' ? t('needCastle', Math.min(5, world.d.villages[i].level)) : w === 'max' ? t('maxAllies') : w === 'cost' ? t('why_cost') : t('notNow')); } },
   breakAlly(i) { if (world.breakAlly(i)) save(); },
   trade(i) { if (world.trade(i)) save(); else { const w = world.tradeCheck(i); toast(t(w === 'done' ? 'tradeDone' : w === 'tech' ? 'why_tech' : w === 'cost' ? 'why_cost' : 'notNow')); } },
@@ -178,10 +193,12 @@ function hitButton(clientX, clientY) {
   return false;
 }
 const DUMMY = 0; void DUMMY;
+void HERO;
 const TALL = { fontana: 46, taverna: 66, statua: 50, mulino: 76, fucina: 66, lampione: 40, albero: 40, castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26, bottega: 60, mercato: 50, miniera: 46, cristalliera: 46 };
 /** Il villaggio sotto il dito: la piazza attorno alla casa del capo, oppure la casa stessa (che sullo schermo sta più in su). */
 function villageUnder(clientX, clientY, g) {
   for (let i = 0; i < TRIBES.length; i++) {
+    if (!world.known(i)) continue;
     const x = (TRIBES[i].c + 0.5) * G, y = (TRIBES[i].r + 0.5) * G;
     if (Math.hypot(x - g.x, y - g.y) < 2.4 * G) return i;
     const p = scene.project(x, y, 50);
@@ -214,6 +231,10 @@ function worldTap(clientX, clientY, kind) {
     return;
   }
   if (ui.aiming) { if (world.castSpell(g.x, g.y)) ui.aiming = false; else audio.play('no'); return; }
+  if (ui.rallyPick) { if (world.setRally(g.x, g.y) === 'ok') { ui.rallyPick = false; save(); audio.play('build'); } else toast(t('rallyBad')); return; }
+  if (!world.seen(Math.floor(g.x / G), Math.floor(g.y / G))) { ui.fogSel = { x: g.x, y: g.y, ruin: false }; ui.sel = null; ui.vsel = null; ui.build = null; audio.play('tap'); return; }
+  { const R = RUINS.find(o => !world.d.ruins[o.id] && Math.hypot((o.c + 0.5) * G - g.x, (o.r + 0.5) * G - g.y) < 70); if (R) { ui.fogSel = { x: (R.c + 0.5) * G, y: (R.r + 0.5) * G, ruin: true }; ui.sel = null; ui.vsel = null; audio.play('tap'); return; } }
+  ui.fogSel = null;
   const vi = villageUnder(clientX, clientY, g);
   if (vi >= 0) { ui.vsel = vi; ui.seenVillage = true; ui.sel = null; ui.build = null; audio.play('tap'); save(); return; }
   const b = buildingUnder(clientX, clientY, g), now = Date.now();
@@ -290,7 +311,9 @@ window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 function back() {
   if (ui.lost) ui.lost = null;
   else if (ui.away) ui.away = null;
-  else if (ui.quests || ui.settings || ui.tech) { ui.quests = ui.settings = ui.tech = false; }
+  else if (ui.story != null) A.storyOk();
+  else if (ui.quests || ui.settings || ui.tech || ui.roles) { ui.quests = ui.settings = ui.tech = ui.roles = false; }
+  else if (ui.fogSel || ui.rallyPick) { ui.fogSel = null; ui.rallyPick = false; }
   else if (ui.place) ui.place = null;
   else if (ui.build) ui.build = null;
   else if (ui.sel || ui.vsel != null || ui.aiming) { ui.sel = null; ui.vsel = null; ui.aiming = false; }
@@ -317,6 +340,19 @@ function handleEvents() {
       case 'chop': { const col = { tree: '#4f9a4b', rock: '#a9abb5', iron: '#c0683c', crystal: '#8fe8ff' }[ev.kind], tc = { tree: RES_FX.legna, rock: RES_FX.pietra, iron: RES_FX.ferro, crystal: RES_FX.cristallo }[ev.kind]; parts(ui.fx, ev.x, ev.y, 18, 10, col, 110, 0.5, 4, 280); text(ui.fxTop, ev.x, ev.y, 30, '+' + ev.gain, tc, 20, 0.8); audio.play('chop', 0.04); buzz(8); break; }
       case 'unknown': toast(t('unknown')); break;
       case 'job': ring(ui.fx, ev.x, ev.y, 8, 36, 0.35, '#ffe9a8', 3); break;
+      case 'built': ring(ui.fx, ev.x, ev.y, 10, 76, 0.45, '#ffe9a8', 4); parts(ui.fx, ev.x, ev.y, 20, 12, '#d9c7a0', 110, 0.5, 4, 260); audio.play('build', 0.3); break;
+      case 'harvested': text(ui.fxTop, ev.x, ev.y, 40, '+' + ev.gain, '#ffd24a', 20, 1); break;
+      case 'rally': ring(ui.fx, ev.x, ev.y, 10, 90, 0.5, MY_COLOR, 4); break;
+      case 'heroUp': banner(t('heroUp', ev.lvl), '#ffe9a8', 2.6); audio.play('heroUp'); buzz(20); ring(ui.fxTop, ev.x, ev.y, 12, 120, 0.7, '#ffe27a', 5); break;
+      case 'heroDown': banner(t('heroDown'), '#ff8a80', 2.6); audio.play('sad'); parts(ui.fx, ev.x, ev.y, 16, 14, MY_COLOR, 130, 0.6, 4, 260); break;
+      case 'heroPower': if (ev.kind === 'slam') { ring(ui.fxTop, ev.x, ev.y, 10, ev.r, 0.4, '#ffe27a', 6); parts(ui.fxTop, ev.x, ev.y, 8, 20, '#fff6c9', 200, 0.5, 4.5, 300); ui.shake = 0.3; } else { ring(ui.fxTop, ev.x, ev.y, 20, 260, 0.9, '#ff9d2a', 5); } buzz(30); break;
+      case 'grew': banner(t('grew'), '#ffd0c8', 2.6); break;
+      case 'war': banner(`${t('tr_' + TRIBES[ev.a].id)} ${t('beat')} ${t('tr_' + TRIBES[ev.b].id)}`, '#cfd8ff', 2.8); break;
+      case 'event': audio.play('event'); break;
+      case 'shard': banner(t('shardGot', ev.n), '#ffe27a', 3); audio.play('won'); break;
+      case 'found': banner(`${t('found')}: ${t('tr_' + TRIBES[ev.i].id)}`, '#9fe9ff', 2.8); audio.play('hey'); ring(ui.fxTop, ev.x, ev.y, 20, 220, 0.9, '#ffffff', 5); break;
+      case 'ruin': { banner(t('ruinGot'), '#ffe27a', 2.6); audio.play('cleared'); let k = 0; for (const r in ev.loot) text(ui.fxTop, ev.x + k++ * 64, ev.y, 60, '+' + ev.loot[r], RES_FX[r], 24, 1.6); save(); break; }
+      case 'scout': audio.play('hey'); break;
       case 'goal': { audio.play('cleared'); buzz(20); const g = scene.pick(210 * view.us, 120 * view.us) || { x: world.castle.x, y: world.castle.y }; let k = 0; for (const r in ev.reward) text(ui.fxTop, g.x + k++ * 70, g.y, 20, '+' + ev.reward[r], RES_FX[r], 26, 1.5); break; }
       case 'tech': banner(t('discovered', t('t_' + ev.id)), '#9fe9ff', 2.6); audio.play('won'); buzz(20); save(); break;
       case 'bought': audio.play('coin'); break;
@@ -325,7 +361,7 @@ function handleEvents() {
       case 'spawn': ring(ui.fx, ev.x, ev.y, 14, ev.boss ? 110 : 56, 0.5, tribeCol(ev.tribe), ev.boss ? 5 : 3); break;
       case 'raidStart': closeAll(); audio.play('horn'); banner(`${t('raidOn')} · ${t('tr_' + TRIBES[ev.i].id)}`, '#ffd0c8', 2.2); ui.follow = true; break;
       case 'hallShot': parts(ui.fx, ev.tx, ev.ty, 18, 5, '#d9c7a0', 90, 0.3, 3, 240); audio.play('wall', 0.2); break;
-      case 'conquered': {
+      case 'conquered': { scene.cheer(6);
         banner(t('conquered'), '#ffe9a8', 2.8); audio.play('won'); buzz([30, 60, 30]); ui.speed = 1;
         ring(ui.fxTop, ev.x, ev.y, 20, 220, 0.8, MY_COLOR, 6); parts(ui.fxTop, ev.x, ev.y, 60, 34, '#ffe27a', 220, 0.9, 4.5, 260);
         let k = 0; for (const r in ev.loot) text(ui.fxTop, ev.x - 60 + k++ * 60, ev.y, 90, '+' + ev.loot[r], RES_FX[r], 24, 1.6);
@@ -363,7 +399,7 @@ function handleEvents() {
       case 'destroyed': ring(ui.fx, ev.x, ev.y, 8, 60, 0.4, '#ff8a6a', 4); parts(ui.fx, ev.x, ev.y, 12, 16, '#b9a98a', 150, 0.6, 4.5, 300); ui.shake = Math.max(ui.shake, 0.15); audio.play('impact', 0.1); buzz(25); break;
       case 'soldierDown': parts(ui.fx, ev.x, ev.y, 16, 10, MY_COLOR, 110, 0.5, 4, 260); buzz(15); break;
       case 'castleHit': if (ui.flash < 0.12) { ui.flash = 0.4; buzz(30); } ui.shake = Math.max(ui.shake, 0.12); parts(ui.fx, ev.x, ev.y, 40, 3, '#d9c7a0', 110, 0.4, 3.5, 260); audio.play('leak', 0.5); break;
-      case 'nightWon':
+      case 'nightWon': scene.cheer(5);
         banner(`${t('cleared')}  +${ev.reward}`, '#ffe9a8', 2.6);
         audio.play(ev.night % 5 === 0 ? 'won' : 'cleared'); buzz([30, 60, 30]); ui.aiming = false; ui.speed = 1; save();
         if (world.daily(Date.now()).available) ui.daily = true;
@@ -414,9 +450,12 @@ function frame(now) {
 function tick(real) {
   ui.time += real;
   if (view.portrait) { drawRotate(); return; }
+  audio.musicTick(ui.screen !== 'play' ? 'day' : world.status);
   if (ui.moved) world.note('move');
   if (ui.seenVillage) world.note('village');
-  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away;
+  ui.eventOpen = ui.screen === 'play' && !!world.d.event && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && ui.story == null;
+  if (ui.screen === 'play' && ui.story == null && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && world.storyDue() >= 0) { ui.story = world.storyDue(); audio.play('page'); closeAll(); }
+  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away || ui.roles || ui.story != null || ui.eventOpen;
 
   if (!modal) {
     const fight = world.status !== 'day', steps = fight ? ui.speed * 2 : 1, dt = fight ? real / 2 : real;      // passi piccoli: stabile anche a x2

@@ -65,6 +65,48 @@ const SOUNDS = {
   lost: () => [392, 330, 262, 196].forEach((f, i) => tone('sawtooth', f, f * 0.97, 0.4, 0.12, i * 0.28)),
 };
 
+Object.assign(SOUNDS, {
+  hey: () => { tone('sine', 620, 1040, 0.09, 0.09); tone('sine', 880, 1240, 0.08, 0.07, 0.1); },                 // la vocina di un Tuzu
+  sad: () => { tone('sine', 520, 330, 0.22, 0.09); },
+  ally: () => [392, 523, 659].forEach((f, i) => tone('sine', f, f, 0.22, 0.12, i * 0.11)),
+  event: () => { tone('sine', 880, 880, 0.5, 0.1); tone('sine', 1320, 1320, 0.7, 0.07, 0.12); },                 // una campanella
+  heroUp: () => [392, 523, 659, 784, 1047].forEach((f, i) => tone('square', f, f, 0.16, 0.07, i * 0.09)),
+  shout: () => { tone('sawtooth', 220, 440, 0.4, 0.12); tone('sawtooth', 330, 660, 0.4, 0.08, 0.05); },
+  page: () => noise(0.12, 0.12, 3000),
+  splash: () => noise(0.3, 0.1, 1400),
+});
+
+// ---------- musica: generata nota per nota, una di giorno, una di notte, una per l'assalto ----------
+let music = true, mGain = null, mNext = 0, mStep = 0, mMode = 'day', mRnd = 12345, mIdx = 2;
+const SCALE = { day: [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3], night: [220, 261.6, 293.7, 329.6, 392, 440], raid: [220, 261.6, 293.7, 329.6, 392, 440] };
+const ROOTS = { day: [130.8, 110, 87.3, 98], night: [110, 87.3, 98, 82.4], raid: [110, 110, 87.3, 98] };
+export function setMusic(on) { music = on; if (mGain) mGain.gain.value = on ? 1 : 0; }
+function rnd() { mRnd = (mRnd * 1103515245 + 12345) & 0x7fffffff; return mRnd / 0x7fffffff; }
+function note(type, f, dur, vol, t0) {
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t0);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(mGain); o.start(t0); o.stop(t0 + dur + 0.03);
+}
+/** Da chiamare a ogni fotogramma: mette in coda le prossime note. mode: 'day' | 'night' | 'raid'. */
+export function musicTick(mode) {
+  if (!ac || !enabled || !music || ac.state !== 'running') return;
+  if (!mGain) { mGain = ac.createGain(); mGain.gain.value = 1; mGain.connect(master); }
+  mMode = SCALE[mode] ? mode : 'day';
+  const step = mMode === 'night' ? 0.44 : mMode === 'raid' ? 0.25 : 0.32;
+  if (mNext < ac.currentTime) mNext = ac.currentTime + 0.06;
+  while (mNext < ac.currentTime + 0.35) {
+    const k = mStep++, sc = SCALE[mMode], root = ROOTS[mMode][Math.floor(k / 8) % 4];
+    if (k % 8 === 0) { note('sine', root, step * 7.4, 0.085, mNext); note('triangle', root * 2, step * 7, 0.022, mNext); note('triangle', root * 3, step * 7, 0.016, mNext); }
+    if (mMode === 'raid' && k % 2 === 0) { note('square', root * (k % 8 === 4 ? 1.5 : 1), 0.09, 0.04, mNext); }
+    if (rnd() < (mMode === 'night' ? 0.34 : 0.6)) {
+      mIdx = Math.max(0, Math.min(sc.length - 1, mIdx + Math.round(rnd() * 4 - 2)));
+      note(mMode === 'night' ? 'sine' : 'triangle', sc[mIdx], step * (mMode === 'night' ? 2.6 : 1.5), mMode === 'night' ? 0.05 : 0.06, mNext);
+    }
+    mNext += step;
+  }
+}
+
 export function play(name, minGap = 0.06) {
   if (!ac || !enabled || !SOUNDS[name]) return;
   const now = ac.currentTime;
