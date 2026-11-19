@@ -35,7 +35,7 @@ function fresh(now) {
   return {
     v: 4, map: 3, res: { ...START }, castle: 1, night: 0, nextId: 2, goal: 0, mood: 0, stats: {},
     diff: World.RULES.diff, roles: { bosco: 0, pietra: 0, campi: 0, cantiere: 0 }, rally: null, hero: { lvl: 1, xp: 0, items: {} }, weather: 'sole',
-    trips: [], reports: [], fed: 1, trophy: {}, crowns: 0, chal: null, endAt: 0,
+    trips: [], reports: [], fed: 1, trophy: {}, crowns: 0, chal: null, endAt: 0, rebuild: [],
     event: null, evNight: 0, fog: null, ruins: {}, met: {}, shards: [], story: -1, extra: 0,
     buildings: [{ id: 1, type: 'castello', c: CASTLE.c, r: CASTLE.r, hp: castleHp(1) }],
     cut: [], tech: {}, villages: TRIBES.map(t => ({ level: t.level, state: 'free', since: 0, until: 0, trades: 0, rel: REL.start })),
@@ -68,6 +68,7 @@ export class World {
       d.dailyDay = data.dailyDay || 0; d.streak = data.streak || 0; d.lastSeen = data.lastSeen || now;
       d.diff = DIFFS[data.diff] ? data.diff : 'facile';                  // i salvataggi di prima restano com'erano
       for (const k of ['rally', 'weather', 'event', 'evNight', 'ruins', 'met', 'shards', 'story', 'extra', 'fed', 'trophy', 'crowns', 'chal', 'endAt']) if (data[k] != null) d[k] = data[k];
+      if (Array.isArray(data.rebuild)) d.rebuild = data.rebuild.filter(o => o && BUILD[o.type] && BUILD[o.type].cost).slice(0, 300);
       if (data.fed == null && !(data.res && data.res.cibo > 0)) d.res.cibo = 60;      // una partita di prima del cibo: una scorta per non trovarsi subito alla fame
       if (Array.isArray(data.trips)) d.trips = data.trips.filter(tr => tr && isFinite(tr.x) && isFinite(tr.at) && tr.ms > 0);
       if (Array.isArray(data.reports)) d.reports = data.reports.slice(0, 6);
@@ -81,7 +82,7 @@ export class World {
     this.status = 'day';                 // day | night | raid
     this.enemies = []; this.projs = []; this.soldiers = []; this.queue = []; this.events = [];
     this.raid = null; this.raidDist = null; this.workers = []; this.jobs = []; this._dirty = true;
-    this.scouts = []; this.heroCd = { shout: 0, slam: 0, heal: 0 }; this.tripT = 0; this.blk = TERRAIN; this.shoutT = 0; this.regrowT = 0; this.fogT = 0; this.now = now;
+    this.scouts = []; this.heroCd = { shout: 0, slam: 0, heal: 0 }; this.tripT = 0; this.blk = TERRAIN; this.lostB = []; this.shoutT = 0; this.regrowT = 0; this.fogT = 0; this.now = now;
     this.waveT = 0; this.spellCd = 0; this.uid = 1; this.rev = 0; this.away = null; this.castleHit = false; this.nightKills = 0;
     this.cutSet = new Set(d.cut);
     // sotto un edificio non resta natura (succede solo venendo da un salvataggio vecchio)
@@ -936,6 +937,7 @@ export class World {
     for (const e of this.waveList(n)) q.push(e);
     void k;
     for (const e of q) this.d.seen[e.type] = 1;
+    this.lostB = []; this.d.rebuild = [];
     this.queue = q; this.waveT = 0; this.status = 'night'; this.castleHit = false; this.nightKills = 0;
     this.workers.forEach((w, k) => { const h = this.workerHome(k); w.x = h.x; w.y = h.y; w.job = null; w.state = 'idle'; w.path = null; });      // di notte gli abitanti stanno al riparo
     // gli alleati mandano i loro guerrieri: si mettono attorno al castello e all'alba tornano a casa
@@ -994,7 +996,7 @@ export class World {
   hurtBuilding(b, dmg) {
     b.hp -= dmg; b.hitT = 0.2;
     if (b.type === 'castello') { this.castleHit = true; this.events.push({ k: 'castleHit', x: b.x, y: b.y }); if (b.hp <= 0) this.loseNight(); return; }
-    if (b.hp <= 0) { this.events.push({ k: 'destroyed', x: b.x, y: b.y, type: b.type }); this.remove(b); }
+    if (b.hp <= 0) { this.events.push({ k: 'destroyed', x: b.x, y: b.y, type: b.type }); if (this.status === 'night') this.lostB.push({ type: b.type, c: b.c, r: b.r }); this.remove(b); }
     else this.events.push({ k: 'struck', x: b.x, y: b.y });
   }
   hurtSoldier(s, dmg) {
@@ -1245,6 +1247,7 @@ export class World {
   }
 
   dawn() {
+    this.d.rebuild = this.lostB.slice(0, 300); this.lostB = [];       // quello che la notte ha distrutto: al mattino si può rifare con un tocco
     this.status = 'day'; this.enemies = []; this.projs = []; this.queue = [];
     this.soldiers = this.soldiers.filter(s => s.ally == null && !s.dead);
     this.ensureHero();

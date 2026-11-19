@@ -55,9 +55,10 @@ export function mapPick(world, x, y) {
 }
 
 export function mapPanel(S, K) {
-  const { c, world, ui, vw, vh, A, now } = S, M = ui.map, pad = 12, side = Math.min(330, Math.max(270, vw * 0.25));
+  const { c, world, ui, vw, vh, A, now } = S, M = ui.map, pad = 12;
+  let side = Math.min(330, Math.max(270, vw * 0.25));
   c.fillStyle = 'rgba(14,12,22,0.93)'; c.fillRect(0, 0, vw, vh); K.block(ui, 0, 0, vw, vh);
-  const aw = vw - side - pad * 3, ah = vh - pad * 2, k = Math.min(aw / WORLD_W, ah / WORLD_H), mw = WORLD_W * k, mh = WORLD_H * k, mx = pad + (aw - mw) / 2, my = pad + (ah - mh) / 2;
+  const tall = S.tall, aw = tall ? vw - pad * 2 : vw - side - pad * 3, ah = tall ? vh - pad * 3 - 400 : vh - pad * 2, k = Math.min(aw / WORLD_W, ah / WORLD_H), mw = WORLD_W * k, mh = WORLD_H * k, mx = pad + (aw - mw) / 2, hp = tall ? Math.min(470, vh - pad * 3 - mh) : 0, my = tall ? Math.max(pad, (vh - mh - pad - hp) / 2) : pad + (ah - mh) / 2;
   const X = (x) => mx + x * k, Y = (y) => my + y * k, pulse = 0.5 + Math.sin(ui.time * 5) * 0.5;
   // il foglio
   c.save(); c.beginPath(); c.roundRect(mx, my, mw, mh, 10); c.clip();
@@ -72,7 +73,7 @@ export function mapPanel(S, K) {
   // le nuvole su quello che non hai visto
   if (S.fogCv && world.fogA.includes(0)) { c.globalAlpha = 0.97; c.drawImage(S.fogCv, mx, my, FW * FOG.cell * G * k, FH * FOG.cell * G * k); c.globalAlpha = 1; }
   // il pezzo che la camera guarda adesso
-  if (S.cam) { const w = S.cam.dist * 1.5 * k, h = S.cam.dist * 0.82 * k; c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 1.6; c.strokeRect(X(S.cam.x) - w / 2, Y(S.cam.y) - h / 2 - h * 0.08, w, h); }
+  if (S.cam) { const h = S.cam.dist * 0.82 * k, w = h * Math.max(0.4, Math.min(2.2, vw / vh)); c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 1.6; c.strokeRect(X(S.cam.x) - w / 2, Y(S.cam.y) - h / 2 - h * 0.08, w, h); }
   c.restore();
   c.beginPath(); c.roundRect(mx, my, mw, mh, 10); c.strokeStyle = 'rgba(233,196,106,0.75)'; c.lineWidth = 2.5; c.stroke();
   ui.buttons.push({ x: mx, y: my, w: mw, h: mh, tag: 'mapArea', fn: (lx, ly) => A.mapTap((lx - mx) / k, (ly - my) / k) });
@@ -115,7 +116,8 @@ export function mapPanel(S, K) {
   if (sel) { c.beginPath(); c.arc(X(sel.x), Y(sel.y), 15 + pulse * 5, 0, TAU); c.strokeStyle = '#fff'; c.lineWidth = 3; c.setLineDash([6, 5]); c.stroke(); c.setLineDash([]); }
 
   // ---- la colonna a destra: cosa hai scelto, e chi è in viaggio
-  const x = vw - side - pad, y = pad, h = vh - pad * 2;
+  const x = tall ? pad : vw - side - pad, y = tall ? my + mh + pad : pad, h = tall ? hp : vh - pad * 2;
+  if (tall) side = vw - pad * 2;
   K.panel(c, x, y, side, h, 14, 0.96);
   mapIcon(c, x + 32, y + 32, 13);
   K.txt(c, t('mapTitle'), x + 58, y + 33, 24, '#f2cf73', 'left', 800);
@@ -265,7 +267,7 @@ export function squadBar(S, K) {
   if (!list.length) { ui.squad = null; return; }
   for (const s of list) { K.tracePoly(c, P.circle(s.x, s.y, 17, 16)); c.strokeStyle = 'rgba(255,246,160,0.95)'; c.lineWidth = 2.5; c.stroke(); }
   const raid = world.status === 'raid', label = (ui.squad === 0 ? t('squadHero') : t('squadN', list.length)) + ' · ' + t('squadHint');
-  const lw = K.width(c, label, 16.5, 800), w = lw + 96 + (raid ? 170 : 0), x = vw / 2 - w / 2, y = 108;
+  const lw = K.width(c, label, 16.5, 800), w = lw + 96 + (raid ? 170 : 0), x = vw / 2 - w / 2, y = S.tall ? 228 : 108;
   K.panel(c, x, y, w, 46, 23, 0.92); K.block(ui, x, y, w, 46);
   K.tuzuIcon(c, ui.squad === 0 ? 'eroe' : list[0].type, x + 26, y + 26, 10, MY_COLOR);
   K.txt(c, label, x + 46, y + 24, 16.5, '#ffe9a8', 'left', 800);
@@ -275,7 +277,7 @@ export function squadBar(S, K) {
 
 // ---------- i trofei ----------
 export function trophyGrid(S, K, x, y, w) {
-  const { c, world } = S, list = world.trophies(), cols = 8, cw = (w - (cols - 1) * 8) / cols, ch = 92;
+  const { c, world } = S, list = world.trophies(), cols = w < 760 ? 4 : 8, cw = (w - (cols - 1) * 8) / cols, ch = 92;
   list.forEach((T, k) => {
     const bx = x + (k % cols) * (cw + 8), by = y + Math.floor(k / cols) * (ch + 8), mx = bx + cw / 2;
     c.beginPath(); c.roundRect(bx, by, cw, ch, 10); c.fillStyle = T.done ? 'rgba(92,78,40,0.92)' : 'rgba(255,255,255,0.06)'; c.fill();

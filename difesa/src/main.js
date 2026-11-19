@@ -47,10 +47,12 @@ function banner(str, color, T = 2.4) { ui.bannerQ.push({ str, color, t: 0, T });
 const view = { cw: 1, ch: 1, us: 1, vw: 1280, vh: 720, dpr: 1, portrait: false };
 function resize() {
   const cw = window.innerWidth, ch = window.innerHeight;
-  view.cw = cw; view.ch = ch; view.portrait = ch > cw;
+  view.cw = cw; view.ch = ch; view.portrait = false;        // una volta in verticale si chiedeva di girare il telefono: ora si gioca in tutti e due i versi
   view.dpr = Math.min(window.devicePixelRatio || 1, quality === 2 ? 2 : quality === 1 ? 1.5 : 1);
   const small = ch < 520;                                  // sui telefoni l'interfaccia è più grande
-  view.us = Math.min(ch / (small ? 580 : 720), cw / (small ? 1040 : 1180));
+  // Schermo «alto» (telefono in verticale, o un pieghevole aperto tenuto dritto): l'interfaccia si disegna larga 720 e i pannelli si impilano.
+  view.tall = ch > cw * 1.12;
+  view.us = view.tall ? Math.min(1.3, cw / 720) : Math.min(ch / (small ? 580 : 720), cw / (small ? 1040 : 1180));
   view.vw = cw / view.us; view.vh = ch / view.us;
   uiCanvas.width = Math.round(cw * view.dpr); uiCanvas.height = Math.round(ch * view.dpr);
   view.gl = view.dpr * (quality === 0 ? 0.8 : 1);            // a qualità bassa il 3D si disegna un po' più piccolo; l'interfaccia resta nitida
@@ -140,6 +142,8 @@ const A = {
   squadAttack() { if (world.orderAttack(ui.squad)) audio.play('horn'); },
   qtab(k) { ui.qtab = k; audio.play('tap'); },
   claimChallenge() { const n = world.claimChallenge(Date.now()); if (n) { audio.play('cleared'); buzz(20); save(); } },
+  rebuild() { const n = world.rebuildLost(); if (n) { audio.play('build'); save(); } else toast(t('why_cost')); },
+  rebuildSkip() { world.d.rebuild = []; audio.play('tap'); save(); },
   quality(q) { ui.q = q; slow = 0; setQuality(q === 'auto' ? 2 : q); save(); audio.play('tap'); },
   account() { ui.settings = false; cloud.open(); audio.play('tap'); },
   guideToggle() { const g = world.goal(); ui.guideOpen = !(ui.guideOpen == null ? !!g && g.i < 12 : ui.guideOpen); audio.play('tap'); },
@@ -203,7 +207,7 @@ const A = {
   start() { if (world.startNight()) { closeAll(); save(); } },
   speed() { ui.speed = ui.speed === 1 ? 2 : 1; audio.play('tap'); },
   aim() { if (world.spellCd <= 0) { ui.aiming = !ui.aiming; ui.sel = null; audio.play('tap'); } else audio.play('no'); },
-  home() { scene.setView((CASTLE.c + CASTLE.w / 2) * G, (CASTLE.r + CASTLE.h / 2) * G + 20, 1150); audio.play('tap'); },
+  home() { scene.setView((CASTLE.c + CASTLE.w / 2) * G, (CASTLE.r + CASTLE.h / 2) * G + 20, view.tall ? 1900 : 1150); audio.play('tap'); },
   quests() { ui.quests = !ui.quests; ui.sel = null; audio.play('tap'); },
   claimQuest(i) { const n = world.claimQuest(i); if (n) { audio.play('cleared'); buzz(20); save(); } },
   settings() { ui.settings = !ui.settings; ui.sel = null; audio.play('tap'); },
@@ -582,7 +586,7 @@ function tick(real) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
   ctx.setTransform(k, 0, 0, k, 0, 0);
-  drawUi({ c: ctx, world, ui, vw: view.vw, vh: view.vh, P, A, now, mapCv: scene.mapCv, fogCv: scene.fogCv, cam: scene.view, roadRev: scene.roadRev });
+  drawUi({ c: ctx, world, ui, vw: view.vw, vh: view.vh, tall: view.tall, P, A, now, mapCv: scene.mapCv, fogCv: scene.fogCv, cam: scene.view, roadRev: scene.roadRev });
 }
 
 function drawRotate() {
@@ -615,6 +619,7 @@ window.addEventListener('pagehide', save);
 scene.build();
 if (quality < 2) { scene.setShadows(quality >= 1); scene.setPost(false); }
 resize();
+if (view.tall && !(saved.cam && isFinite(saved.cam.x))) scene.setView((CASTLE.c + CASTLE.w / 2) * G, (CASTLE.r + CASTLE.h / 2) * G + 20, 1900);      // a schermo alto si parte più da lontano: di lato si vede meno
 cloud.init({ key: KEY, getSave: () => JSON.parse(JSON.stringify(world)), t, onLoad: (data) => { frozen = true; try { const cur = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; cur.world = data; localStorage.setItem(KEY, JSON.stringify(cur)); } catch (e) { /* niente */ } window.removeEventListener('pagehide', save); location.reload(); } });
 if (saved.cam && isFinite(saved.cam.x) && saved.world && saved.world.map === 3) scene.setView(saved.cam.x, saved.cam.y, saved.cam.dist);      // la mappa vecchia era più piccola
 console.log('[tuzu] avvio ' + view.cw + 'x' + view.ch + ' dpr ' + view.dpr + ' gl ' + (scene.r.getContext().isContextLost() ? 'PERSO' : 'ok') + ' ' + scene.r.capabilities.maxTextureSize);

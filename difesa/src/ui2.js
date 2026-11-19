@@ -22,7 +22,7 @@ export function guide(S, K) {
   const { c, world, ui, A } = S;
   if (ui.screen !== 'play') return;
   const g = world.goal(), open = ui.guideOpen == null ? !!g && g.i < 12 : ui.guideOpen, tip = !!g && !g.done && open && has('gt_' + g.kind);
-  const x = 14, y = 66, w = 366, h = tip ? 98 : 68, fx = x + 36, fy = y + 36;
+  const x = 14, y = S.tall ? 120 : 66, w = 366, h = tip ? 98 : 68, fx = x + 36, fy = y + 36;
   K.panel(c, x, y, w, h, 14, 0.9); K.block(ui, x, y, w, h);
   guideFace(S, K, fx, fy + 2, 27);
   ui.buttons.push({ x, y, w: 72, h, tag: 'guideToggle', fn: A.guideToggle });
@@ -46,7 +46,7 @@ export function guide(S, K) {
 
 /** Chi arriva stanotte e da dove: una striscia in basso, fra «Costruisci» e «Inizia notte». */
 export function incoming(S, K) {
-  const { c, world, vw, vh } = S, n = world.nextNight, from = world.attackers(n), x = 234, y = vh - 14 - 66, maxW = vw - x - 256;
+  const { c, world, vw, vh } = S, n = world.nextNight, from = world.attackers(n), x = S.tall ? 14 : 234, y = S.tall ? vh - 14 - 66 - 76 : vh - 14 - 66, maxW = S.tall ? vw - 28 : vw - x - 256;      // in verticale sta sopra i due bottoni grandi
   if (maxW < 200) return;
   if (!from.length) { const s = t('quietInfo'), pw = Math.min(maxW, K.width(c, s, 16, 700) + 56); K.panel(c, x, y + 10, pw, 46); K.moon(c, x + 24, y + 33, 9); K.txt(c, s, x + 42, y + 34, 16, '#cfd8ff', 'left', 700); return; }
   const sum = world.waveSum(n), types = Object.keys(sum), T0 = TRIBES[from[0]];
@@ -92,22 +92,24 @@ export function heroButtons(S, K, right, cy) {
 
 /** Il corpo del pannello della caserma: sei tipi di soldato, la guardia, il punto di raccolta. (x, y, w, h = il pannello) */
 export function barracks(S, K, b, x, y, w, h) {
-  const { c, world, ui, A } = S;
+  const { c, world, ui, A } = S, tall = w < 820;
   const units = b.units || [], SL = world.slots(b), room = units.length < SL, noPop = room && world.popUsed() >= world.popMax();
   const head = t('soldiers') + ' ' + units.length + '/' + SL + (b.build > 0 ? ' · ' + t('building') : noPop ? ' · ' + t('needHouses') : '');
   K.txt(c, head, x + 82, y + 54, 16, noPop ? K.BAD : K.DIM);
   units.forEach((u, k) => K.tuzuIcon(c, u, x + 104 + K.width(c, head, 16) + k * 30, y + 50, 11, MY_COLOR));
-  { const lc = world.levelCheck(b); if (lc !== 'none' && lc !== 'max') { K.button(c, ui, x + w - 330, y + 47, 104, 26, t('improve'), { color: '#2f7d3a', disabled: lc !== 'ok', fs: 13, r: 8, tag: 'levelUp' }, () => A.levelUp(b)); K.costRow(c, world, world.levelCost(b), x + w - 218, y + 60, 13, 1, true); } }
-  // guardia e raccolta, in alto a destra
-  K.button(c, ui, x + w - 382, y + 9, 150, 36, t('stay') + ': ' + (b.stay ? t('on') : t('off')), { color: b.stay ? '#8a5a1c' : '#3b3229', fs: 14.5, r: 10, tag: 'stay' }, () => A.stay(b));
-  K.button(c, ui, x + w - 226, y + 9, 166, 36, world.d.rally ? t('rallyOff') : t('rally'), { color: '#3b3229', fs: 14.5, r: 10, tag: 'rally' }, world.d.rally ? A.rallyClear : A.rallyPick);
-  const cw = 134, ch = 106, gap = 6;
+  { const lc = world.levelCheck(b), ix = tall ? x + w - 262 : x + w - 330; if (lc !== 'none' && lc !== 'max') { K.button(c, ui, ix, y + 47, 104, 26, t('improve'), { color: '#2f7d3a', disabled: lc !== 'ok', fs: 13, r: 8, tag: 'levelUp' }, () => A.levelUp(b)); K.costRow(c, world, world.levelCost(b), ix + 112, y + 60, 13, 1, true); } }
+  // demolire, guardia e raccolta: in alto a destra, oppure (in verticale) su una riga loro accanto a «Sposta»
+  const by = tall ? y + 80 : y + 9, bx0 = tall ? x + 128 : x + w - 482;
+  K.button(c, ui, bx0, by, 92, 36, t(ui.demoAsk === b.id ? 'sure' : 'demolish'), { color: ui.demoAsk === b.id ? '#a8322a' : '#7a3a2c', fs: 13.5, r: 10, tag: 'demolish' }, () => A.demolish(b));
+  K.button(c, ui, bx0 + 100, by, 150, 36, t('stay') + ': ' + (b.stay ? t('on') : t('off')), { color: b.stay ? '#8a5a1c' : '#3b3229', fs: 14.5, r: 10, tag: 'stay' }, () => A.stay(b));
+  K.button(c, ui, bx0 + 256, by, 166, 36, world.d.rally ? t('rallyOff') : t('rally'), { color: '#3b3229', fs: 14.5, r: 10, tag: 'rally' }, world.d.rally ? A.rallyClear : A.rallyPick);
+  const cols = tall ? 3 : UNIT_ORDER.length, gap = 6, ch = 106, cw = tall ? (w - 32 - gap * (cols - 1)) / cols : 134, y0 = tall ? y + 126 : y + 76;
   UNIT_ORDER.forEach((u, k) => {
-    const U = UNITS[u], bx = x + 16 + k * (cw + gap), cy = y + 76, chk = world.trainCheck(b, u), ok = chk === 'ok', shut = chk === 'castle' || chk === 'tech';
+    const U = UNITS[u], bx = x + 16 + (k % cols) * (cw + gap), cy = y0 + Math.floor(k / cols) * (ch + gap), chk = world.trainCheck(b, u), ok = chk === 'ok', shut = chk === 'castle' || chk === 'tech';
     K.card(c, bx, cy, cw, ch, ok);
     c.globalAlpha = shut ? 0.4 : 1; K.tuzuIcon(c, u, bx + 22, cy + 30, 13, MY_COLOR); c.globalAlpha = 1;
     K.txt(c, t('u_' + u), bx + 42, cy + 18, 13.5, shut ? '#9a948a' : K.CREAM, 'left', 800);
-    K.heart(c, bx + 48, cy + 38, 4.6, '#ff7f9f'); K.txt(c, String(U.hp), bx + 58, cy + 39, 12.5, K.DIM, 'left', 700);
+    K.txt(c, String(U.hp), bx + 58, cy + 39, 12.5, K.DIM, 'left', 700); K.heart(c, bx + 48, cy + 38, 4.6, '#ff7f9f');
     K.wrap(c, has('ud_' + u) ? t('ud_' + u) : t('dmg') + ' ' + U.dmg + (U.range ? ' · ' + t('ranged') : ''), bx + 9, cy + 58, cw - 16, 11.5, K.DIM, 13, 'left');
     if (chk === 'castle') K.txt(c, t('needCastle', U.min), bx + 9, cy + 91, 12, K.DIM, 'left', 700);
     else if (chk === 'tech') K.txt(c, t('needTech', t('t_' + U.tech)), bx + 9, cy + 91, 12, K.DIM, 'left', 700);
@@ -115,7 +117,7 @@ export function barracks(S, K, b, x, y, w, h) {
     else K.costRow(c, world, U.cost, bx + 9, cy + 91, 13, 1, true);
     ui.buttons.push({ x: bx, y: cy, w: cw, h: ch, tag: 'train_' + u, fn: () => A.train(b, u) });
   });
-  K.button(c, ui, x + w - 482, y + 9, 92, 36, t(ui.demoAsk === b.id ? 'sure' : 'demolish'), { color: ui.demoAsk === b.id ? '#a8322a' : '#7a3a2c', fs: 13.5, r: 10, tag: 'demolish' }, () => A.demolish(b));
+  void h;
 }
 
 /** Gli abitanti e i loro mestieri. */
@@ -191,7 +193,7 @@ export function eventPanel(S, K) {
 export function storyPanel(S, K) {
   const { c, world, ui, vw, vh, A } = S, k = ui.story;
   K.dim(S, 0.74);
-  const w = 760, h = 410, x = vw / 2 - w / 2, y = vh / 2 - h / 2;
+  const w = Math.min(760, vw - 16), h = w < 760 ? 450 : 410, x = vw / 2 - w / 2, y = vh / 2 - h / 2;
   K.panel(c, x, y, w, h, 20, 0.97);
   guideFace(S, K, x + 84, y + 110, 56);
   K.txt(c, t('chapter', k + 1), x + 170, y + 40, 14, K.DIM, 'left', 700);
@@ -242,7 +244,7 @@ export function marks(S, K) {
     if (on(p, 40)) { c.strokeStyle = '#4a3020'; c.lineWidth = 3; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); c.stroke(); c.beginPath(); c.moveTo(q.x, q.y); c.lineTo(q.x + 20, q.y + 7); c.lineTo(q.x, q.y + 14); c.closePath(); c.fillStyle = MY_COLOR; c.fill(); c.strokeStyle = 'rgba(20,14,30,0.6)'; c.lineWidth = 1.5; c.stroke(); }
   }
   if (ui.fogSel) { const f = ui.fogSel, k = 0.5 + Math.sin(ui.time * 5) * 0.5; K.tracePoly(c, P.circle(f.x, f.y, 60 + k * 14, 26)); c.strokeStyle = 'rgba(255,255,255,0.9)'; c.lineWidth = 3; c.setLineDash([8, 7]); c.stroke(); c.setLineDash([]); }
-  if (ui.rallyPick) { const s = t('rallyPick'), w = K.width(c, s, 19) + 44; K.panel(c, vw / 2 - w / 2, 108, w, 42, 21, 0.85); K.txt(c, s, vw / 2, 130, 19, '#ffe9a8', 'center'); }
+  if (ui.rallyPick) { const s = t('rallyPick'), w = K.width(c, s, 19) + 44, hy = S.tall ? 228 : 108; K.panel(c, vw / 2 - w / 2, hy, w, 42, 21, 0.85); K.txt(c, s, vw / 2, hy + 22, 19, '#ffe9a8', 'center'); }
   // pioggia e neve
   const wt = world.d.weather;
   if (wt === 'pioggia' || wt === 'neve') {
@@ -253,13 +255,26 @@ export function marks(S, K) {
   }
 }
 
+/** Al mattino, se la notte ha distrutto qualcosa: un bottone per rifarlo tutto, col costo. */
+export function rebuildPill(S, K) {
+  const { c, world, ui, vw, A } = S;
+  if (!world.d.rebuild || !world.d.rebuild.length || world.status !== 'day') return;
+  const P = world.rebuildPlan();
+  if (!P.n) return;
+  const label = t('rebuildN', P.n), lw = K.width(c, label, 16, 800), keys = Object.keys(P.cost).length, w = lw + 60 + keys * 70 + 46, x = S.tall ? vw - 14 - w : vw / 2 - w / 2, y = S.tall ? 166 : 64, ok = world.afford(P.cost);
+  K.panel(c, x, y, w, 44, 22, 0.93);
+  K.button(c, ui, x + 5, y + 5, lw + 34, 34, label, { color: '#2f7d3a', disabled: !ok, fs: 16, r: 17, tag: 'rebuild' }, A.rebuild);
+  K.costRow(c, world, P.cost, x + lw + 50, y + 23, 15, 1, true);
+  K.button(c, ui, x + w - 39, y + 5, 34, 34, '', { color: '#3b3229', r: 17, tag: 'rebuildSkip' }, A.rebuildSkip); K.cross(c, x + w - 22, y + 22, 7);
+}
+
 /** Quanto rende il villaggio: una riga per risorsa, al minuto; per il cibo anche quanto se ne mangia a notte. (Si apre toccando le risorse.) */
 export function resPanel(S, K) {
   const { c, world, ui, A } = S, prod = world.production(), keys = ['monete', 'legna', 'pietra'];
   if (world.d.tech.ferro || world.d.res.ferro >= 1) keys.push('ferro');
   if (world.d.tech.cristallo || world.d.res.cristallo >= 1) keys.push('cristallo');
   keys.push('grano', 'cibo');
-  const x = 14, y = 64, w = 366, h = 62 + keys.length * 30 + 46;
+  const x = 14, y = S.tall ? 118 : 64, w = 366, h = 62 + keys.length * 30 + 46;
   K.panel(c, x, y, w, h, 14, 0.97); ui.buttons.push({ x, y, w, h, tag: 'resClose', fn: A.resInfo });
   K.txt(c, t('resTitle'), x + 16, y + 24, 17, '#f2cf73', 'left', 800);
   keys.forEach((k, i) => {

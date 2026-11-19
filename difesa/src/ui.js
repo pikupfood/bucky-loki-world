@@ -399,42 +399,49 @@ function villageArrows(S) {
 // =====================================================================
 function hud(S) {
   const { c, world, ui, vw, vh, A } = S, res = world.d.res, isNight = world.status === 'night', raid = world.status === 'raid' ? world.raid : null;
+  const tall = S.tall, ry = tall ? 64 : 10;      // in verticale le risorse scendono alla seconda riga
   // risorse (ferro e cristallo compaiono quando li scopri)
   const keys = ['monete', 'legna', 'pietra'];
   if (world.d.tech.ferro || res.ferro >= 1) keys.push('ferro');
   if (world.d.tech.cristallo || res.cristallo >= 1) keys.push('cristallo');
   const food = world.fedState() !== 'off' || world.foodStock() > 0;
-  const many = keys.length + (food ? 1 : 0) > 3, fs = many ? 19 : 22, gap = many ? 13 : 20, ir = many ? 9 : 10.5;
+  const many = keys.length + (food ? 1 : 0) > 3;
   const items = keys.map(k => [k, String(Math.floor(res[k])), RES_COL[k]]);
   if (food) items.push(['cibo', String(world.foodStock()), world.fedState() !== 'off' && world.foodStock() < world.mouths() ? BAD : RES_COL.cibo]);
   const pop = `${world.popUsed()}/${world.popMax()}`;
-  let w = 18; for (const it of items) w += ir * 2 + 7 + width(c, it[1], fs) + gap; w += 26 + width(c, pop, fs) + 12;
-  panel(c, 14, 10, w, 48);
-  ui.buttons.push({ x: 14, y: 10, w, h: 48, tag: 'resInfo', fn: A.resInfo });
+  let fs, gap, ir, w;
+  for (const [f, g, r] of many ? [[19, 13, 9], [17, 8, 8], [15, 6, 7]] : [[22, 20, 10.5], [19, 13, 9], [17, 8, 8]]) {
+    fs = f; gap = g; ir = r;
+    w = 18; for (const it of items) w += ir * 2 + 7 + width(c, it[1], fs) + gap; w += 26 + width(c, pop, fs) + 12;
+    if (!tall || w <= vw - 28) break;      // in verticale la riga è stretta: si passa alla misura più piccola
+  }
+  panel(c, 14, ry, w, 48);
+  ui.buttons.push({ x: 14, y: ry, w, h: 48, tag: 'resInfo', fn: A.resInfo });
   let x = 28;
   // prima tutti i numeri, poi tutte le icone: su un telefono (Samsung, 19/11/2026) i numeri scritti subito dopo il pane e dopo il Tuzu non comparivano
-  { let tx = x; for (const [, s, col] of items) { txt(c, s, tx + ir * 2 + 7, 35, fs, col); tx += ir * 2 + 7 + width(c, s, fs) + gap; } txt(c, pop, tx + 26, 35, fs, CREAM); }
-  for (const [k, s] of items) { c.beginPath(); RES_ICON[k](c, x + ir, 34, ir); x += ir * 2 + 7 + width(c, s, fs) + gap; }
-  tuzu2d(c, x + 9, 34, 11, MY_COLOR); c.beginPath();
+  { let tx = x; for (const [, s, col] of items) { txt(c, s, tx + ir * 2 + 7, ry + 25, fs, col); tx += ir * 2 + 7 + width(c, s, fs) + gap; } txt(c, pop, tx + 26, ry + 25, fs, CREAM); }
+  for (const [k, s] of items) { c.beginPath(); RES_ICON[k](c, x + ir, ry + 24, ir); x += ir * 2 + 7 + width(c, s, fs) + gap; }
+  tuzu2d(c, x + 9, ry + 24, 11, MY_COLOR); c.beginPath();
+  const barX = tall ? vw - 14 - 137 : vw / 2, barY = tall ? 102 : 0;      // la barra della vita (castello di notte, casa del capo in assalto)
 
   if (raid) {         // assalto in corso: contro chi, e quanto regge la casa del capo
     const T = TRIBES[raid.i], label = `${t('raidOn')} · ${t('tr_' + T.id)}`, lw = width(c, label, 22, 800) + 70, bw = 250;
-    const lx = Math.max(vw / 2 - lw / 2, 14 + w + 10);            // mai sopra le risorse
+    const lx = tall ? 14 : Math.max(vw / 2 - lw / 2, 14 + w + 10);            // mai sopra le risorse
     panel(c, lx, 10, lw, 48);
-    tuzu2d(c, lx + 28, 34, 13, T.color, T.eyes);
     txt(c, label, lx + 50, 35, 22, '#ffd0c8', 'left', 800);
-    panel(c, vw / 2 - bw / 2 - 12, 64, bw + 24, 30, 10);
-    bar(c, vw / 2 - bw / 2, 73, bw, 12, raid.hp / raid.maxHp, '#e0452f');
+    tuzu2d(c, lx + 28, 34, 13, T.color, T.eyes);
+    panel(c, barX - bw / 2 - 12, 64 + barY, bw + 24, 30, 10);
+    bar(c, barX - bw / 2, 73 + barY, bw, 12, raid.hp / raid.maxHp, '#e0452f');
   } else {            // giorno / notte
-    const label = `${isNight ? t('night') : t('day')} ${world.nextNight}${world.endless() ? ' ∞' : ''} · ${t('s_' + world.season)}`, lw = width(c, label, 21, 800) + 64, lx = Math.max(vw / 2 - lw / 2, 14 + w + 10);      // mai sopra le risorse
+    const label = `${isNight ? t('night') : t('day')} ${world.nextNight}${world.endless() ? ' ∞' : ''} · ${t('s_' + world.season)}`, lw = width(c, label, 21, 800) + 64, lx = tall ? 14 : Math.max(vw / 2 - lw / 2, 14 + w + 10);      // mai sopra le risorse
     panel(c, lx, 10, lw, 48);
     if (isNight) moon(c, lx + 28, 34, 12); else sun(c, lx + 28, 34, 8);
     txt(c, label, lx + 50, 35, 21, isNight ? '#cfd8ff' : '#ffe9a8', 'left', 800);
     if (isNight) {      // la vita del castello, sempre in vista durante l'attacco
       const f = world.castle.hp / world.maxHp(world.castle), bw = 250;
-      panel(c, vw / 2 - bw / 2 - 12, 64, bw + 24, 30, 10);
-      buildIcon(c, 'castello', vw / 2 - bw / 2 + 6, 79, 11, 0);
-      bar(c, vw / 2 - bw / 2 + 28, 73, bw - 28, 12, f);
+      panel(c, barX - bw / 2 - 12, 64 + barY, bw + 24, 30, 10);
+      buildIcon(c, 'castello', barX - bw / 2 + 6, 79 + barY, 11, 0);
+      bar(c, barX - bw / 2 + 28, 73 + barY, bw - 28, 12, f);
     }
   }
 
@@ -459,10 +466,12 @@ function hud(S) {
   {
     const m = world.morale(), k = moraleK(m), ws = `${Math.max(0, world.workersFree())}/${world.workersMax()}`, ms = String(m) + (k !== 1 ? (k > 1 ? ' +' : ' −') + Math.round(Math.abs(k - 1) * 100) + '%' : '');
     const pw = 96 + width(c, ms, 17, 800) + width(c, ws, 17, 800), px = vw - 14 - pw;
+    if (tall) { c.save(); c.translate(0, 58); }      // in verticale il morale sta sulla terza riga, a destra della guida
     panel(c, px, 64, pw, 36, 12, 0.82);
     heart(c, px + 20, 82, 8, m < 30 ? '#8a8fa0' : m < 60 ? '#ff8fa8' : '#ff4f7a'); txt(c, ms, px + 36, 83, 17, m < 30 ? BAD : k > 1 ? '#9ff0b4' : CREAM, 'left', 800);
     const wx = px + 48 + width(c, ms, 17, 800); txt(c, ws, wx + 28, 83, 17, CREAM, 'left', 800); tuzuIcon(c, 'attrezzo', wx + 10, 84, 9, MY_COLOR); c.beginPath();
-    ui.buttons.push({ x: px, y: 64, w: pw, h: 36, tag: 'moraleInfo', fn: A.moraleInfo });
+    if (tall) { flushIcons(c); c.restore(); }
+    ui.buttons.push({ x: px, y: tall ? 122 : 64, w: pw, h: 36, tag: 'moraleInfo', fn: A.moraleInfo });
   }
   if (raid) {
     const s = `${t('army')}: ${world.armyStrength().n}`, w2 = width(c, s, 20) + 60;
@@ -484,7 +493,7 @@ function hud(S) {
   const hideL = ui.box && ui.box[0] < 14 + 208 + 6, hideR = ui.box && ui.box[1] > vw - 14 - 230 - 6;
   if (!hideL) { button(c, ui, 14, vh - 14 - 66, 208, 66, t('buildBtn'), { color: '#8a5a1c', fs: 24, dx: 16, tag: 'build' }, A.buildOpen); hammer(c, 44, vh - 14 - 31, 17); }
   if (!isNight) {
-    if (!ui.sel && ui.vsel == null) X.incoming(S, K);
+    if (!ui.sel && ui.vsel == null) { X.incoming(S, K); X.rebuildPill(S, K); }
     const pulse = world.towers() ? 0.5 + Math.sin(ui.time * 4) * 0.5 : 0;
     if (!hideR) button(c, ui, vw - 14 - 230, vh - 14 - 66, 230, 66, t('startNight'), { color: '#2f7d3a', fs: 25, stroke: `rgba(255,236,170,${0.7 + pulse * 0.3})`, tag: 'night' }, A.start);
   } else {
@@ -527,13 +536,17 @@ function incoming(S) {
 }
 
 function buildBar(S) {
-  const { c, world, ui, vw, vh, A } = S, h = 176, x = 14, y = vh - h - 12, w = vw - 28, L = world.d.castle;
+  const { c, world, ui, vw, vh, A } = S, L = world.d.castle, tall = S.tall, list = BUILD_CATS[ui.build.cat], gap = 8, ch = 152;
+  const cols = tall ? 4 : list.length, rows = Math.ceil(list.length / cols);
+  const h = tall ? 58 + rows * (ch + gap) + 4 : 176, x = 14, y = vh - h - 12, w = vw - 28;
   panel(c, x, y, w, h, 14, 0.94); block(ui, x, y, w, h);
-  CAT_ORDER.forEach((cat, i) => button(c, ui, x + 12, y + 9 + i * 32, 150, 28, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#3b3229', fs: 15.5, r: 9, tag: 'cat_' + cat }, () => A.cat(cat)));
-  const list = BUILD_CATS[ui.build.cat], gap = 8, x0 = x + 12 + 150 + 14, ch = 152;
-  const cw = Math.min(122, Math.floor((w - (x0 - x) - 62) / list.length) - gap), small = cw < 112;       // con tante carte si stringono
+  if (tall) { const tw = (w - 24 - 52 - 4 * 6) / 5; CAT_ORDER.forEach((cat, i) => button(c, ui, x + 12 + i * (tw + 6), y + 10, tw, 38, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#3b3229', fs: 15.5, r: 9, tag: 'cat_' + cat }, () => A.cat(cat))); }
+  else CAT_ORDER.forEach((cat, i) => button(c, ui, x + 12, y + 9 + i * 32, 150, 28, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#3b3229', fs: 15.5, r: 9, tag: 'cat_' + cat }, () => A.cat(cat)));
+  const x0 = tall ? x + 12 : x + 12 + 150 + 14;
+  const cw = tall ? (w - 24 - gap * (cols - 1)) / cols : Math.min(122, Math.floor((w - (x0 - x) - 62) / list.length) - gap), small = cw < 112;       // con tante carte si stringono
   list.forEach((ty, i) => {
-    const D = BUILD[ty], bx = x0 + i * (cw + gap), by = y + 12, open = D.min <= L, tech = !D.tech || !!world.d.tech[D.tech], cp = world.cap(ty), full = cp.have >= cp.max, can = open && tech && !full, ok = can && world.afford(D.cost);
+    const D = BUILD[ty], bx = x0 + (i % cols) * (cw + gap), by = tall ? y + 56 + Math.floor(i / cols) * (ch + gap) : y + 12, open = D.min <= L, tech = !D.tech || !!world.d.tech[D.tech], cp = world.cap(ty), full = cp.have >= cp.max, can = open && tech && !full, ok = can && world.afford(D.cost);
+    flushIcons(c);
     c.beginPath(); c.roundRect(bx, by, cw, ch, 10);
     c.fillStyle = ok ? 'rgba(74,92,58,0.95)' : 'rgba(56,52,48,0.95)'; c.fill();
     c.strokeStyle = ok ? 'rgba(255,236,170,0.7)' : 'rgba(255,255,255,0.12)'; c.lineWidth = 2; c.stroke();
@@ -549,13 +562,13 @@ function buildBar(S) {
     }
     ui.buttons.push({ x: bx, y: by, w: cw, h: ch, tag: 'card_' + ty, fn: () => A.pick(ty) });
   });
-  button(c, ui, x + w - 54, y + 10, 44, 44, '', { color: '#7a3a2c', r: 22, tag: 'buildClose' }, A.buildClose);
-  cross(c, x + w - 32, y + 32, 11);
+  button(c, ui, x + w - 54, y + (tall ? 7 : 10), 44, 44, '', { color: '#7a3a2c', r: 22, tag: 'buildClose' }, A.buildClose);
+  cross(c, x + w - 32, y + (tall ? 29 : 32), 11);
 }
 
 function placeBar(S) {
   const { c, world, ui, vw, vh, A } = S, pl = ui.place, st = pl.state || { why: 'pick', ok: false }, D = BUILD[pl.type];
-  const w = 660, h = 82, x = vw / 2 - w / 2, y = vh - h - 12;
+  const w = Math.min(660, vw - 16), h = 82, x = vw / 2 - w / 2, y = vh - h - 12;
   panel(c, x, y, w, h, 14, 0.94); block(ui, x, y, w, h);
   buildIcon(c, pl.type, x + 46, y + 38, 24, ui.time);
   txt(c, t('b_' + pl.type), x + 92, y + 27, 21, '#ffe9a8', 'left', 800);
@@ -577,7 +590,8 @@ function card(c, x, y, w, h, ok) {
 function selPanel(S) {
   const { c, world, ui, vw, vh, A, now } = S, b = ui.sel.b, D = BUILD[b.type], L = world.d.castle;
   const crops = b.type === 'campo' && !b.crop, cards = crops || b.type === 'caserma' || b.type === 'mercato', lc = world.levelCheck(b), hasLv = lc !== 'none', lv = b.lvl || 0;
-  const w = b.type === 'caserma' ? 880 : cards ? 680 : 640, h = b.type === 'castello' ? 214 : cards ? 196 : hasLv ? 192 : 138, x = vw / 2 - w / 2, y = vh - h - 12;
+  const tallB = S.tall && b.type === 'caserma';
+  const w = Math.min(vw - 16, b.type === 'caserma' ? 880 : cards ? 680 : 640), h = tallB ? 366 : b.type === 'castello' ? 214 : cards ? 196 : hasLv ? 192 : 138, x = vw / 2 - w / 2, y = vh - h - 12;
   ui.box = [x, x + w];
   panel(c, x, y, w, h, 14, 0.95); block(ui, x, y, w, h);
   buildIcon(c, b.type, x + 42, y + 36, 22, ui.time);
@@ -585,7 +599,7 @@ function selPanel(S) {
   txt(c, t('b_' + b.type) + lvl, x + 82, y + 26, 22, '#ffe9a8', 'left', 800);
   button(c, ui, x + w - 52, y + 8, 42, 42, '', { color: '#3b3229', r: 21, tag: 'selClose' }, A.selClose);
   cross(c, x + w - 31, y + 29, 9);
-  if (world.moveCheck(b) === 'ok') button(c, ui, b.type === 'caserma' ? x + w - 596 : x + w - 172, y + 9, 104, 36, t('move'), { color: '#3b3229', fs: 15, r: 10, tag: 'move' }, () => A.move(b));
+  if (world.moveCheck(b) === 'ok') button(c, ui, tallB ? x + 16 : b.type === 'caserma' ? x + w - 596 : x + w - 172, tallB ? y + 80 : y + 9, 104, 36, t('move'), { color: '#3b3229', fs: 15, r: 10, tag: 'move' }, () => A.move(b));
   const demol = (bx, by, bw = 150) => { const back = world.refund(b); button(c, ui, bx, by, bw, 50, t(ui.demoAsk === b.id ? 'sure' : 'demolish'), { color: ui.demoAsk === b.id ? '#a8322a' : '#7a3a2c', fs: 17, tag: 'demolish' }, () => A.demolish(b)); return back; };
   const by = y + h - 62;
 
@@ -700,7 +714,7 @@ function tradeRow(c, world, tr, x, y, size) {
 function villagePanel(S) {
   const { c, world, ui, vw, vh, A } = S, i = ui.vsel, T = TRIBES[i], v = world.village(i);
   const gc = world.giftCheck(i), col = v.state === 'colony', ally = v.state === 'ally';
-  const w = 720, h = gc === 'no' ? 196 : 238, x = vw / 2 - w / 2, y = vh - h - 12, by = y + h - 60;
+  const w = Math.min(720, vw - 16), h = gc === 'no' ? 196 : 238, x = vw / 2 - w / 2, y = vh - h - 12, by = y + h - 60;
   ui.box = [x, x + w];
   panel(c, x, y, w, h, 14, 0.95); block(ui, x, y, w, h);
   tuzu2d(c, x + 44, y + 38, 22, T.color, T.eyes);
@@ -759,11 +773,12 @@ function costRowPlain(c, cost, x, y, size) {
 function techPanel(S) {
   const { c, world, ui, vw, vh, A } = S;
   dim(S, 0.6);
-  const w = 1000, h = 508, x = vw / 2 - w / 2, y = vh / 2 - h / 2, cw = (w - 40 - 20) / 3, ch = 92;
+  const cols = S.tall ? 2 : 3, rows = Math.ceil(TECH_ORDER.length / cols), ch = 92;
+  const w = Math.min(1000, vw - 16), h = 64 + rows * (ch + 8) + 52, x = vw / 2 - w / 2, y = vh / 2 - h / 2, cw = (w - 40 - 10 * (cols - 1)) / cols;
   panel(c, x, y, w, h, 18, 0.96);
   title2(c, t('techs'), vw / 2, y + 36, 32, '#f2cf73');
   TECH_ORDER.forEach((id, k) => {
-    const T = TECHS[id], bx = x + 20 + (k % 3) * (cw + 10), by = y + 64 + Math.floor(k / 3) * (ch + 8), chk = world.techCheck(id), done = chk === 'done', ok = chk === 'ok';
+    const T = TECHS[id], bx = x + 20 + (k % cols) * (cw + 10), by = y + 64 + Math.floor(k / cols) * (ch + 8), chk = world.techCheck(id), done = chk === 'done', ok = chk === 'ok';
     c.beginPath(); c.roundRect(bx, by, cw, ch, 12); c.fillStyle = done ? 'rgba(74,92,58,0.9)' : ok ? 'rgba(86,74,120,0.92)' : 'rgba(255,255,255,0.06)'; c.fill();
     txt(c, t('t_' + id), bx + 14, by + 20, 17, done || ok ? CREAM : '#c9c2b4', 'left', 800);
     txt(c, t('td_' + id), bx + 14, by + 41, 12.5, DIM, 'left', 600);
@@ -805,8 +820,8 @@ function guide(S) {
 function hints(S) {
   const { c, ui, vw } = S;
   if (!ui.aiming) return;            // il resto dei consigli ora lo dà il Tuzu guida
-  const hint = t('spellAim'), hw = width(c, hint, 20) + 44;
-  panel(c, vw / 2 - hw / 2, 108, hw, 42, 21, 0.8); txt(c, hint, vw / 2, 130, 20, '#ffe9a8', 'center');
+  const hint = t('spellAim'), hw = width(c, hint, 20) + 44, hy = S.tall ? 228 : 108;
+  panel(c, vw / 2 - hw / 2, hy, hw, 42, 21, 0.8); txt(c, hint, vw / 2, hy + 22, 20, '#ffe9a8', 'center');
 }
 
 function settingsPanel(S) {
@@ -823,7 +838,7 @@ function settingsPanel(S) {
 function questsPanel(S) {
   const { c, world, ui, vw, vh, A, now } = S;
   dim(S, 0.6);
-  const tro = ui.qtab === 1, w = tro ? Math.min(1060, vw - 40) : 660, h = 516, x = vw / 2 - w / 2, y = vh / 2 - h / 2;
+  const tro = ui.qtab === 1, w = tro ? Math.min(1060, vw - 16) : Math.min(660, vw - 16), h = tro && S.tall ? 790 : 516, x = vw / 2 - w / 2, y = vh / 2 - h / 2;
   panel(c, x, y, w, h, 18, 0.96);
   [t('quests'), t('trophies')].forEach((s, k) => button(c, ui, vw / 2 - 206 + k * 212, y + 14, 200, 44, s, { color: (ui.qtab || 0) === k ? '#8a5a1c' : '#3b3229', fs: 20, tag: 'qtab' + k }, () => A.qtab(k)));
   if (tro) {
@@ -891,9 +906,9 @@ function titleScreen(S) {
   const { c, ui, vw, vh, A } = S;
   dim(S, 0.55);
   const y0 = vh / 2 - 230;
-  title2(c, t('title'), vw / 2, y0 + 60, 78, '#f2cf73');
-  txt(c, t('subtitle'), vw / 2, y0 + 128, 30, '#d7dcf5', 'center', 600);
-  wrap(c, t('lore'), vw / 2, y0 + 200, 780, 22, CREAM, 32);
+  title2(c, t('title'), vw / 2, y0 + 60, Math.min(78, vw / 9.4), '#f2cf73');
+  txt(c, t('subtitle'), vw / 2, y0 + 128, Math.min(30, vw / 24), '#d7dcf5', 'center', 600);
+  wrap(c, t('lore'), vw / 2, y0 + (S.tall ? 180 : 200), Math.min(780, vw - 50), 22, CREAM, 32);
   if (ui.newGame) X.titleDiff(S, K, vw / 2, y0 + 258);
   button(c, ui, vw / 2 - 150, y0 + (ui.newGame ? 312 : 290), 300, ui.newGame ? 72 : 84, t('play'), { color: '#2f7d3a', fs: 36, tag: 'play' }, A.play);
   langRow(S, vw / 2, y0 + 414);
@@ -920,7 +935,8 @@ function drawAll(S) {
   Y.squadBar(S, K);
   if (ui.banner && ui.banner.t < ui.banner.T) {
     const u = ui.banner.t / ui.banner.T, a = u < 0.15 ? u / 0.15 : u > 0.8 ? (1 - u) / 0.2 : 1;
-    c.globalAlpha = a; title2(c, ui.banner.str, vw / 2, 180, 46, ui.banner.color); c.globalAlpha = 1;
+    const bw0 = width(c, ui.banner.str, 46, 800), bs = bw0 > vw - 30 ? 46 * (vw - 30) / bw0 : 46;      // una scritta lunga si stringe, non esce dallo schermo
+    c.globalAlpha = a; title2(c, ui.banner.str, vw / 2, S.tall ? 250 : 180, bs, ui.banner.color); c.globalAlpha = 1;
   }
   if (ui.toast && ui.toast.t < ui.toast.T) {
     const u = ui.toast.t / ui.toast.T, a = u > 0.75 ? (1 - u) / 0.25 : 1, w = width(c, ui.toast.str, 20) + 44, ty = vh - (ui.build && !ui.place ? 250 : 170);

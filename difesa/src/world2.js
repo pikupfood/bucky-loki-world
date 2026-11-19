@@ -338,6 +338,32 @@ export function extend(World) {
       return true;
     },
 
+    // ---------- al mattino: ricostruire quello che la notte ha distrutto ----------
+    /** Quello che si può rifare adesso: { list: [pezzi], cost: {…}, n } (solo dove il posto è ancora libero). */
+    rebuildPlan() {
+      const list = [], cost = {}, extra = {};
+      for (const o of this.d.rebuild || []) {
+        const D = BUILD[o.type];
+        if (!D || !D.cost || this.canPlace(o.type, o.c, o.r, true, extra[o.type] || 0) !== 'ok') continue;
+        extra[o.type] = (extra[o.type] || 0) + 1; list.push(o);
+        for (const k in D.cost) cost[k] = (cost[k] || 0) + D.cost[k];
+      }
+      return { list, cost, n: list.length };
+    },
+    /** Rifà tutto quello che può pagare, nell'ordine in cui è caduto. Rende quanti pezzi ha rifatto. */
+    rebuildLost() {
+      if (this.status !== 'day') return 0;
+      let n = 0; const left = [];
+      for (const o of this.d.rebuild || []) {
+        const D = BUILD[o.type];
+        if (D && D.cost && this.canPlace(o.type, o.c, o.r) === 'ok') { this.pay(D.cost); this.add(o.type, o.c, o.r); this.rebuild(); n++; }
+        else if (D && D.cost && this.canPlace(o.type, o.c, o.r, true) === 'ok') left.push(o);      // il posto c'è, mancano i materiali: resta in lista
+      }
+      this.d.rebuild = left;
+      if (n) { this.track('build', n); this.events.push({ k: 'placed', x: this.castle.x, y: this.castle.y, type: 'mura' }); }
+      return n;
+    },
+
     // ---------- trofei e sfida del giorno ----------
     trophyHave(k) {
       const S = this.d.stats;
