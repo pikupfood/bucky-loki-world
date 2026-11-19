@@ -224,7 +224,7 @@ const A = {
   quality(q) { ui.q = q; slow = 0; setQuality(q === 'auto' ? 2 : q); save(); audio.play('tap'); },
   account() { ui.settings = false; cloud.open(); audio.play('tap'); },
   guideToggle() { const g = world.goal(); ui.guideOpen = !(ui.guideOpen == null ? !!g && g.i < 12 : ui.guideOpen); audio.play('tap'); },
-  buildOpen() { ui.sel = null; ui.vsel = null; ui.squad = null; ui.aiming = false; ui.build = { cat: ui.lastCat || 'dif' }; audio.play('tap'); },
+  buildOpen() { ui.sel = null; ui.vsel = null; ui.squad = null; ui.aiming = false; ui.rallyPick = false; ui.build = { cat: ui.lastCat || 'dif' }; audio.play('tap'); },
   buildClose() { if (ui.build && world.seeBuilds(BUILD_CATS[ui.build.cat])) save(); ui.build = null; ui.place = null; audio.play('tap'); },
   cat(cat) { if (world.seeBuilds(BUILD_CATS[ui.build.cat])) save(); ui.build.cat = cat; ui.lastCat = cat; audio.play('tap'); },
   pick(type) {
@@ -249,6 +249,9 @@ const A = {
   },
   placeConfirm() { confirmPlace(); },
   placeCancel() { ui.place = null; audio.play('tap'); },
+  harvestAll() { const r = world.harvestAll(Date.now()); if (!r.n) return; for (const q of r.at) { text(ui.fxTop, q.x, q.y, 40, '+' + q.g, '#ffd24a', 22, 1.1); parts(ui.fxTop, q.x, q.y, 12, 10, '#ffe27a', 110, 0.6, 4, 240); } audio.play('coin'); save(); },
+  rallyCancel() { ui.rallyPick = false; audio.play('tap'); },
+  aimCancel() { ui.aiming = false; audio.play('tap'); },
   /** Gira l'anteprima (prima di posare) di un passo. */
   placeRotate() { const pl = ui.place, st = pl && rotStep(pl.type); if (!st) return; pl.rot = ((pl.rot || 0) + st) % 8; audio.play('tap'); },
   /** Gira un oggetto già posato. */
@@ -368,7 +371,7 @@ function worldTap(clientX, clientY, kind) {
     return;
   }
   if (ui.aiming) { if (world.castSpell(g.x, g.y)) ui.aiming = false; else audio.play('no'); return; }
-  if (ui.rallyPick) { if (world.setRally(g.x, g.y) === 'ok') { ui.rallyPick = false; save(); audio.play('build'); } else toast(t('rallyBad')); return; }
+  if (ui.rallyPick) { ui.rallyPick = false; if (world.setRally(g.x, g.y) === 'ok') { save(); audio.play('build'); } else toast(t('rallyBad')); return; }
   // le nuvole e le rovine: si apre la mappa su quel punto, e da lì parte l'esploratore
   if (!world.seen(Math.floor(g.x / G), Math.floor(g.y / G))) { A.mapOpen(); ui.map.sel = mapPick(world, g.x, g.y); return; }
   { const R = RUINS.find(o => !world.d.ruins[o.id] && Math.hypot((o.c + 0.5) * G - g.x, (o.r + 0.5) * G - g.y) < 70); if (R) { A.mapOpen(); ui.map.sel = mapPick(world, (R.c + 0.5) * G, (R.r + 0.5) * G); return; } }

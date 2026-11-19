@@ -567,6 +567,11 @@ function hud(S) {
     if (tall) { flushIcons(c); c.restore(); }
     ui.buttons.push({ x: px, y: tall ? 122 : 64, w: pw, h: 36, tag: 'moraleInfo', fn: A.moraleInfo });
   }
+  if (!raid && !isNight && !ui.place && !ui.build && world.fleetSlots() > 0) {
+    const fx = vw - 14 - 54, fy = tall ? 166 : 108, out = world.d.fleet.filter(q => q.job).length;
+    button(c, ui, fx, fy, 54, 48, '', { color: '#2f5d7a', tag: 'fleetHud' }, A.fleetOpen); V.anchorIcon(c, fx + 27, fy + 24, 13);
+    if (out) { c.beginPath(); c.arc(fx + 50, fy + 4, 11, 0, TAU); c.fillStyle = '#2f7d5a'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, String(out), fx + 50, fy + 5, 14, '#fff', 'center', 800); }
+  }
   if (raid) {
     const s = `${t('army')}: ${world.armyStrength().n}`, w2 = width(c, s, 20) + 60;
     panel(c, vw - 14 - w2, vh - 14 - 46, w2, 46);
@@ -587,7 +592,7 @@ function hud(S) {
   const hideL = ui.box && ui.box[0] < 14 + 208 + 6, hideR = ui.box && ui.box[1] > vw - 14 - 230 - 6;
   if (!hideL) { button(c, ui, 14, vh - 14 - 66, 208, 66, t('buildBtn'), { color: '#8a5a1c', fs: 24, dx: 16, tag: 'build' }, A.buildOpen); hammer(c, 44, vh - 14 - 31, 17); if (Object.keys(BUILD).some(ty => world.isNewBuild(ty))) { c.beginPath(); c.arc(14 + 208 - 6, vh - 14 - 66 + 6, 9, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, '!', 14 + 208 - 6, vh - 14 - 66 + 7, 13, '#fff', 'center', 800); } }
   if (!isNight) {
-    if (!ui.sel && ui.vsel == null) { X.incoming(S, K); X.rebuildPill(S, K); }
+    if (!ui.sel && ui.vsel == null) { X.incoming(S, K); X.rebuildPill(S, K); X.harvestPill(S, K); }
     const pulse = world.towers() ? 0.5 + Math.sin(ui.time * 4) * 0.5 : 0;
     if (!hideR) button(c, ui, vw - 14 - 230, vh - 14 - 66, 230, 66, t('startNight'), { color: '#2f7d3a', fs: 25, stroke: `rgba(255,236,170,${0.7 + pulse * 0.3})`, tag: 'night' }, A.start);
   } else {
@@ -945,7 +950,8 @@ function hints(S) {
   const { c, ui, vw } = S;
   if (!ui.aiming) return;            // il resto dei consigli ora lo dà il Tuzu guida
   const hint = t('spellAim'), hw = width(c, hint, 20) + 44, hy = S.tall ? 228 : 108;
-  panel(c, vw / 2 - hw / 2, hy, hw, 42, 21, 0.8); txt(c, hint, vw / 2, hy + 22, 20, '#ffe9a8', 'center');
+  panel(c, vw / 2 - hw / 2 - 26, hy, hw + 52, 52, 26, 0.9); txt(c, hint, vw / 2 - 22, hy + 27, 20, '#ffe9a8', 'center');
+  button(c, ui, vw / 2 + hw / 2 - 22, hy + 4, 44, 44, '', { color: '#7a3a2c', r: 22, tag: 'aimCancel' }, S.A.aimCancel); cross(c, vw / 2 + hw / 2, hy + 26, 9);
 }
 
 /** Che cosa c'è di nuovo, e dove si trova: compare una volta dopo un aggiornamento (e si riapre dalle impostazioni). */

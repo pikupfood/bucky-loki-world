@@ -426,6 +426,20 @@ export function extend(World) {
       return true;
     },
 
+    // ---------- campi: raccogli e risemina tutti ----------
+    ripeFields(now = this.now) { return this.d.buildings.filter(b => b.type === 'campo' && !(b.build > 0) && b.crop && this.crop(b, now).ripe); },
+    /** Raccoglie tutti i campi maturi e li risemina con la stessa coltura (finché bastano le monete). Rende { n, gain, sown, at: [{ x, y, g }] }. */
+    harvestAll(now = this.now) {
+      const out = { n: 0, gain: 0, sown: 0, at: [] };
+      for (const b of this.ripeFields(now)) {
+        const crop = b.crop.crop, g = this.harvest(b, now);
+        if (!g) continue;
+        out.n++; out.gain += g; out.at.push({ x: b.x, y: b.y, g });
+        if (this.plant(b, crop, now)) out.sown++;
+      }
+      return out;
+    },
+
     // ---------- ruotare ----------
     canRotate(b) { return !!b && rotStep(b.type) > 0 && !(b.build > 0); },
     /** Gira un oggetto già posato di un passo (45° aiuole e statue, 90° gli edifici). */

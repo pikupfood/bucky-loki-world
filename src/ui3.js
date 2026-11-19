@@ -296,6 +296,7 @@ export function finger(S, K) {
     if (!b) return;
     up = b.y + b.h / 2 < vh * 0.5; x = b.x + b.w / 2; y = up ? b.y + b.h + 4 : b.y - 4;
     c.beginPath(); c.roundRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8, 14); c.strokeStyle = 'rgba(255,246,200,' + (0.5 + Math.sin(ui.time * 6) * 0.4) + ')'; c.lineWidth = 3.5; c.stroke();
+    if (S.tall && !up && b.y > vh - 120) { const left = b.x + b.w / 2 < vw / 2; hand(c, left ? b.x + b.w + 26 + bob : b.x - 26 - bob, b.y + b.h / 2, left ? -Math.PI / 2 : Math.PI / 2, 0.95); return; }
   } else {
     const p = P.pt(hint.x, hint.y, hint.h || 0);
     if (p.x < 30 || p.x > vw - 30 || p.y < 110 || p.y > vh - 110) return;

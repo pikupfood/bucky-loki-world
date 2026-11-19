@@ -27,7 +27,7 @@ export function guide(S, K) {
   if (ui.screen !== 'play') return;
   const g = world.goal(), open = ui.guideOpen == null ? !!g && g.i < 12 : ui.guideOpen, tip = !!g && !g.done && open && has('gt_' + g.kind);
   const x = 14, y = S.tall ? 120 : 66, w = 366, h = tip ? 98 : 68, fx = x + 36, fy = y + 36;
-  K.scroll(c, x, y, w, h, 14); K.block(ui, x, y, w, h);
+  K.scroll(c, x, y, w, h, 14); K.block(ui, x, y, w, h); ui.guideH = h;
   guideFace(S, K, fx, fy + 2, 26);
   ui.buttons.push({ x, y, w: 72, h, tag: 'guideToggle', fn: A.guideToggle });
   if (!g) { K.head(c, t('goalsDone'), x + 76, y + 26, 16.5, K.PEN, 'left', false); K.txt(c, t('goalsDone2'), x + 76, y + 48, 12.5, K.PEN2, 'left', 700); return; }
@@ -251,7 +251,7 @@ export function marks(S, K) {
     if (on(p, 40)) { c.strokeStyle = '#4a3020'; c.lineWidth = 3; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); c.stroke(); c.beginPath(); c.moveTo(q.x, q.y); c.lineTo(q.x + 20, q.y + 7); c.lineTo(q.x, q.y + 14); c.closePath(); c.fillStyle = MY_COLOR; c.fill(); c.strokeStyle = 'rgba(20,14,30,0.6)'; c.lineWidth = 1.5; c.stroke(); }
   }
   if (ui.fogSel) { const f = ui.fogSel, k = 0.5 + Math.sin(ui.time * 5) * 0.5; K.tracePoly(c, P.circle(f.x, f.y, 60 + k * 14, 26)); c.strokeStyle = 'rgba(255,255,255,0.9)'; c.lineWidth = 3; c.setLineDash([8, 7]); c.stroke(); c.setLineDash([]); }
-  if (ui.rallyPick) { const s = t('rallyPick'), w = K.width(c, s, 19) + 44, hy = S.tall ? 228 : 108; K.panel(c, vw / 2 - w / 2, hy, w, 42, 21, 0.85); K.txt(c, s, vw / 2, hy + 22, 19, '#ffe9a8', 'center'); }
+  if (ui.rallyPick) { const s = t('rallyPick'), w = K.width(c, s, 19) + 96, hy = S.tall ? 228 : 108, x0 = vw / 2 - w / 2; K.panel(c, x0, hy, w, 52, 26, 0.9); K.txt(c, s, x0 + 22, hy + 27, 19, '#ffe9a8', 'left'); K.button(c, ui, x0 + w - 52, hy + 4, 44, 44, '', { color: '#7a3a2c', r: 22, tag: 'rallyCancel' }, S.A.rallyCancel); K.cross(c, x0 + w - 30, hy + 26, 9); }
   // pioggia e neve
   const wt = world.d.weather;
   if (wt === 'pioggia' || wt === 'neve') {
@@ -263,12 +263,22 @@ export function marks(S, K) {
 }
 
 /** Al mattino, se la notte ha distrutto qualcosa: un bottone per rifarlo tutto, col costo. */
+/** Due o più campi maturi: un tocco li raccoglie tutti e li risemina uguali. */
+export function harvestPill(S, K) {
+  const { c, world, ui, vw, A, now } = S;
+  if (world.status !== 'day') return;
+  const n = world.ripeFields(now).length;
+  if (n < 2) return;
+  const label = t('harvestAll', n), w = K.width(c, label, 16, 800) + 70, busy = world.d.rebuild && world.d.rebuild.length && world.rebuildPlan().n, x = S.tall ? 14 : vw / 2 - w / 2, y = S.tall ? (ui.guideH || 68) + 130 : busy ? 114 : 64;
+  K.button(c, ui, x, y, w, 44, label, { color: '#8a5a1c', fs: 16, r: 22, dx: 14, tag: 'harvestAll' }, A.harvestAll);
+  K.coin(c, x + 26, y + 22, 10);
+}
 export function rebuildPill(S, K) {
   const { c, world, ui, vw, A } = S;
   if (!world.d.rebuild || !world.d.rebuild.length || world.status !== 'day') return;
   const P = world.rebuildPlan();
   if (!P.n) return;
-  const label = t('rebuildN', P.n), lw = K.width(c, label, 16, 800), keys = Object.keys(P.cost).length, w = lw + 60 + keys * 70 + 46, x = S.tall ? vw - 14 - w : vw / 2 - w / 2, y = S.tall ? 166 : 64, ok = world.afford(P.cost);
+  const label = t('rebuildN', P.n), lw = K.width(c, label, 16, 800), keys = Object.keys(P.cost).length, w = lw + 60 + keys * 70 + 46, x = S.tall ? vw - 14 - w - (world.fleetSlots() ? 62 : 0) : vw / 2 - w / 2, y = S.tall ? 166 : 64, ok = world.afford(P.cost);
   K.panel(c, x, y, w, 44, 22, 0.93);
   K.button(c, ui, x + 5, y + 5, lw + 34, 34, label, { color: '#2f7d3a', disabled: !ok, fs: 16, r: 17, tag: 'rebuild' }, A.rebuild);
   K.costRow(c, world, P.cost, x + lw + 50, y + 23, 15, 1, true);
