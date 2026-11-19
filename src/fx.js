@@ -1,3 +1,4 @@
+import { drawText } from './text.js';
 // Effetti leggeri disegnati in 2D sopra il mondo 3D: anelli a terra, scintille, numeri che salgono.
 // P = proiezione: pt(x,y,h) -> schermo, sc(x,y) -> pixel per unità, circle(x,y,r,n) -> punti a terra.
 export function stepFx(list, dt) {
@@ -49,8 +50,7 @@ export function drawFx(c, list, P) {
       const p = P.pt(f.x, f.y, (f.h || 30) + u * 46);
       c.globalAlpha = u < 0.7 ? 1 : 1 - (u - 0.7) / 0.3;
       c.font = `800 ${f.size || 18}px "Trebuchet MS","Segoe UI",Roboto,sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.lineWidth = 4; c.strokeStyle = 'rgba(20,14,8,0.85)'; c.lineJoin = 'round'; c.strokeText(f.str, p.x, p.y);
-      c.fillStyle = f.color; c.fillText(f.str, p.x, p.y);
+      c.fillStyle = f.color; drawText(c, f.str, p.x, p.y, { stroke: 'rgba(20,14,8,0.85)', lw: 4 });
     }
     c.globalAlpha = 1;
   }

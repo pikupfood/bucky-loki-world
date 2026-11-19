@@ -3,6 +3,7 @@
 // ui.online = { tab: 'map' | 'rank' | 'ally' | 'reports', sel: id del villaggio scelto, cam: { x, y, z }, pick: scelta dei soldati, msg }
 import { MY_COLOR, UNIT_ORDER } from './data.js';
 import { t } from './i18n.js';
+import { drawText } from './text.js';
 import * as O from './online.js';
 import { fmtH, clock, compass, tag } from './ui3.js';
 import * as W from './ui5.js';
@@ -72,7 +73,7 @@ function drawMap(S, K, ax, ay, aw, ah) {
   if (z >= 8.5) W.decor(c, X, Y, z, x0, y0, x1, y1);
   // i nomi delle terre, scritti grandi e leggeri sulla carta (da lontano stanno sopra i segnalini, che sono solo puntini)
   const lands = () => { if (z < 19) { const fs = Math.max(13, Math.min(34, z * 2.3)); c.save(); c.globalAlpha = z < 9 ? 0.92 : z < 12 ? 0.6 : 0.6 * (19 - z) / 7;
-    for (const [id, rx, ry] of REGIONS) { const px = X(rx), py = Y(ry); if (px < ax - 200 || px > ax + aw + 200 || py < ay - 40 || py > ay + ah + 40) continue; const s = t('on_reg_' + id); c.font = 'italic 700 ' + fs + 'px ' + K.SERIF; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineWidth = Math.max(3, fs / 6); c.lineJoin = 'round'; c.strokeStyle = 'rgba(255,248,225,0.75)'; c.strokeText(s, px, py); c.fillStyle = '#4e351d'; c.fillText(s, px, py); }
+    for (const [id, rx, ry] of REGIONS) { const px = X(rx), py = Y(ry); if (px < ax - 200 || px > ax + aw + 200 || py < ay - 40 || py > ay + ah + 40) continue; const s = t('on_reg_' + id); c.font = 'italic 700 ' + fs + 'px ' + K.SERIF; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#4e351d'; drawText(c, s, px, py, { stroke: 'rgba(255,248,225,0.75)', lw: Math.max(3, Math.round(fs / 6)) }); }
     c.restore(); } };
   if (z >= 9) lands();
   // gli eserciti in marcia e i raduni

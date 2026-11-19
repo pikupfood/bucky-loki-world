@@ -1473,8 +1473,8 @@ export class Scene3D {
         continue;
       }
       if (b.type === 'strada') continue;        // le strade sono dipinte sulla mappa (più sotto)
-      if (b.type === 'siepe') { if (nH < DECO_CAP) { this.hedgeIM.setMatrixAt(nH, m4.compose(P3.set(b.x, 8.5, b.y), q, S3.set(1, 1, 1))); this.hedgeIM.setColorAt(nH++, col.set((b.c + b.r) % 2 ? '#3f8f4a' : '#4c9c50')); } continue; }
-      if (b.type === 'piazza') { if (nP < DECO_CAP) { this.paveIM.setMatrixAt(nP, m4.compose(P3.set(b.x, 0.8, b.y), q, S3.set(1, 1, 1))); this.paveIM.setColorAt(nP++, col.set((b.c + b.r) % 2 ? '#d8d0bf' : '#c6bdaa')); } continue; }
+      if (b.type === 'siepe') { if (nH < DECO_CAP) { this.hedgeIM.setMatrixAt(nH, m4.compose(P3.set(b.x, 8.5, b.y), ROT_Q[0], S3.set(1, 1, 1))); this.hedgeIM.setColorAt(nH++, col.set((b.c + b.r) % 2 ? '#3f8f4a' : '#4c9c50')); } continue; }
+      if (b.type === 'piazza') { if (nP < DECO_CAP) { this.paveIM.setMatrixAt(nP, m4.compose(P3.set(b.x, 0.8, b.y), ROT_Q[0], S3.set(1, 1, 1))); this.paveIM.setColorAt(nP++, col.set((b.c + b.r) % 2 ? '#d8d0bf' : '#c6bdaa')); } continue; }
       if (b.type === 'aiuola' && nB < DECO_CAP) {
         const qb = ROT_Q[(b.rot || 0) % 8];
         this.bedIM.setMatrixAt(nB, m4.compose(P3.set(b.x, 3, b.y), qb, S3.set(1, 1, 1)));

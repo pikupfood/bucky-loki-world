@@ -103,13 +103,13 @@ export function barracks(S, K, b, x, y, w, h) {
   const head = t('soldiers') + ' ' + units.length + '/' + SL + (b.build > 0 ? ' · ' + t('building') : noPop ? ' · ' + t('needHouses') : '');
   K.txt(c, head, x + 82, y + 54, 16, noPop ? K.BAD : K.DIM);
   units.forEach((u, k) => K.tuzuIcon(c, u, x + 104 + K.width(c, head, 16) + k * 30, y + 50, 11, MY_COLOR));
-  { const lc = world.levelCheck(b), ix = tall ? x + w - 262 : x + w - 330; if (lc !== 'none' && lc !== 'max') { K.button(c, ui, ix, y + 47, 104, 26, t('improve'), { color: '#2f7d3a', disabled: lc !== 'ok', fs: 13, r: 8, tag: 'levelUp' }, () => A.levelUp(b)); K.costRow(c, world, world.levelCost(b), ix + 112, y + 60, 13, 1, true); } }
+  { const lc = world.levelCheck(b), ix = x + w - 262; if (lc !== 'none' && lc !== 'max') { K.button(c, ui, ix, y + 47, 104, 26, t('improve'), { color: '#2f7d3a', disabled: lc !== 'ok', fs: 13, r: 8, tag: 'levelUp' }, () => A.levelUp(b)); K.costRow(c, world, world.levelCost(b), ix + 112, y + 60, 13, 1, true); } }
   // demolire, guardia e raccolta: in alto a destra, oppure (in verticale) su una riga loro accanto a «Sposta»
-  const by = tall ? y + 80 : y + 9, bx0 = tall ? x + 128 : x + w - 482;
+  const by = y + 80, bx0 = x + 128;
   K.button(c, ui, bx0, by, 92, 36, t(ui.demoAsk === b.id ? 'sure' : 'demolish'), { color: ui.demoAsk === b.id ? '#a8322a' : '#7a3a2c', fs: 13.5, r: 10, tag: 'demolish' }, () => A.demolish(b));
   K.button(c, ui, bx0 + 100, by, 150, 36, t('stay') + ': ' + (b.stay ? t('on') : t('off')), { color: b.stay ? '#8a5a1c' : '#5c4330', fs: 14.5, r: 10, tag: 'stay' }, () => A.stay(b));
   K.button(c, ui, bx0 + 256, by, 166, 36, world.d.rally ? t('rallyOff') : t('rally'), { color: '#5c4330', fs: 14.5, r: 10, tag: 'rally' }, world.d.rally ? A.rallyClear : A.rallyPick);
-  const cols = tall ? 3 : UNIT_ORDER.length, gap = 6, ch = 106, cw = tall ? (w - 32 - gap * (cols - 1)) / cols : 134, y0 = tall ? y + 126 : y + 76;
+  const cols = tall ? 3 : UNIT_ORDER.length, gap = 6, ch = 106, cw = tall ? (w - 32 - gap * (cols - 1)) / cols : 134, y0 = y + 126;
   UNIT_ORDER.forEach((u, k) => {
     const U = UNITS[u], bx = x + 16 + (k % cols) * (cw + gap), cy = y0 + Math.floor(k / cols) * (ch + gap), chk = world.trainCheck(b, u), ok = chk === 'ok', shut = chk === 'castle' || chk === 'tech';
     K.card(c, bx, cy, cw, ch, ok);

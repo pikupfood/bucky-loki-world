@@ -5,6 +5,7 @@ import { VEIL } from './ground.js';
 import { drawTower } from './icons.js';
 import { drawFx, tracePoly } from './fx.js';
 import { t, has, LANGS, LANG_NAMES, getLang } from './i18n.js';
+import { drawText } from './text.js';
 import * as X from './ui2.js';
 import * as Y from './ui3.js';
 import * as Z from './ui4.js';
@@ -17,8 +18,9 @@ const GOLD = '#e9c46a', CREAM = '#f5ecd7', DIM = '#cbbf9f', BAD = '#e8897e', TAU
 const PEN = '#3a2614', PEN2 = '#7a5f3e', PENBAD = '#a3321f', PENOK = '#2f6b2a', PENRED = '#7a2c1e';
 
 function txt(c, s, x, y, size, color = CREAM, align = 'left', weight = 700) {
+  size = Math.round(size * 2) / 2;      // mezze misure: poche varianti da tenere da parte
   c.font = `${weight} ${size}px ${F}`; c.textAlign = align; c.textBaseline = 'middle';
-  c.fillStyle = color; c.fillText(s, x, y);
+  c.fillStyle = color; drawText(c, s, x, y);
 }
 function width(c, s, size, weight = 700, serif = false) { c.font = `${weight} ${size}px ${serif ? SERIF : F}`; return c.measureText(s).width; }
 
@@ -82,9 +84,10 @@ function ribbon(c, cx, y, w, h, label, col = '#8a2f24', fs = 20) {
 }
 /** Un titolo (carattere coi piedini). Su fondo scuro ha un'ombra; sulla pergamena no (shadow = false). */
 function head(c, s, x, y, size, color = '#f2cf73', align = 'left', shadow = true) {
+  size = Math.round(size * 2) / 2;
   c.font = `700 ${size}px ${SERIF}`; c.textAlign = align; c.textBaseline = 'middle';
-  if (shadow) { c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillText(s, x, y + 1.6); }
-  c.fillStyle = color; c.fillText(s, x, y);
+  if (shadow) { c.fillStyle = 'rgba(0,0,0,0.5)'; drawText(c, s, x, y + 1.6); }
+  c.fillStyle = color; drawText(c, s, x, y);
 }
 /** La misura giusta perché una scritta stia in maxW. */
 function fit(c, s, maxW, size, weight = 700, serif = false) { const w = width(c, s, size, weight, serif); return w > maxW ? Math.max(9, size * maxW / w) : size; }
@@ -95,10 +98,9 @@ function rule(c, x, y, w, col = '233,196,106') {
   c.beginPath(); c.moveTo(x + w / 2, y - 4); c.lineTo(x + w / 2 + 4, y); c.lineTo(x + w / 2, y + 4); c.lineTo(x + w / 2 - 4, y); c.closePath(); c.fillStyle = 'rgba(' + col + ',0.95)'; c.fill();
 }
 function title2(c, s, x, y, size, color) {
+  size = Math.round(size);
   c.font = `700 ${size}px ${SERIF}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.lineWidth = Math.max(4, size / 7); c.strokeStyle = 'rgba(24,13,5,0.92)'; c.lineJoin = 'round'; c.strokeText(s, x, y);
-  const g = c.createLinearGradient(0, y - size * 0.5, 0, y + size * 0.5); g.addColorStop(0, shade(color, 0.5)); g.addColorStop(0.55, color); g.addColorStop(1, shade(color, -0.28));
-  c.fillStyle = g; c.fillText(s, x, y);
+  drawText(c, s, x, y, { stroke: 'rgba(24,13,5,0.92)', lw: Math.max(4, Math.round(size / 7)), grad: [shade(color, 0.5), color, shade(color, -0.28)] });
 }
 const CJK = /[\u2e80-\u9fff\uff00-\uffef]/, NO_START = '，。！？、：；）」』》…,.!?:;)';
 function wrap(c, s, x, y, maxW, size, color, lh, align = 'center') {
@@ -516,6 +518,7 @@ function villageArrows(S) {
 function hud(S) {
   const { c, world, ui, vw, vh, A } = S, res = world.d.res, isNight = world.status === 'night', raid = world.status === 'raid' ? world.raid : null;
   const tall = S.tall, ry = tall ? 64 : 10;      // in verticale le risorse scendono alla seconda riga
+  const topBtns = 14 + 54 + 4 * 64 + (isNight || raid ? 76 : 0) + 10;      // quanto prendono i bottoni in alto a destra
   // risorse (ferro e cristallo compaiono quando li scopri)
   const keys = ['monete', 'legna', 'pietra'];
   if (world.d.tech.ferro || res.ferro >= 1) keys.push('ferro');
@@ -529,7 +532,7 @@ function hud(S) {
   for (const [f, g, r] of many ? [[19, 13, 9], [17, 8, 8], [15, 6, 7]] : [[22, 20, 10.5], [19, 13, 9], [17, 8, 8]]) {
     fs = f; gap = g; ir = r;
     w = 18; for (const it of items) w += ir * 2 + 7 + width(c, it[1], fs) + gap; w += 26 + width(c, pop, fs) + 12;
-    if (!tall || w <= vw - 28) break;      // in verticale la riga è stretta: si passa alla misura più piccola
+    if (tall ? w <= vw - 28 : 14 + w + 10 + 190 + 8 + topBtns <= vw) break;      // la riga è stretta (in verticale, o su uno schermo quadrato con tutte le risorse): si passa alla misura più piccola
   }
   panel(c, 14, ry, w, 48);
   ui.buttons.push({ x: 14, y: ry, w, h: 48, tag: 'resInfo', fn: A.resInfo });
@@ -549,10 +552,14 @@ function hud(S) {
     panel(c, barX - bw / 2 - 12, 64 + barY, bw + 24, 30, 10);
     bar(c, barX - bw / 2, 73 + barY, bw, 12, raid.hp / raid.maxHp, '#e0452f');
   } else {            // giorno / notte
-    const label = `${isNight ? t('night') : t('day')} ${world.nextNight}${world.endless() ? ' ∞' : ''} · ${t('s_' + world.season)}`, lw = width(c, label, 21, 800) + 64, lx = tall ? 14 : Math.max(vw / 2 - lw / 2, 14 + w + 10);      // mai sopra le risorse
+    // mai sopra le risorse, mai sotto i bottoni: se non c'è posto la stagione si toglie e la scritta si stringe
+    const base = `${isNight ? t('night') : t('day')} ${world.nextNight}${world.endless() ? ' ∞' : ''}`, room = tall ? 1e9 : vw - topBtns - (14 + w + 10);
+    let label = base + ' · ' + t('s_' + world.season), lw = width(c, label, 21, 800) + 64;
+    if (lw > room) { label = base; lw = Math.max(110, Math.min(room, width(c, label, 21, 800) + 64)); }
+    const lx = tall ? 14 : Math.max(14 + w + 10, Math.min(vw / 2 - lw / 2, vw - topBtns - lw));
     panel(c, lx, 10, lw, 48);
     if (isNight) moon(c, lx + 28, 34, 12); else sun(c, lx + 28, 34, 8);
-    txt(c, label, lx + 50, 35, 21, isNight ? '#cfd8ff' : '#ffe9a8', 'left', 800);
+    txt(c, label, lx + 50, 35, fit(c, label, lw - 60, 21, 800), isNight ? '#cfd8ff' : '#ffe9a8', 'left', 800);
     if (isNight) {      // la vita del castello, sempre in vista durante l'attacco
       const f = world.castle.hp / world.maxHp(world.castle), bw = 250;
       panel(c, barX - bw / 2 - 12, 64 + barY, bw + 24, 30, 10);
@@ -751,7 +758,7 @@ function selPanel(S) {
   const { c, world, ui, vw, vh, A, now } = S, b = ui.sel.b, D = BUILD[b.type], L = world.d.castle;
   const crops = b.type === 'campo' && !b.crop, cards = crops || b.type === 'caserma' || b.type === 'mercato', lc = world.levelCheck(b), hasLv = lc !== 'none', lv = b.lvl || 0;
   const tallB = S.tall && b.type === 'caserma';
-  const w = Math.min(vw - 16, b.type === 'caserma' ? 880 : cards ? 680 : 640), h = tallB ? 366 : b.type === 'castello' ? 214 : cards ? 196 : hasLv ? 192 : 138, x = vw / 2 - w / 2, y = vh - h - 12;
+  const w = Math.min(vw - 16, b.type === 'caserma' ? 880 : cards ? 680 : 640), h = tallB ? 366 : b.type === 'caserma' ? 246 : b.type === 'castello' ? 214 : cards ? 196 : hasLv ? 192 : 138, x = vw / 2 - w / 2, y = vh - h - 12;
   ui.box = [x, x + w];
   panel(c, x, y, w, h, 14, 0.95); block(ui, x, y, w, h);
   buildIcon(c, b.type, x + 42, y + 36, 22, ui.time);
@@ -759,8 +766,8 @@ function selPanel(S) {
   head(c, t('b_' + b.type) + lvl, x + 82, y + 26, 22, '#ffe9a8');
   button(c, ui, x + w - 52, y + 8, 42, 42, '', { color: '#5c4330', r: 21, tag: 'selClose' }, A.selClose);
   cross(c, x + w - 31, y + 29, 9);
-  if (world.moveCheck(b) === 'ok') button(c, ui, tallB ? x + 16 : b.type === 'caserma' ? x + w - 596 : x + w - 172, tallB ? y + 80 : y + 9, 104, 36, t('move'), { color: '#5c4330', fs: 15, r: 10, tag: 'move' }, () => A.move(b));
-  if (world.canRotate(b)) { const wideB = b.type === 'caserma' && !tallB, rx = tallB ? x + w - 176 : wideB ? x + 300 : x + w - 284, ry = wideB ? y + 44 : y + 9; button(c, ui, rx, ry, 104, wideB ? 32 : 36, t('rotate'), { color: '#2f5d7a', fs: 15, r: 10, dx: 10, tag: 'rotate' }, () => A.rotate(b)); rotIcon(c, rx + 17, ry + (wideB ? 16 : 18), 8); }
+  if (world.moveCheck(b) === 'ok') button(c, ui, b.type === 'caserma' ? x + 16 : x + w - 172, b.type === 'caserma' ? y + 80 : y + 9, 104, 36, t('move'), { color: '#5c4330', fs: 15, r: 10, tag: 'move' }, () => A.move(b));
+  if (world.canRotate(b)) { const rx = b.type === 'caserma' ? x + w - 176 : x + w - 284, ry = y + 9; button(c, ui, rx, ry, 104, 36, t('rotate'), { color: '#2f5d7a', fs: 15, r: 10, dx: 10, tag: 'rotate' }, () => A.rotate(b)); rotIcon(c, rx + 17, ry + 18, 8); }
   const demol = (bx, by, bw = 150) => { const back = world.refund(b); button(c, ui, bx, by, bw, 50, t(ui.demoAsk === b.id ? 'sure' : 'demolish'), { color: ui.demoAsk === b.id ? '#a8322a' : '#7a3a2c', fs: 17, tag: 'demolish' }, () => A.demolish(b)); return back; };
   const by = y + h - 62;
 
@@ -1055,7 +1062,7 @@ function questsPanel(S) {
       txt(c, have + '/' + goal, x + 370, ry + 54, 16, DIM);
       const bx = x + w - 196, bw = 160;
       if (ready) button(c, ui, bx, ry + 10, bw, 56, t('claim') + ' +' + reward, { color: '#2f7d3a', fs: 19, tag }, fn);
-      else if (reward) { coin(c, bx + bw / 2 - 26, ry + 38, 11); txt(c, '+' + reward, bx + bw / 2 + 10, ry + 39, 22, GOLD, 'center', 800); }
+      else if (reward) { const rs = '+' + reward, rw = width(c, rs, 22, 800); txt(c, rs, bx + bw / 2 + 14, ry + 39, 22, GOLD, 'center', 800); coin(c, bx + bw / 2 + 14 - rw / 2 - 17, ry + 38, 11); }      // prima la scritta, poi la moneta, e mai una sopra l'altra
       else { check(c, bx + bw / 2, ry + 38, 12, '#9ff0b4'); }
     };
     for (let i = 0; i < 3; i++) { const q = world.quest(i); row(y + 72 + i * 84, t('q_' + q.type, q.goal), q.progress, q.goal, q.ready, q.reward, 'claim' + i, () => A.claimQuest(i)); }
