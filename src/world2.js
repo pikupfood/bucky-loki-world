@@ -131,7 +131,7 @@ export function extend(World) {
     /** I mulini macinano: un grano diventa due di cibo. */
     millStep(dt) {
       if (!RULES().food || !(this.d.res.grano > 0)) return;
-      let rate = 0; for (const b of this.d.buildings) if (b.type === 'mulino' && !(b.build > 0)) rate += FOOD.mill * levelK(b.lvl);
+      let rate = 0; for (const b of this.d.buildings) if (!(b.build > 0)) { if (b.type === 'mulino') rate += FOOD.mill * levelK(b.lvl); else if (b.type === 'mulinoacqua') rate += FOOD.mill * FOOD.water; }
       if (!rate) return;
       const g = Math.min(this.d.res.grano, rate * dt / 60);
       this.d.res.grano -= g; this.d.res.cibo = (this.d.res.cibo || 0) + g * 2;
@@ -498,6 +498,8 @@ export function extend(World) {
       return true;
     },
     nightReset(now) { this.d.nightAt = now + NIGHT.everyMs; },
+    /** Il pesce dei pescherecci fermi in porto, al minuto. */
+    fishRate() { let n = 0; if (RULES().sea) for (const s of this.d.fleet) if (s.type === 'pesca' && !s.job && this.shipFit(s)) n += SHIPS.pesca.fish[s.lvl] || 0; return n; },
     harbours() { return this.d.buildings.filter(b => (b.type === 'porto' || b.type === 'scalo') && !(b.build > 0)); },
     /** Quante navi puoi tenere: un Porticciolo 1 (2 al livello 3), un Porto 2 + il suo livello. */
     fleetSlots() { if (!RULES().sea) return 0; let n = 0; for (const b of this.harbours()) n += b.type === 'scalo' ? 2 + (b.lvl || 0) : (b.lvl || 0) >= 2 ? 2 : 1; return n; },

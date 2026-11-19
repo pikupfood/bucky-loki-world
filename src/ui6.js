@@ -6,7 +6,7 @@ import { t } from './i18n.js';
 import { fmtH, clock, itemIcon } from './ui3.js';
 
 const TAU = Math.PI * 2, TABS = ['ships', 'trade', 'explore', 'war'];
-const HULL = { mercantile: ['#9b6b3d', '#f4ecd6', '#e2b866'], veliero: ['#2f6fa8', '#ffffff', '#cfe6f5'], guerra: ['#4a3a34', '#c0392b', '#f2c230'] };      // scafo, vele, fregi
+const HULL = { pesca: ['#b8532f', '#f4f1ea', '#2f7fb8'], mercantile: ['#9b6b3d', '#f4ecd6', '#e2b866'], veliero: ['#2f6fa8', '#ffffff', '#cfe6f5'], guerra: ['#4a3a34', '#c0392b', '#f2c230'] };      // scafo, vele, fregi
 
 /** Un'ancora (l'icona della flotta). */
 export function anchorIcon(c, x, y, s, col = '#fff3d6') {
@@ -48,13 +48,13 @@ export function shipIcon(c, type, x, y, s, lvl = 0) {
   if (type === 'veliero') { c.fillStyle = 'rgba(255,255,255,0.75)'; for (let i = -1; i <= 1; i++) { c.beginPath(); c.arc(i * s * 0.4, s * 0.43, s * 0.055, 0, TAU); c.fill(); } }
   c.restore();
 }
-const shipName = (s) => t('sn_' + s.type + '_' + s.lvl);
+const shipName = (s) => (SHIPS[s.type].plain ? t('ship_' + s.type) : t('sn_' + s.type + '_' + s.lvl));
 const left = (s, now) => Math.max(0, s.job.at + s.job.ms - now);
 
 function shipsTab(S, K, x, y, w, h) {
   const { c, world, ui, A, now } = S, F = world.d.fleet, U = ui.fleet, tall = S.tall;
   const fixAll = world.repairAllCost(), fixRow = fixAll && fixAll.n >= 2 ? 20 : 0;      // due o più navi da riparare: un bottone solo le sistema tutte
-  const newH = (tall ? 232 : 118) + fixRow, rowH = 58, listH = h - newH - 12, all = Math.max(1, Math.floor(listH / rowH)), per = F.length > all ? Math.max(1, Math.floor((listH - 36) / rowH)) : all, pages = Math.max(1, Math.ceil(F.length / per));      // con più pagine, l'ultima riga lascia il posto alle frecce
+  const newH = (tall ? 26 + Math.ceil(SHIP_ORDER.length / 2) * 76 : 118) + fixRow, rowH = 58, listH = h - newH - 12, all = Math.max(1, Math.floor(listH / rowH)), per = F.length > all ? Math.max(1, Math.floor((listH - 36) / rowH)) : all, pages = Math.max(1, Math.ceil(F.length / per));      // con più pagine, l'ultima riga lascia il posto alle frecce
   U.page = Math.max(0, Math.min(pages - 1, U.page || 0));
   if (!F.length) K.wrap(c, t(world.harbours().length ? 'sea_empty' : 'sea_noPort'), x + w / 2, y + listH / 2 - 10, Math.min(520, w - 40), 16.5, K.CREAM, 23);
   F.slice(U.page * per, U.page * per + per).forEach((s, i) => {
@@ -65,7 +65,7 @@ function shipsTab(S, K, x, y, w, h) {
     K.txt(c, t('level') + ' ' + (s.lvl + 1) + ' · ' + t('ship_' + s.type), x + 70, ry + 38, 12.5, K.DIM, 'left', 700);
     const sx = x + (tall ? 250 : 300);
     if (s.job) { K.txt(c, t('sea_job_' + s.job.kind), sx, ry + 17, 13.5, '#9fe9ff', 'left', 800); K.txt(c, t('sea_back', fmtH(left(s, now))) + ' · ' + clock(s.job.at + s.job.ms), sx, ry + 37, 12.5, K.CREAM, 'left', 700); return; }
-    K.txt(c, t(world.shipFit(s) ? 'sea_inPort' : 'sea_broken'), sx, ry + 17, 13.5, world.shipFit(s) ? '#9ff0b4' : K.BAD, 'left', 800);
+    K.txt(c, !world.shipFit(s) ? t('sea_broken') : s.type === 'pesca' ? '+' + SHIPS.pesca.fish[s.lvl] + ' ' + t('r_cibo') + ' ' + t('perMin') : t('sea_inPort'), sx, ry + 17, 13.5, world.shipFit(s) ? '#9ff0b4' : K.BAD, 'left', 800);
     K.bar(c, sx, ry + 32, tall ? 90 : 120, 8, s.hp / mx);
     let bx = x + w - 8;
     bx -= 44; K.button(c, ui, bx, ry + 7, 40, 38, ask ? '?' : '', { color: ask ? '#a8322a' : '#6b4a2c', fs: 18, r: 10, tag: 'shScrap' + s.id }, () => A.fleetScrap(s.id)); if (!ask) K.cross(c, bx + 20, ry + 26, 7);
@@ -78,15 +78,14 @@ function shipsTab(S, K, x, y, w, h) {
   });
   if (pages > 1) { K.button(c, ui, x + w - 150, y + listH - 34, 44, 30, '‹', { color: '#5c4330', disabled: U.page <= 0, fs: 20, r: 9, tag: 'shPrev' }, () => A.fleetPage(-1)); K.txt(c, (U.page + 1) + '/' + pages, x + w - 78, y + listH - 18, 13.5, K.CREAM, 'center', 800); K.button(c, ui, x + w - 50, y + listH - 34, 44, 30, '›', { color: '#5c4330', disabled: U.page >= pages - 1, fs: 20, r: 9, tag: 'shNext' }, () => A.fleetPage(1)); }
   // una nave nuova
-  const ny = y + h - newH, cols = tall ? 1 : 3, cw = (w - (cols - 1) * 10) / cols, ch = tall ? 70 : 92;
+  const ny = y + h - newH, cols = tall ? 2 : SHIP_ORDER.length, cw = (w - (cols - 1) * 10) / cols, ch = tall ? 70 : 92;
   K.rule(c, x, ny, w); K.txt(c, t('sea_new') + ' · ' + t('sea_slots', F.length, world.fleetSlots()), x, ny + 15 + fixRow / 2, 13.5, K.DIM, 'left', 800);
   if (fixRow) { const bw = 210, bx = x + w - bw; K.button(c, ui, bx, ny + 6, bw, 34, t('sea_fixAll'), { color: '#2f5d7a', disabled: !world.afford(fixAll.cost), fs: 15, r: 10, tag: 'shFixAll' }, A.fleetRepairAll); K.costRow(c, world, fixAll.cost, bx - 8 - 66, ny + 24, 13.5, 1, true); }
   SHIP_ORDER.forEach((ty, i) => {
     const bx = x + (i % cols) * (cw + 10), by = ny + 26 + fixRow + Math.floor(i / cols) * (ch + 6), chk = world.shipCheck(ty), ok = chk === 'ok';
     K.card(c, bx, by, cw, ch, ok);
     shipIcon(c, ty, bx + 36, by + ch / 2 - 6, 18, 0);
-    K.head(c, t('ship_' + ty), bx + 74, by + 20, 16, ok ? '#ffe9a8' : '#b9b2a4');
-    K.txt(c, t('sk_' + ty), bx + 74, by + 40, 12, K.DIM, 'left', 600);
+    { const nm = t('ship_' + ty), sk = t('sk_' + ty); K.head(c, nm, bx + 74, by + 20, K.fit(c, nm, cw - 82, 16, 700, true), ok ? '#ffe9a8' : '#b9b2a4'); K.txt(c, sk, bx + 74, by + 40, K.fit(c, sk, cw - 82, 12, 600), K.DIM, 'left', 600); }
     if (chk === 'ok' || chk === 'cost') K.costRow(c, world, SHIPS[ty].cost, bx + 74, by + ch - 16, 13.5, 1, true);
     else K.txt(c, t('sea_e_' + chk), bx + 74, by + ch - 16, 12.5, K.BAD, 'left', 700);
     ui.buttons.push({ x: bx, y: by, w: cw, h: ch, tag: 'shNew_' + ty, fn: () => A.fleetBuild(ty) });

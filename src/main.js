@@ -238,7 +238,8 @@ const A = {
   guideToggle() { const g = world.goal(); ui.guideOpen = !(ui.guideOpen == null ? !!g && g.i < 12 : ui.guideOpen); audio.play('tap'); },
   buildOpen() { ui.sel = null; ui.vsel = null; ui.squad = null; ui.aiming = false; ui.rallyPick = false; ui.build = { cat: ui.lastCat || 'dif' }; audio.play('tap'); },
   buildClose() { if (ui.build && world.seeBuilds(BUILD_CATS[ui.build.cat])) save(); ui.build = null; ui.place = null; audio.play('tap'); },
-  cat(cat) { if (world.seeBuilds(BUILD_CATS[ui.build.cat])) save(); ui.build.cat = cat; ui.lastCat = cat; audio.play('tap'); },
+  cat(cat) { if (world.seeBuilds(BUILD_CATS[ui.build.cat])) save(); ui.build.cat = cat; ui.build.page = 0; ui.lastCat = cat; audio.play('tap'); },
+  buildPage() { ui.build.page = ((ui.build.page || 0) + 1) % Math.ceil(BUILD_CATS[ui.build.cat].length / 8); audio.play('tap'); },
   pick(type) {
     const D = BUILD[type];
     if (D.min > world.d.castle) { toast(t('needCastle', D.min)); return; }
@@ -333,7 +334,7 @@ function hitButton(clientX, clientY, pad = 0) {
 }
 const DUMMY = 0; void DUMMY;
 void HERO;
-const TALL = { faro: 104, giardino: 28, pozzo: 40, scalo: 70, fontana: 46, taverna: 66, statua: 50, mulino: 76, fucina: 66, lampione: 40, albero: 40, castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26, bottega: 60, mercato: 50, miniera: 46, cristalliera: 46, porto: 40 };
+const TALL = { panchina: 18, stendardo: 56, mulinoacqua: 56, faro: 104, giardino: 28, pozzo: 40, scalo: 70, fontana: 46, taverna: 66, statua: 50, mulino: 76, fucina: 66, lampione: 40, albero: 40, castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26, bottega: 60, mercato: 50, miniera: 46, cristalliera: 46, porto: 40 };
 /** Il villaggio sotto il dito: la piazza attorno alla casa del capo, oppure la casa stessa (che sullo schermo sta più in su). */
 function villageUnder(clientX, clientY, g) {
   for (let i = 0; i < TRIBES.length; i++) {

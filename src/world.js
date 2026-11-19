@@ -1202,6 +1202,7 @@ export class World {
   production() {
     const out = {}; for (const k in START) out[k] = 0;
     for (const b of this.d.buildings) { const p = BUILD[b.type].prod; if (p && !(b.build > 0)) { const lk = LEVELS[b.type] ? levelK(b.lvl) : 1; for (const k in p) out[k] += p[k] * lk; } }
+    out.cibo += this.fishRate();
     const mk = moraleK(this.morale()); if (mk !== 1) for (const k in out) out[k] *= mk;
     this.d.villages.forEach((v, i) => { if (v.state === 'colony') { const tr = villageTribute(TRIBES[i], v.level); for (const k in tr) out[k] += tr[k]; } });
     return out;

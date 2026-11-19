@@ -278,6 +278,11 @@ function buildIcon(c, type, x, y, s, time) {
   else if (type === 'faro') { Pg([-22, 22, -16, 12, 16, 12, 22, 22], '#8f909c', '#55565e'); for (let k = 0; k < 4; k++) Pg([-9 + k * 1.2, 12 - k * 8, 9 - k * 1.2, 12 - k * 8, 7.8 - k * 1.2, 4 - k * 8, -7.8 + k * 1.2, 4 - k * 8], k % 2 ? '#f4f1ea' : '#c0392b'); c.fillStyle = 'rgba(255,236,150,0.6)'; c.beginPath(); c.moveTo(5, -23.5); c.lineTo(28, -31); c.lineTo(28, -16); c.closePath(); c.fill(); R(-6, -27, 12, 7, '#ffe27a', '#8a6410'); Pg([-8, -27, 0, -34, 8, -27], '#c0392b'); }
   else if (type === 'giardino') { c.beginPath(); c.roundRect(-26, -18, 52, 38, 8); c.fillStyle = '#3f8f4a'; c.fill(); c.strokeStyle = 'rgba(20,50,25,0.75)'; c.stroke(); c.beginPath(); c.roundRect(-20, -12, 40, 26, 5); c.fillStyle = '#7cc05a'; c.fill(); R(-4, -12, 8, 26, '#d9c39a', null); c.beginPath(); c.arc(0, 1, 8.5, 0, TAU); c.fillStyle = '#d9c39a'; c.fill(); c.beginPath(); c.arc(0, 0, 5.5, 0, TAU); c.fillStyle = '#2f7a3b'; c.fill(); for (const [fx, fy, col] of [[-13, -5, '#ff8fb0'], [13, -5, '#fff0a0'], [-13, 8, '#ff6f6f'], [13, 8, '#c9b6ff']]) { c.beginPath(); c.arc(fx, fy, 3.6, 0, TAU); c.fillStyle = col; c.fill(); } }
   else if (type === 'pozzo') { R(-14, 4, 28, 18, '#a3a4b0', '#55565e'); c.strokeStyle = 'rgba(60,60,70,0.55)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-14, 13); c.lineTo(14, 13); c.moveTo(-4, 4); c.lineTo(-4, 13); c.moveTo(6, 13); c.lineTo(6, 22); c.stroke(); c.lineWidth = 2; R(-13, -14, 3.5, 18, '#6f4526', null); R(9.5, -14, 3.5, 18, '#6f4526', null); Pg([-20, -12, 0, -26, 20, -12], '#b5482f'); c.strokeStyle = '#d9c39a'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(0, -12); c.lineTo(0, -3); c.stroke(); c.lineWidth = 2; R(-3.5, -3, 7, 6, '#c08e58', '#5c3a1e'); }
+  else if (type === 'panchina') { R(-20, 2, 40, 5, '#c08e58', '#5c3a1e'); R(-20, -12, 40, 5, '#c08e58', '#5c3a1e'); R(-20, -5, 40, 4, '#c08e58', '#5c3a1e'); R(-17, 7, 4, 13, '#6f4526', null); R(13, 7, 4, 13, '#6f4526', null); }
+  else if (type === 'stendardo') { R(-11, -24, 3.5, 46, '#6f4526', null); R(-13, 20, 8, 4, '#a3a4b0', '#55565e'); Pg([-7, -22, 16, -22, 16, 8, 4.5, 2, -7, 8], '#8a5cf0', 'rgba(40,20,90,0.8)'); R(-7, -22, 23, 4, '#f2c230', null); c.beginPath(); c.arc(4.5, -8, 4.5, 0, TAU); c.fillStyle = '#fff'; c.fill(); c.beginPath(); c.arc(-9.3, -26, 3.2, 0, TAU); c.fillStyle = '#f2c230'; c.fill(); }
+  else if (type === 'siepe') { for (const hx of [-17, 0, 17]) { c.beginPath(); c.roundRect(hx - 8, -6, 16, 24, 6); c.fillStyle = hx ? '#3f8f4a' : '#4c9c50'; c.fill(); c.strokeStyle = 'rgba(20,50,25,0.7)'; c.stroke(); } }
+  else if (type === 'piazza') { for (let i = 0; i < 3; i++) for (let k = 0; k < 3; k++) R(-24 + k * 16, -18 + i * 13, 16, 13, (i + k) % 2 ? '#d8d0bf' : '#c6bdaa', 'rgba(90,84,70,0.7)'); }
+  else if (type === 'mulinoacqua') { R(-22, -6, 30, 28, '#d9cdb4'); Pg([-27, -6, -7, -24, 13, -6], '#a8763c'); R(-12, 8, 9, 14, '#6b4226'); c.beginPath(); c.arc(14, 8, 15, 0, TAU); c.strokeStyle = '#6f4526'; c.lineWidth = 4; c.stroke(); c.lineWidth = 2.4; for (let i = 0; i < 4; i++) { const a = time * 0.9 + i * Math.PI / 4; c.beginPath(); c.moveTo(14 - Math.cos(a) * 15, 8 - Math.sin(a) * 15); c.lineTo(14 + Math.cos(a) * 15, 8 + Math.sin(a) * 15); c.stroke(); } c.lineWidth = 2; c.fillStyle = '#5ec3ea'; c.fillRect(-2, 22, 30, 4); }
   else if (type === 'lampione') { R(-2.5, -14, 5, 36, '#3d3e46', null); c.beginPath(); c.arc(0, -18, 9, 0, TAU); c.fillStyle = '#ffe9a0'; c.fill(); c.strokeStyle = '#8a6410'; c.stroke(); R(-8, 20, 16, 4, '#3d3e46', null); }
   else if (type === 'aiuola') { c.beginPath(); c.roundRect(-22, -2, 44, 20, 6); c.fillStyle = '#7a5634'; c.fill(); c.strokeStyle = 'rgba(30,20,10,0.75)'; c.stroke(); c.beginPath(); c.ellipse(0, 2, 18, 8, 0, 0, TAU); c.fillStyle = '#4f9a4b'; c.fill(); for (const [fx, fy, col] of [[-10, -2, '#ff8fb0'], [0, -6, '#fff0a0'], [10, -1, '#ff6f6f'], [-2, 4, '#c9b6ff']]) { c.beginPath(); c.arc(fx, fy, 4.4, 0, TAU); c.fillStyle = col; c.fill(); } }
   else if (type === 'albero') { R(-3, 4, 6, 18, '#6a4528', null); c.beginPath(); c.arc(0, -6, 15, 0, TAU); c.fillStyle = '#3f8f4a'; c.fill(); c.strokeStyle = 'rgba(20,50,25,0.7)'; c.stroke(); c.beginPath(); c.arc(8, 2, 9, 0, TAU); c.fillStyle = '#57a857'; c.fill(); }
@@ -376,8 +381,8 @@ function langPanel(S) {
 // =====================================================================
 //  SOPRA IL MONDO: evidenziazioni, barre della vita, fumetti, notte
 // =====================================================================
-const B_H = { faro: 108, giardino: 34, pozzo: 44, scalo: 74, fontana: 50, taverna: 70, statua: 54, mulino: 80, fucina: 70, lampione: 44, albero: 46, aiuola: 16, strada: 6, castello: 120, arcieri: 84, mago: 90, catapulta: 60, braciere: 70, radici: 50, casa: 62, caserma: 70, segheria: 54, cava: 54, campo: 26, recinto: 34, mura: 48, cancello: 56, bottega: 66, mercato: 56, miniera: 54, cristalliera: 54, porto: 46, ponte: 10 };
-const LIGHT = { faro: 210, scalo: 130, porto: 100, lampione: 120, taverna: 140, fucina: 120, mulino: 90, fontana: 70, statua: 60, castello: 240, casa: 120, caserma: 120, segheria: 80, cava: 80, cancello: 70, bottega: 120, mercato: 110, miniera: 80, cristalliera: 90 };
+const B_H = { panchina: 22, stendardo: 60, siepe: 20, piazza: 4, mulinoacqua: 60, faro: 108, giardino: 34, pozzo: 44, scalo: 74, fontana: 50, taverna: 70, statua: 54, mulino: 80, fucina: 70, lampione: 44, albero: 46, aiuola: 16, strada: 6, castello: 120, arcieri: 84, mago: 90, catapulta: 60, braciere: 70, radici: 50, casa: 62, caserma: 70, segheria: 54, cava: 54, campo: 26, recinto: 34, mura: 48, cancello: 56, bottega: 66, mercato: 56, miniera: 54, cristalliera: 54, porto: 46, ponte: 10 };
+const LIGHT = { mulinoacqua: 90, faro: 210, scalo: 130, porto: 100, lampione: 120, taverna: 140, fucina: 120, mulino: 90, fontana: 70, statua: 60, castello: 240, casa: 120, caserma: 120, segheria: 80, cava: 80, cancello: 70, bottega: 120, mercato: 110, miniera: 80, cristalliera: 90 };
 const cellPoly = (P, c0, r0, w, h) => [P.pt(c0 * G, r0 * G), P.pt((c0 + w) * G, r0 * G), P.pt((c0 + w) * G, (r0 + h) * G), P.pt(c0 * G, (r0 + h) * G)];
 const onScreen = (S, p, m) => p.x > -m && p.x < S.vw + m && p.y > -m && p.y < S.vh + m;
 
@@ -659,7 +664,9 @@ function incoming(S) {
 }
 
 function buildBar(S) {
-  const { c, world, ui, vw, vh, A } = S, L = world.d.castle, tall = S.tall, list = BUILD_CATS[ui.build.cat], gap = 8, ch = 152;
+  const { c, world, ui, vw, vh, A } = S, L = world.d.castle, tall = S.tall, all = BUILD_CATS[ui.build.cat], gap = 8, ch = 152;
+  // in orizzontale le carte stanno in una riga sola: più di otto si sfogliano a pagine
+  const per = tall ? all.length : 8, pages = Math.ceil(all.length / per), page = Math.min(ui.build.page || 0, pages - 1), list = all.slice(page * per, page * per + per);
   const cols = tall ? 4 : list.length, rows = Math.ceil(list.length / cols);
   const h = tall ? 58 + rows * (ch + gap) + 4 : 176, x = 14, y = vh - h - 12, w = vw - 28;
   panel(c, x, y, w, h, 14, 0.94); block(ui, x, y, w, h);
@@ -702,6 +709,7 @@ function buildBar(S) {
     if (world.isNewBuild(ty)) { const s = t('newTag'), nw = width(c, s, 11, 800) + 14; c.beginPath(); c.roundRect(bx - 3, by - 5, nw, 19, 6); c.fillStyle = '#c0392b'; c.fill(); c.strokeStyle = '#5a1c12'; c.lineWidth = 1.5; c.stroke(); txt(c, s, bx - 3 + nw / 2, by + 5, 11, '#fff3d6', 'center', 800); }
     ui.buttons.push({ x: bx, y: by, w: cw, h: ch, tag: 'card_' + ty, fn: () => A.pick(ty) });
   });
+  if (pages > 1) { button(c, ui, x + w - 54, y + 64, 44, 60, '›', { color: '#5c4330', fs: 30, r: 12, tag: 'buildPage' }, A.buildPage); txt(c, (page + 1) + '/' + pages, x + w - 32, y + 140, 13, CREAM, 'center', 800); }
   button(c, ui, x + w - 54, y + (tall ? 7 : 10), 44, 44, '', { color: '#7a3a2c', r: 22, tag: 'buildClose' }, A.buildClose);
   cross(c, x + w - 32, y + (tall ? 29 : 32), 11);
 }
@@ -841,6 +849,7 @@ function selPanel(S) {
     if (D.beauty) parts.push(`${t('morale')} +${D.beauty}`);
     if (b.type === 'fucina') parts.push(t('k_fucina'));
     if (b.type === 'faro') parts.push(t('k_faro'));
+    if (b.type === 'mulinoacqua') parts.push(t('k_mulinoacqua'));
     if (b.type === 'scalo' || b.type === 'porto') parts.push(t('sea_berths', b.type === 'scalo' ? 2 + lv : lv >= 2 ? 2 : 1));
     txt(c, parts.length ? parts.join(' · ') : t('d_' + b.type), x + 82, y + 54, 17, DIM);
     if (hasLv) {

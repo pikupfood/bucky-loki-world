@@ -188,7 +188,7 @@ export const ROAD_AT = new Uint8Array(COLS * ROWS);
 export const ON_ROAD = { strada: 1, recinto: 1, mura: 1, cancello: 1 };
 /** Di quanto gira un oggetto a ogni tocco di «Ruota», in ottavi di giro (0 = non si gira: i pezzi in fila si orientano da soli, porti e
  *  porticcioli guardano l'acqua, lampioni e alberi sono tondi). Aiuole e statue girano di 45°, gli edifici di 90°. b.rot va da 0 a 7. */
-export const rotStep = (type) => (type === 'aiuola' || type === 'statua' ? 1 : { mura: 1, recinto: 1, strada: 1, ponte: 1, cancello: 1, porto: 1, scalo: 1, lampione: 1, albero: 1 }[type] ? 0 : 2);
+export const rotStep = (type) => (type === 'aiuola' || type === 'statua' ? 1 : { mura: 1, recinto: 1, strada: 1, ponte: 1, cancello: 1, porto: 1, scalo: 1, lampione: 1, albero: 1, siepe: 1, piazza: 1, stendardo: 1 }[type] ? 0 : 2);
 export const HOME_R = 8;               // attorno al castello le strade della mappa non entrano
 const DIR8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 /** Distanze (pesate con STEP) da un gruppo di quadretti, girando attorno al rilievo. */
@@ -307,6 +307,10 @@ export const BUILD = {
   statua:    { w: 1, h: 1, hp: 120, cost: { pietra: 80, monete: 60 }, cat: 'bel', min: 3, cap: (L) => L - 2, beauty: 12 },
   giardino:  { w: 2, h: 2, hp: 60, cost: { monete: 60, legna: 30 }, cat: 'bel', min: 2, cap: (L) => L - 1, beauty: 9 },
   pozzo:     { w: 1, h: 1, hp: 90, cost: { pietra: 40, monete: 20 }, cat: 'bel', min: 1, cap: (L) => L, beauty: 4 },
+  panchina:  { w: 1, h: 1, hp: 40, cost: { legna: 14 }, cat: 'bel', min: 1, cap: (L) => 2 * L, beauty: 2 },
+  stendardo: { w: 1, h: 1, hp: 50, cost: { legna: 16, monete: 16 }, cat: 'bel', min: 2, cap: (L) => L, beauty: 3 },
+  siepe:     { w: 1, h: 1, hp: 30, cost: { legna: 4 }, cat: 'bel', min: 1, beauty: 0.5, line: true, deco: true },                    // si tira in fila, come un recinto verde
+  piazza:    { w: 1, h: 1, hp: 20, cost: { pietra: 2 }, cat: 'bel', min: 2, beauty: 0.4, flat: true, line: true, deco: true },      // lastricato: ci si cammina sopra
   lampione:  { w: 1, h: 1, hp: 40, cost: { legna: 10, monete: 10 }, cat: 'bel', min: 1, beauty: 1.5, deco: true },
   aiuola:    { w: 1, h: 1, hp: 20, cost: { monete: 8 }, cat: 'bel', min: 1, beauty: 2, flat: true, line: true, deco: true },
   albero:    { w: 1, h: 1, hp: 40, cost: { legna: 6 }, cat: 'bel', min: 1, beauty: 1.5, deco: true },
@@ -325,14 +329,16 @@ export const BUILD = {
   porto:     { w: 2, h: 2, hp: 140, cost: { legna: 100, pietra: 40 }, cat: 'acqua', min: 2, prod: { cibo: 8, monete: 3 }, cap: (L) => L - 1, shore: true },
   // il Porto vero (nei testi «Porto»; quello sopra è il «Porticciolo»): la casa della flotta, cinque livelli
   scalo:     { w: 3, h: 2, hp: 260, cost: { legna: 220, pietra: 140 }, cat: 'acqua', min: 3, prod: { monete: 4 }, cap: (L) => L - 2, shore: true },
+  // il Mulino ad acqua: sulla riva (lago, fiume o mare). Niente monete: macina il grano il doppio di un mulino a vento (FOOD.water)
+  mulinoacqua: { w: 2, h: 2, hp: 130, cost: { legna: 110, pietra: 50 }, cat: 'acqua', min: 2, cap: (L) => L - 1, shore: true },
   // il Faro: sulla riva, uno solo. Le navi tornano prima (SEA.faroFast) e i pirati colpiscono meno (SEA.faroRisk)
   faro:      { w: 2, h: 2, hp: 200, cost: { pietra: 160, legna: 80, monete: 100 }, cat: 'acqua', min: 3, cap: () => 1, shore: true, beauty: 5 },
 };
 export const BUILD_CATS = {
   eco: ['casa', 'campo', 'mulino', 'segheria', 'cava', 'mercato'], off: ['bottega', 'miniera', 'cristalliera', 'fucina'],
   dif: ['arcieri', 'radici', 'caserma', 'mago', 'catapulta', 'braciere'], mura: ['recinto', 'mura', 'cancello', 'strada'],
-  acqua: ['porto', 'scalo', 'faro', 'ponte'],          // tutto quello che vuole una riva o l'acqua, in una scheda sola
-  bel: ['fontana', 'taverna', 'statua', 'giardino', 'pozzo', 'lampione', 'aiuola', 'albero'],
+  acqua: ['porto', 'scalo', 'faro', 'mulinoacqua', 'ponte'],          // tutto quello che vuole una riva o l'acqua, in una scheda sola
+  bel: ['fontana', 'taverna', 'statua', 'giardino', 'pozzo', 'lampione', 'aiuola', 'albero', 'panchina', 'stendardo', 'siepe', 'piazza'],
 };
 export const CAT_ORDER = ['eco', 'off', 'dif', 'mura', 'acqua', 'bel'];
 // Morale del villaggio (0-100): parte da 50, sale con la bellezza e con le vittorie, scende con le case affollate e le sconfitte.
@@ -517,7 +523,7 @@ export const NATURE = (function () {
 export const CHOP = { tree: { res: 'legna', gain: 7 }, rock: { res: 'pietra', gain: 6 }, iron: { res: 'ferro', gain: 8, tech: 'ferro' }, crystal: { res: 'cristallo', gain: 6, tech: 'cristallo' } };
 
 // ---------- cantieri: secondi per costruire (i pezzi in fila e la bellezza piccola compaiono subito) ----------
-const TIMES = { casa: 6, campo: 3, segheria: 6, cava: 7, mercato: 7, bottega: 8, miniera: 8, cristalliera: 9, mulino: 8, fucina: 9, arcieri: 6, radici: 6, caserma: 9, mago: 7, catapulta: 8, braciere: 7, fontana: 5, taverna: 8, statua: 6, porto: 8, scalo: 11, faro: 10, giardino: 5, pozzo: 4 };
+const TIMES = { casa: 6, campo: 3, segheria: 6, cava: 7, mercato: 7, bottega: 8, miniera: 8, cristalliera: 9, mulino: 8, fucina: 9, arcieri: 6, radici: 6, caserma: 9, mago: 7, catapulta: 8, braciere: 7, fontana: 5, taverna: 8, statua: 6, porto: 8, scalo: 11, faro: 10, giardino: 5, pozzo: 4, panchina: 3, stendardo: 3, mulinoacqua: 9 };
 for (const k in TIMES) BUILD[k].time = TIMES[k];
 
 // ---------- mestieri: gli abitanti con un mestiere lavorano da soli (gli altri aspettano i tuoi tocchi) ----------
@@ -593,11 +599,12 @@ export const LEVEL_MIN_BY = { scalo: [3, 4, 4, 5] };      // il Porto ha cinque 
 // (col solo Porticciolo: navi di livello 1, e niente navi da guerra). hold = quanta merce porta · luck = quanto trova · power = forza in battaglia.
 export const SHIP_MAX = 5;
 export const SHIPS = {
+  pesca:      { cost: { legna: 70, monete: 30 }, hp: 60, fish: [5, 8, 11, 15, 20], plain: true },      // il Peschereccio: non parte, pesca da solo (cibo al minuto)
   mercantile: { cost: { legna: 120, monete: 60 }, hp: 80, hold: [60, 100, 150, 210, 280] },
   veliero:    { cost: { legna: 100, monete: 80 }, hp: 70, luck: [1, 1.3, 1.6, 2, 2.5] },
   guerra:     { cost: { legna: 160, ferro: 50, monete: 100 }, hp: 120, power: [40, 70, 110, 160, 220], tech: 'ferro' },
 };
-export const SHIP_ORDER = ['mercantile', 'veliero', 'guerra'];
+export const SHIP_ORDER = ['pesca', 'mercantile', 'veliero', 'guerra'];
 /** Quanto costa portare una nave dal livello lvl (0 = il primo) al successivo. */
 export function shipUpCost(type, lvl) { const o = {}, C = SHIPS[type].cost; for (const k in C) o[k] = Math.round(C[k] * 1.1 * (lvl + 1) / 10) * 10; return o; }
 // Le rotte: vicina, media, lontana. sell / buy moltiplicano i prezzi del Mercato (vendere per nave rende di più, comprare costa meno,
@@ -615,7 +622,7 @@ export const NIGHT = { everyMs: 6 * 3600000, early: 2, free: 3, warn: 45 };
 
 // ---------- cibo: i campi danno grano, il mulino lo macina (un grano = due di cibo), il porto pesca ----------
 // All'alba ogni abitante e ogni soldato mangia una porzione: prima il cibo, poi il grano crudo.
-export const FOOD = { mill: 6, from: 3, full: 6, hungry: -12, work: 1.15, slow: 0.8 };
+export const FOOD = { water: 2, mill: 6, from: 3, full: 6, hungry: -12, work: 1.15, slow: 0.8 };
 
 // ---------- popoli con carattere: il capo, il tetto delle case, il soldato speciale (sp_<id> in ENEMIES) ----------
 export const TRAITS = {

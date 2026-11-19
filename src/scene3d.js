@@ -869,6 +869,36 @@ function makeWell() {
   roof(g, 30, 8, 19, '#b5482f', 0, 32.5, 0);
   return g;
 }
+/** La Panchina: due assi e uno schienale. */
+function makeBench() {
+  const g = grp(null);
+  for (const x of [-10, 10]) { box(g, 2.4, 8, 9, WOOD_D, x, 4, 0, { ns: true }); box(g, 2.4, 9, 2, WOOD_D, x, 12, -4.2, { ns: true }); }
+  box(g, 27, 2, 10, WOOD_L, 0, 8.6, 0.6); box(g, 27, 3.4, 1.8, WOOD_L, 0, 12.4, -4.6); box(g, 27, 3.4, 1.8, WOOD_L, 0, 16.6, -4.9);
+  return g;
+}
+/** Lo Stendardo: un palo con la bandiera lunga del tuo popolo, e il fregio d'oro. */
+function makeBanner() {
+  const g = grp(null);
+  cyl(g, 7, 8.4, 4, STONE, 0, 2, 0, { seg: 8 }); cyl(g, 1.5, 1.8, 50, WOOD_D, 0, 28, 0, { seg: 6 }); ball(g, 2.8, GOLDC, 0, 54.6, 0, { ns: true });
+  box(g, 20, 1.6, 1.6, WOOD_D, 3, 49, 0, { ns: true });
+  box(g, 15, 24, 1, MY_COLOR, 4.5, 36.4, 0.2); box(g, 15, 3, 1.2, GOLDC, 4.5, 46.6, 0.2, { ns: true }); box(g, 15, 2, 1.2, GOLDC, 4.5, 25.2, 0.2, { ns: true });
+  ball(g, 3.2, '#ffffff', 4.5, 37, 1, { ns: true });
+  return g;
+}
+/** Il Mulino ad acqua: casa di pietra, tetto di paglia, e la grande ruota che gira. */
+function makeWaterMill() {
+  const g = grp(null), u = {};
+  box(g, 70, 6, 60, STONE_D, -2, 3, 0); box(g, 46, 30, 44, '#d9cdb4', -10, 21, -2); box(g, 46, 8, 44, STONE, -10, 10, -2, { ns: true });
+  roof(g, 54, 20, 52, '#a8763c', -10, 36, -2);
+  box(g, 10, 16, 2, '#6b4226', -10, 15, 20.4, { ns: true }); box(g, 8, 8, 2, '#ffd97a', -24, 24, 20.3, { ns: true, e: 0xffb040, ei: 0.75 });
+  box(g, 20, 3, 6, WOOD_D, 20, 21, 0, { ns: true });                                   // l'asse della ruota
+  const wheel = u.wheel = grp(g, 27, 21, 0);
+  for (let i = 0; i < 8; i++) { const arm = grp(wheel); arm.rotation.x = i * Math.PI / 4; box(arm, 2, 2, 20, WOOD_D, 0, 0, 10, { ns: true }); box(arm, 9, 1.6, 8, WOOD_L, 0, 0, 20, { ns: true }); }
+  for (const sx of [-4, 4]) { const ring = put(wheel, geom('wheelRing', () => new THREE.TorusGeometry(19, 1.3, 5, 16)), M(WOOD_D), sx, 0, 0, false); ring.rotation.y = Math.PI / 2; }
+  for (const [x, z] of [[-30, 26], [-22, 28]]) { const sk = ball(g, 6, '#e3d2a4', x, 9, z); sk.scale.y = 0.85; }
+  g.userData = u;
+  return g;
+}
 function makeMill() {
   const g = grp(null), u = {};
   cyl(g, 30, 32, 5, '#8f8f98', 0, 2.5, 0, { seg: 10 });
@@ -934,6 +964,9 @@ function makeModel(type, o = {}) {
   else if (type === 'faro') g = makeLighthouse();
   else if (type === 'giardino') g = makeGarden();
   else if (type === 'pozzo') g = makeWell();
+  else if (type === 'panchina') g = makeBench();
+  else if (type === 'stendardo') g = makeBanner();
+  else if (type === 'mulinoacqua') g = makeWaterMill();
   else if (type === 'mulino') g = makeMill();
   else if (type === 'fucina') g = makeForge();
   else if (type === 'miniera') g = makeMine('#c0683c', 0);
@@ -1308,6 +1341,8 @@ export class Scene3D {
     this.rev = -1;
     this.roadIM = mk(geom('roadT', () => new THREE.BoxGeometry(G + 0.4, 1.4, G + 0.4)), M('#d2b07c'), DECO_CAP, false); this.roadIM.receiveShadow = true;
     this.bedIM = mk(geom('bedB', () => roundBoxGeo(32, 6, 32, 2.6)), M('#7a5634'), DECO_CAP, false);
+    this.hedgeIM = mk(geom('hedge', () => roundBoxGeo(35, 17, 35, 7)), M('#ffffff'), DECO_CAP, true);              // siepi: un cubo verde tondo per quadretto
+    this.paveIM = mk(geom('pave', () => new THREE.BoxGeometry(39.4, 1.4, 39.4)), M('#ffffff'), DECO_CAP, false); this.paveIM.receiveShadow = true;      // lastricato
     this.bedLeaf = mk(geom('bedL', () => new THREE.SphereGeometry(1, 7, 4)), M('#4f9a4b'), DECO_CAP, false);
     this.bedFlower = mk(geom('bedF', () => new THREE.IcosahedronGeometry(1, 0)), M('#ffffff'), DECO_CAP * 4, false);
     this.lampPole = mk(geom('lampP', () => new THREE.CylinderGeometry(1.5, 2.4, 34, 6)), M('#3d3e46'), 300);
@@ -1425,7 +1460,7 @@ export class Scene3D {
     }
     this.aoIM.count = na; this.aoIM.instanceMatrix.needsUpdate = true;
     // strade, aiuole, lampioni, alberi piantati
-    let nR = 0, nB = 0, nF = 0, nL = 0, nT = 0, nBr = 0, nRail = 0;
+    let nR = 0, nB = 0, nF = 0, nL = 0, nT = 0, nBr = 0, nRail = 0, nH = 0, nP = 0;
     const col = this._col, isBr = (c, r) => { const o = world.buildingAt(c, r); return !!o && o.type === 'ponte'; }, dry = (c, r) => TERRAIN[r * COLS + c] !== 3;
     for (const b of world.d.buildings) {
       if (!BUILD[b.type].deco) continue;
@@ -1438,6 +1473,8 @@ export class Scene3D {
         continue;
       }
       if (b.type === 'strada') continue;        // le strade sono dipinte sulla mappa (più sotto)
+      if (b.type === 'siepe') { if (nH < DECO_CAP) { this.hedgeIM.setMatrixAt(nH, m4.compose(P3.set(b.x, 8.5, b.y), q, S3.set(1, 1, 1))); this.hedgeIM.setColorAt(nH++, col.set((b.c + b.r) % 2 ? '#3f8f4a' : '#4c9c50')); } continue; }
+      if (b.type === 'piazza') { if (nP < DECO_CAP) { this.paveIM.setMatrixAt(nP, m4.compose(P3.set(b.x, 0.8, b.y), q, S3.set(1, 1, 1))); this.paveIM.setColorAt(nP++, col.set((b.c + b.r) % 2 ? '#d8d0bf' : '#c6bdaa')); } continue; }
       if (b.type === 'aiuola' && nB < DECO_CAP) {
         const qb = ROT_Q[(b.rot || 0) % 8];
         this.bedIM.setMatrixAt(nB, m4.compose(P3.set(b.x, 3, b.y), qb, S3.set(1, 1, 1)));
@@ -1459,7 +1496,8 @@ export class Scene3D {
     this.bridgeIM.count = nBr; this.bridgeIM.instanceMatrix.needsUpdate = true;
     this.railIM.count = nRail; this.railIM.instanceMatrix.needsUpdate = true;
     this.roadIM.count = nR; this.bedIM.count = this.bedLeaf.count = nB; this.bedFlower.count = nF; this.lampPole.count = this.lampHead.count = nL;
-    for (const im of [this.roadIM, this.bedIM, this.bedLeaf, this.bedFlower, this.lampPole, this.lampHead]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
+    this.hedgeIM.count = nH; this.paveIM.count = nP;
+    for (const im of [this.roadIM, this.bedIM, this.bedLeaf, this.bedFlower, this.lampPole, this.lampHead, this.hedgeIM, this.paveIM]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
     q.identity(); S3.set(1, 1, 1);
     q.identity(); S3.set(1, 1, 1);
     for (const im of [this.wallBase, this.wallTop, this.post, this.rail]) im.instanceMatrix.needsUpdate = true;
@@ -1632,6 +1670,7 @@ export class Scene3D {
       if (u.boat) { const ph = time * 0.3 + b.id, sw = Math.sin(ph); u.boat.position.z = 100 + sw * 26; u.boat.position.x = -22 + Math.sin(ph * 0.5) * 6; u.boat.rotation.y = Math.cos(ph) > 0 ? 0 : Math.PI; u.boat.position.y = 1 + Math.sin(time * 2.2 + b.id) * 0.7; u.boat.rotation.z = Math.sin(time * 1.7 + b.id) * 0.05; }
       if (u.moored) for (let i = 0; i < u.moored.length; i++) { const m = u.moored[i]; m.position.y = 1 + Math.sin(time * 1.6 + i * 2.1 + b.id) * 0.8; m.rotation.z = Math.sin(time * 1.1 + i * 1.7 + b.id) * 0.035; }
       if (u.beam) u.beam.rotation.y = time * 0.9;
+      if (u.wheel) u.wheel.rotation.x = time * 1.1;
       if (u.blade) u.blade.rotation.y = time * 5;
       if (u.sails) u.sails.rotation.z = time * 0.9;
       if (u.jets) u.jets.forEach((j, i) => { j.scale.y = 0.8 + Math.sin(time * 6 + i * 1.3) * 0.22; });
