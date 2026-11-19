@@ -23,7 +23,7 @@ function miniMap(src, rev = 0) {
   c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; c.drawImage(src, 0, 0, c0.width, c0.height);
   c.setTransform(k, 0, 0, k, 0, 0);
   for (const h of HILLS) { c.beginPath(); c.ellipse(h.x, h.y, h.rx, h.ry, 0, 0, TAU); c.fillStyle = 'rgba(46,110,50,0.55)'; c.fill(); c.beginPath(); c.ellipse(h.x - h.rx * 0.18, h.y - h.ry * 0.22, h.rx * 0.6, h.ry * 0.55, 0, 0, TAU); c.fillStyle = 'rgba(120,180,90,0.5)'; c.fill(); }
-  for (const n of NATURE) if (n.kind === 'tree') { c.beginPath(); c.arc((n.c + 0.5) * G, (n.r + 0.5) * G, 17, 0, TAU); c.fillStyle = n.tint > 3 ? 'rgba(34,92,60,0.85)' : 'rgba(52,128,62,0.85)'; c.fill(); }
+  for (const n of NATURE) if (n.kind === 'tree' && !n.wet) { c.beginPath(); c.arc((n.c + 0.5) * G, (n.r + 0.5) * G, 17, 0, TAU); c.fillStyle = n.tint > 3 ? 'rgba(34,92,60,0.85)' : 'rgba(52,128,62,0.85)'; c.fill(); }
   for (const p of [...PEAKS].sort((a, b) => a.y - b.y)) {
     const r = p.r * 1.15;
     c.beginPath(); c.moveTo(p.x - r, p.y + r * 0.5); c.lineTo(p.x, p.y - r * 1.1); c.lineTo(p.x + r, p.y + r * 0.5); c.closePath(); c.fillStyle = '#8f8c86'; c.fill();

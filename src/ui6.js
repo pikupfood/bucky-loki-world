@@ -6,7 +6,7 @@ import { t } from './i18n.js';
 import { fmtH, clock, itemIcon } from './ui3.js';
 
 const TAU = Math.PI * 2, TABS = ['ships', 'trade', 'explore', 'war'];
-const HULL = { mercantile: ['#9b6b3d', '#f4ecd6'], veliero: ['#3f7fb5', '#ffffff'], guerra: ['#4a3a34', '#c0392b'] };
+const HULL = { mercantile: ['#9b6b3d', '#f4ecd6', '#e2b866'], veliero: ['#2f6fa8', '#ffffff', '#cfe6f5'], guerra: ['#4a3a34', '#c0392b', '#f2c230'] };      // scafo, vele, fregi
 
 /** Un'ancora (l'icona della flotta). */
 export function anchorIcon(c, x, y, s, col = '#fff3d6') {
@@ -16,24 +16,36 @@ export function anchorIcon(c, x, y, s, col = '#fff3d6') {
   c.beginPath(); c.arc(0, s * 0.18, s * 0.72, Math.PI * 0.12, Math.PI * 0.88); c.stroke();
   c.restore();
 }
-/** Una nave vista di fianco: più alberi e più vele man mano che sale di livello. */
+/** Una nave vista di fianco (la prua a destra): scafo curvo, vele gonfie, e a ogni livello qualcosa in più
+ *  (castello di poppa dal 2, secondo albero e vela alta dal 3, bandiera lunga dal 4, terzo albero al 5). */
 export function shipIcon(c, type, x, y, s, lvl = 0) {
-  const [hull, sail] = HULL[type] || HULL.mercantile, masts = lvl >= 4 ? 3 : lvl >= 2 ? 2 : 1;
-  c.save(); c.translate(x, y); c.lineJoin = 'round';
-  c.beginPath(); c.ellipse(0, s * 0.62, s * 1.1, s * 0.16, 0, 0, TAU); c.fillStyle = 'rgba(94,195,234,0.55)'; c.fill();
+  const [hull, sail, trim] = HULL[type] || HULL.mercantile, masts = lvl >= 4 ? 3 : lvl >= 2 ? 2 : 1, dark = 'rgba(30,16,6,0.82)';
+  c.save(); c.translate(x, y); c.lineJoin = 'round'; c.lineCap = 'round';
+  c.beginPath(); c.ellipse(0.06 * s, s * 0.64, s * 1.22, s * 0.15, 0, 0, TAU); c.fillStyle = 'rgba(94,195,234,0.6)'; c.fill();
   for (let i = 0; i < masts; i++) {
-    const mx = masts === 1 ? 0 : (i - (masts - 1) / 2) * s * 0.62, mh = s * (1.15 - Math.abs(i - (masts - 1) / 2) * 0.12);
-    c.fillStyle = '#5c3a1e'; c.fillRect(mx - s * 0.04, s * 0.15 - mh, s * 0.08, mh);
-    c.beginPath();
-    if (type === 'veliero') { c.moveTo(mx + s * 0.06, s * 0.2 - mh); c.lineTo(mx + s * 0.55, s * 0.08); c.lineTo(mx + s * 0.06, s * 0.08); }
-    else { c.moveTo(mx - s * 0.3, s * 0.3 - mh); c.quadraticCurveTo(mx + s * 0.12, s * 0.62 - mh * 1.02, mx + s * 0.32, s * 0.3 - mh); c.lineTo(mx + s * 0.3, s * 0.05); c.lineTo(mx - s * 0.28, s * 0.05); }
-    c.closePath(); c.fillStyle = sail; c.fill(); c.strokeStyle = 'rgba(40,24,8,0.55)'; c.lineWidth = Math.max(1, s * 0.06); c.stroke();
+    const mid = (masts - 1) / 2, mx = masts === 1 ? 0.04 * s : (i - mid) * s * 0.6 + 0.04 * s, mh = s * (1.28 - Math.abs(i - mid) * 0.16), top = s * 0.12 - mh;
+    c.strokeStyle = '#5c3a1e'; c.lineWidth = Math.max(1.2, s * 0.085); c.beginPath(); c.moveTo(mx, s * 0.14); c.lineTo(mx, top); c.stroke();
+    c.lineWidth = Math.max(0.8, s * 0.05); c.strokeStyle = 'rgba(40,24,8,0.6)';
+    if (type === 'veliero') {            // vele triangolari
+      c.beginPath(); c.moveTo(mx + s * 0.07, top + s * 0.08); c.quadraticCurveTo(mx + s * 0.52, s * -0.1, mx + s * 0.58, s * 0.04); c.lineTo(mx + s * 0.07, s * 0.04); c.closePath(); c.fillStyle = sail; c.fill(); c.stroke();
+      c.beginPath(); c.moveTo(mx - s * 0.06, top + s * 0.2); c.quadraticCurveTo(mx - s * 0.36, s * -0.12, mx - s * 0.4, s * 0.04); c.lineTo(mx - s * 0.06, s * 0.04); c.closePath(); c.fillStyle = trim; c.fill(); c.stroke();
+    } else {                              // vele quadre gonfie; sopra, dal livello 3, una vela piccola
+      const big = lvl >= 2 ? 0.52 : 0.72, w = s * 0.36, y0 = top + mh * (1 - big) * 0.55, y1 = s * 0.0;
+      const drawSail = (ya, yb, ww, col) => { c.beginPath(); c.moveTo(mx - ww, ya); c.lineTo(mx + ww, ya); c.quadraticCurveTo(mx + ww * 1.5, (ya + yb) / 2, mx + ww * 0.95, yb); c.lineTo(mx - ww * 0.95, yb); c.quadraticCurveTo(mx - ww * 0.55, (ya + yb) / 2, mx - ww, ya); c.closePath(); c.fillStyle = col; c.fill(); c.stroke(); };
+      drawSail(y0, y1, w, sail);
+      if (type === 'guerra') { c.save(); c.globalAlpha = 0.28; c.fillStyle = '#fff3d6'; c.fillRect(mx - w * 0.3, y0 + 1, w * 0.36, y1 - y0 - 2); c.restore(); }
+      if (lvl >= 2) drawSail(top + s * 0.06, y0 - s * 0.05, w * 0.72, type === 'guerra' ? '#f4ecd6' : trim);
+    }
+    c.beginPath(); c.moveTo(mx, top); c.lineTo(mx + s * (lvl >= 3 ? 0.46 : 0.3), top + s * 0.08); c.lineTo(mx, top + s * 0.17); c.closePath(); c.fillStyle = i === Math.floor(mid) ? MY_COLOR : trim; c.fill();
   }
-  c.beginPath(); c.moveTo(-s, s * 0.12); c.lineTo(s * 1.08, s * 0.12); c.lineTo(s * 0.74, s * 0.6); c.lineTo(-s * 0.8, s * 0.6); c.closePath(); c.fillStyle = hull; c.fill(); c.strokeStyle = 'rgba(30,16,6,0.8)'; c.lineWidth = Math.max(1.2, s * 0.08); c.stroke();
-  c.fillStyle = 'rgba(255,255,255,0.22)'; c.fillRect(-s * 0.9, s * 0.2, s * 1.84, s * 0.08);
-  if (type === 'guerra') { c.fillStyle = '#1c1410'; for (let i = -1; i <= 1; i++) { c.beginPath(); c.arc(i * s * 0.4, s * 0.4, s * 0.07, 0, TAU); c.fill(); } }
-  if (type === 'mercantile') { c.fillStyle = '#d9b46a'; c.fillRect(-s * 0.72, -s * 0.06, s * 0.3, s * 0.2); }
-  if (lvl >= 3) { c.beginPath(); c.moveTo(0, -s * 1.02); c.lineTo(s * 0.34, -s * 0.9); c.lineTo(0, -s * 0.78); c.closePath(); c.fillStyle = type === 'guerra' ? '#ffd24a' : MY_COLOR; c.fill(); }
+  c.strokeStyle = '#5c3a1e'; c.lineWidth = Math.max(1, s * 0.06); c.beginPath(); c.moveTo(s * 1.02, -s * 0.02); c.lineTo(s * 1.42, -s * 0.24); c.stroke();                 // il bompresso
+  if (lvl >= 1 || type === 'guerra') { c.beginPath(); c.rect(-s * 1.04, -s * 0.2, s * 0.5, s * 0.3); c.fillStyle = hull; c.fill(); c.strokeStyle = dark; c.lineWidth = Math.max(1, s * 0.07); c.stroke(); c.fillStyle = trim; c.fillRect(-s * 1.06, -s * 0.25, s * 0.54, s * 0.08); }      // il castello di poppa
+  c.beginPath(); c.moveTo(-s * 1.08, s * 0.02); c.lineTo(-s * 0.6, s * 0.11); c.lineTo(s * 0.72, s * 0.11); c.quadraticCurveTo(s * 1.02, s * 0.08, s * 1.22, -s * 0.12); c.quadraticCurveTo(s * 1.04, s * 0.5, s * 0.64, s * 0.62); c.lineTo(-s * 0.72, s * 0.62); c.quadraticCurveTo(-s * 1.02, s * 0.56, -s * 1.08, s * 0.02); c.closePath();
+  c.fillStyle = hull; c.fill(); c.strokeStyle = dark; c.lineWidth = Math.max(1.2, s * 0.08); c.stroke();
+  c.strokeStyle = trim; c.lineWidth = Math.max(1, s * 0.09); c.beginPath(); c.moveTo(-s * 0.94, s * 0.25); c.quadraticCurveTo(0, s * 0.3, s * 1.0, s * 0.16); c.stroke();
+  if (type === 'guerra') { c.fillStyle = '#16100c'; for (let i = -1; i <= 1; i++) { c.beginPath(); c.arc(i * s * 0.42 - s * 0.02, s * 0.43, s * 0.07, 0, TAU); c.fill(); } }
+  if (type === 'mercantile') { c.fillStyle = '#d9b46a'; c.strokeStyle = dark; c.lineWidth = Math.max(0.8, s * 0.04); c.fillRect(s * 0.3, -s * 0.07, s * 0.24, s * 0.18); c.strokeRect(s * 0.3, -s * 0.07, s * 0.24, s * 0.18); c.fillStyle = '#c08e58'; c.fillRect(s * 0.57, -s * 0.02, s * 0.18, s * 0.13); }
+  if (type === 'veliero') { c.fillStyle = 'rgba(255,255,255,0.75)'; for (let i = -1; i <= 1; i++) { c.beginPath(); c.arc(i * s * 0.4, s * 0.43, s * 0.055, 0, TAU); c.fill(); } }
   c.restore();
 }
 const shipName = (s) => t('sn_' + s.type + '_' + s.lvl);

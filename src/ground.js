@@ -1,6 +1,6 @@
 // Pittore del terreno: una texture 2D stesa sul piano 3D della mappa.
 // Prato a chiazze, sottobosco, ghiaioni sotto le montagne, laghi con la riva, strade a curve, piazze dei villaggi.
-import { WORLD_W, WORLD_H, G, CASTLE, TRIBES, NATURE, ROADS, LAKES, HILLS, PEAKS, lakeEdge, mulberry32, ISLAND, ROAD_AT, COLS, ROWS } from './data.js';
+import { WORLD_W, WORLD_H, G, CASTLE, TRIBES, NATURE, ROADS, LAKES, HILLS, PEAKS, lakeEdge, mulberry32, ISLAND, ROAD_AT, COLS, ROWS, RIVERS, RIVER_AT } from './data.js';
 
 const TAU = Math.PI * 2;
 export const GRASS = '#5f9f47';
@@ -18,6 +18,19 @@ function lakePath(c, L, s) {
   c.closePath();
 }
 
+/** Dove una strada scavalca un fiume: il punto della strada, la sua direzione, e se è una strada maestra. */
+export function bridgeSpots() {
+  const out = [];
+  for (const R of RIVERS) for (const m of R.marks) {
+    if (m.kind !== 3) continue;
+    let best = null, bd = 220 * 220;
+    for (const Q of ROADS) for (let i = 2; i < Q.pts.length - 2; i++) { const p = Q.pts[i], d = (p.x - m.x) * (p.x - m.x) + (p.y - m.y) * (p.y - m.y); if (d < bd) { bd = d; best = [Q, i]; } }
+    if (!best) continue;
+    const [Q, i] = best, p = Q.pts[i], a = Q.pts[i - 2], b = Q.pts[i + 2], L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    if (!out.some(o => Math.hypot(o.x - p.x, o.y - p.y) < 120)) out.push({ x: p.x, y: p.y, dx: (b.x - a.x) / L, dy: (b.y - a.y) / L, main: Q.main });
+  }
+  return out;
+}
 /** Dipinge la mappa. k = pixel per unità di mondo. */
 export function paintWorld(canvas, k) {
   canvas.width = Math.ceil(WORLD_W * k); canvas.height = Math.ceil(WORLD_H * k);
@@ -32,16 +45,22 @@ export function paintWorld(canvas, k) {
     glow(c, x, y, r, tones[i % 4], 0.07 + rnd() * 0.06, 0.55 + rnd() * 0.3);
   }
   // sottobosco: sotto gli alberi il prato è più scuro
-  for (const n of NATURE) if (n.kind === 'tree') glow(c, (n.c + 0.5) * G, (n.r + 0.5) * G + 6, 46 * n.size, '18,64,30', 0.2);
+  for (const n of NATURE) if (n.kind === 'tree' && !n.wet) glow(c, (n.c + 0.5) * G, (n.r + 0.5) * G + 6, 46 * n.size, '18,64,30', 0.2);
   // ghiaioni sotto le montagne, erba più viva sotto le colline
   for (const p of PEAKS) glow(c, p.x, p.y + 8, p.r * 1.55, '112,104,92', 0.5, 0.9);
   for (const p of PEAKS) for (let i = 0; i < 5; i++) { const a = rnd() * TAU, d = p.r * (0.9 + rnd() * 0.5); ell(c, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 3 + rnd() * 5, 2 + rnd() * 3.5, rnd() < 0.5 ? 'rgba(90,86,80,0.55)' : 'rgba(170,164,154,0.5)', rnd() * 3); }
   for (const h of HILLS) glow(c, h.x, h.y + 10, Math.max(h.rx, h.ry) * 1.35, '40,96,44', 0.34, 0.8);
 
+  // fiumi, primo passaggio (sotto i laghi, così alla foce non resta una riga di sabbia): l'erba umida e la sabbia delle rive
+  const river = (R) => { c.beginPath(); R.pts.forEach((p, i) => { if (i) c.lineTo(p.x, p.y); else c.moveTo(p.x, p.y); }); };
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  for (const R of RIVERS) { river(R); c.strokeStyle = 'rgba(96,150,74,0.55)'; c.lineWidth = 158; c.stroke(); river(R); c.strokeStyle = '#d8c79a'; c.lineWidth = 134; c.stroke(); }
+
   // laghi: riva di sabbia, acqua bassa, acqua, fondo
+  for (const L of LAKES) { lakePath(c, L, 1.2); c.fillStyle = 'rgba(96,150,74,0.55)'; c.fill(); lakePath(c, L, 1.12); c.fillStyle = '#d8c79a'; c.fill(); }
+  // l'acqua dei fiumi va qui: sopra la sabbia dei laghi (la foce resta aperta) e sotto la loro acqua (nel lago il fiume non si vede)
+  for (const R of RIVERS) { river(R); c.strokeStyle = '#8fd6e8'; c.lineWidth = 116; c.stroke(); river(R); c.strokeStyle = '#4fb4de'; c.lineWidth = 100; c.stroke(); river(R); c.strokeStyle = 'rgba(40,140,200,0.5)'; c.lineWidth = 54; c.stroke(); }
   for (const L of LAKES) {
-    lakePath(c, L, 1.2); c.fillStyle = 'rgba(96,150,74,0.55)'; c.fill();
-    lakePath(c, L, 1.12); c.fillStyle = '#d8c79a'; c.fill();
     lakePath(c, L, 1.05); c.fillStyle = '#8fd6e8'; c.fill();
     lakePath(c, L, 0.98); c.fillStyle = '#4fb4de'; c.fill();
     lakePath(c, L, 0.7); c.fillStyle = 'rgba(40,140,200,0.55)'; c.fill();
@@ -53,6 +72,23 @@ export function paintWorld(canvas, k) {
 
   { const ix = (ISLAND.c + 0.5) * G, iy = (ISLAND.r + 0.5) * G, R = (ISLAND.rad + 0.7) * G;      // l'isola nel lago grande
     ell(c, ix, iy, R * 1.12, R * 1.04, 'rgba(143,214,232,0.9)'); ell(c, ix, iy, R, R * 0.94, '#d8c79a'); ell(c, ix, iy, R * 0.82, R * 0.76, GRASS); glow(c, ix, iy, R * 0.8, '255,255,190', 0.18); }
+
+  // fiumi, secondo passaggio: acqua bassa, acqua, il filo della corrente; poi i guadi (acqua chiara e sassi) e i ponti di pietra delle strade
+  { const rr = mulberry32(515), inRiver = (p) => { const cc = Math.floor(p.x / G), q = Math.floor(p.y / G); return cc >= 0 && q >= 0 && cc < COLS && q < ROWS && RIVER_AT[q * COLS + cc] > 0; };
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    for (const R of RIVERS) {
+      c.strokeStyle = 'rgba(255,255,255,0.42)'; c.lineWidth = 2.2;
+      for (let i = 3; i < R.pts.length - 4; i += 4) { const p = R.pts[i], q = R.pts[i + 2]; if (!inRiver(p)) { rr(); rr(); continue; } const ox = (rr() - 0.5) * 64, oy = (rr() - 0.5) * 64; c.beginPath(); c.moveTo(p.x + ox, p.y + oy); c.lineTo(q.x + ox, q.y + oy); c.stroke(); }
+      for (let i = 2; i < R.pts.length - 2; i += 2) if (rr() < 0.5 && inRiver(R.pts[i])) { const p = R.pts[i], q = R.pts[i + 1], L = Math.hypot(q.x - p.x, q.y - p.y) || 1, s = rr() < 0.5 ? -1 : 1, d = 60 + rr() * 8; ell(c, p.x - (q.y - p.y) / L * d * s, p.y + (q.x - p.x) / L * d * s, 2 + rr() * 3.4, 1.6 + rr() * 2.4, rr() < 0.5 ? 'rgba(120,110,96,0.7)' : 'rgba(240,232,210,0.8)'); }
+    }
+    for (const R of RIVERS) for (const m of R.marks) {
+      if (m.kind !== 2) continue;
+      const nx = -m.ty, ny = m.tx, half = Math.max(1.4, m.len * 0.5) * G;
+      c.lineCap = 'butt'; c.beginPath(); c.moveTo(m.x - m.tx * half, m.y - m.ty * half); c.lineTo(m.x + m.tx * half, m.y + m.ty * half); c.strokeStyle = '#bfe9ee'; c.lineWidth = 114; c.stroke(); c.strokeStyle = 'rgba(216,199,154,0.5)'; c.lineWidth = 56; c.stroke(); c.lineCap = 'round';
+      for (let k = -4; k <= 4; k++) for (const s of [-1, 1]) ell(c, m.x + nx * k * 13.5 + m.tx * s * 15 + (rr() - 0.5) * 8, m.y + ny * k * 13.5 + m.ty * s * 15 + (rr() - 0.5) * 8, 6 + rr() * 4, 4.6 + rr() * 3, rr() < 0.5 ? '#a9a59c' : '#cbc7bc', rr() * 3);
+    }
+    for (const B of bridgeSpots()) { const W = (B.main ? 34 : 24) + 34; c.lineCap = 'butt'; c.beginPath(); c.moveTo(B.x - B.dx * 92, B.y - B.dy * 92); c.lineTo(B.x + B.dx * 92, B.y + B.dy * 92); c.strokeStyle = '#55514b'; c.lineWidth = W + 9; c.stroke(); c.strokeStyle = '#aaa69d'; c.lineWidth = W; c.stroke(); c.lineCap = 'round'; }
+  }
 
   // strade: prima le secondarie (da villaggio a villaggio), poi quelle che portano al castello
   c.lineCap = 'round'; c.lineJoin = 'round';

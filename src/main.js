@@ -16,6 +16,7 @@ const uiCanvas = document.getElementById('ui');
 const ctx = uiCanvas.getContext('2d');
 const scene = new Scene3D(glCanvas);
 
+const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 4;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
 const KEY = 'tuzu_difesa_v3';       // la chiave resta questa: i salvataggi vecchi li converte World
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
@@ -25,7 +26,7 @@ const ui = {
   screen: 'title', speed: 1, sound: saved.sound !== false, moved: !!saved.moved, seenVillage: !!saved.seenVillage,
   build: null, place: null, sel: null, vsel: null, aiming: false,
   quests: false, settings: false, tech: false, daily: false, lost: null, away: world.away,
-  online: null, onlineNew: 0, fleet: null, seaOpen: false,
+  online: null, onlineNew: 0, fleet: null, seaOpen: false, news: false, newsDue: false,
   map: null, squad: null, qtab: 0, reportOpen: false, q: saved.q === 0 || saved.q === 1 || saved.q === 2 ? saved.q : 'auto', cloud: cloud.state,
   roles: false, story: null, rallyPick: false, fogSel: null, guideOpen: null, music: saved.music !== false, newGame: !saved.world, diffPick: 'normale',
   buttons: [], fx: [], fxTop: [], night: 0, shake: 0, flash: 0, time: 0, banner: null, bannerQ: [], toast: null,
@@ -147,6 +148,10 @@ const A = {
   claimChallenge() { const n = world.claimChallenge(Date.now()); if (n) { audio.play('cleared'); buzz(20); save(); } },
   rebuild() { const n = world.rebuildLost(); if (n) { audio.play('build'); save(); } else toast(t('why_cost')); },
   rebuildSkip() { world.d.rebuild = []; audio.play('tap'); save(); },
+  // ---------- novità ----------
+  newsOpen() { ui.settings = false; ui.news = true; audio.play('page'); },
+  newsOk() { ui.news = false; try { localStorage.setItem(NEWS_KEY, String(NEWS_V)); } catch (e) { /* niente */ } audio.play('tap'); },
+  newsAccount() { A.newsOk(); cloud.open(); },
   // ---------- la flotta ----------
   fleetOpen(tab) { closeAll(); ui.squad = null; ui.fleet = { tab: typeof tab === 'string' ? tab : 'ships', ship: null, buy: false, res: 'legna', tier: 0, n: 0, page: 0, scrap: null }; audio.play('page'); },
   fleetClose() { ui.fleet = null; audio.play('tap'); },
@@ -436,6 +441,7 @@ function back() {
   else if (ui.away) ui.away = null;
   else if (cloud.state.open) cloud.close();
   else if (ui.story != null) A.storyOk();
+  else if (ui.news) A.newsOk();
   else if (ui.reportOpen) A.reportOk();
   else if (ui.seaOpen) A.seaOk();
   else if (ui.fleet) A.fleetClose();
@@ -631,7 +637,8 @@ function tick(real) {
   audio.musicTick(ui.screen !== 'play' ? 'day' : world.status);
   if (ui.moved) world.note('move');
   if (ui.seenVillage) world.note('village');
-  ui.eventOpen = ui.screen === 'play' && !!world.d.event && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && ui.story == null;
+  if (ui.newsDue && ui.screen === 'play' && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && ui.story == null && !cloud.state.open) { ui.newsDue = false; ui.news = true; }
+  ui.eventOpen = ui.screen === 'play' && !ui.news && !!world.d.event && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && ui.story == null;
   if (ui.screen === 'play' && ui.story == null && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && world.storyDue() >= 0) { ui.story = world.storyDue(); audio.play('page'); closeAll(); }
   ui.reportOpen = ui.screen === 'play' && world.d.reports.length > 0 && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && ui.story == null && !ui.eventOpen;
   ui.seaOpen = ui.screen === 'play' && world.d.seaReports.length > 0 && world.status === 'day' && !ui.reportOpen && !ui.lost && !ui.away && !ui.daily && ui.story == null && !ui.eventOpen && !ui.online && !ui.map;
@@ -642,7 +649,7 @@ function tick(real) {
   onlineT += real; if (onlineT > (ui.online ? 20 : 120)) { onlineT = 0; if (ui.screen === 'play' && (ui.online || world.status === 'day')) onlineRefresh(false); }
   if (ui.screen === 'play' && (ui.map || ui.reportOpen || ui.settings || ui.quests)) world.stepTrips(Date.now());
   if (ui.screen === 'play' && (ui.fleet || ui.seaOpen || ui.map || ui.settings || ui.quests)) world.stepFleet(Date.now());      // a pannello aperto il mondo è fermo, ma le spedizioni no
-  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away || ui.roles || ui.story != null || ui.eventOpen || ui.map || ui.fleet || ui.seaOpen || ui.online || ui.reportOpen || cloud.state.open;
+  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away || ui.roles || ui.story != null || ui.eventOpen || ui.news || ui.map || ui.fleet || ui.seaOpen || ui.online || ui.reportOpen || cloud.state.open;
 
   if (!modal) {
     const fight = world.status !== 'day', steps = fight ? ui.speed * 2 : 1, dt = fight ? real / 2 : real;      // passi piccoli: stabile anche a x2
@@ -718,6 +725,9 @@ scene.build();
 if (quality < 2) { scene.setShadows(quality >= 1); scene.setPost(false); }
 resize();
 if (view.tall && !(saved.cam && isFinite(saved.cam.x))) scene.setView((CASTLE.c + CASTLE.w / 2) * G, (CASTLE.r + CASTLE.h / 2) * G + 20, 1900);      // a schermo alto si parte più da lontano: di lato si vede meno
+// chi ha già una partita vede una volta che cosa c'è di nuovo; chi comincia adesso no (per lui è tutto nuovo)
+try { const seenNews = +(localStorage.getItem(NEWS_KEY) || 0); if (seenNews < NEWS_V) { if (world.d.night > 0 || world.d.buildings.length > 3) ui.newsDue = true; else localStorage.setItem(NEWS_KEY, String(NEWS_V)); } } catch (e) { /* niente */ }
+if (world.flooded) setTimeout(() => { banner(t('riverMoved', world.flooded), '#9fe9ff', 5); save(); }, 2600);
 online.init({ getSnap: () => world.pvpSnap(), onSent: (army) => { world.pvpSend(army); save(); }, onReports: (list) => { for (const r of list) world.pvpApply(r); save(); return list.map(r => r.id); } });
 cloud.init({ key: KEY, beforeLeave: () => save(), getSave: () => JSON.parse(JSON.stringify(world)), t, onLoad: (data) => { frozen = true; try { const cur = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; cur.world = data; localStorage.setItem(KEY, JSON.stringify(cur)); } catch (e) { /* niente */ } window.removeEventListener('pagehide', save); location.reload(); } });
 if (saved.cam && isFinite(saved.cam.x) && saved.world && saved.world.map === 3) scene.setView(saved.cam.x, saved.cam.y, saved.cam.dist);      // la mappa vecchia era più piccola

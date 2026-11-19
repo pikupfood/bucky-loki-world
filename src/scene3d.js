@@ -4,8 +4,9 @@
 // in uscita un passaggio di rifinitura (bordi dello schermo sfocati come in una miniatura, bagliori, colori caldi).
 // Le coordinate di gioco (x, y) diventano (x, altezza, z = y). L'interfaccia resta in 2D sopra e usa project()/pick().
 import * as THREE from '../vendor/three.module.min.js';
+import { RIVERS, RIVER_AT } from './data.js';
 import { G, COLS, ROWS, WORLD_W, WORLD_H, CASTLE, TRIBES, MY_COLOR, ENEMIES, NATURE, PEAKS, HILLS, LAKES, BUILD, RUINS, FOG, FW, FH, lakeEdge, mulberry32, ISLAND, TRAITS, TERRAIN, LEVELS } from './data.js';
-import { GRASS, paintWorld, paintBuiltRoads } from './ground.js';
+import { GRASS, paintWorld, paintBuiltRoads, bridgeSpots } from './ground.js';
 
 // ---------- mattoncini: geometrie e materiali condivisi ----------
 const geos = new Map(), mats = new Map();
@@ -477,34 +478,125 @@ function levelMarks(g, lvl, w = 34, h = 44) {
   }
   if (lvl >= 2) for (const [x, z] of [[-w, w * 0.8], [w, w * 0.8]]) { cyl(g, 4, 5, 9, '#8f8f98', x, 4.5, z, { seg: 8 }); ball(g, 4.4, GOLDC, x, 12, z, { e: 0x8a6410, ei: 0.35 }); }
 }
-/** Il porto: un pontile di legno sull'acqua, la capanna dei pescatori, le reti ad asciugare. La barca si muove da sola. */
-function makePort() {
+// ---------- navi ----------
+/** Lo scafo: una barca vera, con la prua a punta, la poppa tronca e il bordo che sale alle estremità. Lunga L (lungo z, prua verso +z), larga B, alta H. */
+function hullGeo(L, B, H) {
+  const n = 10, st = [], v = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, z = (t - 0.5) * L, w = (B / 2) * (t < 0.2 ? 0.7 + 0.3 * t / 0.2 : Math.pow(Math.max(0, 1 - Math.pow((t - 0.2) / 0.8, 2.3)), 0.85));
+    st.push([z, Math.max(0.05, w), H * (1 + 0.34 * Math.pow(Math.abs(2 * t - 1), 2)), -H * 0.4 + H * 1.1 * Math.pow(Math.max(0, t - 0.6) / 0.4, 2.2)]);
+  }
+  const tri = (a, b, c) => v.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+  for (let i = 0; i < n; i++) {
+    const [z0, w0, d0, k0] = st[i], [z1, w1, d1, k1] = st[i + 1];
+    const L0 = [-w0, d0, z0], R0 = [w0, d0, z0], K0 = [0, k0, z0], L1 = [-w1, d1, z1], R1 = [w1, d1, z1], K1 = [0, k1, z1];
+    tri(L0, K0, K1); tri(L0, K1, L1); tri(R0, K1, K0); tri(R0, R1, K1); tri(L0, L1, R1); tri(L0, R1, R0);
+  }
+  { const [z0, w0, d0, k0] = st[0]; tri([-w0, d0, z0], [w0, d0, z0], [0, k0, z0]); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.computeVertexNormals();
+  return g;
+}
+/** Una vela gonfia di vento (visibile da tutte e due le parti). w × h, pancia verso +z; taper = 1 la fa triangolare. */
+function sailGeo(w, h, belly, taper = 0) {
+  const nu = 4, nv = 4, P = (i, j) => { const u = i / nu, q = j / nv; return [(u - 0.5) * w * (1 - taper * q), q * h, belly * Math.sin(Math.PI * u) * (0.45 + 0.55 * Math.sin(Math.PI * Math.min(1, q * 1.05)))]; }, v = [];
+  const tri = (a, b, c) => v.push(...a, ...b, ...c);
+  for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) { const a = P(i, j), b = P(i + 1, j), c = P(i + 1, j + 1), d = P(i, j + 1); tri(a, b, c); tri(a, c, d); tri(a, c, b); tri(a, d, c); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.computeVertexNormals();
+  return g;
+}
+const SHIP_LOOK = { mercantile: ['#9b6b3d', '#e2b866', '#f4ecd6'], veliero: ['#2f6fa8', '#f4f1ea', '#ffffff'], guerra: ['#4a3a34', '#c0392b', '#c0392b'], pesca: ['#b5482f', '#f4f1ea', '#f4f1ea'] };
+/** Una nave: scafo, coperta, alberi e vele; cresce con il livello (più lunga, più alberi, castello di poppa, bandiere). La prua guarda +z. */
+function makeShip(kind, lvl = 0) {
+  const g = grp(null), small = kind === 'pesca', L = small ? 30 : 42 + lvl * 4.5, B = Math.round(L * 0.36), H = Math.round(L * 0.17), [hull, trim, sail] = SHIP_LOOK[kind] || SHIP_LOOK.mercantile;
+  put(g, geom('hull' + L, () => hullGeo(L, B, H)), M(hull, { flat: true }), 0, 0, 0);
+  box(g, B * 0.72, 1, L * 0.62, WOOD_L, 0, H * 1.02, -L * 0.04, { ns: true });                                  // la coperta
+  for (const sx of [-1, 1]) box(g, 1.2, 1.6, L * 0.6, trim, sx * B * 0.43, H * 1.12, -L * 0.05, { ns: true });  // il bordo colorato
+  if (!small && (lvl >= 1 || kind === 'guerra')) { box(g, B * 0.74, H * 0.8, L * 0.2, hull, 0, H * 1.42, -L * 0.37); box(g, B * 0.8, 1.2, L * 0.22, trim, 0, H * 1.86, -L * 0.37, { ns: true }); ball(g, 1.5, '#ffd97a', 0, H * 2.2, -L * 0.46, { ns: true, e: 0xffb040, ei: 0.9 }); }
+  const masts = small ? 1 : lvl >= 4 ? 3 : lvl >= 2 ? 2 : 1;
+  for (let i = 0; i < masts; i++) {
+    const mid = (masts - 1) / 2, mz = masts === 1 ? L * 0.03 : (i - mid) * L * 0.29 + L * 0.02, mh = Math.round(L * (0.98 - Math.abs(i - mid) * 0.14));
+    cyl(g, 0.8, 1.2, mh, WOOD_D, 0, H + mh / 2, mz, { seg: 6, ns: true });
+    if (kind === 'veliero' || small) {        // vela triangolare, lungo la nave
+      const sm = put(g, geom('sailT' + mh, () => sailGeo(mh * 0.62, mh * 0.8, mh * 0.1, 1)), M(sail), 1.2, H + mh * 0.12, mz + mh * 0.3, false); sm.rotation.y = -Math.PI / 2;
+      if (!small && i === masts - 1) { const jib = put(g, geom('sailJ' + mh, () => sailGeo(mh * 0.4, mh * 0.6, mh * 0.07, 1)), M(trim), 1, H + mh * 0.16, mz + mh * 0.74, false); jib.rotation.y = -Math.PI / 2; }
+    } else {                                  // vele quadre, di traverso: una grande e sopra, dal livello 3, una piccola
+      const sw = Math.round(B * 1.5), sh = Math.round(mh * (lvl >= 2 ? 0.44 : 0.6));
+      const brace = 0.5;
+      put(g, geom('sailQ' + sw + '|' + sh, () => sailGeo(sw, sh, sw * 0.18)), M(sail), 0, H + mh * 0.16, mz + 1.4, false).rotation.y = brace;
+      const yard = cyl(g, 0.6, 0.6, sw * 1.06, WOOD_D, 0, H + mh * 0.16 + sh, mz + 1, { seg: 5, ns: true }); yard.rotation.z = Math.PI / 2; yard.rotation.y = brace;
+      if (lvl >= 2) (put(g, geom('sailQ' + Math.round(sw * 0.7) + '|' + Math.round(sh * 0.6), () => sailGeo(Math.round(sw * 0.7), Math.round(sh * 0.6), sw * 0.12)), M(kind === 'guerra' ? '#f4ecd6' : trim), 0, H + mh * 0.2 + sh, mz + 1.4, false)).rotation.y = brace;
+    }
+    box(g, 0.6, 3.6, 7.5, i === Math.floor(mid) ? MY_COLOR : trim, 0, H + mh + 1.4, mz - 3.8, { ns: true });         // la bandiera
+  }
+  if (!small) { const bs = cyl(g, 0.6, 0.8, L * 0.3, WOOD_D, 0, H * 1.55, L * 0.52, { seg: 5, ns: true }); bs.rotation.x = Math.PI / 2 - 0.32; }
+  if (kind === 'mercantile') { box(g, 5, 5, 5, '#d9b46a', -B * 0.14, H * 1.02 + 3, L * 0.2, { ns: true }); box(g, 4.4, 4.4, 4.4, '#c08e58', B * 0.16, H * 1.02 + 2.7, L * 0.25, { ns: true }); cyl(g, 2.6, 2.6, 5.4, WOOD, B * 0.05, H * 1.02 + 3, -L * 0.14, { seg: 8, ns: true }); if (lvl >= 3) box(g, 6, 5, 6, '#b5482f', 0, H * 1.02 + 3, L * 0.1, { ns: true }); }
+  if (kind === 'guerra') {
+    const nc = 2 + Math.min(2, lvl >> 1);
+    for (const sx of [-1, 1]) for (let k = 0; k < nc; k++) { const cz = (k - (nc - 1) / 2) * L * 0.16, cn = cyl(g, 1.3, 1.6, 6, '#22201f', sx * B * 0.5, H * 0.72, cz, { seg: 6, ns: true }); cn.rotation.z = Math.PI / 2; box(g, 0.6, 3.4, 3.4, k % 2 ? '#f2c230' : '#c0392b', sx * B * 0.47, H * 1.34, cz + L * 0.06, { ns: true }); }
+    if (lvl >= 3) { const ram = cone(g, 2.2, 9, GOLDC, 0, H * 0.3, L * 0.5, { seg: 6, ns: true }); ram.rotation.x = Math.PI / 2; }
+  }
+  if (kind === 'pesca') for (let i = 0; i < 3; i++) ball(g, 1.8, '#9fd8ef', (i - 1) * 3, H * 1.02 + 1.6, -L * 0.2, { ns: true });
+  return g;
+}
+
+/** Il Porticciolo: la capanna dei pescatori su un pontile, le reti, le casse, un lampione; una barca da pesca va e viene,
+ *  e se una nave della flotta è qui all'ormeggio la si vede. A ogni livello: una bandiera, poi il tetto nuovo e un secondo molo. */
+function makePort(lvl = 0, ships) {
   const g = grp(null), u = {};
-  box(g, 70, 4, 34, WOOD, 0, 5, 12); for (const [x, z] of [[-30, 26], [30, 26], [-30, -2], [30, -2], [0, 26]]) cyl(g, 3, 3.4, 12, WOOD_D, x, 4, z, { seg: 6 });
-  box(g, 16, 3, 44, WOOD_L, 0, 5.4, 46); for (const z of [34, 50, 64]) for (const x of [-8, 8]) cyl(g, 2.2, 2.6, 13, WOOD_D, x, 4, z, { seg: 6 });
-  box(g, 34, 18, 24, '#e9dcc0', -14, 16, -12); roof(g, 40, 13, 30, '#3f7fb5', -14, 25, -12); box(g, 8, 12, 1.6, '#6b4226', -14, 13, 0.4, { ns: true });
-  box(g, 6, 6, 1.4, '#ffd97a', -24, 18, 0.4, { ns: true, e: 0xffb040, ei: 0.7 });
-  for (const x of [14, 30]) cyl(g, 1.2, 1.4, 26, WOOD_D, x, 16, -12, { seg: 5 }); box(g, 18, 12, 0.8, '#d9d2b8', 22, 20, -12, { ns: true });       // la rete stesa
-  for (const [x, z] of [[20, 10], [27, 14]]) { cyl(g, 4.2, 4.2, 8, WOOD, x, 11, z, { seg: 8 }); cyl(g, 4.5, 4.5, 1, '#55565e', x, 12.6, z, { seg: 8, ns: true }); }
-  for (let i = 0; i < 3; i++) ball(g, 2.2, '#9fd8ef', -2 + i * 4, 9, 18, { ns: true });           // i pesci del giorno
-  const boat = u.boat = grp(g, 0, 2, 96);
-  box(boat, 15, 6, 30, '#b5482f', 0, 2, 0); box(boat, 12, 2, 26, WOOD_L, 0, 5, 0, { ns: true }); cone(boat, 7.6, 12, '#b5482f', 0, 2, 20, { seg: 4, ns: true }).rotation.x = Math.PI / 2;
-  cyl(boat, 0.9, 0.9, 26, WOOD_D, 0, 17, 0, { seg: 5, ns: true }); box(boat, 0.8, 16, 14, '#f4f1ea', 0, 20, -7.6, { ns: true });
+  box(g, 72, 5, 36, WOOD, 0, 5, 12); for (const [x, z] of [[-31, 27], [31, 27], [-31, -3], [31, -3], [0, 27]]) cyl(g, 3, 3.6, 13, WOOD_D, x, 4, z, { seg: 6 });
+  for (let i = -3; i <= 3; i++) box(g, 9.4, 0.8, 34, i % 2 ? WOOD_L : '#b07f4c', i * 10, 7.8, 12, { ns: true });                    // le assi
+  box(g, 16, 3, 46, WOOD_L, 0, 5.6, 48); for (const z of [34, 50, 66]) for (const x of [-8, 8]) cyl(g, 2.2, 2.7, 14, WOOD_D, x, 4, z, { seg: 6 });
+  box(g, 36, 19, 26, '#efe2c4', -14, 17, -12); roof(g, 42, 14, 32, lvl >= 2 ? '#b5482f' : '#3f7fb5', -14, 26.5, -12); box(g, 8, 12, 1.6, '#6b4226', -14, 13.5, 1.4, { ns: true });
+  box(g, 6, 6, 1.4, '#ffd97a', -25, 18, 1.4, { ns: true, e: 0xffb040, ei: 0.7 }); cyl(g, 2.2, 2.6, 9, '#8d8479', -2, 32, -16, { seg: 6 });                          // la finestra accesa, il camino
+  for (const x of [14, 30]) cyl(g, 1.2, 1.5, 27, WOOD_D, x, 16.5, -12, { seg: 5 }); { const net = put(g, geom('net', () => sailGeo(18, 13, 2.4)), M('#d9d2b8'), 22, 13, -12, false); net.rotation.y = 0.04; }   // la rete stesa
+  for (const [x, z] of [[20, 10], [27, 15]]) { cyl(g, 4.2, 4.2, 8, WOOD, x, 11.6, z, { seg: 8 }); cyl(g, 4.5, 4.5, 1, '#55565e', x, 13.2, z, { seg: 8, ns: true }); }
+  box(g, 7, 6, 7, '#d9b46a', 8, 11, 20, { ns: true }); box(g, 5.4, 5, 5.4, '#c08e58', 9, 16.4, 20, { ns: true });
+  cyl(g, 1.1, 1.4, 24, WOOD_D, -30, 19, 26, { seg: 5 }); ball(g, 2.8, '#ffe27a', -30, 32, 26, { ns: true, e: 0xffc040, ei: 1 });                                 // il lampione del molo
+  for (let i = 0; i < 3; i++) ball(g, 2.2, '#9fd8ef', -4 + i * 4, 9.6, 19, { ns: true });
+  { const row = grp(g, 22, 1.2, 40); put(row, geom('hull18', () => hullGeo(18, 7, 3)), M('#7a5230', { flat: true }), 0, 0, 0, false); row.rotation.y = 0.5; }       // una barchetta a remi legata al molo
+  if (lvl >= 1) { cyl(g, 1.2, 1.5, 34, WOOD_D, -36, 22, -24, { seg: 5 }); box(g, 0.7, 9, 13, MY_COLOR, -36, 33, -17, { ns: true }); }
+  if (lvl >= 2) { box(g, 14, 3, 40, WOOD_L, -28, 5.6, 46); for (const z of [34, 62]) cyl(g, 2.2, 2.7, 14, WOOD_D, -36, 4, z, { seg: 6 }); octa(g, 3, GOLDC, -14, 42, -12); }
+  const boat = u.boat = makeShip('pesca'); boat.position.set(-22, 1, 100); g.add(boat);
+  u.moored = [];
+  if (ships && ships[0]) { const m = makeShip(ships[0].type, ships[0].lvl); m.position.set(34, 1, 62); m.scale.setScalar(0.8); g.add(m); u.moored.push(m); }
   g.userData = u;
   return g;
 }
-/** Il Porto grande: il pontile dei pescatori più un magazzino, un faro e un veliero all'ormeggio. */
-function makeBigPort() {
-  const g = makePort();
-  box(g, 30, 22, 26, '#d9c7a0', 40, 16, -12); roof(g, 36, 12, 32, '#b5482f', 40, 27, -12); box(g, 9, 13, 1.6, '#6b4226', 40, 12, 1.2, { ns: true });
-  cyl(g, 5.5, 7.5, 46, '#f4f1ea', -48, 27, -14, { seg: 8 }); cyl(g, 7.4, 7.4, 5, '#c0392b', -48, 51, -14, { seg: 8 }); ball(g, 4.2, '#ffe27a', -48, 57, -14, { ns: true, e: 0xffc040, ei: 1 }); cone(g, 7, 9, '#c0392b', -48, 64, -14, { seg: 8, ns: true });
-  box(g, 16, 3, 50, WOOD_L, 40, 5.4, 44); for (const z of [28, 46, 64]) for (const x of [32, 48]) cyl(g, 2.2, 2.6, 13, WOOD_D, x, 4, z, { seg: 6 });
-  const ship = grp(g, 62, 3, 62);
-  box(ship, 18, 9, 46, '#4a3a34', 0, 3, 0); box(ship, 15, 2, 42, WOOD_L, 0, 8, 0, { ns: true }); cone(ship, 9, 16, '#4a3a34', 0, 3, 30, { seg: 4, ns: true }).rotation.x = Math.PI / 2;
-  cyl(ship, 1.1, 1.1, 40, WOOD_D, 0, 27, 6, { seg: 5, ns: true }); cyl(ship, 1, 1, 30, WOOD_D, 0, 22, -12, { seg: 5, ns: true });
-  box(ship, 20, 18, 0.8, '#f4ecd6', 0, 30, 6.8, { ns: true }); box(ship, 16, 13, 0.8, '#c0392b', 0, 26, -11.2, { ns: true });
+/** Il Porto: banchina di pietra, magazzini, il faro con la luce che gira, la gru, e le navi della flotta all'ormeggio (fino a tre).
+ *  Cresce a ogni livello: la gru, un secondo magazzino, il faro più alto, le bandiere, i fregi d'oro. */
+function makeBigPort(lvl = 0, ships) {
+  const g = grp(null), u = {}, S1 = '#a9aab6', S2 = '#c4c5d0';
+  box(g, 116, 8, 44, S1, 0, 4, 10); box(g, 118, 2, 46, S2, 0, 8.6, 10, { ns: true });                                                   // la banchina di pietra
+  for (let i = -5; i <= 5; i++) cyl(g, 2.2, 2.6, 5, '#55565e', i * 11, 11.4, 30, { seg: 6, ns: true });                                   // le bitte
+  for (const x of [-34, 4, 42]) { box(g, 14, 3, 56, WOOD_L, x, 6, 58); for (const z of [38, 56, 80]) for (const q of [-7, 7]) cyl(g, 2.2, 2.7, 15, WOOD_D, x + q, 4, z, { seg: 6 }); }      // tre moli
+  box(g, 40, 22, 26, '#efe2c4', -30, 20.5, -6); roof(g, 46, 15, 32, '#3f7fb5', -30, 31.5, -6); box(g, 10, 14, 1.6, '#6b4226', -30, 16.5, 7.4, { ns: true });
+  for (const x of [-42, -18]) box(g, 6, 6, 1.4, '#ffd97a', x, 22, 7.4, { ns: true, e: 0xffb040, ei: 0.7 });
+  box(g, 30, 20, 24, '#d9c7a0', 12, 19.5, -8); roof(g, 36, 12, 30, '#b5482f', 12, 29.5, -8); box(g, 12, 13, 1.6, '#55402a', 12, 16, 4.4, { ns: true });               // il magazzino
+  if (lvl >= 2) { box(g, 24, 16, 20, '#e6d6b0', 40, 17.5, -10); roof(g, 30, 10, 26, '#6b8f4a', 40, 25.5, -10); }
+  // il faro: più alto a ogni livello, a fasce bianche e rosse, con la luce che gira
+  { const fh = 44 + lvl * 7, fx = -52, fz = -12;
+    cyl(g, 9, 10.5, 8, S1, fx, 12.5, fz, { seg: 10 });
+    for (let k = 0; k < 4; k++) cyl(g, 6.2 - k * 0.5, 6.8 - k * 0.5, fh / 4, k % 2 ? '#c0392b' : '#f4f1ea', fx, 16.5 + fh / 8 + k * fh / 4, fz, { seg: 10 });
+    cyl(g, 7.4, 7.4, 2, '#55565e', fx, 17.5 + fh, fz, { seg: 10, ns: true }); cyl(g, 3.6, 3.6, 7, '#ffe27a', fx, 22 + fh, fz, { seg: 8, ns: true, mat: { e: 0xffc040, ei: 1 } }); cone(g, 6.4, 8, '#c0392b', fx, 29.5 + fh, fz, { seg: 10, ns: true });
+    const beam = u.beam = grp(g, fx, 22 + fh, fz); const bm = put(beam, geom('beam', () => new THREE.ConeGeometry(9, 70, 10, 1, true)), M('#fff3c4', { basic: true, a: 0.16, double: true }), 0, 0, 38, false); bm.rotation.x = -Math.PI / 2; }
+  // casse, botti, sacchi
+  for (const [x, z, col] of [[-6, 22, '#d9b46a'], [0, 24, '#c08e58'], [-3, 23, '#d9b46a']]) box(g, 7, 6.5, 7, col, x, 12.9 + (col === '#d9b46a' && x === -3 ? 6.5 : 0), z, { ns: true });
+  for (const [x, z] of [[24, 24], [31, 22], [27.5, 27]]) { cyl(g, 4, 4, 8, WOOD, x, 13.6, z, { seg: 8 }); cyl(g, 4.3, 4.3, 1, '#55565e', x, 15, z, { seg: 8, ns: true }); }
+  if (lvl >= 1) {        // la gru: palo, braccio, fune e una cassa appesa
+    cyl(g, 2, 2.8, 40, WOOD_D, 52, 29.6, 20, { seg: 6 }); const arm = box(g, 3, 3, 34, WOOD_D, 52, 46, 34, { ns: true }); arm.rotation.x = -0.28;
+    cyl(g, 0.4, 0.4, 20, '#3d2a17', 52, 40, 48, { seg: 4, ns: true }); box(g, 7, 6, 7, '#d9b46a', 52, 28, 48, { ns: true });
+  }
+  // bandiere (una in più a ogni livello) e, in cima, i fregi d'oro
+  for (let k = 0; k <= Math.min(3, lvl); k++) { const x = -44 + k * 30, z = -22; cyl(g, 1.1, 1.4, 30, WOOD_D, x, 44 + (k === 0 ? 4 : 0), z, { seg: 5 }); box(g, 0.7, 9, 14, k % 2 ? '#f4ecd6' : MY_COLOR, x, 54 + (k === 0 ? 4 : 0), z + 7.4, { ns: true }); }
+  if (lvl >= 3) for (const x of [-30, 12]) octa(g, 3.4, GOLDC, x, 49 - (x > 0 ? 5 : 0), -6 - (x > 0 ? 2 : 0));
+  if (lvl >= 4) { box(g, 120, 1.6, 2, GOLDC, 0, 10.4, 32.4, { ns: true }); for (const x of [-58, 58]) { cyl(g, 3, 3.6, 12, S2, x, 15, 30, { seg: 8 }); ball(g, 4, GOLDC, x, 23, 30, { e: 0x8a6410, ei: 0.4 }); } }
+  // le navi all'ormeggio
+  u.moored = [];
+  (ships || []).slice(0, 3).forEach((sh, i) => { const m = makeShip(sh.type, sh.lvl); m.position.set([-15, 23, 61][i], 1, 62); g.add(m); u.moored.push(m); });
+  g.userData = u;
   return g;
 }
+
 /** Il castello: mastio merlato, quattro torri d'angolo coi tetti viola del tuo popolo, portone, stendardi. */
 function makeCastle(level) {
   const g = grp(null), ROOF = '#7b5cc9', ROOF_D = '#6247a8', S1 = '#a9aab6', S2 = '#bfc0cc', S3c = '#8f909c', rr = mulberry32(5);
@@ -784,8 +876,8 @@ function makeModel(type, o = {}) {
   let g;
   if (type === 'castello') g = makeCastle(o.castle || 1);
   else if (type === 'casa') g = makeHouse(o.id || 0, o.lvl || 0);
-  else if (type === 'porto') g = makePort();
-  else if (type === 'scalo') g = makeBigPort();
+  else if (type === 'porto') g = makePort(o.lvl || 0, o.ships);
+  else if (type === 'scalo') g = makeBigPort(o.lvl || 0, o.ships);
   else if (type === 'campo') g = makePlot(o.crop);
   else if (type === 'segheria') g = makeSawmill();
   else if (type === 'cava') g = makeQuarry();
@@ -801,7 +893,7 @@ function makeModel(type, o = {}) {
   else if (type === 'cristalliera') g = makeMine('#7fe3ff', 0x2fb8e0);
   else if (type === 'cancello') g = makeGate(o.vertical);
   else { g = makeTower(type, o.lvl || 0); g.scale.setScalar(1.08); }
-  if (LEVELS[type] && type !== 'casa' && o.lvl) { const k = g.scale.x; levelMarks(g, o.lvl, 34 / k, (type === 'caserma' || type === 'mulino' ? 56 : 40) / k); g.scale.multiplyScalar(1 + o.lvl * 0.05); }
+  if (LEVELS[type] && type !== 'casa' && type !== 'scalo' && type !== 'porto' && o.lvl) { const k = g.scale.x; levelMarks(g, o.lvl, 34 / k, (type === 'caserma' || type === 'mulino' ? 56 : 40) / k); g.scale.multiplyScalar(1 + o.lvl * 0.05); }
   if (o.rot) g.rotation.y = o.rot;
   return bake(g, movers(g));
 }
@@ -1063,6 +1155,29 @@ export class Scene3D {
       const mat = new THREE.MeshLambertMaterial({ color: 0x49b4e2, transparent: true, opacity: 0.78, emissive: 0x0e4f70, emissiveIntensity: 0.35 });
       const w = new THREE.Mesh(new THREE.ShapeGeometry(sh, 24), mat);
       w.rotation.x = -Math.PI / 2; w.position.set(L.x, 0.5, L.y); w.receiveShadow = true; s.add(w); this.water.push(w);
+    }
+
+    // fiumi: un nastro d'acqua lungo il corso (si ferma a guadi e ponti, e dentro i laghi dove c'è già lo specchio)
+    for (const R of RIVERS) {
+      let run = [];
+      const flush = () => {
+        if (run.length > 1) {
+          const pos = [], ind = [];
+          run.forEach((p, i) => { const a = run[Math.max(0, i - 1)], b = run[Math.min(run.length - 1, i + 1)], L = Math.hypot(b.x - a.x, b.y - a.y) || 1, nx = -(b.y - a.y) / L, ny = (b.x - a.x) / L, hw = 51; pos.push(p.x + nx * hw, 0.5, p.y + ny * hw, p.x - nx * hw, 0.5, p.y - ny * hw); if (i) { const k = i * 2; ind.push(k - 2, k, k - 1, k - 1, k, k + 1); } });
+          const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(ind); geo.computeVertexNormals();
+          const w = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x49b4e2, transparent: true, opacity: 0.74, emissive: 0x0e4f70, emissiveIntensity: 0.35, side: THREE.DoubleSide }));
+          w.receiveShadow = true; s.add(w); this.water.push(w);
+        }
+        run = [];
+      };
+      for (const p of R.pts) { const c = Math.floor(p.x / G), r = Math.floor(p.y / G); if (c >= 0 && r >= 0 && c < COLS && r < ROWS && RIVER_AT[r * COLS + c] === 1) run.push(p); else flush(); }
+      flush();
+    }
+    // i ponti di pietra delle strade: due parapetti e quattro pilastrini
+    for (const B of bridgeSpots()) {
+      const g = grp(null, B.x, 0, B.y), off = (B.main ? 17 : 12) + 20; g.rotation.y = Math.atan2(B.dx, B.dy);
+      for (const sx of [-1, 1]) { box(g, 7, 9, 176, STONE, sx * off, 4.5, 0); box(g, 9, 3, 180, '#c4c5d0', sx * off, 10, 0, { ns: true }); for (const sz of [-1, 1]) { cyl(g, 6.5, 7.5, 16, STONE_D, sx * off, 8, sz * 90, { seg: 8 }); ball(g, 5, '#c4c5d0', sx * off, 18, sz * 90, { ns: true }); } }
+      s.add(bake(g));
     }
 
     { const ix = (ISLAND.c + 0.5) * G, iz = (ISLAND.r + 0.5) * G, R = (ISLAND.rad + 0.62) * G;       // l'isola: sabbia attorno, prato sopra
@@ -1361,18 +1476,25 @@ export class Scene3D {
       else if (b.type === 'castello') key = 'C' + world.d.castle;
       else if (b.type === 'cancello') { vertical = (wallish(world.buildingAt(b.c, b.r - 1)) || wallish(world.buildingAt(b.c, b.r + 1))) && !(wallish(world.buildingAt(b.c - 1, b.r)) || wallish(world.buildingAt(b.c + 1, b.r))); key = vertical ? 'V' : 'H'; }
       else key = 'L' + (b.lvl || 0);
-      let rot = 0;
-      if (b.type === 'porto' || b.type === 'scalo') { let bd = 1e12, L0 = null; for (const L of LAKES) { const dd = (L.x - b.x) * (L.x - b.x) + (L.y - b.y) * (L.y - b.y); if (dd < bd) { bd = dd; L0 = L; } } if (L0) rot = Math.round(Math.atan2(L0.x - b.x, L0.y - b.y) / (Math.PI / 2)) * (Math.PI / 2); }
+      let rot = 0, ships = null;
+      if (b.type === 'scalo' || b.type === 'porto') { const big = b.type === 'scalo', docks = world.d.buildings.filter(x => x.type === b.type && !(x.build > 0)), k = docks.indexOf(b), idle = world.d.fleet.filter(q => !q.job), nBig = world.d.buildings.filter(x => x.type === 'scalo' && !(x.build > 0)).length; ships = k < 0 ? [] : big ? idle.slice(k * 3, k * 3 + 3) : idle.slice(nBig * 3 + k, nBig * 3 + k + 1); key += '|' + ships.map(q => q.type[0] + q.lvl).join(''); }
+      if (b.type === 'porto' || b.type === 'scalo') {      // verso l'acqua più vicina
+        let wx = 0, wy = 0; const c0 = Math.floor(b.x / G), r0 = Math.floor(b.y / G);
+        for (let rr = r0 - 5; rr <= r0 + 5; rr++) for (let cc = c0 - 5; cc <= c0 + 5; cc++) { if (cc < 0 || rr < 0 || cc >= COLS || rr >= ROWS || TERRAIN[rr * COLS + cc] !== 3) continue; const dx = (cc + 0.5) * G - b.x, dy = (rr + 0.5) * G - b.y, dd = dx * dx + dy * dy || 1; wx += dx / dd; wy += dy / dd; }
+        if (wx || wy) rot = Math.round(Math.atan2(wx, wy) / (Math.PI / 2)) * (Math.PI / 2);
+      }
+      if (rot) key += '|r' + Math.round(rot * 10);
       let o = this.bMesh.get(b.id);
       if (!o || o.key !== key) {
         const fresh = !o;
         if (o) drop(s, o.g);
-        const g = makeModel(b.type, { lvl: b.lvl || 0, castle: world.d.castle, crop, id: b.id, vertical, rot });
+        const g = makeModel(b.type, { lvl: b.lvl || 0, castle: world.d.castle, crop, id: b.id, vertical, rot, ships });
         g.position.set(b.x, 0, b.y); s.add(g);
         o = { g, key, sx: g.scale.x, sy: g.scale.y, sz: g.scale.z, pop: (fresh && this.ready) || (!fresh && b.type !== 'campo') ? 0 : 1 };
         this.bMesh.set(b.id, o);
       }
       const g = o.g, u = g.userData;
+      if (g.position.x !== b.x || g.position.z !== b.y) g.position.set(b.x, g.position.y, b.y);      // un edificio spostato: il modello lo segue (prima restava dov'era)
       if (b.build > 0) {               // in cantiere: cresce dal basso, un po' traballante
         const p = 1 - b.build / (BUILD[b.type].time || 1), w = 1 + Math.sin(time * 22 + b.id) * 0.012;
         g.scale.set(o.sx * w, o.sy * (0.16 + 0.84 * p), o.sz * w); o.pop = 1; o.site = true;
@@ -1382,7 +1504,9 @@ export class Scene3D {
         const k = o.pop - 1, e = 0.35 + 0.65 * (1 + 2.7 * k * k * k + 1.7 * k * k), w = b.hitT > 0 ? 1 + Math.sin(time * 60) * 0.03 : 1;
         g.scale.set(o.sx * e * w, o.sy * e, o.sz * e * w);
       } else if (g.scale.x !== o.sx) g.scale.set(o.sx, o.sy, o.sz);
-      if (u.boat) { u.boat.position.z = 96 + Math.sin(time * 0.35 + b.id) * 34; u.boat.position.y = 2 + Math.sin(time * 2.2 + b.id) * 0.8; u.boat.rotation.z = Math.sin(time * 1.7 + b.id) * 0.06; }
+      if (u.boat) { const ph = time * 0.3 + b.id, sw = Math.sin(ph); u.boat.position.z = 100 + sw * 26; u.boat.position.x = -22 + Math.sin(ph * 0.5) * 6; u.boat.rotation.y = Math.cos(ph) > 0 ? 0 : Math.PI; u.boat.position.y = 1 + Math.sin(time * 2.2 + b.id) * 0.7; u.boat.rotation.z = Math.sin(time * 1.7 + b.id) * 0.05; }
+      if (u.moored) for (let i = 0; i < u.moored.length; i++) { const m = u.moored[i]; m.position.y = 1 + Math.sin(time * 1.6 + i * 2.1 + b.id) * 0.8; m.rotation.z = Math.sin(time * 1.1 + i * 1.7 + b.id) * 0.035; }
+      if (u.beam) u.beam.rotation.y = time * 0.9;
       if (u.blade) u.blade.rotation.y = time * 5;
       if (u.sails) u.sails.rotation.z = time * 0.9;
       if (u.jets) u.jets.forEach((j, i) => { j.scale.y = 0.8 + Math.sin(time * 6 + i * 1.3) * 0.22; });

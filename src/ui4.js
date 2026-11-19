@@ -320,9 +320,13 @@ export function worldPanel(S, K) {
   // chi non è entrato, o il mondo che non c'è ancora
   const gate = !cloud.state.user ? 'on_needAccount' : st.ready === false ? 'on_soon' : st.ready == null ? 'on_loading' : null;
   if (gate) {
-    K.panel(c, x, y, w, h, 14, 0.96);
-    K.wrap(c, t(gate), vw / 2, y + h / 2 - 40, Math.min(560, w - 40), 18, K.CREAM, 26);
-    if (gate === 'on_needAccount') K.button(c, ui, vw / 2 - 120, y + h / 2 + 20, 240, 50, t('account'), { color: '#2f5d7a', fs: 19, tag: 'wAccount' }, A.onlineAccount);
+    // la carta del mondo si vede comunque: chi non è entrato capisce che cosa lo aspetta
+    drawMap(S, K, x + 6, y + 6, w - 12, h - 12);
+    c.fillStyle = 'rgba(14,12,22,0.5)'; c.beginPath(); c.roundRect(x + 6, y + 6, w - 12, h - 12, 10); c.fill(); K.block(ui, x, y, w, h);
+    const bw = Math.min(560, w - 40), bh = gate === 'on_needAccount' ? 190 : 110, bx = vw / 2 - bw / 2, by = y + h / 2 - bh / 2;
+    K.scroll(c, bx, by, bw, bh, 14);
+    K.wrap(c, t(gate), vw / 2, by + 40, bw - 48, 17, K.PEN, 24);
+    if (gate === 'on_needAccount') K.button(c, ui, vw / 2 - 150, by + bh - 70, 300, 52, t('cloudGoogle') + ' / ' + t('account'), { color: '#2f5d7a', fs: 17, tag: 'wAccount' }, A.onlineAccount);
     return;
   }
   if (!st.me && U.tab !== 'rank') {

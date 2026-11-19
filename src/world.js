@@ -1,7 +1,7 @@
 // Il regno: regole pure (niente disegno, niente DOM). Griglia, costruzione libera, risorse, colture,
 // notti con i popoli rivali che scendono dai loro villaggi, torri, esercito, assalti, scoperte, missioni.
 import {
-  G, COLS, ROWS, CASTLE, START, SELL_REFUND, BUILD, SHIPS, SHIP_MAX, towerCap, UNITS, CASERMA_SLOTS, GUARD_REACH, CASTLE_UP, MAX_CASTLE,
+  G, COLS, ROWS, CASTLE, START, SELL_REFUND, BUILD, SHIPS, SHIP_MAX, RIVER_AT, towerCap, UNITS, CASERMA_SLOTS, GUARD_REACH, CASTLE_UP, MAX_CASTLE,
   castleHp, TOWERS, ENEMIES, CROPS, genWave, hpMul, NATURE, CHOP, TRIBES, VILLAGE_R, REVOLT_NIGHTS, TECHS,
   villageHp, villageGuards, villageLoot, villageTribute, TRADE, TERRAIN, STEP, ALLY_NIGHTS, MAX_ALLIES, TRADES_PER_DAY,
   allyCost, allyHelpers, villageTrade, GOALS, MORALE, moraleK, WORK, WORKER_SPEED, JOBS_MAX, HERO, ROLES, AUTO_RANGE, REGROW_SECS, DIFFS, seasonOf, FOG, FW, FH, RUINS, EVENTS, CHAPTERS, mulberry32, LEVELS, levelK, REL, HERO_POWERS,
@@ -51,13 +51,17 @@ export class World {
       const was = data.buildings.find(b => b.type === 'castello'), old = data.map !== 3, dc = CASTLE.c - was.c, dr = CASTLE.r - was.r;
       for (const k in START) if (data.res && isFinite(data.res[k])) d.res[k] = data.res[k];
       d.castle = Math.max(1, Math.min(MAX_CASTLE, data.castle || 1)); d.night = data.night || 0; d.nextId = data.nextId || 2;
+      const flooded = [];
       d.buildings = data.buildings.filter(b => BUILD[b.type]).map(b => {
         const o = { ...b, c: b.c + dc, r: b.r + dr };
         if (o.sold) o.units = Array(o.sold).fill('lancia');
         delete o.sold;
         if (o.units) o.units = o.units.filter(u => UNITS[u] && !UNITS[u].hero).slice(0, CASERMA_SLOTS + 2);
         return o;
-      }).filter(b => { const D = BUILD[b.type]; return b.type === 'castello' || (b.c >= 2 && b.r >= 2 && b.c + D.w <= COLS - 2 && b.r + D.h <= ROWS - 2 && VIL_AT[idx(b.c, b.r)] < 0 && VIL_AT[idx(b.c + D.w - 1, b.r + D.h - 1)] < 0 && !TERRAIN[idx(b.c, b.r)] && !TERRAIN[idx(b.c + D.w - 1, b.r + D.h - 1)] && !TERRAIN[idx(b.c + D.w - 1, b.r)] && !TERRAIN[idx(b.c, b.r + D.h - 1)]); });
+      }).filter(b => { const D = BUILD[b.type]; const ok = b.type === 'castello' || (b.c >= 2 && b.r >= 2 && b.c + D.w <= COLS - 2 && b.r + D.h <= ROWS - 2 && VIL_AT[idx(b.c, b.r)] < 0 && VIL_AT[idx(b.c + D.w - 1, b.r + D.h - 1)] < 0 && !TERRAIN[idx(b.c, b.r)] && !TERRAIN[idx(b.c + D.w - 1, b.r + D.h - 1)] && !TERRAIN[idx(b.c + D.w - 1, b.r)] && !TERRAIN[idx(b.c, b.r + D.h - 1)]); if (!ok) flooded.push(b); return ok; });
+      // quello che non ha più posto (per esempio dov'è arrivato un fiume) si smonta e rende tutto il suo costo
+      for (const b of flooded) { const D = BUILD[b.type], L = LEVELS[b.type]; for (const k in D.cost || {}) d.res[k] = (d.res[k] || 0) + D.cost[k]; for (let i = 0; i < (b.lvl || 0) && L && L[i]; i++) for (const k in L[i]) d.res[k] = (d.res[k] || 0) + L[i][k]; }
+      this.flooded = flooded.length;
       d.cut = !old && Array.isArray(data.cut) ? data.cut.filter(i => NATURE[i]) : [];
       Object.assign(d.tech, data.tech || {});
       if (Array.isArray(data.villages)) data.villages.forEach((v, i) => { if (d.villages[i] && v) d.villages[i] = { level: v.level || TRIBES[i].level, state: v.state === 'colony' || v.state === 'ally' ? v.state : 'free', since: v.since || 0, until: v.until || 0, trades: v.trades || 0, rel: v.rel == null ? REL.start : v.rel, gift: v.gift || 0, calm: v.calm || 0, rage: v.rage || 0 }; });
@@ -90,6 +94,7 @@ export class World {
     this.scouts = []; this.heroCd = { shout: 0, slam: 0, heal: 0 }; this.tripT = 0; this.blk = TERRAIN; this.lostB = []; this.shoutT = 0; this.regrowT = 0; this.fogT = 0; this.now = now;
     this.waveT = 0; this.spellCd = 0; this.uid = 1; this.rev = 0; this.away = null; this.castleHit = false; this.nightKills = 0;
     this.cutSet = new Set(d.cut);
+    for (const n of NATURE) if (n.wet) this.cutSet.add(n.id);      // alberi e rocce che ora stanno sotto un fiume: non ci sono (e non ricrescono: non sono in d.cut)
     // sotto un edificio non resta natura (succede solo venendo da un salvataggio vecchio)
     for (const b of d.buildings) { const D = BUILD[b.type]; for (let r = b.r; r < b.r + D.h; r++) for (let c = b.c; c < b.c + D.w; c++) { const k = NAT_AT[idx(c, r)]; if (k && !this.cutSet.has(k - 1)) { this.cutSet.add(k - 1); d.cut.push(k - 1); } } }
     this.rebuild();
@@ -214,6 +219,7 @@ export class World {
       if (!this.seen(cc, rr)) return 'fog';
       if (VIL_AT[idx(cc, rr)] >= 0) return 'village';
       if (D.water ? TERRAIN[idx(cc, rr)] !== 3 : TERRAIN[idx(cc, rr)]) return D.water ? 'water' : 'terrain';
+      if (RIVER_AT[idx(cc, rr)] > 1 && type !== 'strada') return 'terrain';      // su un guado o sul ponte di una strada non si costruisce
       if (this.occ[idx(cc, rr)] !== 0 || this.natAt(cc, rr)) return 'occupied';
     }
     if (D.shore) { let wet = false; for (let rr = r - 1; rr <= r + D.h && !wet; rr++) for (let cc = c - 1; cc <= c + D.w; cc++) if (inMap(cc, rr) && TERRAIN[idx(cc, rr)] === 3) { wet = true; break; } if (!wet) return 'shore'; }

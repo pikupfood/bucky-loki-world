@@ -938,12 +938,35 @@ function hints(S) {
   panel(c, vw / 2 - hw / 2, hy, hw, 42, 21, 0.8); txt(c, hint, vw / 2, hy + 22, 20, '#ffe9a8', 'center');
 }
 
+/** Che cosa c'è di nuovo, e dove si trova: compare una volta dopo un aggiornamento (e si riapre dalle impostazioni). */
+function newsPanel(S) {
+  const { c, ui, vw, vh, A } = S, tall = S.tall;
+  dim(S, 0.68);
+  const w = Math.min(760, vw - 20), rowH = tall ? 86 : 64, h = 96 + 5 * rowH + 84, x = vw / 2 - w / 2, y = Math.max(26, vh / 2 - h / 2);
+  scroll(c, x, y, w, h, 18);
+  ribbon(c, vw / 2, y - 19, Math.min(w - 60, 320), 44, t('news'), '#8a2f24', 24);
+  txt(c, t('newsSub'), vw / 2, y + 52, 15, PEN2, 'center', 700);
+  const icon = [(ix, iy) => { c.beginPath(); c.moveTo(ix - 16, iy + 8); c.bezierCurveTo(ix - 6, iy - 12, ix + 4, iy + 14, ix + 16, iy - 8); c.strokeStyle = '#d8c79a'; c.lineWidth = 13; c.lineCap = 'round'; c.stroke(); c.strokeStyle = '#4fb4de'; c.lineWidth = 8; c.stroke(); },
+    (ix, iy) => buildIcon(c, 'scalo', ix, iy, 15, 0), (ix, iy) => V.shipIcon(c, 'guerra', ix, iy - 2, 16, 2), (ix, iy) => Y.mapIcon(c, ix, iy, 13), (ix, iy) => Z.globeIcon(c, ix, iy, 14)];
+  for (let i = 0; i < 5; i++) {
+    const ry = y + 84 + i * rowH;
+    c.beginPath(); c.arc(x + 44, ry + rowH / 2 - 6, 24, 0, TAU); c.fillStyle = 'rgba(122,84,40,0.14)'; c.fill(); c.strokeStyle = 'rgba(122,84,40,0.45)'; c.lineWidth = 1.4; c.stroke();
+    icon[i](x + 44, ry + rowH / 2 - 6);
+    head(c, t('news' + (i + 1) + 't'), x + 84, ry + 12, 18, PENRED, 'left', false);
+    wrap(c, t('news' + (i + 1)), x + 84, ry + 36, w - 110, 14, PEN, 18, 'left');
+  }
+  const by = y + h - 68;
+  button(c, ui, x + 24, by, 230, 50, t('account'), { color: '#2f5d7a', fs: 19, tag: 'newsAccount' }, A.newsAccount);
+  button(c, ui, x + w - 254, by, 230, 50, t('newsOk'), { color: '#2f7d3a', fs: 20, tag: 'newsOk' }, A.newsOk);
+}
+
 function settingsPanel(S) {
   const { c, ui, vw, vh, A } = S;
   dim(S, 0.6);
   const h = 446, y0 = vh / 2 - h / 2;
   panel(c, vw / 2 - 260, y0, 520, h, 18, 0.96);
   title2(c, t('settings'), vw / 2, y0 + 46, 36, '#f2cf73');
+  button(c, ui, vw / 2 + 260 - 150, y0 + 14, 136, 38, t('news'), { color: '#8a2f24', fs: 15.5, r: 10, tag: 'newsOpen' }, A.newsOpen);
   langRow(S, vw / 2, y0 + 86);
   X.settingsExtra(S, K, vw / 2, y0 + 150);
   button(c, ui, vw / 2 - 110, y0 + h - 66, 220, 50, t('close'), { color: '#5c4330', fs: 22, tag: 'close' }, A.settings);
@@ -1027,6 +1050,7 @@ function titleScreen(S) {
   if (ui.newGame) X.titleDiff(S, K, vw / 2, y0 + 258);
   button(c, ui, vw / 2 - 150, y0 + (ui.newGame ? 312 : 290), 300, ui.newGame ? 72 : 84, t('play'), { color: '#2f7d3a', fs: 36, tag: 'play' }, A.play);
   langRow(S, vw / 2, y0 + 414);
+  button(c, ui, vw - 14 - 190, 14, 190, 46, t('account'), { color: '#2f5d7a', fs: 18, tag: 'titleAccount' }, A.account);
 }
 
 const K = { txt, width, panel, scroll, ribbon, head, fit, rule, shade, PEN, PEN2, PENBAD, PENOK, PENRED, SERIF, title2, wrap, button, block, dim, bar, bubble, moon, cross, card, heart, lock, coin, costRow, costRowPlain, tuzu2d, tuzu2dNow, tuzuIcon, flushIcons, enemyIcon, tracePoly, buildIcon, check, hammer, swap, fmtTime, RES_ICON, RES_COL, CREAM, DIM, BAD, GOLD };
@@ -1062,6 +1086,7 @@ function drawAll(S) {
   else if (ui.daily) dailyPanel(S);
   else if (ui.story != null) X.storyPanel(S, K);
   else if (ui.eventOpen) X.eventPanel(S, K);
+  else if (ui.news) newsPanel(S);
   else if (ui.reportOpen) Y.reportPanel(S, K);
   else if (ui.seaOpen) V.seaReport(S, K);
   else if (ui.fleet) V.fleetPanel(S, K);
@@ -1071,5 +1096,5 @@ function drawAll(S) {
   else if (ui.quests) questsPanel(S);
   else if (ui.tech) techPanel(S);
   else if (ui.settings) settingsPanel(S);
-  if (!(ui.lost || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.reportOpen || ui.roles || ui.quests || ui.tech || ui.settings || ui.online || ui.fleet || ui.seaOpen)) Y.finger(S, K);
+  if (!(ui.lost || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.reportOpen || ui.roles || ui.quests || ui.tech || ui.settings || ui.online || ui.fleet || ui.seaOpen || ui.news)) Y.finger(S, K);
 }
