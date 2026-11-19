@@ -583,7 +583,7 @@ export class Scene3D {
     this.dir = new THREE.Vector3(0, Math.sin(PITCH), Math.cos(PITCH));
     this.target = new THREE.Vector3((CASTLE.c + CASTLE.w / 2) * G, 0, (CASTLE.r + CASTLE.h / 2) * G + 20);
     this.dist = 1150;
-    this.post = true; this.calm = false; this.nightK = 0;
+    this.finish = true; this.calm = false; this.nightK = 0;
     this._initPost();
   }
 
@@ -631,7 +631,7 @@ export class Scene3D {
     if (!this.postOk) console.log('[tuzu] rifinitura non disponibile su questo dispositivo');
   }
   /** Rifinitura accesa o spenta (si spegne da sola se il telefono fatica). */
-  setPost(on) { this.post = on; }
+  setPost(on) { this.finish = !!on; }
   /** Con la griglia di costruzione aperta la sfocatura si attenua: serve vedere bene dove si mette. */
   setCalm(on) { this.calm = on; }
 
@@ -1110,7 +1110,7 @@ export class Scene3D {
   render() {
     if (!this.scene) return;
     const r = this.r;
-    if (!this.postOk || !this.post) { r.setRenderTarget(null); r.info.reset(); r.render(this.scene, this.cam); return; }
+    if (!this.postOk || !this.finish) { r.setRenderTarget(null); r.info.reset(); r.render(this.scene, this.cam); this.calls = r.info.render.calls; this.tris = r.info.render.triangles; return; }
     r.info.reset();
     r.setRenderTarget(this.rtA); r.render(this.scene, this.cam);
     this.calls = r.info.render.calls; this.tris = r.info.render.triangles;
