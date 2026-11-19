@@ -1,6 +1,6 @@
 // Pittore del terreno: una texture 2D stesa sul piano 3D della mappa.
 // Prato a chiazze, sottobosco, ghiaioni sotto le montagne, laghi con la riva, strade a curve, piazze dei villaggi.
-import { WORLD_W, WORLD_H, G, CASTLE, TRIBES, NATURE, ROADS, LAKES, HILLS, PEAKS, lakeEdge, mulberry32, ISLAND, ROAD_AT, COLS, ROWS, RIVERS, RIVER_AT, SEA_W } from './data.js';
+import { WORLD_W, WORLD_H, G, CASTLE, TRIBES, NATURE, ROADS, LAKES, HILLS, PEAKS, lakeEdge, mulberry32, ISLAND, ROAD_AT, COLS, ROWS, RIVERS, RIVER_AT, SEA_W, HOME_R } from './data.js';
 
 const TAU = Math.PI * 2;
 export const GRASS = '#5f9f47';
@@ -112,13 +112,18 @@ export function paintWorld(canvas, k) {
   // strade: prima le secondarie (da villaggio a villaggio), poi quelle che portano al castello
   c.lineCap = 'round'; c.lineJoin = 'round';
   const trace = (R) => { c.beginPath(); R.pts.forEach((p, i) => { if (i) c.lineTo(p.x, p.y); else c.moveTo(p.x, p.y); }); };
+  // Si disegnano A STRATI su tutte insieme: prima tutti i bordi, poi tutta la terra battuta, poi tutte le righe chiare. Una strada alla volta,
+  // dove due si incontravano il bordo dell'una tagliava l'altra (il titolare, 19/11/2026: «quando le incrocio non si capisce niente»).
+  const order = [false, true].flatMap(main => ROADS.filter(R => R.main === main)), RW = (R) => (R.main ? 34 : 24);
+  for (const R of order) { trace(R); c.strokeStyle = 'rgba(70,104,48,0.5)'; c.lineWidth = RW(R) + 22; c.stroke(); }        // bordo d'erba pestata
+  for (const R of order) { trace(R); c.strokeStyle = 'rgba(122,92,58,0.85)'; c.lineWidth = RW(R) + 7; c.stroke(); }
+  for (const R of order) { trace(R); c.strokeStyle = '#c9a674'; c.lineWidth = RW(R); c.stroke(); }
+  for (const R of order) { trace(R); c.strokeStyle = 'rgba(226,198,146,0.75)'; c.lineWidth = RW(R) * 0.5; c.stroke(); }
+  // Dove arrivano al villaggio (si fermano a HOME_R quadretti dal castello) le strade sfumano nello spiazzo: prima finivano con tre punte tonde.
+  { const hx = (CASTLE.c + CASTLE.w / 2) * G, hy = (CASTLE.r + CASTLE.h / 2) * G; for (const R of ROADS) for (const p of [R.pts[0], R.pts[R.pts.length - 1]]) if (Math.hypot(p.x - hx, p.y - hy) < (HOME_R + 2.5) * G) glow(c, p.x, p.y, 86, '204,174,120', 0.96); }
   for (const main of [false, true]) for (const R of ROADS) {
     if (R.main !== main) continue;
     const W = main ? 34 : 24;
-    trace(R); c.strokeStyle = 'rgba(70,104,48,0.5)'; c.lineWidth = W + 22; c.stroke();        // bordo d'erba pestata
-    trace(R); c.strokeStyle = 'rgba(122,92,58,0.85)'; c.lineWidth = W + 7; c.stroke();
-    trace(R); c.strokeStyle = '#c9a674'; c.lineWidth = W; c.stroke();
-    trace(R); c.strokeStyle = 'rgba(226,198,146,0.75)'; c.lineWidth = W * 0.5; c.stroke();
     trace(R); c.strokeStyle = 'rgba(150,116,78,0.35)'; c.lineWidth = 2.4; c.setLineDash([3, 26]); c.lineDashOffset = rnd() * 20; c.stroke(); c.setLineDash([]);
     for (let i = 4; i < R.pts.length - 4; i += 3) { const p = R.pts[i]; if (rnd() < 0.5) ell(c, p.x + (rnd() - 0.5) * W * 1.3, p.y + (rnd() - 0.5) * W * 1.3, 2 + rnd() * 2.6, 1.6 + rnd() * 2, rnd() < 0.5 ? 'rgba(90,70,50,0.5)' : 'rgba(240,226,196,0.6)'); }
   }
@@ -180,6 +185,11 @@ export function paintBuiltRoads(canvas, base, k, cells, prev) {
   for (const q of cells) {
     const x = (q.c + 0.5) * G, y = (q.r + 0.5) * G;
     let close = false; for (let dr = -2; dr <= 2 && !close; dr++) for (let dc = -2; dc <= 2; dc++) { const cc = q.c + dc, rr = q.r + dr; if (cc >= 0 && rr >= 0 && cc < COLS && rr < ROWS && ROAD_AT[rr * COLS + cc]) { close = true; break; } }
+    // Si raccorda solo chi serve: un pezzo che finisce lì (un capo della strada), oppure un pezzo attaccato alla strada della mappa che non stia in
+    // mezzo a una fila tutta attaccata (una strada costruita di fianco a quella della mappa faceva un raccordo per ogni pezzo: un pettine).
+    const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]], built = nb.filter(([dc, dr]) => set.has((q.r + dr) * COLS + q.c + dc)), adj = (cc, rr) => nb.some(([dc, dr]) => { const a = cc + dc, b = rr + dr; return a >= 0 && b >= 0 && a < COLS && b < ROWS && !!ROAD_AT[b * COLS + a]; });
+    const mine = adj(q.c, q.r), tied = built.filter(([dc, dr]) => adj(q.c + dc, q.r + dr)).length;
+    close = close && !ROAD_AT[q.r * COLS + q.c] && (built.length <= 1 || (mine && tied < 2));
     if (close) { let bd = (G * 2.4) ** 2, bp = null; for (const R of ROADS) for (const p of R.pts) { const d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y); if (d < bd) { bd = d; bp = p; } } if (bp && bd > 9) links.push([x, y, bp.x, bp.y]); }
     // due pezzi in diagonale senza niente in mezzo si toccano lo stesso
     for (const [dc, dr] of [[1, 1], [1, -1]]) if (set.has((q.r + dr) * COLS + q.c + dc) && !set.has(q.r * COLS + q.c + dc) && !set.has((q.r + dr) * COLS + q.c)) links.push([x, y, x + dc * G, y + dr * G]);
@@ -195,13 +205,22 @@ export function paintBuiltRoads(canvas, base, k, cells, prev) {
       else for (const i of idx) { c.moveTo(x, y); c.lineTo(m[i][0], m[i][1]); }
     }
   };
+  // A strati, insieme alle strade della mappa che passano di qui: bordi di quelle costruite → terra battuta della mappa (copre i bordi che le
+  // finivano sopra) → terra battuta di quelle costruite → righe chiare. Così un incrocio è un incrocio, non due strade una sull'altra.
+  c.save(); c.beginPath(); c.rect(all[0], all[1], all[2] - all[0], all[3] - all[1]); c.clip();      // solo dove il fondo è stato rimesso: altrove le righe chiare si sommerebbero
   c.setTransform(k, 0, 0, k, 0, 0); c.lineCap = 'round'; c.lineJoin = 'round';
-  const W = 30;
-  for (const [col, w] of [['rgba(70,104,48,0.5)', W + 18], ['rgba(122,92,58,0.85)', W + 7], ['#c9a674', W], ['rgba(226,198,146,0.75)', W * 0.5]]) { trace(); c.strokeStyle = col; c.lineWidth = w; c.stroke(); }
+  const W = 30, m = 80, near = ROADS.filter(R => R.pts.some(p => p.x * k > all[0] - m && p.x * k < all[2] + m && p.y * k > all[1] - m && p.y * k < all[3] + m));
+  const mapTrace = (R) => { c.beginPath(); R.pts.forEach((p, i) => { if (i) c.lineTo(p.x, p.y); else c.moveTo(p.x, p.y); }); }, RW = (R) => (R.main ? 34 : 24);
+  for (const [col, w] of [['rgba(70,104,48,0.5)', W + 18], ['rgba(122,92,58,0.85)', W + 7]]) { trace(); c.strokeStyle = col; c.lineWidth = w; c.stroke(); }
+  for (const R of near) { mapTrace(R); c.strokeStyle = '#c9a674'; c.lineWidth = RW(R); c.stroke(); }
+  trace(); c.strokeStyle = '#c9a674'; c.lineWidth = W; c.stroke();
+  for (const R of near) { mapTrace(R); c.strokeStyle = 'rgba(226,198,146,0.75)'; c.lineWidth = RW(R) * 0.5; c.stroke(); }
+  trace(); c.strokeStyle = 'rgba(226,198,146,0.75)'; c.lineWidth = W * 0.5; c.stroke();
   for (const q of cells) {        // qualche sassolino, sempre gli stessi
     const rnd = mulberry32(q.r * 977 + q.c * 131 + 5);
     for (let i = 0; i < 2; i++) ell(c, (q.c + 0.5) * G + (rnd() - 0.5) * 20, (q.r + 0.5) * G + (rnd() - 0.5) * 20, 1.6 + rnd() * 2, 1.2 + rnd() * 1.6, rnd() < 0.5 ? 'rgba(90,70,50,0.45)' : 'rgba(240,226,196,0.6)');
   }
+  c.restore();
   c.setTransform(1, 0, 0, 1, 0, 0);
   return box;
 }
