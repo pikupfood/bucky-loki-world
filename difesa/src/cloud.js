@@ -53,7 +53,7 @@ async function sync() {
   let mark = null; try { mark = localStorage.getItem(MARK); } catch (e) { /* niente */ }
   const local = cfg.getSave(), what = choose(local, data && data.data, !!data && mark === data.updated_at);
   if (what === 'push') await push(true);
-  else if (what === 'keep') state.savedAt = Date.parse(data.updated_at);
+  else if (what === 'keep') { state.savedAt = Date.parse(data.updated_at); if (dirty) touch(); }
   else if (what === 'take') take(data);
   else { state.ask = { row: data, local: brief(local), cloud: brief(data.data) }; state.open = true; }
 }
@@ -64,7 +64,12 @@ async function push(force) {
   lastPush = Date.now(); dirty = false;
   try {
     const s = await client();
-    const { data, error } = await s.from(TABLE).upsert({ user_id: state.user.id, data: cfg.getSave() }).select('updated_at').maybeSingle();
+    let mark = null; try { mark = localStorage.getItem(MARK); } catch (e) { /* niente */ }
+    // Il salvataggio automatico scrive solo se nel cloud c'è ancora quello che avevamo scritto noi: se nel frattempo ha salvato
+    // un altro telefono non lo si copre, si rifà il confronto (e se serve si chiede al giocatore). force = l'ha deciso lui.
+    const q = force || !mark ? s.from(TABLE).upsert({ user_id: state.user.id, data: cfg.getSave() }) : s.from(TABLE).update({ data: cfg.getSave() }).eq('user_id', state.user.id).eq('updated_at', mark);
+    const { data, error } = await q.select('updated_at').maybeSingle();
+    if (!error && !data && !force && mark) { await sync(); if (state.open) render(); return false; }
     if (error) { if (missing(error)) state.ready = false; say(t(missing(error) ? 'cloudSoon' : 'cloudErr'), true); return false; }
     if (data) { try { localStorage.setItem(MARK, data.updated_at); } catch (e) { /* niente */ } state.savedAt = Date.parse(data.updated_at); }
     if (state.open) render();
