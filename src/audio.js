@@ -41,6 +41,24 @@ function noise(dur, vol, freq, delay = 0) {
   src.start(t0);
 }
 
+// Il rumore dell'acqua: un fruscio continuo che va e viene come le onde. Il volume segue quanto la camera è vicina all'acqua; ogni tanto un gabbiano.
+let wave = null, waveG = null, gullT = 6;
+export function water(level, dt) {
+  if (!ac) return;
+  try {
+    if (!wave) {
+      const n = ac.sampleRate * 2, buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
+      let b = 0; for (let i = 0; i < n; i++) { b = b * 0.985 + (Math.random() * 2 - 1) * 0.015; d[i] = b * 7; }      // rumore «marrone»: più morbido di quello bianco
+      wave = ac.createBufferSource(); wave.buffer = buf; wave.loop = true;
+      const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 650;
+      waveG = ac.createGain(); waveG.gain.value = 0; wave.connect(f); f.connect(waveG); waveG.connect(master); wave.start();
+    }
+    const now = ac.currentTime, swell = 0.6 + 0.4 * Math.sin(now * 0.9) * Math.sin(now * 0.37 + 1), lv = Math.max(0, Math.min(1, level));
+    waveG.gain.setTargetAtTime(lv * 0.45 * swell, now, 0.25);
+    if (enabled && lv > 0.35) { gullT -= dt; if (gullT <= 0) { gullT = 9 + Math.random() * 14; const v = 0.03 * lv; tone('sine', 1500, 1050, 0.16, v); tone('sine', 1650, 1100, 0.2, v, 0.2); tone('sine', 1600, 1000, 0.28, v, 0.46); } }
+  } catch (e) { /* senza audio si gioca lo stesso */ }
+}
+
 const SOUNDS = {
   arcieri: () => { noise(0.07, 0.25, 3200); tone('triangle', 900, 500, 0.06, 0.06); },
   mago: () => tone('sine', 520, 980, 0.16, 0.12),

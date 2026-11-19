@@ -665,6 +665,13 @@ function ambientFx() {
   for (const sd of world.soldiers) if (sd.raid && !sd.target && (sd.id + frames) % 5 === 0) smoke(ui.fx, sd.x, sd.y, 2, '#cdb892', 4.5, 0.6, 0.3);
 }
 
+/** Quanta acqua c'è sotto la camera (0-1): conta i quadretti bagnati attorno al punto che si guarda; da lontano si sente meno. */
+function waterNear() {
+  const v = scene.view, c0 = Math.floor(v.x / G), r0 = Math.floor(v.y / G); let wet = 0, n = 0;
+  for (let dr = -5; dr <= 5; dr++) for (let dc = -5; dc <= 5; dc++) { const c = c0 + dc, r = r0 + dr; n++; if (c < 0 || r < 0 || c >= COLS || r >= ROWS || TERRAIN[r * COLS + c] === 3) wet++; }
+  return Math.min(1, wet / n * 2.2) * Math.min(1, 1500 / (v.dist || 1500));
+}
+
 /** Un fotogramma: aggiorna e disegna. (Le prove lo chiamano a mano quando la scheda è in secondo piano.) */
 function tick(real) {
   ui.time += real;
@@ -710,7 +717,7 @@ function tick(real) {
       if (ui.nightWarn <= 0) { ui.nightWarn = null; closeAll(); world.startNight(now, true); save(); }
     } else if (!world.nightDue(now)) ui.nightWarn = null;
     saveT += real; if (saveT > 12) { saveT = 0; save(); }
-    fxT += real; if (fxT > 0.2) { fxT = 0; ambientFx(); }
+    fxT += real; if (fxT > 0.2) { fxT = 0; ambientFx(); audio.water(waterNear() * (world.status === 'day' ? 1 : 0.5), 0.2); }
   }
   stepFx(ui.fx, real * (world.status !== 'day' ? ui.speed : 1)); stepFx(ui.fxTop, real);
   ui.night += ((world.status === 'night' ? 1 : 0) - ui.night) * Math.min(1, real * 1.6);

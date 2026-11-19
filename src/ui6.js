@@ -173,7 +173,7 @@ function warTab(S, K, x, y, w, h) {
 export function fleetPanel(S, K) {
   const { c, world, ui, vw, vh, A } = S, U = ui.fleet, tall = S.tall;
   K.dim(S, 0.66);
-  const w = Math.min(1000, vw - 16), h = Math.min(vh - 16, tall ? 980 : 560), x = vw / 2 - w / 2, y = vh / 2 - h / 2;
+  const w = Math.min(1000, vw - 16), h = Math.min(vh - 16, tall ? 780 : 560), x = vw / 2 - w / 2, y = vh / 2 - h / 2;
   K.panel(c, x, y, w, h, 16, 0.97);
   anchorIcon(c, x + 34, y + 32, 15, '#f2cf73');
   K.head(c, t('fleet'), x + 60, y + 32, 25);

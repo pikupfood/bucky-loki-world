@@ -618,6 +618,8 @@ export const SEA = {
 export const levelK = (lvl) => 1 + 0.5 * (lvl || 0);
 // L'orologio della notte (richiesta del titolare, 19/11): la notte arriva da sola ogni `everyMs` di tempo vero; il giocatore può anticiparla
 // `early` volte al giorno; le prime `free` notti (il tutorial) si anticipano sempre; quando è l'ora, `warn` secondi di preavviso.
+// Dove va un abitante che non ha niente da fare: si ferma un po' davanti a questi, poi torna verso casa.
+export const LEISURE = { giardino: 1, pozzo: 1, panchina: 1, fontana: 1, taverna: 1, statua: 1, stendardo: 1 };
 export const NIGHT = { everyMs: 6 * 3600000, early: 2, free: 3, warn: 45 };
 
 // ---------- cibo: i campi danno grano, il mulino lo macina (un grano = due di cibo), il porto pesca ----------

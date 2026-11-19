@@ -3,7 +3,8 @@
 import {
   G, COLS, ROWS, BUILD, TRIBES, TERRAIN, RUINS, FOG, UNITS, HERO, HERO_ITEMS, ISLAND, LEVELS, LEVEL_MIN, FOOD, specials, siegeCount,
   REL, giftCost, ON_ROAD, rotStep, SHIPS, SHIP_MAX, shipUpCost, SEA, TRADE, villageLoot, LEVEL_MIN_BY, ROAD_AT, ROAD_SPEED, SELL, PVP_UNIT, PVP_TOWER, MY_COLOR, TROPHIES, CHALLENGES, CHALLENGE_REWARD, CHAPTERS, CASERMA_SLOTS, genWave, DIFFS, allyCost, ALLY_NIGHTS, levelK,
-NIGHT, } from './data.js';
+NIGHT, LEISURE,
+} from './data.js';
 
 const HOUR = 3600000, DAY = 86400000;
 const d2 = (a, b) => (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
@@ -498,6 +499,22 @@ export function extend(World) {
       return true;
     },
     nightReset(now) { this.d.nightAt = now + NIGHT.everyMs; },
+    /** Un abitante senza lavoro va a passeggio: sceglie un posto bello vicino a casa (giardino, pozzo, panchina, fontana, taverna…),
+     *  ci resta qualche secondo, poi torna a casa per un po'. Vero = ci sta pensando lui, non rimandarlo a casa. */
+    leisure(w, k, dt) {
+      if (!RULES().life || this.status !== 'day') { w.spot = null; return false; }
+      if (w.spot == null) {
+        w.lz = (w.lz == null ? 3 + (w.id % 5) * 2 : w.lz) - dt; if (w.lz > 0) return false;
+        const h = this.workerHome(k), L = this.d.buildings.filter(b => LEISURE[b.type] && !(b.build > 0) && d2(b, h) < 520 * 520);
+        if (!L.length) { w.lz = 8; return false; }
+        w.spot = L[(w.id * 7 + Math.floor((this.now || 0) / 20000)) % L.length].id; w.spotT = 0;
+      }
+      const b = this.byId.get(w.spot); if (!b || !LEISURE[b.type]) { w.spot = null; return false; }
+      const D = BUILD[b.type], tx = b.x + ((w.id % 3) - 1) * 13, ty = b.y + D.h * G / 2 + 11;
+      if (Math.hypot(tx - w.x, ty - w.y) > 7) { this.walk(w, tx, ty, dt); return true; }
+      w.spotT += dt; if (w.spotT > 7 + (w.id % 5) * 2) { w.spot = null; w.lz = 9 + (w.id % 4) * 4; }
+      return true;
+    },
     /** Il pesce dei pescherecci fermi in porto, al minuto. */
     fishRate() { let n = 0; if (RULES().sea) for (const s of this.d.fleet) if (s.type === 'pesca' && !s.job && this.shipFit(s)) n += SHIPS.pesca.fish[s.lvl] || 0; return n; },
     harbours() { return this.d.buildings.filter(b => (b.type === 'porto' || b.type === 'scalo') && !(b.build > 0)); },

@@ -447,7 +447,7 @@ export class World {
         } else { const n = this.autoNode(role, w); if (n) id = n.id; else w.wait = 2; }
       }
       if (w.wait > 0) w.wait -= dt;
-      if (id == null && w.field == null) { const h = this.workerHome(k); if (Math.hypot(h.x - w.x, h.y - w.y) > 3) this.walk(w, h.x, h.y, dt); return; }
+      if (id == null && w.field == null) { if (this.leisure(w, k, dt)) return; const h = this.workerHome(k); if (Math.hypot(h.x - w.x, h.y - w.y) > 3) this.walk(w, h.x, h.y, dt); return; }
       if (id != null) { w.job = id; w.state = 'go'; w.path = null; }
     }
     if (w.field != null) {          // il contadino: va al campo, raccoglie e risemina la stessa cosa
