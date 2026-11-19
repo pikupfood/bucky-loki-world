@@ -5,6 +5,7 @@ import {
   castleHp, TOWERS, ENEMIES, CROPS, genWave, hpMul, NATURE, CHOP, TRIBES, VILLAGE_R, REVOLT_NIGHTS, TECHS,
   villageHp, villageGuards, villageLoot, villageTribute, TRADE, TERRAIN, STEP, ALLY_NIGHTS, MAX_ALLIES, TRADES_PER_DAY,
   allyCost, allyHelpers, villageTrade, GOALS, MORALE, moraleK, WORK, WORKER_SPEED, JOBS_MAX, HERO, ROLES, AUTO_RANGE, REGROW_SECS, DIFFS, seasonOf, FOG, FW, FH, RUINS, EVENTS, CHAPTERS, mulberry32, LEVELS, levelK, REL, HERO_POWERS,
+  NIGHT,
 } from './data.js';
 import { extend } from './world2.js';
 
@@ -77,6 +78,8 @@ export class World {
       if (Array.isArray(data.fleet)) d.fleet = data.fleet.filter(s => s && SHIPS[s.type] && isFinite(s.id)).map(s => ({ id: s.id, type: s.type, lvl: Math.max(0, Math.min(SHIP_MAX - 1, s.lvl | 0)), hp: Math.max(1, +s.hp || 1), job: s.job && isFinite(s.job.at) && s.job.ms > 0 ? { ...s.job } : null }));
       d.shipId = Math.max(data.shipId | 0, ...d.fleet.map(s => s.id), 0); if (data.sea && data.sea.pirates > 0) d.sea = { pirates: Math.min(99, data.sea.pirates | 0) };
       if (Array.isArray(data.seaReports)) d.seaReports = data.seaReports.slice(0, 12);
+      if (data.nightAt > 0) d.nightAt = +data.nightAt;                                   // l'orologio della notte e gli anticipi di oggi
+      if (data.early && isFinite(data.early.day)) d.early = { day: data.early.day | 0, n: Math.max(0, data.early.n | 0) };
       if (Array.isArray(data.rebuild)) d.rebuild = data.rebuild.filter(o => o && BUILD[o.type] && BUILD[o.type].cost).slice(0, 300);
       if (data.fed == null && !(data.res && data.res.cibo > 0)) d.res.cibo = 60;      // una partita di prima del cibo: una scorta per non trovarsi subito alla fame
       if (Array.isArray(data.trips)) d.trips = data.trips.filter(tr => tr && isFinite(tr.x) && isFinite(tr.at) && tr.ms > 0);
@@ -87,6 +90,8 @@ export class World {
       d.villages.forEach((v, i) => { if (v.state !== 'free') d.shards[i] = 1; });
     }
     this.d = d;
+    if (!(d.nightAt > 0)) d.nightAt = now + NIGHT.everyMs;      // una partita nuova, o di prima dell'orologio: le sei ore partono adesso
+    if (!d.early) d.early = { day: 0, n: 0 };
     this.rng = mulberry32(seed);
     this.status = 'day';                 // day | night | raid
     this.enemies = []; this.projs = []; this.soldiers = []; this.queue = []; this.events = [];
@@ -936,14 +941,16 @@ export class World {
   // ---------- notte ----------
   get nextNight() { return this.d.night + 1; }
   get remaining() { return this.queue.length + this.enemies.length; }
-  startNight() {
+  startNight(now = this.now || Date.now(), auto = false) {
     if (this.status !== 'day') return false;
+    if (!this.nightGate(now, auto)) return false;      // l'orologio della notte: fuori orario serve un anticipo
     const n = this.nextNight, from = this.attackers(n);
     if (!from.length) {           // tutti i vicini sono colonie: nessuno attacca
       this.d.night++;
       const reward = 20 + 5 * this.d.night;
       this.d.res.monete += reward; this.track('nights');
       this.events.push({ k: 'quietNight', night: this.d.night, reward });
+      this.nightReset(now);
       this.afterNight();
       return true;
     }
@@ -1263,6 +1270,7 @@ export class World {
   }
 
   dawn() {
+    this.nightReset(this.now || Date.now());      // da qui ripartono le sei ore
     this.d.rebuild = this.lostB.slice(0, 300); this.lostB = [];       // quello che la notte ha distrutto: al mattino si può rifare con un tocco
     this.status = 'day'; this.enemies = []; this.projs = []; this.queue = [];
     this.soldiers = this.soldiers.filter(s => s.ally == null && !s.dead);
@@ -1335,5 +1343,5 @@ export class World {
 }
 /** Le novità che si possono spegnere (lo fanno le prove vecchie, per restare semplici): cantieri, difficoltà dei mondi nuovi,
  *  nebbia, eroe, eventi a sorpresa, villaggi che vivono. */
-World.RULES = { buildTime: true, diff: 'normale', fog: true, hero: true, events: true, life: true, food: true, levels: true, tribes: true, siege: true, dipl: true, roads: true, sea: true };
+World.RULES = { clock: true, buildTime: true, diff: 'normale', fog: true, hero: true, events: true, life: true, food: true, levels: true, tribes: true, siege: true, dipl: true, roads: true, sea: true };
 extend(World);

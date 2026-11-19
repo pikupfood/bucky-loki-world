@@ -609,6 +609,9 @@ export const SEA = {
   faroFast: 0.15, faroRisk: 0.5,          // col Faro: viaggi il 15% più corti, e i pirati colpiscono la metà delle volte
 };
 export const levelK = (lvl) => 1 + 0.5 * (lvl || 0);
+// L'orologio della notte (richiesta del titolare, 19/11): la notte arriva da sola ogni `everyMs` di tempo vero; il giocatore può anticiparla
+// `early` volte al giorno; le prime `free` notti (il tutorial) si anticipano sempre; quando è l'ora, `warn` secondi di preavviso.
+export const NIGHT = { everyMs: 6 * 3600000, early: 2, free: 3, warn: 45 };
 
 // ---------- cibo: i campi danno grano, il mulino lo macina (un grano = due di cibo), il porto pesca ----------
 // All'alba ogni abitante e ogni soldato mangia una porzione: prima il cibo, poi il grano crudo.

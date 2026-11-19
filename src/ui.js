@@ -618,7 +618,7 @@ function hud(S) {
   if (!isNight) {
     if (!ui.sel && ui.vsel == null) { X.incoming(S, K); if (!ui.rallyPick && !ui.aiming) { X.rebuildPill(S, K); X.harvestPill(S, K); } }      // mentre scegli un punto, le pillole lasciano il posto alla scritta che ti dice cosa fare
     const pulse = world.towers() ? 0.5 + Math.sin(ui.time * 4) * 0.5 : 0;
-    if (!hideR) button(c, ui, vw - 14 - 230, vh - 14 - 66, 230, 66, t('startNight'), { color: '#2f7d3a', fs: 25, stroke: `rgba(255,236,170,${0.7 + pulse * 0.3})`, tag: 'night' }, A.start);
+    if (!hideR) nightButton(S, pulse);
   } else {
     const s = `${t('enemies')}: ${world.remaining}`, w2 = width(c, s, 20) + 36;
     panel(c, vw - 14 - w2, vh - 14 - 46, w2, 46);
@@ -973,6 +973,20 @@ function guide(S) {
   costRowPlain(c, g.reward, x + (g.need > 1 ? 268 : 92), y + 81, 13.5);
 }
 
+/** «Inizia notte», con l'orologio: quanto manca alla notte che arriva da sola e quanti anticipi restano oggi. Finiti gli anticipi resta solo il tempo. */
+function nightButton(S, pulse) {
+  const { c, world, ui, vw, vh, A, now } = S, w = 230, h = 66, x = vw - 14 - w, y = vh - 14 - h, glow = `rgba(255,236,170,${0.7 + pulse * 0.3})`;
+  if (!world.clockOn()) { button(c, ui, x, y, w, h, t('startNight'), { color: '#2f7d3a', fs: 25, stroke: glow, tag: 'night' }, A.start); return; }
+  const left = world.nightLeft(now), early = world.earlyLeft(now), due = left <= 0, can = due || early > 0;
+  const sec = Math.ceil(left / 1000), tm = sec >= 3600 ? Math.floor(sec / 3600) + ' h ' + String(Math.floor((sec % 3600) / 60)).padStart(2, '0') : Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+  button(c, ui, x, y, w, h, '', { color: can ? '#2f7d3a' : '#34406a', stroke: can ? glow : 'rgba(190,205,255,0.5)', tag: 'night' }, A.start);
+  const top = can ? t('startNight') : t('nightIn', tm), wn = ui.nightWarn != null ? Math.max(0, Math.ceil(ui.nightWarn)) : null;
+  const sub = due ? t('nightComing') + (wn != null ? ' ' + wn : '') : can ? t('nightIn', tm) + (early === Infinity ? '' : ' · ' + t('nightEarly', early)) : t('nightNoEarly');
+  const fs = fit(c, top, w - 22, can ? 23 : 22, 800);
+  txt(c, top, x + w / 2, y + 26.6, fs, 'rgba(0,0,0,0.42)', 'center', 800); txt(c, top, x + w / 2, y + 25, fs, can ? CREAM : '#dfe6ff', 'center', 800);
+  txt(c, sub, x + w / 2, y + 49, fit(c, sub, w - 20, 13.5, 700), due ? '#ffe27a' : can ? '#d9f2c8' : '#b9c4ee', 'center', 700);
+}
+
 function hints(S) {
   const { c, ui, vw } = S;
   if (!ui.aiming) return;            // il resto dei consigli ora lo dà il Tuzu guida
@@ -989,7 +1003,7 @@ function newsPanel(S) {
   scroll(c, x, y, w, h, 18);
   ribbon(c, vw / 2, y - 19, Math.min(w - 60, 320), 44, t('news'), '#8a2f24', 24);
   txt(c, t('newsSub'), vw / 2, y + 52, 15, PEN2, 'center', 700);
-  const icon = [(ix, iy) => Z.globeIcon(c, ix, iy, 14), (ix, iy) => buildIcon(c, 'faro', ix, iy + 3, 15, 0), (ix, iy) => buildIcon(c, 'giardino', ix, iy, 15, 0), (ix, iy) => buildIcon(c, 'campo', ix, iy, 15, 0), (ix, iy) => V.anchorIcon(c, ix, iy, 15, '#7a2c1e')];
+  const icon = [(ix, iy) => Z.globeIcon(c, ix, iy, 14), (ix, iy) => buildIcon(c, 'faro', ix, iy + 3, 15, 0), (ix, iy) => buildIcon(c, 'giardino', ix, iy, 15, 0), (ix, iy) => buildIcon(c, 'campo', ix, iy, 15, 0), (ix, iy) => { c.fillStyle = 'rgba(52,64,106,0.9)'; c.beginPath(); c.arc(ix, iy, 17, 0, TAU); c.fill(); moon(c, ix, iy, 10); }];
   for (let i = 0; i < 5; i++) {
     const ry = y + 84 + i * rowH;
     c.beginPath(); c.arc(x + 44, ry + rowH / 2 - 6, 24, 0, TAU); c.fillStyle = 'rgba(122,84,40,0.14)'; c.fill(); c.strokeStyle = 'rgba(122,84,40,0.45)'; c.lineWidth = 1.4; c.stroke();

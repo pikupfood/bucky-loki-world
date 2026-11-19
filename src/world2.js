@@ -3,7 +3,7 @@
 import {
   G, COLS, ROWS, BUILD, TRIBES, TERRAIN, RUINS, FOG, UNITS, HERO, HERO_ITEMS, ISLAND, LEVELS, LEVEL_MIN, FOOD, specials, siegeCount,
   REL, giftCost, ON_ROAD, rotStep, SHIPS, SHIP_MAX, shipUpCost, SEA, TRADE, villageLoot, LEVEL_MIN_BY, ROAD_AT, ROAD_SPEED, SELL, PVP_UNIT, PVP_TOWER, MY_COLOR, TROPHIES, CHALLENGES, CHALLENGE_REWARD, CHAPTERS, CASERMA_SLOTS, genWave, DIFFS, allyCost, ALLY_NIGHTS, levelK,
-} from './data.js';
+NIGHT, } from './data.js';
 
 const HOUR = 3600000, DAY = 86400000;
 const d2 = (a, b) => (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
@@ -481,6 +481,23 @@ export function extend(World) {
     },
 
     // ---------- navi: approdi, flotta, commercio, esplorazioni, battaglie ----------
+    // ---------- l'orologio della notte ----------
+    clockOn() { return !!RULES().clock; },
+    /** Quanto manca alla notte che arriva da sola (0 = è l'ora). */
+    nightLeft(now) { return RULES().clock ? Math.max(0, (this.d.nightAt || 0) - now) : 0; },
+    nightDue(now) { return !!RULES().clock && this.status === 'day' && now >= (this.d.nightAt || 0); },
+    /** Il giorno del calendario (ora del telefono): gli anticipi si contano per giorno. */
+    dayKey(now) { const t = new Date(now); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); },
+    /** Quanti anticipi restano oggi. Le prime notti (il tutorial) non si contano. */
+    earlyLeft(now) { if (!RULES().clock || this.d.night < NIGHT.free) return Infinity; const e = this.d.early || {}; return Math.max(0, NIGHT.early - (e.day === this.dayKey(now) ? e.n : 0)); },
+    /** Si può far partire la notte adesso? Se è l'ora sì; prima serve un anticipo, e qui lo si spende. */
+    nightGate(now, auto) {
+      if (!RULES().clock || auto || now >= (this.d.nightAt || 0)) return true;
+      if (this.earlyLeft(now) <= 0) return false;
+      if (this.d.night >= NIGHT.free) { const day = this.dayKey(now), e = this.d.early || {}; this.d.early = { day, n: (e.day === day ? e.n : 0) + 1 }; }
+      return true;
+    },
+    nightReset(now) { this.d.nightAt = now + NIGHT.everyMs; },
     harbours() { return this.d.buildings.filter(b => (b.type === 'porto' || b.type === 'scalo') && !(b.build > 0)); },
     /** Quante navi puoi tenere: un Porticciolo 1 (2 al livello 3), un Porto 2 + il suo livello. */
     fleetSlots() { if (!RULES().sea) return 0; let n = 0; for (const b of this.harbours()) n += b.type === 'scalo' ? 2 + (b.lvl || 0) : (b.lvl || 0) >= 2 ? 2 : 1; return n; },

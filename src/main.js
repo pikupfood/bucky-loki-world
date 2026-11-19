@@ -1,6 +1,6 @@
 // Avvio: scena 3D + interfaccia 2D, camera (trascina, pizzica, rotella), costruzione a quadretti, salvataggio.
 import { World } from './world.js';
-import { G, COLS, ROWS, BUILD, BUILD_CATS, SHIPS, ROAD_AT, rotStep, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, TERRAIN, RUINS, HERO, LEVEL_MIN, UNITS as UNIT_DEFS } from './data.js';
+import { NIGHT, G, COLS, ROWS, BUILD, BUILD_CATS, SHIPS, ROAD_AT, rotStep, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, TERRAIN, RUINS, HERO, LEVEL_MIN, UNITS as UNIT_DEFS } from './data.js';
 import { Scene3D } from './scene3d.js';
 import { drawUi } from './ui.js';
 import { stepFx, parts, ring, text, smoke, chips, arc } from './fx.js';
@@ -16,7 +16,7 @@ const uiCanvas = document.getElementById('ui');
 const ctx = uiCanvas.getContext('2d');
 const scene = new Scene3D(glCanvas);
 
-const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 9;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
+const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 10;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
 const KEY = 'tuzu_difesa_v3';       // la chiave resta questa: i salvataggi vecchi li converte World
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
@@ -300,7 +300,7 @@ const A = {
   trade(i) { if (world.trade(i)) save(); else { const w = world.tradeCheck(i); toast(t(w === 'done' ? 'tradeDone' : w === 'tech' ? 'why_tech' : w === 'cost' ? 'why_cost' : 'notNow')); } },
   attack(i) { if (world.startRaid(i)) { closeAll(); save(); } else { const w = world.raidCheck(i); toast(t(w === 'noarmy' ? 'needArmy' : w === 'ally' ? 'isAlly' : 'notNow')); } },
   retreat() { if (world.retreat()) save(); },
-  start() { if (world.startNight()) { closeAll(); save(); } },
+  start() { if (world.startNight(Date.now())) { ui.nightWarn = null; closeAll(); save(); } else if (world.status === 'day') toast(t('nightNoEarly')); },
   speed() { ui.speed = ui.speed === 1 ? 2 : 1; audio.play('tap'); },
   aim() { if (world.spellCd <= 0) { ui.aiming = !ui.aiming; ui.sel = null; audio.play('tap'); } else audio.play('no'); },
   home() { scene.setView((CASTLE.c + CASTLE.w / 2) * G, (CASTLE.r + CASTLE.h / 2) * G + 20, view.tall ? 1900 : 1150); audio.play('tap'); },
@@ -702,6 +702,12 @@ function tick(real) {
       const near = Math.hypot(sx / n - R.x, sy / n - R.y) < 420, tx = near ? (sx / n + R.x) / 2 : sx / n, ty = (near ? (sy / n + R.y) / 2 : sy / n) + 40;
       scene.setView(v.x + (tx - v.x) * k, v.y + (ty - v.y) * k, v.dist + (Math.min(v.dist, 1150) - v.dist) * k);
     }
+    // La notte arriva da sola: quando è l'ora, un preavviso (fermo finché c'è un pannello aperto), poi parte.
+    if (world.nightDue(now) && !(ui.lost || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.news || ui.reportOpen || ui.seaOpen || ui.langPick || cloud.state.open)) {
+      if (ui.nightWarn == null) { ui.nightWarn = NIGHT.warn; banner(t('nightComing'), '#cfd8ff', 3); audio.play('tap'); }
+      ui.nightWarn -= real;
+      if (ui.nightWarn <= 0) { ui.nightWarn = null; closeAll(); world.startNight(now, true); save(); }
+    } else if (!world.nightDue(now)) ui.nightWarn = null;
     saveT += real; if (saveT > 12) { saveT = 0; save(); }
     fxT += real; if (fxT > 0.2) { fxT = 0; ambientFx(); }
   }
