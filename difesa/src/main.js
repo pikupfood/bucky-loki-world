@@ -147,6 +147,8 @@ const A = {
   research(id) { if (!world.research(id)) toast(t('why_cost')); else save(); },
   buy(r) { if (world.buy(r)) save(); else toast(t(world.buyCheck(r) === 'tech' ? 'why_tech' : 'why_cost')); },
   vClose() { ui.vsel = null; },
+  claimGoal() { if (world.claimGoal()) save(); },
+  moraleInfo() { ui.toast = { str: t('moraleTip'), t: 0, T: 3.2 }; audio.play('tap'); },
   ally(i) { if (world.ally(i)) save(); else { const w = world.allyCheck(i); toast(w === 'castle' ? t('needCastle', Math.min(5, world.d.villages[i].level)) : w === 'max' ? t('maxAllies') : w === 'cost' ? t('why_cost') : t('notNow')); } },
   breakAlly(i) { if (world.breakAlly(i)) save(); },
   trade(i) { if (world.trade(i)) save(); else { const w = world.tradeCheck(i); toast(t(w === 'done' ? 'tradeDone' : w === 'tech' ? 'why_tech' : w === 'cost' ? 'why_cost' : 'notNow')); } },
@@ -176,7 +178,7 @@ function hitButton(clientX, clientY) {
   return false;
 }
 const DUMMY = 0; void DUMMY;
-const TALL = { castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26, bottega: 60, mercato: 50, miniera: 46, cristalliera: 46 };
+const TALL = { fontana: 46, taverna: 66, statua: 50, mulino: 76, fucina: 66, lampione: 40, albero: 40, castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26, bottega: 60, mercato: 50, miniera: 46, cristalliera: 46 };
 /** Il villaggio sotto il dito: la piazza attorno alla casa del capo, oppure la casa stessa (che sullo schermo sta più in su). */
 function villageUnder(clientX, clientY, g) {
   for (let i = 0; i < TRIBES.length; i++) {
@@ -226,7 +228,7 @@ function worldTap(clientX, clientY, kind) {
     return;
   }
   const c = Math.floor(g.x / G), r = Math.floor(g.y / G), n = world.natAt(c, r) || world.natAt(c, r + 1);
-  if (n) { world.chop(n); save(); return; }
+  if (n) { const r = world.assign(n); if (r === 'full') toast(t('jobsFull')); else if (r === 'ok' || r === 'cancel') audio.play('tap'); return; }
   ui.sel = null;
 }
 /** Per le prove: un tocco completo (bottone oppure mondo) in pixel dello schermo. */
@@ -314,6 +316,8 @@ function handleEvents() {
       case 'upgrade': ring(ui.fx, ev.x, ev.y, 8, ev.castle ? 130 : 64, 0.5, '#ffd24a', 4); parts(ui.fx, ev.x, ev.y, 40, ev.castle ? 30 : 16, '#ffe27a', 120, 0.7, 3.5, 200); audio.play('up'); buzz(15); break;
       case 'chop': { const col = { tree: '#4f9a4b', rock: '#a9abb5', iron: '#c0683c', crystal: '#8fe8ff' }[ev.kind], tc = { tree: RES_FX.legna, rock: RES_FX.pietra, iron: RES_FX.ferro, crystal: RES_FX.cristallo }[ev.kind]; parts(ui.fx, ev.x, ev.y, 18, 10, col, 110, 0.5, 4, 280); text(ui.fxTop, ev.x, ev.y, 30, '+' + ev.gain, tc, 20, 0.8); audio.play('chop', 0.04); buzz(8); break; }
       case 'unknown': toast(t('unknown')); break;
+      case 'job': ring(ui.fx, ev.x, ev.y, 8, 36, 0.35, '#ffe9a8', 3); break;
+      case 'goal': { audio.play('cleared'); buzz(20); const g = scene.pick(210 * view.us, 120 * view.us) || { x: world.castle.x, y: world.castle.y }; let k = 0; for (const r in ev.reward) text(ui.fxTop, g.x + k++ * 70, g.y, 20, '+' + ev.reward[r], RES_FX[r], 26, 1.5); break; }
       case 'tech': banner(t('discovered', t('t_' + ev.id)), '#9fe9ff', 2.6); audio.play('won'); buzz(20); save(); break;
       case 'bought': audio.play('coin'); break;
       case 'train': ring(ui.fx, ev.x, ev.y, 10, 60, 0.45, '#6fb7ff', 4); audio.play('up'); break;
@@ -410,6 +414,8 @@ function frame(now) {
 function tick(real) {
   ui.time += real;
   if (view.portrait) { drawRotate(); return; }
+  if (ui.moved) world.note('move');
+  if (ui.seenVillage) world.note('village');
   const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away;
 
   if (!modal) {
@@ -482,7 +488,7 @@ window.addEventListener('pagehide', save);
 
 scene.build();
 resize();
-if (saved.cam && isFinite(saved.cam.x) && saved.world && saved.world.map === 2) scene.setView(saved.cam.x, saved.cam.y, saved.cam.dist);      // la mappa vecchia era più piccola
+if (saved.cam && isFinite(saved.cam.x) && saved.world && saved.world.map === 3) scene.setView(saved.cam.x, saved.cam.y, saved.cam.dist);      // la mappa vecchia era più piccola
 console.log('[tuzu] avvio ' + view.cw + 'x' + view.ch + ' dpr ' + view.dpr + ' gl ' + (scene.r.getContext().isContextLost() ? 'PERSO' : 'ok') + ' ' + scene.r.capabilities.maxTextureSize);
 window.__tuzu = { world, ui, view, scene, A, tap, P, save, shot, tick, back, kick, blank, reset, NATURE, TOWERS, TRIBES, get quality() { return quality; }, get kicks() { return kicks; } };   // per le prove automatiche
 requestAnimationFrame(frame);

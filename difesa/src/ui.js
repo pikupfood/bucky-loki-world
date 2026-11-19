@@ -1,10 +1,10 @@
 // Interfaccia 2D sopra il mondo 3D. Stile "immediato": a ogni frame si disegna e si registrano
 // le aree toccabili in ui.buttons. S = { c, world, ui, vw, vh, P, A, now }.
-import { G, BUILD, BUILD_CATS, TOWERS, CROPS, CROP_ORDER, CASTLE_UP, UNITS, UNIT_ORDER, CASERMA_SLOTS, TRIBES, MY_COLOR, TECHS, TECH_ORDER, TRADE, TRADE_ORDER, waveSummary } from './data.js';
+import { G, BUILD, BUILD_CATS, TOWERS, CROPS, CROP_ORDER, CASTLE_UP, UNITS, UNIT_ORDER, CASERMA_SLOTS, TRIBES, MY_COLOR, TECHS, TECH_ORDER, TRADE, TRADE_ORDER, CAT_ORDER, NATURE, moraleK, waveSummary } from './data.js';
 import { VEIL } from './ground.js';
 import { drawTower } from './icons.js';
 import { drawFx, tracePoly } from './fx.js';
-import { t, LANGS, getLang } from './i18n.js';
+import { t, has, LANGS, getLang } from './i18n.js';
 
 const F = '"Trebuchet MS","Segoe UI",Roboto,sans-serif';
 const GOLD = '#e9c46a', CREAM = '#f5ecd7', DIM = '#cbbf9f', BAD = '#e8897e', TAU = Math.PI * 2;
@@ -84,10 +84,15 @@ function tuzuIcon(c, kind, x, y, s, color, eyes = INK) {
   else if (kind === 'bruto') { helm('#6f7684'); club('#55565e'); }
   else if (kind === 'capo') { crown(); club('#7b5230'); }
   else if (kind === 'campione') { crown(); club('#f2c230'); }
+  else if (kind === 'attrezzo') { c.beginPath(); c.ellipse(0, -50, 52, 13, 0, 0, TAU); c.fillStyle = '#e8cf7a'; c.fill(); c.strokeStyle = '#8a6a20'; c.lineWidth = 4; c.stroke(); c.beginPath(); c.arc(0, -52, 26, Math.PI, 0); c.closePath(); c.fillStyle = '#d9bd62'; c.fill(); c.stroke(); c.strokeStyle = '#6f4526'; c.lineWidth = 7; c.beginPath(); c.moveTo(60, 50); c.lineTo(66, -24); c.stroke(); c.fillStyle = '#aeb4c2'; c.fillRect(54, -40, 30, 18); }
   else if (kind === 'lancia') { helm('#aeb4c2'); c.strokeStyle = '#6f4526'; c.lineWidth = 6; c.beginPath(); c.moveTo(64, 56); c.lineTo(64, -68); c.stroke(); c.beginPath(); c.moveTo(64, -94); c.lineTo(53, -66); c.lineTo(75, -66); c.closePath(); c.fillStyle = '#e1e5ee'; c.fill(); }
   else if (kind === 'arco') { c.beginPath(); c.moveTo(-34, -46); c.lineTo(0, -92); c.lineTo(34, -46); c.closePath(); c.fillStyle = '#2f8f5b'; c.fill(); c.strokeStyle = '#17482e'; c.lineWidth = 4; c.stroke(); c.strokeStyle = '#c08e58'; c.lineWidth = 7; c.beginPath(); c.arc(50, 4, 40, -1.2, 1.2); c.stroke(); }
   else if (kind === 'corazza') { helm('#aeb4c2'); c.fillStyle = '#f2c230'; c.fillRect(-6, -86, 12, 22); c.beginPath(); c.roundRect(40, -8, 40, 56, 8); c.fillStyle = '#6f7684'; c.fill(); c.strokeStyle = 'rgba(30,34,44,0.8)'; c.lineWidth = 4; c.stroke(); }
   c.restore();
+}
+function heart(c, x, y, s, col) {
+  c.beginPath(); c.moveTo(x, y + s * 0.9); c.bezierCurveTo(x - s * 1.5, y - s * 0.1, x - s * 0.8, y - s * 1.1, x, y - s * 0.35); c.bezierCurveTo(x + s * 0.8, y - s * 1.1, x + s * 1.5, y - s * 0.1, x, y + s * 0.9); c.closePath();
+  c.fillStyle = col; c.fill(); c.strokeStyle = 'rgba(40,10,20,0.6)'; c.lineWidth = 1.6; c.stroke();
 }
 const hexA = (h, a) => `rgba(${parseInt(h.slice(1, 3), 16)},${parseInt(h.slice(3, 5), 16)},${parseInt(h.slice(5, 7), 16)},${a})`;
 function lock(c, x, y, s) {
@@ -141,6 +146,15 @@ function buildIcon(c, type, x, y, s, time) {
   else if (type === 'bottega') { R(-22, -4, 44, 26, '#e9dcc0'); Pg([-28, -4, 0, -28, 28, -4], '#7b5cc9'); R(-14, 6, 10, 16, '#5c3a1e'); c.beginPath(); c.arc(10, 8, 7, 0, TAU); c.fillStyle = '#9ff0ff'; c.fill(); c.strokeStyle = 'rgba(30,20,10,0.75)'; c.stroke(); c.beginPath(); c.arc(22, -20, 6, 0, TAU); c.fillStyle = '#8ff0b0'; c.fill(); c.stroke(); }
   else if (type === 'mercato') { R(-24, 4, 48, 16, '#9b6b3d'); for (let i = 0; i < 4; i++) Pg([-28 + i * 14, -22, -14 + i * 14, -22, -14 + i * 14, -6, -28 + i * 14, -6], i % 2 ? '#f4f1ea' : '#c2452d'); R(-26, -6, 3, 26, '#6f4526', null); R(23, -6, 3, 26, '#6f4526', null); c.beginPath(); c.arc(-8, 2, 5, 0, TAU); c.fillStyle = '#f08a2a'; c.fill(); c.beginPath(); c.arc(8, 2, 5, 0, TAU); c.fillStyle = '#f2c230'; c.fill(); }
   else if (type === 'miniera' || type === 'cristalliera') { Pg([-28, 20, -20, -8, -4, -22, 14, -12, 28, 20], '#77706a', '#44403c'); R(-10, 0, 20, 20, '#1d1a1c'); R(-13, -3, 4, 23, '#6f4526', null); R(9, -3, 4, 23, '#6f4526', null); R(-14, -6, 28, 5, '#9b6b3d'); if (type === 'miniera') { c.beginPath(); c.arc(20, 14, 6, 0, TAU); c.fillStyle = '#c0683c'; c.fill(); c.stroke(); } else Pg([20, -2, 26, 10, 20, 22, 14, 10], '#7fe3ff', '#1f6f8a'); }
+  else if (type === 'mulino') { Pg([-12, 22, -9, -8, 9, -8, 12, 22], '#f1e6cc'); Pg([-13, -8, 0, -24, 13, -8], '#c2512f'); R(-4, 8, 8, 14, '#6b4226'); c.save(); c.translate(0, -6); c.rotate(time * 0.9); for (let i = 0; i < 4; i++) { c.rotate(Math.PI / 2); c.fillStyle = '#f4f1ea'; c.fillRect(1, -22, 8, 18); c.strokeStyle = '#6f4526'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -24); c.stroke(); } c.restore(); }
+  else if (type === 'fucina') { R(-24, -4, 48, 26, '#8b8c96', '#44454d'); Pg([-28, -4, 0, -24, 28, -4], '#4b4d5a'); R(10, -28, 10, 20, '#6f7078', '#44454d'); c.beginPath(); c.arc(15, -30, 5, 0, TAU); c.fillStyle = '#ff9d2a'; c.fill(); R(-14, 6, 14, 16, '#ff9d2a', '#5c2a10'); }
+  else if (type === 'fontana') { c.beginPath(); c.ellipse(0, 12, 26, 10, 0, 0, TAU); c.fillStyle = '#b9bac6'; c.fill(); c.strokeStyle = '#55565e'; c.stroke(); c.beginPath(); c.ellipse(0, 10, 20, 6.5, 0, 0, TAU); c.fillStyle = '#5ec3ea'; c.fill(); R(-3, -12, 6, 22, '#cfd0da', '#55565e'); c.beginPath(); c.ellipse(0, -12, 11, 4, 0, 0, TAU); c.fillStyle = '#b9bac6'; c.fill(); c.stroke(); c.strokeStyle = '#d9f3ff'; c.lineWidth = 2.5; for (const k of [-1, 1]) { c.beginPath(); c.moveTo(0, -22); c.quadraticCurveTo(k * 10, -24, k * 12, -8); c.stroke(); } }
+  else if (type === 'taverna') { R(-22, -4, 44, 26, '#f0dcb4'); Pg([-28, -4, 0, -28, 28, -4], '#3f7a66'); R(-5, 6, 10, 16, '#6b4226'); R(-18, 2, 8, 8, '#ffd97a'); c.beginPath(); c.roundRect(10, 0, 12, 13, 2); c.fillStyle = '#f2c230'; c.fill(); c.strokeStyle = '#8a6410'; c.stroke(); c.beginPath(); c.arc(23, 6, 4, -1.4, 1.4); c.stroke(); }
+  else if (type === 'statua') { R(-14, 10, 28, 12, '#9a9ba4', '#55565e'); c.restore(); tuzu2d(c, x, y - s * 0.22, s * 0.62, '#d5d6e0', '#8f909c'); c.save(); c.translate(x, y); c.scale(s / 30, s / 30); }
+  else if (type === 'lampione') { R(-2.5, -14, 5, 36, '#3d3e46', null); c.beginPath(); c.arc(0, -18, 9, 0, TAU); c.fillStyle = '#ffe9a0'; c.fill(); c.strokeStyle = '#8a6410'; c.stroke(); R(-8, 20, 16, 4, '#3d3e46', null); }
+  else if (type === 'aiuola') { c.beginPath(); c.roundRect(-22, -2, 44, 20, 6); c.fillStyle = '#7a5634'; c.fill(); c.strokeStyle = 'rgba(30,20,10,0.75)'; c.stroke(); c.beginPath(); c.ellipse(0, 2, 18, 8, 0, 0, TAU); c.fillStyle = '#4f9a4b'; c.fill(); for (const [fx, fy, col] of [[-10, -2, '#ff8fb0'], [0, -6, '#fff0a0'], [10, -1, '#ff6f6f'], [-2, 4, '#c9b6ff']]) { c.beginPath(); c.arc(fx, fy, 4.4, 0, TAU); c.fillStyle = col; c.fill(); } }
+  else if (type === 'albero') { R(-3, 4, 6, 18, '#6a4528', null); c.beginPath(); c.arc(0, -6, 15, 0, TAU); c.fillStyle = '#3f8f4a'; c.fill(); c.strokeStyle = 'rgba(20,50,25,0.7)'; c.stroke(); c.beginPath(); c.arc(8, 2, 9, 0, TAU); c.fillStyle = '#57a857'; c.fill(); }
+  else if (type === 'strada') { Pg([-26, 18, -12, -16, 12, -16, 26, 18], '#d2b07c', '#7a5c3a'); c.strokeStyle = 'rgba(122,92,58,0.7)'; c.lineWidth = 2; c.setLineDash([5, 5]); c.beginPath(); c.moveTo(0, -14); c.lineTo(0, 16); c.stroke(); c.setLineDash([]); }
   else if (type === 'recinto') { for (const px of [-22, 0, 22]) { c.beginPath(); c.roundRect(px - 3.5, -16, 7, 38, 3); c.fillStyle = '#6f4526'; c.fill(); } R(-26, -8, 52, 5, '#c08e58', '#5c3a1e'); R(-26, 6, 52, 5, '#c08e58', '#5c3a1e'); }
   else if (type === 'mura') { R(-26, -8, 52, 30, '#9a9ba4', '#44454d'); for (let i = 0; i < 4; i++) R(-26 + i * 14.6, -18, 8.4, 10, '#b2b3be', '#44454d'); c.strokeStyle = 'rgba(60,60,70,0.55)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-26, 6); c.lineTo(26, 6); c.moveTo(-8, -8); c.lineTo(-8, 6); c.moveTo(10, 6); c.lineTo(10, 22); c.stroke(); }
   else if (type === 'cancello') { R(-26, -18, 12, 40, '#9a9ba4', '#44454d'); R(14, -18, 12, 40, '#9a9ba4', '#44454d'); Pg([-28, -18, -20, -27, -12, -18], '#b5482f'); Pg([12, -18, 20, -27, 28, -18], '#b5482f'); R(-14, -8, 28, 30, '#8a5a33', '#4a2f17'); c.strokeStyle = '#4a2f17'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(0, -8); c.lineTo(0, 22); c.stroke(); R(-14, 2, 28, 4, '#55565e', null); }
@@ -200,8 +214,8 @@ function langRow(S, cx, y) {
 // =====================================================================
 //  SOPRA IL MONDO: evidenziazioni, barre della vita, fumetti, notte
 // =====================================================================
-const B_H = { castello: 120, arcieri: 84, mago: 90, catapulta: 60, braciere: 70, radici: 50, casa: 62, caserma: 70, segheria: 54, cava: 54, campo: 26, recinto: 34, mura: 48, cancello: 56, bottega: 66, mercato: 56, miniera: 54, cristalliera: 54 };
-const LIGHT = { castello: 240, casa: 120, caserma: 120, segheria: 80, cava: 80, cancello: 70, bottega: 120, mercato: 110, miniera: 80, cristalliera: 90 };
+const B_H = { fontana: 50, taverna: 70, statua: 54, mulino: 80, fucina: 70, lampione: 44, albero: 46, aiuola: 16, strada: 6, castello: 120, arcieri: 84, mago: 90, catapulta: 60, braciere: 70, radici: 50, casa: 62, caserma: 70, segheria: 54, cava: 54, campo: 26, recinto: 34, mura: 48, cancello: 56, bottega: 66, mercato: 56, miniera: 54, cristalliera: 54 };
+const LIGHT = { lampione: 120, taverna: 140, fucina: 120, mulino: 90, fontana: 70, statua: 60, castello: 240, casa: 120, caserma: 120, segheria: 80, cava: 80, cancello: 70, bottega: 120, mercato: 110, miniera: 80, cristalliera: 90 };
 const cellPoly = (P, c0, r0, w, h) => [P.pt(c0 * G, r0 * G), P.pt((c0 + w) * G, r0 * G), P.pt((c0 + w) * G, (r0 + h) * G), P.pt(c0 * G, (r0 + h) * G)];
 const onScreen = (S, p, m) => p.x > -m && p.x < S.vw + m && p.y > -m && p.y < S.vh + m;
 
@@ -281,6 +295,12 @@ function worldLayer(S) {
     }
   }
   for (const sd of world.soldiers) if (sd.hp < sd.maxHp) { const p = P.pt(sd.x, sd.y, 46), w = 26 * P.sc(sd.x, sd.y); bar(c, p.x - w / 2, p.y, w, 4, sd.hp / sd.maxHp, '#6fb7ff'); }
+  if (!quiet) for (const id of world.jobs) {
+    const n = NATURE[id], x = (n.c + 0.5) * G, y = (n.r + 0.5) * G, p = P.pt(x, y, n.kind === 'tree' ? 52 : 30);
+    if (!onScreen(S, p, 30)) continue;
+    const wk = world.workers.find(o => o.job === id && o.state === 'work');
+    bubble(c, p.x, p.y - 8 + (wk ? 0 : bob * 0.4), 11, wk ? '#ffd24a' : '#f5ecd7'); hammer(c, p.x, p.y - 8 + (wk ? 0 : bob * 0.4), 8);
+  }
   // i villaggi: nome e forza; quando l'esercito è pronto, un invito a toccarli
   if (!quiet) TRIBES.forEach((T, i) => {
     const v = world.d.villages[i], x = (T.c + 0.5) * G, y = (T.r + 0.5) * G, p = P.pt(x, y, 135);
@@ -374,6 +394,14 @@ function hud(S) {
   buildIcon(c, 'castello', bx + 27, 35, 13, 0);
   if (isNight || raid) { bx -= 76; button(c, ui, bx, 10, 66, 48, 'x' + ui.speed, { color: ui.speed > 1 ? '#8a5a1c' : '#3b3229', fs: 22, tag: 'speed' }, A.speed); }
 
+  {
+    const m = world.morale(), k = moraleK(m), ws = `${Math.max(0, world.workersFree())}/${world.workersMax()}`, ms = String(m) + (k !== 1 ? (k > 1 ? ' +' : ' −') + Math.round(Math.abs(k - 1) * 100) + '%' : '');
+    const pw = 96 + width(c, ms, 17, 800) + width(c, ws, 17, 800), px = vw - 14 - pw;
+    panel(c, px, 64, pw, 36, 12, 0.82);
+    heart(c, px + 20, 82, 8, m < 30 ? '#8a8fa0' : m < 60 ? '#ff8fa8' : '#ff4f7a'); txt(c, ms, px + 36, 83, 17, m < 30 ? BAD : k > 1 ? '#9ff0b4' : CREAM, 'left', 800);
+    const wx = px + 48 + width(c, ms, 17, 800); tuzuIcon(c, 'attrezzo', wx + 10, 84, 9, MY_COLOR); txt(c, ws, wx + 28, 83, 17, CREAM, 'left', 800);
+    ui.buttons.push({ x: px, y: 64, w: pw, h: 36, tag: 'moraleInfo', fn: A.moraleInfo });
+  }
   if (raid) {
     const s = `${t('army')}: ${world.armyStrength().n}`, w2 = width(c, s, 20) + 60;
     panel(c, vw - 14 - w2, vh - 14 - 46, w2, 46);
@@ -435,7 +463,7 @@ function incoming(S) {
 function buildBar(S) {
   const { c, world, ui, vw, vh, A } = S, h = 176, x = 14, y = vh - h - 12, w = vw - 28, L = world.d.castle;
   panel(c, x, y, w, h, 14, 0.94); block(ui, x, y, w, h);
-  ['eco', 'dif', 'mura'].forEach((cat, i) => button(c, ui, x + 12, y + 12 + i * 52, 150, 46, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#3b3229', fs: 18, tag: 'cat_' + cat }, () => A.cat(cat)));
+  CAT_ORDER.forEach((cat, i) => button(c, ui, x + 12, y + 9 + i * 32, 150, 28, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#3b3229', fs: 15.5, r: 9, tag: 'cat_' + cat }, () => A.cat(cat)));
   const list = BUILD_CATS[ui.build.cat], gap = 8, x0 = x + 12 + 150 + 14, ch = 152;
   const cw = Math.min(122, Math.floor((w - (x0 - x) - 62) / list.length) - gap), small = cw < 112;       // con tante carte si stringono
   list.forEach((ty, i) => {
@@ -580,6 +608,8 @@ function selPanel(S) {
     const p = D.prod, parts = [];
     if (p) for (const k in p) parts.push(`+${p[k]} ${t('r_' + k)} ${t('perMin')}`);
     if (D.pop) parts.push(`+${D.pop} ${t('people')}`);
+    if (D.beauty) parts.push(`${t('morale')} +${D.beauty}`);
+    if (b.type === 'fucina') parts.push(t('k_fucina'));
     txt(c, parts.length ? parts.join(' · ') : t('d_' + b.type), x + 82, y + 54, 17, DIM);
     const back = demol(x + 20, by, 190), keys = Object.keys(back).filter(k => back[k] > 0);
     if (keys.length) { txt(c, t('back'), x + 230, by + 26, 16, DIM); const o = {}; keys.forEach(k => { o[k] = back[k]; }); costRowPlain(c, o, x + 230 + width(c, t('back'), 16) + 12, by + 26, 17); }
@@ -636,57 +666,64 @@ function villagePanel(S) {
   if (ac !== 'ok' && ac !== 'cost') txt(c, ac === 'castle' ? t('needCastle', Math.min(5, v.level)) : ac === 'max' ? t('maxAllies') : t('notNow'), x + 602, by + 26, 14, BAD, 'left', 700);
 }
 
+/** Una riga di premi o guadagni (icona + «+numero»), che parte da x. */
+function costRowPlain(c, cost, x, y, size) {
+  const r = size * 0.42;
+  for (const key in cost) { RES_ICON[key](c, x + r, y, r); const s2 = '+' + cost[key]; txt(c, s2, x + r * 2 + 5, y + 1, size, RES_COL[key], 'left', 800); x += r * 2 + 5 + width(c, s2, size, 800) + 12; }
+}
+
 /** Le scoperte della Bottega. */
 function techPanel(S) {
   const { c, world, ui, vw, vh, A } = S;
   dim(S, 0.6);
-  const w = 800, h = 500, x = vw / 2 - w / 2, y = vh / 2 - h / 2, cw = (w - 52) / 2, ch = 80;
+  const w = 1000, h = 508, x = vw / 2 - w / 2, y = vh / 2 - h / 2, cw = (w - 40 - 20) / 3, ch = 92;
   panel(c, x, y, w, h, 18, 0.96);
-  title2(c, t('techs'), vw / 2, y + 40, 34, '#f2cf73');
+  title2(c, t('techs'), vw / 2, y + 36, 32, '#f2cf73');
   TECH_ORDER.forEach((id, k) => {
-    const T = TECHS[id], bx = x + 20 + (k % 2) * (cw + 12), by = y + 72 + Math.floor(k / 2) * (ch + 8), chk = world.techCheck(id), done = chk === 'done', ok = chk === 'ok';
+    const T = TECHS[id], bx = x + 20 + (k % 3) * (cw + 10), by = y + 64 + Math.floor(k / 3) * (ch + 8), chk = world.techCheck(id), done = chk === 'done', ok = chk === 'ok';
     c.beginPath(); c.roundRect(bx, by, cw, ch, 12); c.fillStyle = done ? 'rgba(74,92,58,0.9)' : ok ? 'rgba(86,74,120,0.92)' : 'rgba(255,255,255,0.06)'; c.fill();
-    txt(c, t('t_' + id), bx + 16, by + 21, 18, done || ok ? CREAM : '#c9c2b4', 'left', 800);
-    txt(c, t('td_' + id), bx + 16, by + 43, 13.5, DIM, 'left', 600);
-    if (done) { check(c, bx + cw - 34, by + 40, 12, '#9ff0b4'); return; }
-    if (chk === 'castle') { lock(c, bx + 23, by + 64, 7); txt(c, t('needCastle', T.min), bx + 38, by + 65, 13, DIM, 'left', 700); return; }
-    if (chk === 'needs') { lock(c, bx + 23, by + 64, 7); txt(c, t('needTech', t('t_' + T.needs)), bx + 38, by + 65, 13, DIM, 'left', 700); return; }
-    costRow(c, world, T.cost, bx + 16, by + 65, 14.5, 1, true);
-    button(c, ui, bx + cw - 110, by + 17, 96, 46, t('discover'), { color: '#5b4a8a', disabled: !ok, fs: 17, tag: 'tech_' + id }, () => A.research(id));
+    txt(c, t('t_' + id), bx + 14, by + 20, 17, done || ok ? CREAM : '#c9c2b4', 'left', 800);
+    txt(c, t('td_' + id), bx + 14, by + 41, 12.5, DIM, 'left', 600);
+    if (done) { check(c, bx + cw - 28, by + 22, 10, '#9ff0b4'); return; }
+    if (chk === 'castle') { lock(c, bx + 21, by + 68, 7); txt(c, t('needCastle', T.min), bx + 36, by + 69, 13, DIM, 'left', 700); return; }
+    if (chk === 'needs') { lock(c, bx + 21, by + 68, 7); txt(c, t('needTech', t('t_' + T.needs)), bx + 36, by + 69, 13, DIM, 'left', 700); return; }
+    costRow(c, world, T.cost, bx + 14, by + 70, 13.5, 1, true);
+    button(c, ui, bx + cw - 96, by + 52, 84, 34, t('discover'), { color: '#5b4a8a', disabled: !ok, fs: 15, r: 9, tag: 'tech_' + id }, () => A.research(id));
   });
-  button(c, ui, vw / 2 - 110, y + h - 62, 220, 50, t('close'), { color: '#3b3229', fs: 22, tag: 'close' }, A.tech);
+  button(c, ui, vw / 2 - 100, y + h - 48, 200, 40, t('close'), { color: '#3b3229', fs: 19, tag: 'close' }, A.tech);
 }
 
-function costRowPlain(c, cost, x, y, size) {
-  const r = size * 0.42;
-  for (const key in cost) { RES_ICON[key](c, x + r, y, r); const s = '+' + cost[key]; txt(c, s, x + r * 2 + 5, y + 1, size, RES_COL[key], 'left', 800); x += r * 2 + 5 + width(c, s, size, 800) + 12; }
+/** Il Tuzu guida: sempre in vista, dice cosa fare adesso, come farlo, e dà il premio. */
+function guide(S) {
+  const { c, world, ui, A } = S;
+  if (ui.screen !== 'play') return;
+  const g = world.goal(), x = 14, y = 66, w = 392, h = 96, bob = Math.sin(ui.time * 2.6) * 2.2;
+  panel(c, x, y, w, h, 14, 0.9); block(ui, x, y, w, h);
+  c.beginPath(); c.arc(x + 44, y + 48, 34, 0, TAU); c.fillStyle = '#3a2f55'; c.fill(); c.strokeStyle = 'rgba(233,196,106,0.8)'; c.lineWidth = 2.5; c.stroke();
+  c.save(); c.beginPath(); c.arc(x + 44, y + 48, 32.5, 0, TAU); c.clip(); tuzu2d(c, x + 44, y + 56 + bob, 27, MY_COLOR); c.restore();
+  // il cappello da saggio: così si distingue dagli abitanti
+  c.beginPath(); c.moveTo(x + 26, y + 30 + bob); c.lineTo(x + 46, y + 4 + bob); c.lineTo(x + 62, y + 30 + bob); c.closePath(); c.fillStyle = '#f2c230'; c.fill(); c.strokeStyle = '#8a6410'; c.lineWidth = 2; c.stroke();
+  c.beginPath(); c.arc(x + 46, y + 4 + bob, 3.6, 0, TAU); c.fillStyle = '#fff'; c.fill();
+  if (!g) { txt(c, t('goalsDone'), x + 92, y + 40, 16, '#ffe9a8', 'left', 800); txt(c, t('goalsDone2'), x + 92, y + 62, 13, DIM, 'left', 600); return; }
+  txt(c, t('g_' + g.kind, g.need), x + 92, y + 19, 16.5, '#ffe9a8', 'left', 800);
+  txt(c, `${g.i + 1}/${g.total}`, x + w - 12, y + 16, 11.5, DIM, 'right', 700);
+  if (g.done) {
+    const pulse = 0.5 + Math.sin(ui.time * 6) * 0.5;
+    button(c, ui, x + 92, y + 40, 150, 42, t('claim'), { color: '#2f7d3a', fs: 19, stroke: `rgba(255,236,170,${0.6 + pulse * 0.4})`, tag: 'goalClaim' }, A.claimGoal);
+    costRowPlain(c, g.reward, x + 254, y + 62, 16);
+    c.beginPath(); c.arc(x + 72, y + 22, 11, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, '!', x + 72, y + 23, 15, '#fff', 'center', 800);
+    return;
+  }
+  if (has('gt_' + g.kind)) wrap(c, t('gt_' + g.kind), x + 92, y + 39, w - 104, 12.5, CREAM, 15, 'left');
+  if (g.need > 1) { bar(c, x + 92, y + 76, 120, 8, g.have / g.need, '#ffd24a'); txt(c, `${g.have}/${g.need}`, x + 220, y + 81, 13, CREAM, 'left', 700); }
+  costRowPlain(c, g.reward, x + (g.need > 1 ? 268 : 92), y + 81, 13.5);
 }
 
 function hints(S) {
-  const { c, world, ui, vw, now } = S;
-  if (ui.sel || ui.vsel != null || ui.tech || ui.quests || ui.settings || ui.daily || ui.lost || ui.away) return;
-  let hint = null;
-  if (ui.aiming) hint = t('spellAim');
-  else if (ui.place) hint = null;
-  else if (world.status === 'day') {
-    const walls = world.count('recinto') + world.count('mura'), L = world.d.castle, army = world.armyStrength().n;
-    if (ui.build) hint = world.towers() === 0 ? t('hintPick') : null;
-    else if (!ui.moved) hint = t('hintMove');
-    else if (world.towers() === 0) hint = t('hintBuild');
-    else if (world.d.night === 0) hint = t('hintStart');
-    else if (walls === 0) hint = t('hintFence');
-    else if (world.questsReady()) hint = t('hintQuest');
-    else if (world.castleCheck() === 'ok') hint = t('hintCastle');
-    else if (world.d.buildings.some(b => b.type === 'campo' && world.crop(b, now).ripe)) hint = t('hintHarvest');
-    else if (world.count('casa') === 0) hint = t('hintHouse');
-    else if (L >= 2 && world.count('caserma') === 0) hint = t('hintBarracks');
-    else if (L >= 2 && army > 0 && army < 4) hint = t('hintArmy');
-    else if (world.d.night >= 1 && !ui.seenVillage) hint = t('hintVillage');
-    else if (army >= 4 && world.d.villages[0].state === 'free' && world.d.villages[0].level === 1) hint = t('hintRaid');
-    else if (L >= 2 && world.count('bottega') === 0) hint = t('hintWorkshop');
-    else if (world.count('bottega') && !world.d.tech.ferro) hint = t('hintTech');
-  }
-  if (hint) { const hw = width(c, hint, 20) + 44; panel(c, vw / 2 - hw / 2, 70, hw, 42, 21, 0.8); txt(c, hint, vw / 2, 92, 20, '#ffe9a8', 'center'); }
+  const { c, ui, vw } = S;
+  if (!ui.aiming) return;            // il resto dei consigli ora lo dà il Tuzu guida
+  const hint = t('spellAim'), hw = width(c, hint, 20) + 44;
+  panel(c, vw / 2 - hw / 2, 108, hw, 42, 21, 0.8); txt(c, hint, vw / 2, 130, 20, '#ffe9a8', 'center');
 }
 
 function settingsPanel(S) {
@@ -781,6 +818,7 @@ export function drawUi(S) {
   if (ui.flash > 0) { c.fillStyle = `rgba(220,40,30,${Math.min(0.3, ui.flash * 0.6)})`; c.fillRect(0, 0, vw, vh); }
   villageArrows(S);
   hud(S);
+  guide(S);
   hints(S);
   if (ui.banner && ui.banner.t < ui.banner.T) {
     const u = ui.banner.t / ui.banner.T, a = u < 0.15 ? u / 0.15 : u > 0.8 ? (1 - u) / 0.2 : 1;

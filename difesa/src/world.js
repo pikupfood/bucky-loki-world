@@ -4,7 +4,7 @@ import {
   G, COLS, ROWS, CASTLE, START, SELL_REFUND, BUILD, towerCap, UNITS, CASERMA_SLOTS, GUARD_REACH, CASTLE_UP, MAX_CASTLE,
   castleHp, TOWERS, ENEMIES, CROPS, genWave, hpMul, NATURE, CHOP, TRIBES, VILLAGE_R, REVOLT_NIGHTS, TECHS,
   villageHp, villageGuards, villageLoot, villageTribute, TRADE, TERRAIN, STEP, ALLY_NIGHTS, MAX_ALLIES, TRADES_PER_DAY,
-  allyCost, allyHelpers, villageTrade, mulberry32,
+  allyCost, allyHelpers, villageTrade, GOALS, MORALE, moraleK, WORK, WORKER_SPEED, JOBS_MAX, mulberry32,
 } from './data.js';
 
 const N = COLS * ROWS, DAY = 86400000, AWAY_CAP = 2 * 3600 * 1000, RAID_MAX = 240;
@@ -32,7 +32,7 @@ for (let r = CASTLE.r; r < CASTLE.r + CASTLE.h; r++) for (let c = CASTLE.c; c < 
 
 function fresh(now) {
   return {
-    v: 4, map: 2, res: { ...START }, castle: 1, night: 0, nextId: 2,
+    v: 4, map: 3, res: { ...START }, castle: 1, night: 0, nextId: 2, goal: 0, mood: 0, stats: {},
     buildings: [{ id: 1, type: 'castello', c: CASTLE.c, r: CASTLE.r, hp: castleHp(1) }],
     cut: [], tech: {}, villages: TRIBES.map(t => ({ level: t.level, state: 'free', since: 0, until: 0, trades: 0 })),
     quests: QUEST_SLOTS.map(() => ({ n: 0, p: 0 })), seen: {}, dailyDay: 0, streak: 0, lastSeen: now,
@@ -44,7 +44,7 @@ export class World {
     const d = fresh(now);
     if (data && (data.v === 3 || data.v === 4) && Array.isArray(data.buildings) && data.buildings.some(b => b.type === 'castello')) {
       // le mappe più vecchie erano più piccole: gli edifici si spostano insieme al castello, la natura si rifà
-      const was = data.buildings.find(b => b.type === 'castello'), old = data.map !== 2, dc = CASTLE.c - was.c, dr = CASTLE.r - was.r;
+      const was = data.buildings.find(b => b.type === 'castello'), old = data.map !== 3, dc = CASTLE.c - was.c, dr = CASTLE.r - was.r;
       for (const k in START) if (data.res && isFinite(data.res[k])) d.res[k] = data.res[k];
       d.castle = Math.max(1, Math.min(MAX_CASTLE, data.castle || 1)); d.night = data.night || 0; d.nextId = data.nextId || 2;
       d.buildings = data.buildings.filter(b => BUILD[b.type]).map(b => {
@@ -59,20 +59,21 @@ export class World {
       if (Array.isArray(data.villages)) data.villages.forEach((v, i) => { if (d.villages[i] && v) d.villages[i] = { level: v.level || TRIBES[i].level, state: v.state === 'colony' || v.state === 'ally' ? v.state : 'free', since: v.since || 0, until: v.until || 0, trades: v.trades || 0 }; });
       if (Array.isArray(data.quests)) data.quests.forEach((q, i) => { if (d.quests[i] && q) d.quests[i] = { n: q.n || 0, p: q.p || 0 }; });
       Object.assign(d.seen, data.seen || {});
+      d.goal = data.goal || 0; d.mood = data.mood || 0; Object.assign(d.stats, data.stats || {});
+      if (d.stats.conquer == null) d.stats.conquer = d.villages.filter(v => v.state === 'colony').length;
       d.dailyDay = data.dailyDay || 0; d.streak = data.streak || 0; d.lastSeen = data.lastSeen || now;
     }
     this.d = d;
     this.rng = mulberry32(seed);
     this.status = 'day';                 // day | night | raid
     this.enemies = []; this.projs = []; this.soldiers = []; this.queue = []; this.events = [];
-    this.raid = null; this.raidDist = null;
+    this.raid = null; this.raidDist = null; this.workers = []; this.jobs = []; this._dirty = true;
     this.waveT = 0; this.spellCd = 0; this.uid = 1; this.rev = 0; this.away = null; this.castleHit = false; this.nightKills = 0;
     this.cutSet = new Set(d.cut);
     // sotto un edificio non resta natura (succede solo venendo da un salvataggio vecchio)
     for (const b of d.buildings) { const D = BUILD[b.type]; for (let r = b.r; r < b.r + D.h; r++) for (let c = b.c; c < b.c + D.w; c++) { const k = NAT_AT[idx(c, r)]; if (k && !this.cutSet.has(k - 1)) { this.cutSet.add(k - 1); d.cut.push(k - 1); } } }
     this.rebuild();
     for (const b of d.buildings) b.hp = this.maxHp(b);      // si riparte sempre di giorno, con tutto riparato
-    this.fields();
     for (const b of d.buildings) if (b.type === 'caserma') (b.units || []).forEach((u, i) => this.spawnSoldier(b, u, i));
     this.offline(now);
   }
@@ -95,7 +96,7 @@ export class World {
       for (let r = b.r; r < b.r + D.h; r++) for (let c = b.c; c < b.c + D.w; c++) occ[idx(c, r)] = b.id;
     }
     this.castle = this.d.buildings.find(b => b.type === 'castello');
-    this.fields();
+    this._dirty = true;
     this.rev++;
   }
   natAt(c, r) { if (!inMap(c, r)) return null; const k = NAT_AT[idx(c, r)]; return k && !this.cutSet.has(k - 1) ? NATURE[k - 1] : null; }
@@ -149,7 +150,10 @@ export class World {
     }
     return dist;
   }
-  fields() { this.dist = this.flow(CASTLE_CELLS, 'enemy'); this.distFree = this.flow(CASTLE_CELLS, 'ghost'); }
+  fields() { this._dist = this.flow(CASTLE_CELLS, 'enemy'); this._distFree = this.flow(CASTLE_CELLS, 'ghost'); this._dirty = false; }
+  /** Distanze dal castello per i nemici (si ricalcolano da sole quando il regno è cambiato). */
+  get dist() { if (this._dirty) this.fields(); return this._dist; }
+  get distFree() { if (this._dirty) this.fields(); return this._distFree; }
 
   // ---------- risorse ----------
   afford(cost, k = 1) { for (const r in cost) if ((this.d.res[r] || 0) < cost[r] * k) return false; return true; }
@@ -195,6 +199,7 @@ export class World {
     this.pay(BUILD[type].cost);
     const b = this.add(type, c, r);
     this.rebuild(); this.track('build');
+    if (type === 'fucina') for (const o of this.soldiers) if (o.ally == null) { o.maxHp = Math.round(UNITS[o.type].hp * 1.2); o.hp = o.maxHp; }
     this.events.push({ k: 'placed', x: b.x, y: b.y, type });
     return b;
   }
@@ -316,12 +321,117 @@ export class World {
     if (!n || this.cutSet.has(n.id)) return 0;
     const C = CHOP[n.kind];
     if (C.tech && !this.d.tech[C.tech]) { this.events.push({ k: 'unknown', x: (n.c + 0.5) * G, y: (n.r + 0.5) * G, kind: n.kind }); return 0; }
-    this.d.res[C.res] += C.gain;
+    const gain = Math.round(C.gain * (this.d.tech.carri ? 1.5 : 1));
+    this.d.res[C.res] += gain;
     this.cutSet.add(n.id); this.d.cut.push(n.id);
-    this.fields(); this.rev++; this.track('chop');
-    this.events.push({ k: 'chop', x: (n.c + 0.5) * G, y: (n.r + 0.5) * G, kind: n.kind, gain: C.gain });
-    return C.gain;
+    const j = this.jobs.indexOf(n.id); if (j >= 0) this.jobs.splice(j, 1);
+    this._dirty = true; this.rev++; this.track('chop'); this.track(n.kind);
+    this.events.push({ k: 'chop', x: (n.c + 0.5) * G, y: (n.r + 0.5) * G, kind: n.kind, gain });
+    return gain;
   }
+
+  // ---------- gli abitanti al lavoro: si tocca un albero, una roccia o un giacimento e uno di loro ci va ----------
+  workersMax() { return Math.min(10, 1 + this.count('casa')); }
+  workersFree() { let n = 0; for (const w of this.workers) if (w.job == null) n++; return this.workersMax() - this.workers.length + n; }
+  /** Mette in lista (o toglie dalla lista) una cosa da raccogliere: 'ok' | 'cancel' | 'unknown' | 'full' | 'gone' */
+  assign(n) {
+    if (!n || this.cutSet.has(n.id)) return 'gone';
+    const C = CHOP[n.kind], x = (n.c + 0.5) * G, y = (n.r + 0.5) * G;
+    if (C.tech && !this.d.tech[C.tech]) { this.events.push({ k: 'unknown', x, y, kind: n.kind }); return 'unknown'; }
+    const k = this.jobs.indexOf(n.id);
+    if (k >= 0) { this.jobs.splice(k, 1); for (const w of this.workers) if (w.job === n.id) { w.job = null; w.state = 'idle'; } this.rev++; return 'cancel'; }
+    if (this.jobs.length >= JOBS_MAX) return 'full';
+    this.jobs.push(n.id); this.rev++;
+    this.events.push({ k: 'job', x, y });
+    return 'ok';
+  }
+  /** Dove sta di casa l'abitante numero k: il primo al castello, gli altri uno per casa. */
+  workerHome(k) {
+    let b = this.castle;
+    if (k > 0) { let i = 0; for (const o of this.d.buildings) if (o.type === 'casa' && ++i === k) { b = o; break; } }
+    return { x: b.x + (k ? 30 : 46), y: b.y + BUILD[b.type].h * G / 2 + 18 };
+  }
+  /** Vero se fra due punti non c'è rilievo né un edificio che sbarra. */
+  clearLine(x0, y0, x1, y1) {
+    const d = Math.hypot(x1 - x0, y1 - y0), n = Math.ceil(d / 18);
+    for (let i = 1; i < n; i++) { const c = Math.floor((x0 + (x1 - x0) * i / n) / G), r = Math.floor((y0 + (y1 - y0) * i / n) / G); if (!inMap(c, r) || TERRAIN[idx(c, r)] || this.armyBlock(idx(c, r))) return false; }
+    return true;
+  }
+  /** Un passo verso un punto: dritto se la via è libera, altrimenti lungo una mappa delle distanze che gira attorno agli ostacoli. */
+  walk(w, tx, ty, dt) {
+    if (w.path && (w.pathX !== tx || w.pathY !== ty)) w.path = null;
+    if (!w.path) {
+      if (this.clearLine(w.x, w.y, tx, ty)) { this.moveFree(w, tx, ty, dt, WORKER_SPEED); return; }
+      w.path = this.flow([idx(cellOf(tx, COLS), cellOf(ty, ROWS))], 'army'); w.pathX = tx; w.pathY = ty;
+    }
+    if (Math.hypot(tx - w.x, ty - w.y) < 60 || !this.march(w, w.path, dt, WORKER_SPEED)) this.moveFree(w, tx, ty, dt, WORKER_SPEED);
+  }
+  stepWorker(w, k, dt) {
+    if (w.state === 'idle') {
+      const id = this.jobs.find(j => !this.workers.some(o => o.job === j));
+      if (id == null) { const h = this.workerHome(k); if (Math.hypot(h.x - w.x, h.y - w.y) > 3) this.walk(w, h.x, h.y, dt); return; }
+      w.job = id; w.state = 'go'; w.path = null;
+    }
+    const n = NATURE[w.job];
+    if (!n || this.cutSet.has(n.id)) { w.job = null; w.state = 'idle'; return; }
+    const tx = (n.c + 0.5) * G, ty = (n.r + 0.5) * G + 16;
+    if (w.state === 'go') {
+      if (Math.hypot(tx - w.x, ty - w.y) < 14) { w.state = 'work'; w.t = WORK[n.kind] * (this.d.tech.asce ? 0.5 : 1); w.ang = -Math.PI / 2; w.path = null; }
+      else this.walk(w, tx, ty, dt);
+    } else {
+      w.t -= dt; w.anim += dt * 9;
+      if (w.t <= 0) { w.job = null; w.state = 'idle'; this.chop(n); }
+    }
+  }
+  stepWorkers(dt) {
+    const max = this.workersMax();
+    while (this.workers.length > max) this.workers.pop();
+    while (this.workers.length < max) { const h = this.workerHome(this.workers.length); this.workers.push({ id: this.uid++, x: h.x, y: h.y, state: 'idle', job: null, t: 0, anim: 0, ang: Math.PI / 2, ox: 0, oy: 0, path: null }); }
+    for (let k = 0; k < this.workers.length; k++) this.stepWorker(this.workers[k], k, dt);
+  }
+
+  // ---------- morale e obiettivi ----------
+  /** Quanto è bello il villaggio: fontane, taverne, statue, lampioni, aiuole, alberi piantati; le strade contano fino a un tetto. */
+  beauty() { let b = 0, roads = 0; for (const x of this.d.buildings) { const D = BUILD[x.type]; if (!D.beauty) continue; if (x.type === 'strada') roads += D.beauty; else b += D.beauty; } return b + Math.min(MORALE.roadCap, roads); }
+  /** Il morale (0-100): bellezza e vittorie lo alzano, case affollate e sconfitte lo abbassano. */
+  morale() {
+    const key = this.rev + '|' + (this.d.mood || 0) + '|' + (this.d.tech.festa ? 1 : 0);
+    if (this._mKey !== key) { this._mKey = key; this._morale = Math.max(0, Math.min(100, Math.round(MORALE.base + (this.d.mood || 0) + this.beauty() - MORALE.perHouse * this.count('casa') + (this.d.tech.festa ? 10 : 0)))); }
+    return this._morale;
+  }
+  cheer(n) { this.d.mood = Math.max(-20, Math.min(15, (this.d.mood || 0) + n)); }
+  /** Una cosa fatta dal giocatore che le regole non vedono (aver mosso la camera, aver toccato un villaggio). */
+  note(k) { if (!this.d.stats[k]) this.d.stats[k] = 1; }
+  /** L'obiettivo che il Tuzu guida propone adesso (null quando sono finiti). */
+  goal() {
+    const i = this.d.goal || 0;
+    if (i >= GOALS.length) return null;
+    const [kind, need, reward] = GOALS[i], S = this.d.stats;
+    let have;
+    switch (kind) {
+      case 'move': case 'village': have = S[kind] ? 1 : 0; break;
+      case 'towers': have = this.towers(); break;
+      case 'night': have = this.d.night; break;
+      case 'castle': have = this.d.castle; break;
+      case 'walls': have = this.count('recinto') + this.count('mura'); break;
+      case 'send': have = S.tree || 0; break;
+      case 'sendRock': have = S.rock || 0; break;
+      case 'morale': have = this.morale(); break;
+      case 'army': have = this.popUsed(); break;
+      case 'tech': have = Object.keys(this.d.tech).length; break;
+      case 'harvest': case 'ally': case 'trade': case 'conquer': have = S[kind] || 0; break;
+      default: have = this.count(kind);
+    }
+    return { i, kind, need, have: Math.min(need, have), done: have >= need, reward, total: GOALS.length };
+  }
+  claimGoal() {
+    const g = this.goal();
+    if (!g || !g.done) return null;
+    this.gain(g.reward); this.d.goal = g.i + 1;
+    this.events.push({ k: 'goal', reward: g.reward });
+    return g.reward;
+  }
+  tradesMax() { return TRADES_PER_DAY + (this.d.tech.commercio ? 2 : 0); }
 
   // ---------- campi ----------
   crop(b, now) {
@@ -347,7 +457,8 @@ export class World {
     const U = UNITS[type];
     if (slot == null) { const used = new Set(this.soldiers.filter(s => s.home === b.id).map(s => s.slot)); slot = 0; while (used.has(slot)) slot++; }
     const hx = b.x - 39 + slot * 26, hy = b.y + G + 14;
-    const s = { id: this.uid++, type, home: b.id, slot, x: hx, y: hy, hx, hy, hp: U.hp, maxHp: U.hp, cd: 0, target: null, anim: 0, ang: Math.PI / 2, hit: 0, strike: 0, raid: false, ox: ((slot * 37 + b.id * 11) % 25) - 12, oy: ((slot * 53 + b.id * 7) % 25) - 12 };
+    const hp = Math.round(U.hp * (this.count('fucina') ? 1.2 : 1));      // la fucina tempra le armature
+    const s = { id: this.uid++, type, home: b.id, slot, x: hx, y: hy, hx, hy, hp, maxHp: hp, cd: 0, target: null, anim: 0, ang: Math.PI / 2, hit: 0, strike: 0, raid: false, ox: ((slot * 37 + b.id * 11) % 25) - 12, oy: ((slot * 53 + b.id * 7) % 25) - 12 };
     this.soldiers.push(s);
     return s;
   }
@@ -379,10 +490,10 @@ export class World {
     return !!(D.flat || D.gate);
   }
   /** Passo libero, senza ostacoli (le marce lunghe seguono una mappa delle distanze che già li evita). */
-  moveFree(s, tx, ty, dt) {
+  moveFree(s, tx, ty, dt, speed = UNITS[s.type].speed) {
     const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy);
     if (d < 2) return;
-    const st = Math.min(d, UNITS[s.type].speed * dt);
+    const st = Math.min(d, speed * dt);
     s.x += dx / d * st; s.y += dy / d * st;
     s.ang = Math.atan2(dy, dx); s.anim += dt * 6;
   }
@@ -398,7 +509,7 @@ export class World {
     s.ang = Math.atan2(dy, dx); s.anim += dt * 6;
   }
   /** Un passo lungo una mappa delle distanze. Falso se si è già nel punto più basso. */
-  march(s, F, dt) {
+  march(s, F, dt, speed) {
     const c = cellOf(s.x, COLS), r = cellOf(s.y, ROWS);
     let best = -1, bd = F[idx(c, r)];
     for (const [dc, dr] of DIRS) {
@@ -407,14 +518,14 @@ export class World {
       const v = F[idx(nc, nr)]; if (v < bd - 1e-4) { bd = v; best = idx(nc, nr); }
     }
     if (best < 0) return false;
-    this.moveFree(s, (best % COLS + 0.5) * G + s.ox, (((best / COLS) | 0) + 0.5) * G + s.oy, dt);
+    this.moveFree(s, (best % COLS + 0.5) * G + s.ox, (((best / COLS) | 0) + 0.5) * G + s.oy, dt, speed);
     return true;
   }
   /** Colpisce un nemico, oppure la casa del capo del villaggio sotto assalto. */
   hit(t, dmg, kind = 'physical') { if (t.hall) this.hurtHall(dmg); else this.damage(t, dmg, kind); }
   /** Il soldato prova a colpire il bersaglio. Vero se è a tiro. */
   attack(s, t) {
-    const U = UNITS[s.type], d = Math.sqrt(d2(s, t)), reach = U.range || 24 + (t.r || 0) * 0.6;
+    const U = UNITS[s.type], d = Math.sqrt(d2(s, t)), reach = U.range ? U.range * (this.d.tech.archi ? 1.25 : 1) : 24 + (t.r || 0) * 0.6;
     if (d > reach) return false;
     s.ang = Math.atan2(t.y - s.y, t.x - s.x);
     if (s.cd <= 0) {
@@ -437,7 +548,7 @@ export class World {
     return {
       ...v, i, id: T.id, good: T.good, wants: T.wants, x: (T.c + 0.5) * G, y: (T.r + 0.5) * G, hp: villageHp(v.level), guards: villageGuards(v.level),
       loot: villageLoot(T, v.level), tribute: villageTribute(T, v.level), allyCost: allyCost(T, v.level), helpers: allyHelpers(v.level), trade: villageTrade(T),
-      tradesLeft: Math.max(0, TRADES_PER_DAY - (v.trades || 0)),
+      tradesLeft: Math.max(0, this.tradesMax() - (v.trades || 0)),
       revoltIn: v.state === 'colony' ? Math.max(0, REVOLT_NIGHTS - (this.d.night - v.since)) : 0,
       allyLeft: v.state === 'ally' ? Math.max(0, v.until - this.d.night) : 0,
     };
@@ -476,14 +587,14 @@ export class World {
     const v = this.d.villages[i], T = TRIBES[i];
     if (!v || v.state === 'free') return 'foe';
     if (this.status !== 'day') return 'busy';
-    if ((v.trades || 0) >= TRADES_PER_DAY) return 'done';
+    if ((v.trades || 0) >= this.tradesMax()) return 'done';
     if ((T.good === 'ferro' || T.good === 'cristallo') && !this.d.tech[T.good]) return 'tech';      // un materiale va prima scoperto
     return this.afford(villageTrade(T).give) ? 'ok' : 'cost';
   }
   trade(i) {
     if (this.tradeCheck(i) !== 'ok') return false;
     const tr = villageTrade(TRIBES[i]), v = this.d.villages[i];
-    this.pay(tr.give); this.gain(tr.get); v.trades = (v.trades || 0) + 1;
+    this.pay(tr.give); this.gain(tr.get); v.trades = (v.trades || 0) + 1; this.track('trade');
     this.events.push({ k: 'traded', i, get: tr.get, x: (TRIBES[i].c + 0.5) * G, y: (TRIBES[i].r + 0.5) * G });
     return true;
   }
@@ -530,7 +641,7 @@ export class World {
     const R = this.raid, i = R.i, T = TRIBES[i], v = this.d.villages[i], loot = villageLoot(T, v.level);
     R.dead = true;
     v.state = 'colony'; v.since = this.d.night;
-    this.gain(loot); this.track('conquer');
+    this.gain(loot); this.track('conquer'); this.cheer(5);
     this.events.push({ k: 'conquered', i, x: R.x, y: R.y, loot });
     if (TECHS[T.good]) this.learn(T.good);          // il popolo conquistato porta il suo materiale
     this.endRaid();
@@ -575,6 +686,7 @@ export class World {
     q.sort((a, b) => a.t - b.t);
     for (const e of q) this.d.seen[e.type] = 1;
     this.queue = q; this.waveT = 0; this.status = 'night'; this.castleHit = false; this.nightKills = 0;
+    this.workers.forEach((w, k) => { const h = this.workerHome(k); w.x = h.x; w.y = h.y; w.job = null; w.state = 'idle'; w.path = null; });      // di notte gli abitanti stanno al riparo
     // gli alleati mandano i loro guerrieri: si mettono attorno al castello e all'alba tornano a casa
     let slot = 0;
     this.d.villages.forEach((v, i) => {
@@ -711,7 +823,7 @@ export class World {
       if (!t || t.hall) { t = this.raid; let bd = 260 * 260; for (const e of this.enemies) { if (e.dead) continue; const dd = d2(e, s); if (dd < bd) { bd = dd; t = e; } } }
       s.target = t;
       if (this.attack(s, t)) return;
-      if (t.hall && d2(s, t) > 150 * 150) { if (!this.march(s, this.raidDist, dt)) this.moveFree(s, t.x, t.y, dt); }
+      if (t.hall && d2(s, t) > 150 * 150) { const fast = d2(s, t) > 560 * 560 ? UNITS[s.type].speed * 1.9 : undefined; if (!this.march(s, this.raidDist, dt, fast)) this.moveFree(s, t.x, t.y, dt); }
       else this.moveFree(s, t.x, t.y, dt);
       return;
     }
@@ -725,7 +837,7 @@ export class World {
     // si torna al proprio posto: da lontano seguendo la strada verso il castello
     const dh = (s.hx - s.x) * (s.hx - s.x) + (s.hy - s.y) * (s.hy - s.y);
     if (dh < 4) return;
-    if (dh > 320 * 320 && this.march(s, this.dist, dt)) return;
+    if (dh > 320 * 320 && this.march(s, this.dist, dt, dh > 640 * 640 ? UNITS[s.type].speed * 1.9 : undefined)) return;
     this.moveFree(s, s.hx, s.hy, dt);
   }
 
@@ -794,6 +906,7 @@ export class World {
   production() {
     const out = {}; for (const k in START) out[k] = 0;
     for (const b of this.d.buildings) { const p = BUILD[b.type].prod; if (p) for (const k in p) out[k] += p[k]; }
+    const mk = moraleK(this.morale()); if (mk !== 1) for (const k in out) out[k] *= mk;
     this.d.villages.forEach((v, i) => { if (v.state === 'colony') { const tr = villageTribute(TRIBES[i], v.level); for (const k in tr) out[k] += tr[k]; } });
     return out;
   }
@@ -805,6 +918,7 @@ export class World {
     this.d.lastSeen = now;
     for (const b of this.d.buildings) if (b.hitT > 0) b.hitT -= dt;
     const st = this.status;
+    if (st !== 'night') this.stepWorkers(dt);
 
     if (st === 'night') {
       this.waveT += dt;
@@ -841,10 +955,10 @@ export class World {
     this.soldiers = this.soldiers.filter(s => s.ally == null);
     for (const b of this.d.buildings) { b.hp = this.maxHp(b); b.burning = false; }
     for (const s of this.soldiers) { s.hp = s.maxHp; s.target = null; }
-    this.fields(); this.rev++;
+    this._dirty = true; this.rev++;
   }
   winNight() {
-    this.d.night++;
+    this.d.night++; this.cheer(3);
     const reward = 40 + 12 * this.d.night;
     this.d.res.monete += reward; this.track('nights');
     const perfect = !this.castleHit;
@@ -853,6 +967,7 @@ export class World {
     this.afterNight();
   }
   loseNight() {
+    this.cheer(-8);
     const penalty = Math.floor(this.d.res.monete * 0.25);
     this.d.res.monete -= penalty;
     this.dawn();
@@ -876,7 +991,7 @@ export class World {
     const goal = D.goal + D.inc * tier;
     return { type, goal, progress: Math.min(goal, q.p), reward: D.reward + 10 * tier, ready: q.p >= goal };
   }
-  track(type, amount = 1) { this.d.quests.forEach((q, i) => { if (this.quest(i).type === type) q.p += amount; }); }
+  track(type, amount = 1) { this.d.stats[type] = (this.d.stats[type] || 0) + amount; this.d.quests.forEach((q, i) => { if (this.quest(i).type === type) q.p += amount; }); }
   questsReady() { return this.d.quests.filter((_, i) => this.quest(i).ready).length; }
   claimQuest(slot) {
     const q = this.quest(slot);

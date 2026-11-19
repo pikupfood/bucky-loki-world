@@ -1,9 +1,9 @@
 // Dati di gioco: mappa a quadretti, edifici, torri, nemici, colture, notti. Nessuna dipendenza dal browser.
 
 export const G = 40;                 // lato di un quadretto, in unità di mondo
-export const COLS = 120, ROWS = 84;
+export const COLS = 168, ROWS = 116;
 export const WORLD_W = COLS * G, WORLD_H = ROWS * G;
-export const CASTLE = { c: 58, r: 40, w: 3, h: 3 };
+export const CASTLE = { c: 83, r: 57, w: 3, h: 3 };
 export const START = { monete: 150, legna: 130, pietra: 0, ferro: 0, cristallo: 0 };
 export const SELL_REFUND = 0.5;
 
@@ -23,12 +23,15 @@ export function mulberry32(a) {
 // ATTENZIONE: l'ordine non si cambia (i salvataggi tengono i villaggi per posizione nell'elenco). I nuovi vanno in coda.
 export const MY_COLOR = '#b592f5';
 export const TRIBES = [
-  { id: 'rossi',    color: '#ee5a52', eyes: '#2b2a33', c: 20,  r: 56, level: 1, from: 1,  good: 'legna',     wants: 'pietra' },
-  { id: 'blu',      color: '#3f9cf2', eyes: '#2b2a33', c: 101, r: 24, level: 2, from: 3,  good: 'pietra',    wants: 'legna' },
-  { id: 'gialli',   color: '#f4c430', eyes: '#2b2a33', c: 73,  r: 9,  level: 3, from: 7,  good: 'ferro',     wants: 'monete' },
-  { id: 'neri',     color: '#3b3947', eyes: '#ffffff', c: 47,  r: 76, level: 4, from: 12, good: 'cristallo', wants: 'ferro' },
-  { id: 'turchesi', color: '#19c2b0', eyes: '#2b2a33', c: 29,  r: 13, level: 2, from: 5,  good: 'monete',    wants: 'legna' },
-  { id: 'bianchi',  color: '#f4f1ea', eyes: '#2b2a33', c: 105, r: 66, level: 3, from: 9,  good: 'cristallo', wants: 'ferro' },
+  { id: 'rossi',     color: '#ee5a52', eyes: '#2b2a33', c: 36,  r: 76,  level: 1, from: 1,  good: 'legna',     wants: 'pietra' },
+  { id: 'blu',       color: '#3f9cf2', eyes: '#2b2a33', c: 136, r: 34,  level: 2, from: 3,  good: 'pietra',    wants: 'legna' },
+  { id: 'gialli',    color: '#f4c430', eyes: '#2b2a33', c: 104, r: 12,  level: 3, from: 7,  good: 'ferro',     wants: 'monete' },
+  { id: 'neri',      color: '#3b3947', eyes: '#ffffff', c: 64,  r: 104, level: 4, from: 12, good: 'cristallo', wants: 'ferro' },
+  { id: 'turchesi',  color: '#19c2b0', eyes: '#2b2a33', c: 40,  r: 20,  level: 2, from: 5,  good: 'monete',    wants: 'legna' },
+  { id: 'bianchi',   color: '#f4f1ea', eyes: '#2b2a33', c: 146, r: 90,  level: 3, from: 9,  good: 'cristallo', wants: 'ferro' },
+  { id: 'arancioni', color: '#ff8a2a', eyes: '#2b2a33', c: 12,  r: 46,  level: 4, from: 14, good: 'ferro',     wants: 'legna' },
+  { id: 'rosa',      color: '#ff6fb5', eyes: '#2b2a33', c: 156, r: 10,  level: 5, from: 17, good: 'monete',    wants: 'cristallo' },
+  { id: 'argento',   color: '#aab4c6', eyes: '#2b2a33', c: 20,  r: 104, level: 6, from: 20, good: 'cristallo', wants: 'monete' },
 ];
 export const VILLAGE_R = 5;            // il territorio di un villaggio è largo 2·R+1 quadretti: lì non si costruisce
 export const REVOLT_NIGHTS = 6;        // una colonia si ribella dopo tante notti, e torna più forte
@@ -51,7 +54,7 @@ export function villageTribute(t, L) { const o = { monete: 4 + 2 * L }; o[t.good
 export function allyCost(t, L) { const o = { monete: 80 + 60 * L }; o[t.wants] = (o[t.wants] || 0) + 30 * L; return o; }
 /** Quanti guerrieri manda un alleato a difenderti di notte. */
 export const allyHelpers = (L) => 1 + L;
-const TRADE_GIVE = { monete: 60, legna: 40, pietra: 30, ferro: 20 }, TRADE_GET = { monete: 50, legna: 40, pietra: 30, ferro: 15, cristallo: 8 };
+const TRADE_GIVE = { monete: 60, legna: 40, pietra: 30, ferro: 20, cristallo: 10 }, TRADE_GET = { monete: 50, legna: 40, pietra: 30, ferro: 15, cristallo: 8 };
 /** Uno scambio con un villaggio amico: gli dai `give` e ricevi `get`. */
 export function villageTrade(t) { return { give: { [t.wants]: TRADE_GIVE[t.wants] }, get: { [t.good]: TRADE_GET[t.good] } }; }
 
@@ -59,17 +62,21 @@ export function villageTrade(t) { return { give: { [t.wants]: TRADE_GIVE[t.wants
 // TERRAIN[i]: 0 libero · 1 montagna · 2 collina · 3 acqua
 export const TERRAIN = new Uint8Array(COLS * ROWS);
 export const PEAKS = [], HILLS = [], LAKES = [];
+const SX = COLS / 120, SY = ROWS / 84, wide = (a) => a.map(([c0, r0, c1, r1, w]) => [c0 * SX, r0 * SY, c1 * SX, r1 * SY, w * 1.15]), spot = (a) => a.map(([c, r, rx, ry]) => [c * SX, r * SY, rx * 1.15, ry * 1.15]);
 const RANGES = [      // catene: da (c0, r0) a (c1, r1), larghezza in quadretti
-  [35, 27, 47, 17, 2.1], [33, 41, 38, 52, 1.9], [81, 28, 87, 43, 2.2], [55, 59, 69, 64, 2.0], [85, 9, 92, 17, 1.8],
-  [10, 34, 20, 38, 1.7], [66, 22, 60, 13, 1.5], [88, 54, 96, 50, 1.6], [28, 68, 36, 73, 1.6], [112, 36, 116, 48, 1.8],
+  ...wide([[35, 27, 47, 17, 2.1], [33, 41, 38, 52, 1.9], [81, 28, 87, 43, 2.2], [55, 59, 69, 64, 2.0], [85, 9, 92, 17, 1.8], [10, 34, 20, 38, 1.7], [66, 22, 60, 13, 1.5], [88, 54, 96, 50, 1.6], [28, 68, 36, 73, 1.6], [112, 36, 116, 48, 1.8]]),
+  [22, 58, 30, 66, 2.1], [148, 20, 160, 28, 2.1], [30, 92, 42, 98, 2.0], [116, 100, 132, 107, 2.1], [8, 12, 18, 22, 2.0], [96, 86, 106, 92, 1.9], [124, 8, 134, 14, 1.8], [4, 78, 12, 90, 2.0],
 ];
-const HILL_AT = [[46, 33, 2.6, 2.0], [71, 50, 2.8, 2.2], [44, 63, 2.4, 2.0], [97, 39, 2.6, 2.1], [57, 24, 2.3, 1.9], [24, 44, 2.5, 2.0], [14, 22, 2.8, 2.2], [78, 73, 2.6, 2.0], [108, 12, 2.4, 2.0], [62, 72, 2.0, 1.8], [8, 70, 2.6, 2.2], [92, 78, 2.4, 1.9]];
-const LAKE_AT = [[72, 34, 4.6, 3.2], [34, 60, 3.6, 2.6], [93, 62, 3.6, 2.8], [50, 8, 4.2, 2.6]];
+const HILL_AT = [
+  ...spot([[46, 33, 2.6, 2.0], [71, 50, 2.8, 2.2], [44, 63, 2.4, 2.0], [97, 39, 2.6, 2.1], [57, 24, 2.3, 1.9], [24, 44, 2.5, 2.0], [14, 22, 2.8, 2.2], [78, 73, 2.6, 2.0], [108, 12, 2.4, 2.0], [62, 72, 2.0, 1.8], [8, 70, 2.6, 2.2], [92, 78, 2.4, 1.9]]),
+  [58, 28, 3.0, 2.4], [112, 78, 3.0, 2.4], [26, 30, 2.8, 2.2], [150, 58, 3.0, 2.4], [84, 100, 2.8, 2.2], [120, 22, 2.6, 2.2], [48, 54, 2.6, 2.0], [140, 108, 2.8, 2.2],
+];
+const LAKE_AT = [...spot([[72, 34, 4.6, 3.2], [34, 60, 3.6, 2.6], [93, 62, 3.6, 2.8], [50, 8, 4.2, 2.6]]), [56, 90, 4.8, 3.4], [142, 62, 4.2, 3.0], [22, 84, 4.0, 2.8]];
 /** Il bordo di un lago visto dal suo centro, in direzione a (1 = l'ellisse esatta). */
 export const lakeEdge = (L, a) => 1 + 0.16 * Math.sin(3 * a + L.p1) + 0.1 * Math.sin(5 * a + L.p2);
 (function () {
   const rnd = mulberry32(777), cx = CASTLE.c + 1, cy = CASTLE.r + 1;
-  const free = (c, r) => c >= 0 && r >= 0 && c < COLS && r < ROWS && Math.hypot(c - cx, r - cy) > 10 && !TRIBES.some(t => Math.abs(t.c - c) <= VILLAGE_R + 3 && Math.abs(t.r - r) <= VILLAGE_R + 3);
+  const free = (c, r) => c >= 0 && r >= 0 && c < COLS && r < ROWS && Math.hypot(c - cx, r - cy) > 17 && !TRIBES.some(t => Math.abs(t.c - c) <= VILLAGE_R + 3 && Math.abs(t.r - r) <= VILLAGE_R + 3);
   const each = (c0, r0, rx, ry, fn) => { for (let r = Math.floor(r0 - ry - 1); r <= Math.ceil(r0 + ry + 1); r++) for (let c = Math.floor(c0 - rx - 1); c <= Math.ceil(c0 + rx + 1); c++) if (free(c, r)) fn(c, r, (c + 0.5 - c0) / rx, (r + 0.5 - r0) / ry); };
   for (const [c0, r0, c1, r1, wd] of RANGES) {
     const n = Math.ceil(Math.hypot(c1 - c0, r1 - r0) / 1.05);
@@ -143,13 +150,15 @@ export function terrainFlow(targets) {
     ROADS.push({ pts, main });
   };
   for (const t of TRIBES) lay(trace(terrainFlow(castle), t.gate.c, t.gate.r), true);       // dopo ogni strada le altre tendono a unirsi
-  for (const [a, b] of [[0, 4], [4, 2], [2, 1], [1, 5], [5, 3], [3, 0]]) { const A = TRIBES[a], B = TRIBES[b]; lay(trace(terrainFlow([A.r * COLS + A.c]), B.c, B.r), false); }
+  // da un villaggio al vicino, in giro attorno al castello
+  const ring = TRIBES.map((t, i) => i).sort((a, b) => Math.atan2(TRIBES[a].r - CASTLE.r, TRIBES[a].c - CASTLE.c) - Math.atan2(TRIBES[b].r - CASTLE.r, TRIBES[b].c - CASTLE.c));
+  ring.forEach((a, k) => { const A = TRIBES[a], B = TRIBES[ring[(k + 1) % ring.length]]; lay(trace(terrainFlow([A.r * COLS + A.c]), B.c, B.r), false); });
 })();
 
 // ---------- edifici ----------
 // w,h: quadretti occupati · cost: risorse · min: livello del castello che lo sblocca
 // flat: non blocca il passaggio (campi) · line: si tira in fila · gate: i tuoi passano, i nemici no
-// tech: la scoperta che serve per costruirlo
+// tech: la scoperta che serve per costruirlo · beauty: quanto alza il morale del villaggio
 export const BUILD = {
   castello:  { w: 3, h: 3, hp: 800 },
   casa:      { w: 2, h: 2, hp: 120, cost: { legna: 40 }, cat: 'eco', min: 1, pop: 4, prod: { monete: 6 } },
@@ -157,9 +166,19 @@ export const BUILD = {
   segheria:  { w: 2, h: 2, hp: 120, cost: { monete: 50 }, cat: 'eco', min: 1, prod: { legna: 12 }, cap: (L) => 1 + L },
   cava:      { w: 2, h: 2, hp: 140, cost: { legna: 60 }, cat: 'eco', min: 2, prod: { pietra: 9 }, cap: (L) => L },
   mercato:   { w: 2, h: 2, hp: 120, cost: { legna: 60, monete: 40 }, cat: 'eco', min: 2, cap: () => 1 },
-  bottega:   { w: 2, h: 2, hp: 140, cost: { legna: 80, pietra: 30 }, cat: 'eco', min: 2, cap: () => 1 },
-  miniera:   { w: 2, h: 2, hp: 150, cost: { legna: 80, pietra: 60 }, cat: 'eco', min: 2, prod: { ferro: 5 }, cap: (L) => L - 1, tech: 'ferro' },
-  cristalliera: { w: 2, h: 2, hp: 150, cost: { pietra: 100, ferro: 40 }, cat: 'eco', min: 3, prod: { cristallo: 3 }, cap: (L) => L - 2, tech: 'cristallo' },
+  bottega:   { w: 2, h: 2, hp: 140, cost: { legna: 80, pietra: 30 }, cat: 'off', min: 2, cap: () => 1 },
+  miniera:   { w: 2, h: 2, hp: 150, cost: { legna: 80, pietra: 60 }, cat: 'off', min: 2, prod: { ferro: 5 }, cap: (L) => L - 1, tech: 'ferro' },
+  cristalliera: { w: 2, h: 2, hp: 150, cost: { pietra: 100, ferro: 40 }, cat: 'off', min: 3, prod: { cristallo: 3 }, cap: (L) => L - 2, tech: 'cristallo' },
+  mulino:    { w: 2, h: 2, hp: 120, cost: { legna: 90, pietra: 30 }, cat: 'eco', min: 2, prod: { monete: 10 }, cap: (L) => L - 1 },
+  fucina:    { w: 2, h: 2, hp: 180, cost: { pietra: 80, ferro: 40 }, cat: 'off', min: 3, cap: () => 1, tech: 'ferro' },                 // esercito +20% vita
+  // bellezza: alzano il morale
+  fontana:   { w: 2, h: 2, hp: 100, cost: { pietra: 60, monete: 40 }, cat: 'bel', min: 1, cap: (L) => L, beauty: 8 },
+  taverna:   { w: 2, h: 2, hp: 140, cost: { legna: 80, monete: 60 }, cat: 'bel', min: 2, cap: (L) => L - 1, beauty: 10 },
+  statua:    { w: 1, h: 1, hp: 120, cost: { pietra: 80, monete: 60 }, cat: 'bel', min: 3, cap: (L) => L - 2, beauty: 12 },
+  lampione:  { w: 1, h: 1, hp: 40, cost: { legna: 10, monete: 10 }, cat: 'bel', min: 1, beauty: 1.5, deco: true },
+  aiuola:    { w: 1, h: 1, hp: 20, cost: { monete: 8 }, cat: 'bel', min: 1, beauty: 2, flat: true, line: true, deco: true },
+  albero:    { w: 1, h: 1, hp: 40, cost: { legna: 6 }, cat: 'bel', min: 1, beauty: 1.5, deco: true },
+  strada:    { w: 1, h: 1, hp: 20, cost: { pietra: 1 }, cat: 'mura', min: 1, beauty: 0.25, flat: true, line: true, deco: true },
   arcieri:   { w: 2, h: 2, hp: 160, cost: { legna: 50 }, cat: 'dif', min: 1, tower: true },
   radici:    { w: 2, h: 2, hp: 140, cost: { legna: 40, monete: 20 }, cat: 'dif', min: 2, tower: true },
   caserma:   { w: 2, h: 2, hp: 220, cost: { legna: 80, pietra: 40 }, cat: 'dif', min: 2, cap: (L) => L - 1 },
@@ -170,7 +189,19 @@ export const BUILD = {
   mura:      { w: 1, h: 1, hp: 260, cost: { pietra: 8 }, cat: 'mura', min: 2, line: true },
   cancello:  { w: 1, h: 1, hp: 180, cost: { legna: 20, pietra: 10 }, cat: 'mura', min: 2, gate: true },
 };
-export const BUILD_CATS = { eco: ['casa', 'campo', 'segheria', 'cava', 'mercato', 'bottega', 'miniera', 'cristalliera'], dif: ['arcieri', 'radici', 'caserma', 'mago', 'catapulta', 'braciere'], mura: ['recinto', 'mura', 'cancello'] };
+export const BUILD_CATS = {
+  eco: ['casa', 'campo', 'mulino', 'segheria', 'cava', 'mercato'], off: ['bottega', 'miniera', 'cristalliera', 'fucina'],
+  dif: ['arcieri', 'radici', 'caserma', 'mago', 'catapulta', 'braciere'], mura: ['recinto', 'mura', 'cancello', 'strada'],
+  bel: ['fontana', 'taverna', 'statua', 'lampione', 'aiuola', 'albero'],
+};
+export const CAT_ORDER = ['eco', 'off', 'dif', 'mura', 'bel'];
+// Morale del villaggio (0-100): parte da 50, sale con la bellezza e con le vittorie, scende con le case affollate e le sconfitte.
+// Sotto 30 il villaggio produce il 20% in meno; da 60 il 15% in più; da 80 il 30% in più.
+export const MORALE = { base: 50, perHouse: 3, roadCap: 8 };
+export const moraleK = (m) => (m < 30 ? 0.8 : m < 60 ? 1 : m < 80 ? 1.15 : 1.3);
+// Gli abitanti lavorano: uno per casa più uno del castello. Secondi di lavoro per ogni cosa da raccogliere.
+export const WORK = { tree: 4, rock: 5, iron: 6, crystal: 7 };
+export const WORKER_SPEED = 92, JOBS_MAX = 16;
 // Al Mercato le monete comprano materiali: { give: quanto arriva, cost: monete, tech: scoperta necessaria }
 export const TRADE = {
   legna: { give: 40, cost: 50 }, pietra: { give: 30, cost: 60 },
@@ -199,8 +230,27 @@ export const TECHS = {
   bastioni:  { cost: { pietra: 250, ferro: 100 }, needs: 'ferro' },                       // mura +50% vita
   cristallo: { cost: { monete: 300, pietra: 150, ferro: 60 }, min: 3, needs: 'ferro' },   // cristalliera, si raccolgono i cristalli
   lenti:     { cost: { monete: 300, cristallo: 60 }, needs: 'cristallo' },                // torre di cristallo e Fulmine +25%
+  asce:      { cost: { monete: 120, ferro: 40 }, needs: 'ferro' },                        // gli abitanti lavorano il doppio più svelti
+  carri:     { cost: { monete: 150, legna: 150 }, min: 2 },                               // ogni raccolta di legna, pietra, ferro, cristallo rende il 50% in più
+  festa:     { cost: { monete: 200, legna: 100 }, min: 2 },                               // morale +10
+  archi:     { cost: { monete: 200, legna: 200 }, min: 3 },                               // arcieri dell'esercito: gittata +25%
+  commercio: { cost: { monete: 300, pietra: 100 }, min: 3 },                              // due scambi in più al giorno con ogni villaggio
 };
-export const TECH_ORDER = ['ferro', 'aratro', 'frecce', 'lame', 'bastioni', 'cristallo', 'lenti'];
+export const TECH_ORDER = ['ferro', 'aratro', 'carri', 'festa', 'asce', 'frecce', 'lame', 'bastioni', 'archi', 'commercio', 'cristallo', 'lenti'];
+
+// ---------- gli obiettivi del Tuzu guida: uno alla volta, in ordine. [tipo, quanto, premio] ----------
+export const GOALS = [
+  ['move', 1, { monete: 20 }], ['towers', 1, { legna: 40 }], ['night', 1, { monete: 60 }], ['send', 3, { legna: 30 }], ['casa', 1, { monete: 50 }],
+  ['walls', 8, { legna: 40 }], ['night', 2, { monete: 80, legna: 40 }], ['castle', 2, { pietra: 60 }], ['sendRock', 3, { pietra: 30 }], ['campo', 1, { monete: 40 }],
+  ['harvest', 2, { monete: 60 }], ['strada', 6, { monete: 40 }], ['aiuola', 3, { monete: 40 }], ['morale', 60, { monete: 100 }], ['segheria', 1, { legna: 60 }],
+  ['cava', 1, { pietra: 60 }], ['caserma', 1, { monete: 100 }], ['army', 4, { monete: 100 }], ['village', 1, { monete: 60 }], ['ally', 1, { legna: 80, pietra: 60 }],
+  ['trade', 2, { monete: 80 }], ['bottega', 1, { pietra: 80 }], ['tech', 1, { ferro: 40 }], ['night', 5, { monete: 150 }], ['fontana', 1, { pietra: 60 }],
+  ['conquer', 1, { monete: 200, ferro: 40 }], ['casa', 4, { legna: 100 }], ['mercato', 1, { monete: 100 }], ['miniera', 1, { ferro: 60 }], ['castle', 3, { pietra: 150, ferro: 40 }],
+  ['taverna', 1, { monete: 150 }], ['towers', 6, { pietra: 120 }], ['mulino', 1, { monete: 120 }], ['tech', 3, { ferro: 80 }], ['army', 8, { ferro: 60 }],
+  ['night', 10, { monete: 300, pietra: 150 }], ['statua', 1, { cristallo: 20 }], ['morale', 80, { monete: 300 }], ['conquer', 2, { ferro: 100, cristallo: 30 }], ['castle', 4, { ferro: 120, cristallo: 40 }],
+  ['tech', 6, { cristallo: 50 }], ['strada', 30, { monete: 200 }], ['albero', 8, { legna: 150 }], ['night', 15, { monete: 500, ferro: 150 }], ['conquer', 4, { cristallo: 80 }],
+  ['army', 12, { ferro: 150 }], ['castle', 5, { monete: 800, cristallo: 100 }], ['tech', 10, { monete: 600 }], ['night', 20, { monete: 800, cristallo: 100 }], ['conquer', 6, { monete: 1000, ferro: 300, cristallo: 150 }],
+];
 
 // Potenziare il castello: costo per passare dal livello L a L+1 e notti da aver superato.
 export const CASTLE_UP = [
@@ -285,7 +335,7 @@ export const NATURE = (function () {
     out.push({ id: out.length, c, r, kind, size: 0.8 + rnd() * 0.45, tint: Math.floor(rnd() * 6) });
   };
   /** Quadretti liberi che toccano (entro 2) un certo tipo di rilievo. */
-  const beside = (kinds) => { const o = []; for (let r = 3; r < ROWS - 3; r++) for (let c = 3; c < COLS - 3; c++) { if (TERRAIN[r * COLS + c]) continue; let hit = false; for (let dr = -2; dr <= 2 && !hit; dr++) for (let dc = -2; dc <= 2; dc++) if (kinds.includes(TERRAIN[(r + dr) * COLS + c + dc])) { hit = true; break; } if (hit && Math.hypot(c - CASTLE.c - 1, r - CASTLE.r - 1) > 12) o.push([c, r]); } return o; };
+  const beside = (kinds) => { const o = []; for (let r = 3; r < ROWS - 3; r++) for (let c = 3; c < COLS - 3; c++) { if (TERRAIN[r * COLS + c]) continue; let hit = false; for (let dr = -2; dr <= 2 && !hit; dr++) for (let dc = -2; dc <= 2; dc++) if (kinds.includes(TERRAIN[(r + dr) * COLS + c + dc])) { hit = true; break; } if (hit && Math.hypot(c - CASTLE.c - 1, r - CASTLE.r - 1) > 18) o.push([c, r]); } return o; };
   const seeds = (list, groups, n0, n1, rad, kind) => { for (let g = 0; g < groups && list.length; g++) { const [cc, cr] = list[Math.floor(rnd() * list.length)], n = n0 + Math.floor(rnd() * (n1 - n0 + 1)); for (let k = 0; k < n; k++) { const a = rnd() * 6.283, d = Math.sqrt(rnd()) * rad; put(cc + Math.cos(a) * d, cr + Math.sin(a) * d, kind); } } };
   const blob = (kind, groups, n0, n1, rad, margin) => {
     for (let i = 0; i < groups; i++) {
@@ -293,11 +343,11 @@ export const NATURE = (function () {
       for (let k = 0; k < n; k++) { const a = rnd() * 6.283, d = Math.sqrt(rnd()) * rr; put(cc + Math.cos(a) * d, cr + Math.sin(a) * d * 0.8, kind); }
     }
   };
-  seeds(beside([1]), 13, 3, 4, 1.3, 'iron');           // prima i giacimenti, così il bosco non li copre
-  seeds(beside([2, 3]), 8, 2, 3, 1.1, 'crystal');
-  seeds(beside([1]), 14, 3, 6, 1.8, 'rock');
-  blob('tree', 64, 9, 22, 3.8, 3);
-  blob('rock', 14, 3, 6, 1.8, 4);
+  seeds(beside([1]), 20, 3, 4, 1.3, 'iron');           // prima i giacimenti, così il bosco non li copre
+  seeds(beside([2, 3]), 13, 2, 3, 1.1, 'crystal');
+  seeds(beside([1]), 22, 3, 6, 1.8, 'rock');
+  blob('tree', 100, 9, 22, 3.8, 3);
+  blob('rock', 24, 3, 6, 1.8, 4);
   return out;
 })();
 export const CHOP = { tree: { res: 'legna', gain: 7 }, rock: { res: 'pietra', gain: 6 }, iron: { res: 'ferro', gain: 8, tech: 'ferro' }, crystal: { res: 'cristallo', gain: 6, tech: 'cristallo' } };

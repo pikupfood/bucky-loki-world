@@ -4,7 +4,7 @@
 // in uscita un passaggio di rifinitura (bordi dello schermo sfocati come in una miniatura, bagliori, colori caldi).
 // Le coordinate di gioco (x, y) diventano (x, altezza, z = y). L'interfaccia resta in 2D sopra e usa project()/pick().
 import * as THREE from '../vendor/three.module.min.js';
-import { G, COLS, ROWS, WORLD_W, WORLD_H, CASTLE, TRIBES, MY_COLOR, ENEMIES, NATURE, PEAKS, HILLS, LAKES, lakeEdge, mulberry32 } from './data.js';
+import { G, COLS, ROWS, WORLD_W, WORLD_H, CASTLE, TRIBES, MY_COLOR, ENEMIES, NATURE, PEAKS, HILLS, LAKES, BUILD, lakeEdge, mulberry32 } from './data.js';
 import { GRASS, paintWorld } from './ground.js';
 
 // ---------- mattoncini: geometrie e materiali condivisi ----------
@@ -167,6 +167,13 @@ function mergeGeos(list) {
   out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); out.setIndex(new THREE.BufferAttribute(ind, 1));
   return out;
 }
+function mergeTone(list, tones) {
+  const g = mergeGeos(list), col = new Float32Array(g.attributes.position.count * 3);
+  let o = 0;
+  list.forEach((p, k) => { const n = p.attributes.position.count; for (let i = 0; i < n; i++) { col[(o + i) * 3] = col[(o + i) * 3 + 1] = col[(o + i) * 3 + 2] = tones[k]; } o += n; });
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return g;
+}
 /** Fonde le maglie ferme di un modello: una sola per materiale (e per ombra sì/no). Così un edificio costa poche
  *  chiamate di disegno invece di venti. keep = i pezzi che si muovono, da lasciare come sono. */
 const shaded = new Map();
@@ -267,6 +274,9 @@ function makeGear(kind) {
     cap(0.42, 0.78, IRON, 0.78); box(g, 0.34, 0.2, 0.05, GOLDC, 0.02, 1.08, 0, { ns: true });
     box(g, 0.05, 0.56, 0.46, IRON_D, 0.36, 0.38, -0.5, { ns: true }); box(g, 0.06, 0.2, 0.16, GOLDC, 0.38, 0.4, -0.5, { ns: true });
     box(arm, 0.58, 0.06, 0.035, '#e1e5ee', 0.36, 0.14, 0, { ns: true }); box(arm, 0.04, 0.16, 0.05, GOLDC, 0.1, 0.14, 0, { ns: true });
+  } else if (kind === 'attrezzo') {
+    cone(g, 0.4, 0.13, '#e8cf7a', 0, 0.98, 0, { ns: true, seg: 10 }); cyl(g, 0.2, 0.22, 0.12, '#d9bd62', 0, 1.02, 0, { ns: true, seg: 8 });
+    cyl(arm, 0.028, 0.028, 0.62, WOOD_D, 0.1, 0.26, 0, { ns: true, seg: 5 }); box(arm, 0.22, 0.15, 0.05, IRON, 0.19, 0.55, 0, { ns: true });
   } else return null;
   g.userData = u;
   return g;
@@ -516,6 +526,80 @@ function makeMarket() {
   return g;
 }
 
+/** Due falde di tetto spesse, col colmo verso la camera. */
+function gable(g, halfW, depth, y, rise, col) {
+  const len = Math.hypot(halfW, rise) + 3, ang = Math.atan2(rise, halfW);
+  for (const k of [-1, 1]) { const sl = box(g, len, 3.4, depth, col, k * halfW / 2, y + rise / 2 + 1.4, 0); sl.rotation.z = -k * ang; }
+  box(g, 4.6, 3, depth + 2, WOOD_D, 0, y + rise + 2.4, 0, { ns: true });
+}
+function makeFountain() {
+  const g = grp(null), u = {};
+  cyl(g, 35, 37, 9, '#b9bac6', 0, 4.5, 0, { seg: 14 }); cyl(g, 37.5, 37.5, 3, '#cfd0da', 0, 9.6, 0, { seg: 14, ns: true });
+  cyl(g, 31, 31, 2, '#5ec3ea', 0, 9.4, 0, { seg: 14, ns: true, mat: { e: 0x1f7fb0, ei: 0.45 } });
+  cyl(g, 5, 8, 22, '#cfd0da', 0, 20, 0, { seg: 8 }); cyl(g, 15, 8, 5, '#b9bac6', 0, 32, 0, { seg: 12 });
+  cyl(g, 13, 13, 1.4, '#7fd4f0', 0, 34.4, 0, { seg: 12, ns: true, mat: { e: 0x1f7fb0, ei: 0.45 } });
+  cyl(g, 2.4, 3.4, 9, '#cfd0da', 0, 39, 0, { seg: 6 });
+  u.jets = [];
+  for (let i = 0; i < 5; i++) { const a = i * 1.257, j = cone(g, 2.2, 13, '#d9f3ff', Math.cos(a) * 7, 38, Math.sin(a) * 7, { ns: true, seg: 5, mat: { basic: true, a: 0.7 } }); j.rotation.set(Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5); u.jets.push(j); }
+  u.jets.push(cone(g, 3, 16, '#d9f3ff', 0, 50, 0, { ns: true, seg: 6, mat: { basic: true, a: 0.75 } }));
+  g.userData = u;
+  return g;
+}
+function makeTavern() {
+  const g = grp(null);
+  box(g, 68, 5, 58, '#8f8f98', 0, 2.5, 0);
+  box(g, 62, 28, 50, '#f0dcb4', 0, 19, 0);
+  for (const x of [-31, 31]) for (const z of [-25, 25]) box(g, 3.4, 29, 3.4, WOOD_D, x, 19.5, z, { ns: true });
+  box(g, 63.4, 2.6, 51.4, WOOD_D, 0, 33, 0, { ns: true }); box(g, 63.4, 2.6, 51.4, WOOD_D, 0, 18, 0, { ns: true });
+  roof(g, 50, 24, 62, '#f0dcb4', 0, 33.6, 0).rotation.y = Math.PI / 2;
+  gable(g, 37, 68, 33, 27, '#3f7a66');
+  box(g, 9, 22, 9, '#9a8f86', -18, 56, -14); box(g, 11.4, 3, 11.4, '#6f6660', -18, 68, -14, { ns: true });
+  box(g, 13, 19, 2, '#6b4226', 0, 14.5, 25.4, { ns: true }); box(g, 16, 2.4, 2.8, WOOD_D, 0, 25, 25.6, { ns: true });
+  for (const x of [-20, 20]) { box(g, 11, 10, 1.6, '#ffd97a', x, 22, 25.3, { ns: true, e: 0xffb040, ei: 0.85 }); box(g, 1.2, 10, 2, WOOD_D, x, 22, 25.6, { ns: true }); }
+  box(g, 2, 2, 12, WOOD_D, 30, 34, 30, { ns: true }); box(g, 14, 11, 1.4, '#8a5a33', 30, 27, 35.4, { ns: true }); cyl(g, 3, 2.6, 6, GOLDC, 30, 27, 36.6, { ns: true, seg: 8 });   // l'insegna col boccale
+  for (const [x, z] of [[-27, 34], [-18, 35]]) { cyl(g, 5.4, 5.4, 10, WOOD, x, 5, z, { seg: 8 }); cyl(g, 5.7, 5.7, 1.4, '#55565e', x, 7.4, z, { seg: 8, ns: true }); }
+  box(g, 20, 2, 9, WOOD_L, 14, 8, 36, { ns: true }); for (const x of [6, 22]) box(g, 2, 8, 7, WOOD_D, x, 4, 36, { ns: true });
+  g.scale.setScalar(1.06);
+  return g;
+}
+function makeStatue() {
+  const g = grp(null);
+  box(g, 28, 5, 28, '#9a9ba4', 0, 2.5, 0); box(g, 21, 12, 21, '#bcbdc8', 0, 11, 0); box(g, 24, 3, 24, '#9a9ba4', 0, 18.4, 0, { ns: true });
+  const b = put(g, geom('tuzu', blobGeo), M('#d5d6e0'), 0, 20, 0); b.scale.setScalar(22); b.rotation.y = -Math.PI / 2;
+  const fc = put(g, geom('tuzuFace', faceGeo), M('#8f909c'), 0, 20, 0, false); fc.scale.setScalar(22); fc.rotation.y = -Math.PI / 2;
+  cyl(g, 5, 4.4, 3.4, GOLDC, 0, 43.4, 0, { seg: 8, ns: true });
+  for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + 0.4; ball(g, 2.4, i % 2 ? '#ff8fb0' : '#fff0a0', Math.cos(a) * 17, 2.4, Math.sin(a) * 17, { ns: true }); }
+  return g;
+}
+function makeMill() {
+  const g = grp(null), u = {};
+  cyl(g, 30, 32, 5, '#8f8f98', 0, 2.5, 0, { seg: 10 });
+  cyl(g, 19, 27, 50, '#f1e6cc', 0, 30, 0, { seg: 10 }); cyl(g, 21, 21, 3, WOOD_D, 0, 55, 0, { seg: 10, ns: true });
+  cone(g, 23, 22, '#c2512f', 0, 67, 0, { seg: 10 });
+  box(g, 10, 16, 2, '#6b4226', 0, 13, 26.2, { ns: true }); box(g, 8, 8, 2, '#ffd97a', 0, 38, 21.6, { ns: true, e: 0xffb040, ei: 0.75 });
+  const hub = u.sails = grp(g, 0, 50, 24);
+  cyl(hub, 3.4, 3.4, 5, WOOD_D, 0, 0, 0, { seg: 8, ns: true }).rotation.x = Math.PI / 2;
+  for (let i = 0; i < 4; i++) { const arm = grp(hub); arm.rotation.z = i * Math.PI / 2; box(arm, 2.2, 38, 1.6, WOOD_D, 0, 19, 0); box(arm, 11, 27, 0.9, '#f4f1ea', 6, 22, 0.4, { ns: true }); }
+  for (const [x, z] of [[24, 14], [28, 6]]) { const sk = ball(g, 6.5, '#e3d2a4', x, 5, z); sk.scale.y = 0.85; }
+  g.userData = u;
+  return g;
+}
+function makeForge() {
+  const g = grp(null), u = {};
+  box(g, 66, 5, 56, '#77787f', 0, 2.5, 0);
+  box(g, 56, 24, 44, '#8b8c96', 0, 17, 0);
+  roof(g, 44, 18, 56, '#8b8c96', 0, 29, 0).rotation.y = Math.PI / 2;
+  gable(g, 34, 60, 29, 21, '#4b4d5a');
+  box(g, 14, 30, 14, '#6f7078', 16, 52, -12); box(g, 17, 4, 17, '#55565e', 16, 68, -12, { ns: true });
+  u.glow = ball(g, 5.5, '#ff9d2a', 16, 71, -12, { e: 0xff5a00, ei: 1, ns: true });
+  box(g, 18, 16, 2, '#2a1a10', -8, 13, 22.2, { ns: true }); box(g, 12, 10, 1.6, '#ff9d2a', -8, 11, 22.6, { ns: true, e: 0xff5a00, ei: 1 });
+  box(g, 9, 9, 1.6, '#ffd97a', 16, 20, 22.2, { ns: true, e: 0xffb040, ei: 0.8 });
+  box(g, 12, 5, 7, '#55565e', 30, 7.5, 30); box(g, 16, 4, 8, '#3d3e46', 30, 12, 30, { ns: true }); box(g, 5, 5, 6, '#3d3e46', 30, 2.5, 30, { ns: true });      // l'incudine
+  cyl(g, 6, 6, 9, WOOD, -30, 4.5, 30, { seg: 8 }); for (let i = 0; i < 3; i++) box(g, 1.4, 16, 1.4, '#aeb4c2', -32 + i * 2.4, 13, 30, { ns: true });
+  g.userData = u;
+  return g;
+}
+
 function makeGate(vertical) {
   const g = grp(null);
   for (const x of [-15, 15]) { box(g, 10, 40, 14, '#9a9ba4', x, 20, 0); pyramid(g, 9, 9, '#b5482f', x, 44.5, 0); }
@@ -539,6 +623,11 @@ function makeModel(type, o = {}) {
   else if (type === 'caserma') g = makeBarracks();
   else if (type === 'bottega') g = makeWorkshop();
   else if (type === 'mercato') g = makeMarket();
+  else if (type === 'fontana') g = makeFountain();
+  else if (type === 'taverna') g = makeTavern();
+  else if (type === 'statua') g = makeStatue();
+  else if (type === 'mulino') g = makeMill();
+  else if (type === 'fucina') g = makeForge();
   else if (type === 'miniera') g = makeMine('#c0683c', 0);
   else if (type === 'cristalliera') g = makeMine('#7fe3ff', 0x2fb8e0);
   else if (type === 'cancello') g = makeGate(o.vertical);
@@ -565,7 +654,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 const c3cache = new Map();
 function c3(col) { let c = c3cache.get(col); if (!c) { c = new THREE.Color(col); c3cache.set(col, c); } return c; }
 /** Chi lavora accanto a un edificio (dx, dy dal centro). */
-const WORKER = { segheria: [46, 30], cava: [-46, 34], miniera: [34, 44], cristalliera: [34, 44], bottega: [-40, 40], mercato: [0, 44] };
+const WORKER = { segheria: [46, 30], cava: [-46, 34], miniera: [34, 44], cristalliera: [34, 44], bottega: [-40, 40], mercato: [0, 44], mulino: [-34, 40], fucina: [4, 46], taverna: [26, 50], fontana: [44, 30] };
+const DECO_CAP = 900, PLANT_CAP = 260, FLOWERS = ['#ff8fb0', '#fff0a0', '#ff6f6f', '#c9b6ff', '#ffffff'];
 const wallish = (b) => !!b && (b.type === 'recinto' || b.type === 'mura' || b.type === 'cancello');
 
 // ---------- la scena ----------
@@ -645,6 +735,7 @@ export class Scene3D {
 
   // ---------- camera ----------
   place() {
+    if (this.tT) { const sh = this.dist < 2100 && this.shadowsOn !== false; if (sh !== this._treeSh) { this._treeSh = sh; for (const z of this.tT.zones) z.trunk.castShadow = z.leaf.castShadow = z.pine.castShadow = sh; } }
     const cam = this.cam, t = this.target;
     cam.position.copy(t).addScaledVector(this.dir, this.dist); cam.lookAt(t); cam.updateMatrixWorld();
     if (this.sun) {
@@ -695,7 +786,7 @@ export class Scene3D {
     s.add(sun, sun.target); this.sun = sun;
     const big = new THREE.Mesh(new THREE.PlaneGeometry(22000, 20000), M(GRASS, { smooth: true }));
     big.rotation.x = -Math.PI / 2; big.position.set(WORLD_W / 2, -0.6, WORLD_H / 2); big.receiveShadow = true; s.add(big);
-    const cv = document.createElement('canvas'); paintWorld(cv, 0.6);
+    const cv = document.createElement('canvas'); paintWorld(cv, 0.5);
     this.tex = new THREE.CanvasTexture(cv); this.tex.colorSpace = THREE.SRGBColorSpace; this.tex.anisotropy = 8;
     const map = new THREE.Mesh(new THREE.PlaneGeometry(WORLD_W, WORLD_H), new THREE.MeshLambertMaterial({ map: this.tex }));
     map.rotation.x = -Math.PI / 2; map.position.set(WORLD_W / 2, 0, WORLD_H / 2); map.receiveShadow = true; s.add(map);
@@ -706,32 +797,43 @@ export class Scene3D {
     this._m4 = m4; this._q = q; this._P3 = P3; this._S3 = S3; this._col = col;
     const rnd = mulberry32(21);
 
-    // alberi: un tronco, tre chiome e tre coni per albero (le chiome o i coni che non servono hanno scala zero)
-    const canG = geom('leaf', () => new THREE.SphereGeometry(1, 7, 4)), coneG = geom('pine', () => new THREE.ConeGeometry(1, 1, 7, 1, true)), trunkG = geom('ftrunk', () => new THREE.CylinderGeometry(0.15, 0.22, 1, 6));
-    const treeSet = (list, shadow) => {
-      const slot = []; let a = 0, b = 0;
-      for (const t of list) slot.push(t.tint < 4 ? a++ : b++);
-      return { slot, trunk: mk(trunkG, M('#6a4528'), list.length, shadow), can: [0, 1, 2].map(() => mk(canG, M('#ffffff'), a, shadow)), cone: [0, 1, 2].map(() => mk(coneG, M('#ffffff'), b, shadow)) };
+    // alberi: una chioma fusa (tre palle, o tre coni per i pini) più il tronco, a istanze.
+    // La mappa è divisa in zone: ogni zona ha le sue istanze, così fuori dallo schermo non si disegna niente.
+    const ball3 = (x, y, z, sx, sy) => { const g = new THREE.SphereGeometry(1, 7, 4); g.scale(sx, sy, sx); g.translate(x, y, z); return g; };
+    const cone3 = (y, w, h) => { const g = new THREE.ConeGeometry(1, 1, 7, 1, true); g.scale(w, h, w); g.translate(0, y, 0); return g; };
+    const leafG = geom('leaf3', () => mergeTone([ball3(0, 1.62, 0, 1.06, 0.94), ball3(0.56, 1.3, 0.05, 0.72, 0.66), ball3(-0.34, 2.12, -0.12, 0.7, 0.64)], [1, 0.84, 1.14]));
+    const pineG = geom('pine3', () => mergeTone([cone3(1.12, 1.02, 1.36), cone3(1.86, 0.77, 1.22), cone3(2.6, 0.52, 1.08)], [0.88, 1, 1.14]));
+    const trunkG = geom('ftrunk', () => new THREE.CylinderGeometry(0.15, 0.22, 1, 5));
+    const tintMat = soften(new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true }));
+    const ZONE = 1200, ZX = Math.ceil(WORLD_W / ZONE), ZY = Math.ceil(WORLD_H / ZONE);
+    /** list: [{ x, z, tint }] (tint 0-3 latifoglia, 4-5 pino). one = un'unica zona (per gli alberi che si spostano). */
+    const treeSet = (list, shadow, one) => {
+      const zones = new Map(), at = [];
+      for (const t of list) {
+        const k = one ? 0 : Math.max(0, Math.min(ZX - 1, Math.floor(t.x / ZONE))) + Math.max(0, Math.min(ZY - 1, Math.floor(t.z / ZONE))) * ZX;
+        let z = zones.get(k); if (!z) { z = { n: 0, nl: 0, np: 0 }; zones.set(k, z); }
+        at.push({ z, ti: z.n++, si: t.tint < 4 ? z.nl++ : z.np++ });
+      }
+      for (const z of zones.values()) { z.trunk = mk(trunkG, M('#6a4528'), z.n, shadow); z.leaf = mk(leafG, tintMat, z.nl, shadow); z.pine = mk(pineG, tintMat, z.np, shadow); z.trunk.count = z.n; z.leaf.count = z.nl; z.pine.count = z.np; }
+      return { at, zones: [...zones.values()], one: !!one };
     };
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
-    /** tint dice la specie (0-3 latifoglia, 4-5 pino) e deve essere quella con cui è stato creato l'insieme. */
+    /** tint dice la specie e deve essere quella con cui è stato creato l'insieme. r = 0 nasconde l'albero. */
     const tree = (T, i, x, z, r, tint, seed, y0 = 0) => {
-      const k = T.slot[i], pine = tint >= 4;
+      const a = T.at[i], pine = tint >= 4, im = pine ? a.z.pine : a.z.leaf;
+      if (r <= 0) { a.z.trunk.setMatrixAt(a.ti, zero); im.setMatrixAt(a.si, zero); return; }
       q.setFromAxisAngle(UP, seed);
-      if (r <= 0) { T.trunk.setMatrixAt(i, zero); for (let j = 0; j < 3; j++) (pine ? T.cone : T.can)[j].setMatrixAt(k, zero); return; }
-      if (pine) {
-        const pal = PINE[tint - 4];
-        T.trunk.setMatrixAt(i, m4.compose(P3.set(x, y0 + r * 0.42, z), q, S3.set(r * 0.9, r * 0.84, r * 0.9)));
-        for (let j = 0; j < 3; j++) { const w = r * (1.02 - j * 0.25); T.cone[j].setMatrixAt(k, m4.compose(P3.set(x, y0 + r * (1.12 + j * 0.74), z), q, S3.set(w, r * (1.36 - j * 0.14), w))); T.cone[j].setColorAt(k, col.set(pal[j])); }
-      } else {
-        const pal = LEAF[tint], c = Math.cos(seed), sn = Math.sin(seed);
-        T.trunk.setMatrixAt(i, m4.compose(P3.set(x, y0 + r * 0.62, z), q, S3.set(r, r * 1.24, r)));
-        T.can[0].setMatrixAt(k, m4.compose(P3.set(x, y0 + r * 1.62, z), q, S3.set(r * 1.06, r * 0.94, r * 1.06))); T.can[0].setColorAt(k, col.set(pal[0]));
-        T.can[1].setMatrixAt(k, m4.compose(P3.set(x + c * r * 0.56, y0 + r * 1.3, z + sn * r * 0.56), q, S3.set(r * 0.72, r * 0.66, r * 0.72))); T.can[1].setColorAt(k, col.set(pal[2]));
-        T.can[2].setMatrixAt(k, m4.compose(P3.set(x - c * r * 0.34, y0 + r * 2.12, z - sn * r * 0.3), q, S3.set(r * 0.7, r * 0.64, r * 0.7))); T.can[2].setColorAt(k, col.set(pal[1]));
+      a.z.trunk.setMatrixAt(a.ti, m4.compose(P3.set(x, y0 + r * (pine ? 0.42 : 0.62), z), q, S3.set(r * (pine ? 0.9 : 1), r * (pine ? 0.84 : 1.24), r * (pine ? 0.9 : 1))));
+      im.setMatrixAt(a.si, m4.compose(P3.set(x, y0, z), q, S3.set(r, r, r)));
+      im.setColorAt(a.si, col.set(pine ? PINE[tint - 4][1] : LEAF[tint][0]));
+    };
+    /** Dopo aver cambiato gli alberi. Le zone fisse si ritagliano sullo schermo (la prima volta se ne calcola l'ingombro). */
+    const flush = (T) => {
+      for (const z of T.zones) for (const im of [z.trunk, z.leaf, z.pine]) {
+        im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
+        if (!T.one && !im.userData.fit) { im.userData.fit = true; im.computeBoundingSphere(); im.frustumCulled = true; }
       }
     };
-    const flush = (T) => { for (const im of [T.trunk, ...T.can, ...T.cone]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; } };
     this._tree = tree; this._flush = flush;
 
     // colline: cupole d'erba, con qualche albero in cima
@@ -757,7 +859,7 @@ export class Scene3D {
     const peaks = [];
     for (const p of PEAKS) {
       peaks.push({ x: p.x, z: p.y, r: p.r, h: p.h, rot: p.rot, snow: p.snow, k: rnd() });
-      for (let j = 0; j < 2; j++) { const a = p.rot + j * 2.6 + 1, d = p.r * 0.62; peaks.push({ x: p.x + Math.cos(a) * d, z: p.y + Math.sin(a) * d, r: p.r * (0.5 + rnd() * 0.2), h: p.h * (0.42 + rnd() * 0.2), rot: rnd() * 6.283, snow: false, k: rnd() }); }
+      for (let j = 0; j < 1; j++) { const a = p.rot + j * 2.6 + 1, d = p.r * 0.62; peaks.push({ x: p.x + Math.cos(a) * d, z: p.y + Math.sin(a) * d, r: p.r * (0.5 + rnd() * 0.2), h: p.h * (0.42 + rnd() * 0.2), rot: rnd() * 6.283, snow: false, k: rnd() }); }
     }
     for (let i = 0; i < 110; i++) {
       const side = i % 4, t = rnd(), off = 380 + rnd() * 1500;
@@ -765,18 +867,16 @@ export class Scene3D {
       const r = 230 + rnd() * 300; peaks.push({ x, z, r, h: r * (1.5 + rnd() * 1.1), rot: rnd() * 6.283, snow: true, k: rnd(), far: true });
     }
     // cime arrotondate: un cono liscio con la punta smussata
-    const peakG = geom('peak', () => { const pts = []; for (let i = 0; i <= 5; i++) { const u = i / 5; pts.push(new THREE.Vector2(i === 5 ? 0 : (1 - u) * (1 + 0.14 * Math.sin(u * Math.PI)) + 0.04, u - 0.5 - (u > 0.7 ? (u - 0.7) * (u - 0.7) * 0.9 : 0))); } return new THREE.LatheGeometry(pts, 9); });
-    const peakIM = mk(peakG, M('#ffffff'), peaks.length, true), snowN = peaks.filter(p => p.snow).length;
-    peakIM.castShadow = true;
-    const snowIM = mk(peakG, M('#f6f8fc'), snowN, false);
-    let sn = 0; const cA = new THREE.Color('#7d7872'), cB = new THREE.Color('#a39c92');
-    peaks.forEach((p, i) => {
-      q.setFromAxisAngle(UP, p.rot);
-      peakIM.setMatrixAt(i, m4.compose(P3.set(p.x, p.h / 2 - 2, p.z), q, S3.set(p.r, p.h, p.r)));
-      peakIM.setColorAt(i, col.copy(cA).lerp(cB, p.k));
-      if (p.snow) snowIM.setMatrixAt(sn++, m4.compose(P3.set(p.x, p.h * 0.842, p.z), q, S3.set(p.r * 0.345, p.h * 0.32, p.r * 0.345)));
-    });
-    peakIM.instanceMatrix.needsUpdate = true; peakIM.instanceColor.needsUpdate = true; snowIM.instanceMatrix.needsUpdate = true;
+    const peakG = geom('peak', () => { const pts = []; for (let i = 0; i <= 5; i++) { const u = i / 5; pts.push(new THREE.Vector2(i === 5 ? 0 : (1 - u) * (1 + 0.14 * Math.sin(u * Math.PI)) + 0.04, u - 0.5 - (u > 0.7 ? (u - 0.7) * (u - 0.7) * 0.9 : 0))); } return new THREE.LatheGeometry(pts, 8); });
+    const cA = new THREE.Color('#7d7872'), cB = new THREE.Color('#a39c92'), groups = new Map();
+    for (const p of peaks) { const k = p.far ? -1 : Math.max(0, Math.min(ZX - 1, Math.floor(p.x / ZONE))) + Math.max(0, Math.min(ZY - 1, Math.floor(p.z / ZONE))) * ZX; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(p); }
+    for (const [k, list] of groups) {
+      const rock = mk(peakG, M('#ffffff'), list.length, k >= 0), snowy = list.filter(p => p.snow), snow = mk(peakG, M('#f6f8fc'), snowy.length, false);
+      list.forEach((p, i) => { q.setFromAxisAngle(UP, p.rot); rock.setMatrixAt(i, m4.compose(P3.set(p.x, p.h / 2 - 2, p.z), q, S3.set(p.r, p.h, p.r))); rock.setColorAt(i, col.copy(cA).lerp(cB, p.k)); });
+      snowy.forEach((p, i) => { q.setFromAxisAngle(UP, p.rot); snow.setMatrixAt(i, m4.compose(P3.set(p.x, p.h * 0.842, p.z), q, S3.set(p.r * 0.345, p.h * 0.32, p.r * 0.345))); });
+      rock.count = list.length; snow.count = snowy.length;
+      for (const im of [rock, snow]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.computeBoundingSphere(); im.frustumCulled = true; }
+    }
 
     // laghi: uno specchio d'acqua sopra il fondale dipinto
     this.water = [];
@@ -797,7 +897,7 @@ export class Scene3D {
 
     // natura dentro la mappa: alberi e rocce che si possono togliere
     this.trees = NATURE.filter(n => n.kind === 'tree'); this.rocks = NATURE.filter(n => n.kind === 'rock');
-    this.tT = treeSet(this.trees, true);
+    this.tT = treeSet(this.trees.map(n => ({ x: (n.c + 0.5) * G, z: (n.r + 0.5) * G, tint: n.tint })), true);
     this.rockIM = mk(geom('rock', () => new THREE.DodecahedronGeometry(1)), M('#8d8f96', { flat: true }), this.rocks.length);
     // giacimenti: ferro (roccia rugginosa con le vene chiare) e cristallo (punte azzurre)
     this.irons = NATURE.filter(n => n.kind === 'iron'); this.crystals = NATURE.filter(n => n.kind === 'crystal');
@@ -813,6 +913,15 @@ export class Scene3D {
     this.rail = mk(geom('frail', () => new THREE.BoxGeometry(G, 3.4, 2.6)), M(WOOD_L), WALL_CAP * 4, false);
     this.wallBase.count = this.wallTop.count = this.post.count = this.rail.count = 0;
     this.rev = -1;
+    this.roadIM = mk(geom('roadT', () => new THREE.BoxGeometry(G + 0.4, 1.4, G + 0.4)), M('#d2b07c'), DECO_CAP, false); this.roadIM.receiveShadow = true;
+    this.bedIM = mk(geom('bedB', () => roundBoxGeo(32, 6, 32, 2.6)), M('#7a5634'), DECO_CAP, false);
+    this.bedLeaf = mk(geom('bedL', () => new THREE.SphereGeometry(1, 7, 4)), M('#4f9a4b'), DECO_CAP, false);
+    this.bedFlower = mk(geom('bedF', () => new THREE.IcosahedronGeometry(1, 0)), M('#ffffff'), DECO_CAP * 4, false);
+    this.lampPole = mk(geom('lampP', () => new THREE.CylinderGeometry(1.5, 2.4, 34, 6)), M('#3d3e46'), 300);
+    this.lampHead = mk(geom('lampH', () => new THREE.SphereGeometry(5.2, 9, 7)), M('#ffe9a0', { e: 0xffc040, ei: 1 }), 300, false);
+    this.plantT = treeSet(Array.from({ length: PLANT_CAP }, (_, i) => ({ x: 0, z: 0, tint: i % 4 })), true, true);
+    for (let i = 0; i < PLANT_CAP; i++) tree(this.plantT, i, 0, 0, 0, i % 4, 0);
+    for (const im of [this.roadIM, this.bedIM, this.bedLeaf, this.bedFlower, this.lampPole, this.lampHead]) im.count = 0;
 
     // i villaggi degli altri popoli
     const vr = mulberry32(77);
@@ -914,11 +1023,31 @@ export class Scene3D {
     let na = 0;
     for (const v of this.vAO) this.aoIM.setMatrixAt(na++, m4.compose(P3.set(v.x, 0, v.z), q.identity(), S3.set(v.w, 1, v.d)));
     for (const b of world.d.buildings) {
-      if (na >= AO_CAP || b.type === 'recinto' || b.type === 'mura' || b.type === 'campo' || b.type === 'cancello') continue;
-      const k = b.type === 'castello' ? 190 : 122;
+      if (na >= AO_CAP || b.type === 'recinto' || b.type === 'mura' || b.type === 'campo' || b.type === 'cancello' || BUILD[b.type].deco) continue;
+      const k = b.type === 'castello' ? 190 : BUILD[b.type].w === 1 ? 64 : 122;
       this.aoIM.setMatrixAt(na++, m4.compose(P3.set(b.x, 0, b.y + 4), q, S3.set(k, 1, k * 0.9)));
     }
     this.aoIM.count = na; this.aoIM.instanceMatrix.needsUpdate = true;
+    // strade, aiuole, lampioni, alberi piantati
+    let nR = 0, nB = 0, nF = 0, nL = 0, nT = 0;
+    const col = this._col;
+    for (const b of world.d.buildings) {
+      if (!BUILD[b.type].deco) continue;
+      if (b.type === 'strada' && nR < DECO_CAP) this.roadIM.setMatrixAt(nR++, m4.compose(P3.set(b.x, 0.5, b.y), q, S3.set(1, 1, 1)));
+      else if (b.type === 'aiuola' && nB < DECO_CAP) {
+        this.bedIM.setMatrixAt(nB, m4.compose(P3.set(b.x, 3, b.y), q, S3.set(1, 1, 1)));
+        this.bedLeaf.setMatrixAt(nB++, m4.compose(P3.set(b.x, 6.4, b.y), q, S3.set(13, 4.6, 13)));
+        for (let k = 0; k < 4; k++) { const a = b.id * 1.3 + k * 1.571; this.bedFlower.setMatrixAt(nF, m4.compose(P3.set(b.x + Math.cos(a) * 7.5, 10.5, b.y + Math.sin(a) * 7.5), q, S3.set(3.3, 3.3, 3.3))); this.bedFlower.setColorAt(nF++, col.set(FLOWERS[(b.id + k) % FLOWERS.length])); }
+      } else if (b.type === 'lampione' && nL < 300) {
+        this.lampPole.setMatrixAt(nL, m4.compose(P3.set(b.x, 17, b.y), q, S3.set(1, 1, 1)));
+        this.lampHead.setMatrixAt(nL++, m4.compose(P3.set(b.x, 37, b.y), q, S3.set(1, 1, 1)));
+      } else if (b.type === 'albero' && nT < PLANT_CAP) { this._tree(this.plantT, nT, b.x, b.y, 15 + (b.id % 5), nT % 4, b.id * 1.7); nT++; }
+    }
+    for (let i = nT; i < (this._plantN || 0); i++) this._tree(this.plantT, i, 0, 0, 0, i % 4, 0);
+    this._plantN = nT; this._flush(this.plantT);
+    this.roadIM.count = nR; this.bedIM.count = this.bedLeaf.count = nB; this.bedFlower.count = nF; this.lampPole.count = this.lampHead.count = nL;
+    for (const im of [this.roadIM, this.bedIM, this.bedLeaf, this.bedFlower, this.lampPole, this.lampHead]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
+    q.identity(); S3.set(1, 1, 1);
     q.identity(); S3.set(1, 1, 1);
     for (const im of [this.wallBase, this.wallTop, this.post, this.rail]) im.instanceMatrix.needsUpdate = true;
   }
@@ -928,7 +1057,7 @@ export class Scene3D {
     q.identity();
     this.trees.forEach((n, i) => {
       const x = (n.c + 0.5) * G, z = (n.r + 0.5) * G;
-      this._tree(this.tT, i, x, z, world.cutSet.has(n.id) ? 0 : 15 * n.size, n.tint === 3 && n.id % 3 ? 1 : n.tint, n.id * 1.7);
+      this._tree(this.tT, i, x, z, world.cutSet.has(n.id) ? 0 : 15 * n.size, n.tint === 3 && n.id % 3 ? 1 : n.tint, n.id * 1.7);      // (3 → 1: resta una latifoglia)
     });
     this.rocks.forEach((n, i) => {
       const r = world.cutSet.has(n.id) ? 0 : 13 * n.size;
@@ -983,7 +1112,7 @@ export class Scene3D {
     // edifici
     const seen = this._seen; seen.clear();
     for (const b of world.d.buildings) {
-      if (b.type === 'recinto' || b.type === 'mura') continue;
+      if (b.type === 'recinto' || b.type === 'mura' || BUILD[b.type].deco) continue;
       seen.add(b.id);
       let key, crop = null, vertical = false;
       if (b.type === 'campo') { const st = world.crop(b, now); crop = st.empty ? null : st; key = st.empty ? 'E' : st.crop + (st.ripe ? 3 : Math.min(2, Math.floor(st.progress * 3))); }
@@ -1006,6 +1135,9 @@ export class Scene3D {
         g.scale.set(o.sx * e * w, o.sy * e, o.sz * e * w);
       } else if (g.scale.x !== o.sx) g.scale.set(o.sx, o.sy, o.sz);
       if (u.blade) u.blade.rotation.y = time * 5;
+      if (u.sails) u.sails.rotation.z = time * 0.9;
+      if (u.jets) u.jets.forEach((j, i) => { j.scale.y = 0.8 + Math.sin(time * 6 + i * 1.3) * 0.22; });
+      if (u.glow) u.glow.scale.setScalar(1 + Math.sin(time * 5 + b.id) * 0.18);
       if (u.type) {       // torre
         const f = Math.max(0, b.fireAnim || 0);
         if (u.turret) u.turret.rotation.y = -(b.angle || 0);
@@ -1039,6 +1171,12 @@ export class Scene3D {
       const u = this.gearFor('s' + sd.id, sd.type, sd.x, sd.y, lift, sd.ang, H);
       if (u) u.arm.rotation.z = sd.strike > 0 ? -1.2 * Math.sin(sd.strike / 0.2 * Math.PI) : 0;
     }
+    if (world.status !== 'night') for (const wk of world.workers) {
+      const H = TUZU_H.villager * 1.04, work = wk.state === 'work', hop = Math.abs(Math.sin(work ? wk.anim : wk.anim * 1.2 + wk.id)), lift = hop * (work ? 2 : 3.2);
+      this.tuzu(wk.x, wk.y, lift, work ? -Math.PI / 2 + 0.6 : wk.ang, H, 0.95 + hop * 0.1, MY_COLOR, false, false);
+      const u = this.gearFor('w' + wk.id, 'attrezzo', wk.x, wk.y, lift, work ? -Math.PI / 2 + 0.6 : wk.ang, H);
+      if (u) u.arm.rotation.z = work ? -1.25 * Math.abs(Math.sin(wk.anim)) : 0;
+    }
     for (const [id, g] of this.gear) if (!live.has(id)) { if (g) s.remove(g); this.gear.delete(id); }
     // gli abitanti del tuo regno: di giorno girano fra le case e lavorano, di notte stanno al riparo
     if (world.status !== 'night') {
@@ -1046,7 +1184,7 @@ export class Scene3D {
       for (const b of world.d.buildings) {
         if (n >= 44) break;
         if (b.type === 'casa') {
-          for (let k = 0; k < 2; k++) {
+          for (let k = 0; k < 1; k++) {
             const ph = time * 0.32 + b.id * 1.7 + k * 2.6, f = (p) => [b.x + Math.cos(p) * 54 + Math.cos(p * 2.3 + b.id) * 12, b.y + 60 + Math.sin(p * 1.3 + k) * 15];
             const [px, py] = f(ph), [qx, qy] = f(ph + 0.05), hop = Math.abs(Math.sin(time * 5 + b.id + k * 2));
             this.tuzu(px, py, hop * 3, Math.atan2(qy - py, qx - px), TUZU_H.villager * (k ? 0.82 : 1), 0.95 + hop * 0.1, MY_COLOR, false, false); n++;
@@ -1067,6 +1205,7 @@ export class Scene3D {
       const w = R && R.hitT > 0 ? 1 + Math.sin(time * 60) * 0.012 : 1; g.scale.set(w, 1, w);
       const fc2 = v.state === 'ally' ? '#ffffff' : null; void fc2;
       if (R) return;                                       // sotto assalto sono fuori i difensori
+      if (Math.hypot(g.position.x - this.target.x, g.position.z - this.target.z) > this.dist * 1.5 + 500) return;      // lontano dalla camera: non si vedono
       for (let k = 0; k < 6; k++) {
         const f = (t) => { let x = Math.cos(t * (0.9 + k * 0.17) + k * 2.2 + i) * (96 + k * 16) + Math.sin(t * 2.1 + k) * 34, z = Math.sin(t * (0.7 + k * 0.13) + k * 1.3) * (84 + k * 14) + Math.cos(t * 1.7 + k * 2) * 26; const d = Math.hypot(x, z); if (d < 78) { x *= 78 / (d || 1); z *= 78 / (d || 1); } return [x, z]; };
         const t = time * 0.13 + i * 3, [px, pz] = f(t), [qx, qz] = f(t + 0.02), hop = Math.abs(Math.sin(time * 4.6 + k * 1.9 + i));
