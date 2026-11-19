@@ -493,6 +493,18 @@ function makePort() {
   g.userData = u;
   return g;
 }
+/** Il Porto grande: il pontile dei pescatori più un magazzino, un faro e un veliero all'ormeggio. */
+function makeBigPort() {
+  const g = makePort();
+  box(g, 30, 22, 26, '#d9c7a0', 40, 16, -12); roof(g, 36, 12, 32, '#b5482f', 40, 27, -12); box(g, 9, 13, 1.6, '#6b4226', 40, 12, 1.2, { ns: true });
+  cyl(g, 5.5, 7.5, 46, '#f4f1ea', -48, 27, -14, { seg: 8 }); cyl(g, 7.4, 7.4, 5, '#c0392b', -48, 51, -14, { seg: 8 }); ball(g, 4.2, '#ffe27a', -48, 57, -14, { ns: true, e: 0xffc040, ei: 1 }); cone(g, 7, 9, '#c0392b', -48, 64, -14, { seg: 8, ns: true });
+  box(g, 16, 3, 50, WOOD_L, 40, 5.4, 44); for (const z of [28, 46, 64]) for (const x of [32, 48]) cyl(g, 2.2, 2.6, 13, WOOD_D, x, 4, z, { seg: 6 });
+  const ship = grp(g, 62, 3, 62);
+  box(ship, 18, 9, 46, '#4a3a34', 0, 3, 0); box(ship, 15, 2, 42, WOOD_L, 0, 8, 0, { ns: true }); cone(ship, 9, 16, '#4a3a34', 0, 3, 30, { seg: 4, ns: true }).rotation.x = Math.PI / 2;
+  cyl(ship, 1.1, 1.1, 40, WOOD_D, 0, 27, 6, { seg: 5, ns: true }); cyl(ship, 1, 1, 30, WOOD_D, 0, 22, -12, { seg: 5, ns: true });
+  box(ship, 20, 18, 0.8, '#f4ecd6', 0, 30, 6.8, { ns: true }); box(ship, 16, 13, 0.8, '#c0392b', 0, 26, -11.2, { ns: true });
+  return g;
+}
 /** Il castello: mastio merlato, quattro torri d'angolo coi tetti viola del tuo popolo, portone, stendardi. */
 function makeCastle(level) {
   const g = grp(null), ROOF = '#7b5cc9', ROOF_D = '#6247a8', S1 = '#a9aab6', S2 = '#bfc0cc', S3c = '#8f909c', rr = mulberry32(5);
@@ -773,6 +785,7 @@ function makeModel(type, o = {}) {
   if (type === 'castello') g = makeCastle(o.castle || 1);
   else if (type === 'casa') g = makeHouse(o.id || 0, o.lvl || 0);
   else if (type === 'porto') g = makePort();
+  else if (type === 'scalo') g = makeBigPort();
   else if (type === 'campo') g = makePlot(o.crop);
   else if (type === 'segheria') g = makeSawmill();
   else if (type === 'cava') g = makeQuarry();
@@ -1349,7 +1362,7 @@ export class Scene3D {
       else if (b.type === 'cancello') { vertical = (wallish(world.buildingAt(b.c, b.r - 1)) || wallish(world.buildingAt(b.c, b.r + 1))) && !(wallish(world.buildingAt(b.c - 1, b.r)) || wallish(world.buildingAt(b.c + 1, b.r))); key = vertical ? 'V' : 'H'; }
       else key = 'L' + (b.lvl || 0);
       let rot = 0;
-      if (b.type === 'porto') { let bd = 1e12, L0 = null; for (const L of LAKES) { const dd = (L.x - b.x) * (L.x - b.x) + (L.y - b.y) * (L.y - b.y); if (dd < bd) { bd = dd; L0 = L; } } if (L0) rot = Math.round(Math.atan2(L0.x - b.x, L0.y - b.y) / (Math.PI / 2)) * (Math.PI / 2); }
+      if (b.type === 'porto' || b.type === 'scalo') { let bd = 1e12, L0 = null; for (const L of LAKES) { const dd = (L.x - b.x) * (L.x - b.x) + (L.y - b.y) * (L.y - b.y); if (dd < bd) { bd = dd; L0 = L; } } if (L0) rot = Math.round(Math.atan2(L0.x - b.x, L0.y - b.y) / (Math.PI / 2)) * (Math.PI / 2); }
       let o = this.bMesh.get(b.id);
       if (!o || o.key !== key) {
         const fresh = !o;

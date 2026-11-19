@@ -2,7 +2,7 @@
 // assedi, eroe più ricco, acqua, trofei e sfida del giorno. Logica pura, come world.js: extend(World) le aggiunge alla classe.
 import {
   G, COLS, ROWS, BUILD, TRIBES, TERRAIN, RUINS, FOG, UNITS, HERO, HERO_ITEMS, ISLAND, LEVELS, LEVEL_MIN, FOOD, specials, siegeCount,
-  REL, giftCost, ROAD_AT, ROAD_SPEED, SELL, PVP_UNIT, PVP_TOWER, MY_COLOR, TROPHIES, CHALLENGES, CHALLENGE_REWARD, CHAPTERS, CASERMA_SLOTS, genWave, DIFFS, allyCost, ALLY_NIGHTS, levelK,
+  REL, giftCost, SHIPS, SHIP_MAX, shipUpCost, SEA, TRADE, villageLoot, LEVEL_MIN_BY, ROAD_AT, ROAD_SPEED, SELL, PVP_UNIT, PVP_TOWER, MY_COLOR, TROPHIES, CHALLENGES, CHALLENGE_REWARD, CHAPTERS, CASERMA_SLOTS, genWave, DIFFS, allyCost, ALLY_NIGHTS, levelK,
 } from './data.js';
 
 const HOUR = 3600000, DAY = 86400000;
@@ -95,9 +95,11 @@ export function extend(World) {
       if (!L) return 'none';
       if (lv >= L.length) return 'max';
       if (b.build > 0 || this.status !== 'day') return 'busy';
-      if (this.d.castle < LEVEL_MIN[lv]) return 'castle';
+      if (this.d.castle < this.levelMin(b)) return 'castle';
       return this.afford(L[lv]) ? 'ok' : 'cost';
     },
+    /** Il castello che serve per il prossimo livello di questo edificio. */
+    levelMin(b) { return (LEVEL_MIN_BY[b.type] || LEVEL_MIN)[b.lvl || 0] || 1; },
     levelCost(b) { const L = LEVELS[b.type]; return L && (b.lvl || 0) < L.length ? L[b.lvl || 0] : null; },
     levelUp(b) {
       if (this.levelCheck(b) !== 'ok') return false;
@@ -423,6 +425,156 @@ export function extend(World) {
       this.events.push({ k: 'pvp', kind: r.kind, data: d });
       return true;
     },
+
+    // ---------- navi: approdi, flotta, commercio, esplorazioni, battaglie ----------
+    harbours() { return this.d.buildings.filter(b => (b.type === 'porto' || b.type === 'scalo') && !(b.build > 0)); },
+    /** Quante navi puoi tenere: un Porticciolo 1 (2 al livello 3), un Porto 2 + il suo livello. */
+    fleetSlots() { if (!RULES().sea) return 0; let n = 0; for (const b of this.harbours()) n += b.type === 'scalo' ? 2 + (b.lvl || 0) : (b.lvl || 0) >= 2 ? 2 : 1; return n; },
+    /** Il livello più alto che una nave può avere (0-4): quello del Porto migliore; col solo Porticciolo 0; senza approdi -1. */
+    fleetMaxLvl() { let m = -1; for (const b of this.harbours()) m = Math.max(m, b.type === 'scalo' ? b.lvl || 0 : 0); return Math.min(SHIP_MAX - 1, m); },
+    /** 'ok' | 'port' (nessun approdo) | 'scalo' (serve un Porto) | 'tech' | 'full' | 'busy' | 'cost' */
+    shipCheck(type) {
+      const D = SHIPS[type];
+      if (!RULES().sea || !D || !this.harbours().length) return 'port';
+      if (this.status !== 'day') return 'busy';
+      if (type === 'guerra' && !this.ready('scalo')) return 'scalo';
+      if (D.tech && !this.d.tech[D.tech]) return 'tech';
+      if (this.d.fleet.length >= this.fleetSlots()) return 'full';
+      return this.afford(D.cost) ? 'ok' : 'cost';
+    },
+    buildShip(type) {
+      if (this.shipCheck(type) !== 'ok') return null;
+      this.pay(SHIPS[type].cost);
+      const s = { id: ++this.d.shipId, type, lvl: 0, hp: SHIPS[type].hp, job: null };
+      this.d.fleet.push(s); this.track('ship'); this.events.push({ k: 'shipNew', type }); this.rev++;
+      return s;
+    },
+    ship(id) { return this.d.fleet.find(s => s.id === id) || null; },
+    shipHpMax(s) { return Math.round(SHIPS[s.type].hp * (1 + 0.25 * s.lvl)); },
+    /** Può salpare: è in porto e non è troppo malconcia. */
+    shipFit(s) { return !!s && !s.job && s.hp >= this.shipHpMax(s) * 0.3; },
+    shipUpCost(s) { return s.lvl >= SHIP_MAX - 1 ? null : shipUpCost(s.type, s.lvl); },
+    /** 'ok' | 'busy' (è in mare) | 'max' | 'port' (il Porto è di livello troppo basso) | 'cost' */
+    shipUpCheck(s) {
+      if (!s || s.job) return 'busy';
+      if (s.lvl >= SHIP_MAX - 1) return 'max';
+      if (s.lvl + 1 > this.fleetMaxLvl()) return 'port';
+      return this.afford(this.shipUpCost(s)) ? 'ok' : 'cost';
+    },
+    shipUp(s) {
+      if (this.shipUpCheck(s) !== 'ok') return false;
+      this.pay(this.shipUpCost(s)); s.lvl++; s.hp = this.shipHpMax(s);
+      this.events.push({ k: 'shipUp', type: s.type, lvl: s.lvl }); this.rev++;
+      return true;
+    },
+    repairCost(s) { const miss = Math.round(this.shipHpMax(s) - s.hp); return miss > 0 ? { legna: Math.ceil(miss * SEA.repair) } : null; },
+    repairShip(s) { const c = s && !s.job ? this.repairCost(s) : null; if (!c || !this.afford(c)) return false; this.pay(c); s.hp = this.shipHpMax(s); this.rev++; return true; },
+    /** Smontare una nave libera il posto e rende metà del suo costo. */
+    scrapShip(s) {
+      if (!s || s.job) return false;
+      const back = {}; for (const k in SHIPS[s.type].cost) back[k] = Math.floor(SHIPS[s.type].cost[k] / 2);
+      this.gain(back); this.d.fleet = this.d.fleet.filter(q => q !== s); this.rev++;
+      return true;
+    },
+    /** Quanto dura un viaggio per questa nave: ogni livello la fa più svelta. */
+    shipMs(s, mins) { return Math.round(mins * 60000 * (1 - SEA.fast * s.lvl)); },
+    /** Una nave da guerra in porto fa da scorta ai mercantili che partono: i pirati non li toccano. */
+    hasEscort() { return this.d.fleet.some(s => s.type === 'guerra' && this.shipFit(s)); },
+    /** Il prezzo al Mercato di una unità: comprando (TRADE) o vendendo (SELL). 0 = non si tratta. */
+    tradeUnit(res, buy) {
+      if (buy) { const T = TRADE[res]; return T && (!T.tech || this.d.tech[T.tech]) ? T.cost / T.give : 0; }
+      const S = SELL[res]; return S ? S.get / S.give : 0;
+    },
+    /** Che cosa succede se questa nave fa questo viaggio: quanta merce, quante monete, quanto tempo. */
+    tradeQuote(s, tier, res, n, buy) {
+      const R = SEA.trade[tier], u = this.tradeUnit(res, buy);
+      if (!s || s.type !== 'mercantile' || !R || !u) return null;
+      const hold = SHIPS.mercantile.hold[s.lvl]; let q = Math.max(0, Math.min(hold, Math.floor(n)));
+      if (buy) { const price = u * R.buy; q = Math.min(q, Math.floor((this.d.res.monete || 0) / price)); return { n: q, coins: Math.ceil(q * price), ms: this.shipMs(s, R.mins), hold }; }
+      q = Math.min(q, Math.floor(this.d.res[res] || 0));
+      return { n: q, coins: Math.floor(q * u * R.sell), ms: this.shipMs(s, R.mins), hold };
+    },
+    /** Vendere: la merce parte adesso, le monete tornano con la nave. Comprare: paghi adesso, la merce torna con la nave. */
+    sendTrade(s, tier, res, n, buy, now = this.now) {
+      if (!this.shipFit(s) || this.status !== 'day') return false;
+      const q = this.tradeQuote(s, tier, res, n, buy);
+      if (!q || q.n <= 0) return false;
+      if (buy) this.d.res.monete -= q.coins; else this.d.res[res] -= q.n;
+      s.job = { kind: 'trade', at: now, ms: q.ms, tier, res, n: q.n, coins: q.coins, buy: buy ? 1 : 0, escort: this.hasEscort() ? 1 : 0 };
+      this.track('sail'); this.events.push({ k: 'shipOut', kind: 'trade' }); this.rev++;
+      return true;
+    },
+    sendExplore(s, tier, now = this.now) {
+      const E = SEA.explore[tier];
+      if (!E || !s || s.type !== 'veliero' || !this.shipFit(s) || this.status !== 'day') return false;
+      s.job = { kind: 'explore', at: now, ms: this.shipMs(s, E.mins), tier };
+      this.track('sail'); this.events.push({ k: 'shipOut', kind: 'explore' }); this.rev++;
+      return true;
+    },
+    warShips() { return this.d.fleet.filter(s => s.type === 'guerra' && this.shipFit(s)); },
+    /** La forza delle navi da guerra pronte: una nave malconcia vale meno. */
+    warPower(list = this.warShips()) { let p = 0; for (const s of list) p += SHIPS.guerra.power[s.lvl] * (0.5 + 0.5 * s.hp / this.shipHpMax(s)); return Math.round(p); },
+    /** I pirati: ogni volta che li batti tornano più forti. */
+    pirateDef(lvl = this.d.sea.pirates) { return Math.round(SEA.pirate * Math.pow(lvl, SEA.pirateExp)); },
+    seaRaidDef(i) { return Math.round(SEA.raid * Math.pow(this.d.villages[i].level, 1.2)); },
+    /** Uno sbarco si può fare solo contro un popolo che conosci e che non è né colonia né alleato. */
+    seaRaidOk(i) { const v = this.d.villages[i]; return !!v && this.known(i) && v.state === 'free'; },
+    /** Tutte le navi da guerra pronte partono insieme: contro i pirati ('pirates') o per uno sbarco in un villaggio ('raid', i). */
+    sendWar(kind, i, now = this.now) {
+      const list = this.warShips();
+      if (!list.length || this.status !== 'day' || (kind !== 'pirates' && kind !== 'raid')) return false;
+      if (kind === 'raid' && !this.seaRaidOk(i)) return false;
+      const g = ++this.d.shipId, slow = Math.min(...list.map(s => s.lvl)), ms = Math.round((kind === 'raid' ? SEA.raidMins : SEA.fightMins) * 60000 * (1 - SEA.fast * slow));
+      for (const s of list) s.job = { kind, at: now, ms, g, i: kind === 'raid' ? i : -1 };
+      this.track('sail'); this.events.push({ k: 'shipOut', kind }); this.rev++;
+      return true;
+    },
+    /** Fa tornare le navi il cui viaggio è finito (vale anche per il tempo passato a gioco chiuso) e scrive i rapporti. */
+    stepFleet(now = this.now) {
+      const F = this.d.fleet;
+      if (!F || !F.length) return;
+      const done = F.filter(s => s.job && now >= s.job.at + s.job.ms);
+      if (!done.length) return;
+      const roll = (s, salt) => { let h = Math.imul(s.id | 0, 374761393) ^ Math.imul(Math.floor(s.job.at / 1000) | 0, 668265263) ^ Math.imul(salt, 1442695041); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+      const reps = [], groups = new Set();
+      for (const s of done) {
+        const j = s.job;
+        if (!j) continue;            // una nave da guerra già rientrata con le compagne dello stesso gruppo
+        if (j.kind === 'trade') {
+          const robbed = !j.escort && roll(s, 1) < SEA.trade[j.tier].risk, keep = robbed ? 1 - SEA.steal : 1;
+          const got = j.buy ? { [j.res]: Math.floor(j.n * keep) } : { monete: Math.floor(j.coins * keep) };
+          this.gain(got); reps.push({ kind: 'trade', ship: s.type, lvl: s.lvl, res: j.res, n: j.n, buy: j.buy, got, robbed: robbed ? 1 : 0 });
+          s.job = null;
+        } else if (j.kind === 'explore') {
+          const E = SEA.explore[j.tier], k = SHIPS.veliero.luck[s.lvl] * (0.85 + 0.3 * roll(s, 2)), loot = { monete: Math.round(E.loot * 0.45 * k), legna: Math.round(E.loot * 0.3 * k), pietra: Math.round(E.loot * 0.25 * k) };
+          if (j.tier >= 1 && this.d.tech.ferro) loot.ferro = Math.round(E.loot * 0.06 * k);
+          if (j.tier >= 2 && this.d.tech.cristallo) loot.cristallo = Math.round(E.loot * 0.03 * k);
+          const found = [], items = [];
+          if (RULES().fog && j.tier >= 1 && (j.tier >= 2 || roll(s, 3) < 0.5)) { const i = TRIBES.findIndex((T, q) => !this.known(q)); if (i >= 0) { this.reveal((TRIBES[i].c + 0.5) * G, (TRIBES[i].r + 0.5) * G, 8, true); found.push(i); } }
+          if (RULES().hero && j.tier >= 2 && roll(s, 4) < 0.5) { const H = this.d.hero; H.items = H.items || {}; const it = HERO_ITEMS.find(q => !H.items[q]); if (it) { H.items[it] = 1; items.push(it); this.applyHero(); } }
+          this.gain(loot); this.track('explore'); reps.push({ kind: 'explore', ship: s.type, lvl: s.lvl, tier: j.tier, loot, found, items });
+          s.job = null;
+        } else if (!groups.has(j.g)) {
+          groups.add(j.g);
+          const list = F.filter(q => q.job && q.job.g === j.g), raid = j.kind === 'raid', v = raid ? this.d.villages[j.i] : null, plv = this.d.sea.pirates;
+          const a = Math.round(this.warPowerOf(list) * (0.9 + 0.2 * roll(s, 5))), d = raid ? this.seaRaidDef(j.i) : this.pirateDef(), win = a > d;
+          let loot = {};
+          if (win && raid) { const L = villageLoot(TRIBES[j.i], v.level); for (const k in L) loot[k] = Math.round(L[k] * 0.5); if (v.level > 1) v.level--; this.addRel(j.i, -15); }
+          else if (win) { loot = { monete: 120 * plv, legna: 60 * plv }; if (plv >= 3) loot.ferro = 15 * plv; this.d.sea.pirates = Math.min(99, plv + 1); this.track('seaWin'); }
+          else if (raid) this.addRel(j.i, -8);
+          this.gain(loot); if (win) this.cheer(2);
+          const hurt = win ? 0.3 * Math.min(1, d / Math.max(1, a)) : 0.55;
+          for (const q of list) { q.hp = Math.max(1, Math.round(q.hp - this.shipHpMax(q) * hurt)); q.job = null; }
+          reps.push({ kind: j.kind, win: win ? 1 : 0, a, d, loot, i: raid ? j.i : -1, plv, ships: list.length });
+        }
+      }
+      for (const r of reps) { this.d.seaReports.push(r); this.events.push({ k: 'shipBack', kind: r.kind, win: r.win, robbed: r.robbed }); }
+      if (this.d.seaReports.length > 12) this.d.seaReports.splice(0, this.d.seaReports.length - 12);
+      this.rev++;
+    },
+    /** La forza di un gruppo di navi già in mare (come warPower, ma senza guardare se sono in porto). */
+    warPowerOf(list) { let p = 0; for (const s of list) p += SHIPS.guerra.power[s.lvl] * (0.5 + 0.5 * s.hp / this.shipHpMax(s)); return p; },
+    seaSeen() { return this.d.seaReports.shift() || null; },
 
     // ---------- costruzioni appena sbloccate (l'etichetta «Nuovo» nel catalogo) ----------
     /** Si può costruire adesso (castello e scoperta ci sono)? */

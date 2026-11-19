@@ -191,9 +191,11 @@ export const BUILD = {
   // acqua: il ponte si posa solo sull'acqua e la rende percorribile; il porto sta sulla riva e pesca
   ponte:     { w: 1, h: 1, hp: 80, cost: { legna: 8 }, cat: 'mura', min: 2, flat: true, line: true, deco: true, water: true },
   porto:     { w: 2, h: 2, hp: 140, cost: { legna: 100, pietra: 40 }, cat: 'eco', min: 2, prod: { cibo: 8, monete: 3 }, cap: (L) => L - 1, shore: true },
+  // il Porto vero (nei testi «Porto»; quello sopra è il «Porticciolo»): la casa della flotta, cinque livelli
+  scalo:     { w: 3, h: 2, hp: 260, cost: { legna: 220, pietra: 140 }, cat: 'eco', min: 3, prod: { monete: 4 }, cap: (L) => L - 2, shore: true },
 };
 export const BUILD_CATS = {
-  eco: ['casa', 'campo', 'mulino', 'porto', 'segheria', 'cava', 'mercato'], off: ['bottega', 'miniera', 'cristalliera', 'fucina'],
+  eco: ['casa', 'campo', 'mulino', 'porto', 'scalo', 'segheria', 'cava', 'mercato'], off: ['bottega', 'miniera', 'cristalliera', 'fucina'],
   dif: ['arcieri', 'radici', 'caserma', 'mago', 'catapulta', 'braciere'], mura: ['recinto', 'mura', 'cancello', 'strada', 'ponte'],
   bel: ['fontana', 'taverna', 'statua', 'lampione', 'aiuola', 'albero'],
 };
@@ -264,6 +266,7 @@ export const GOALS = [
   ['night', 10, { monete: 300, pietra: 150 }], ['statua', 1, { cristallo: 20 }], ['morale', 80, { monete: 300 }], ['conquer', 2, { ferro: 100, cristallo: 30 }], ['castle', 4, { ferro: 120, cristallo: 40 }],
   ['tech', 6, { cristallo: 50 }], ['strada', 30, { monete: 200 }], ['albero', 8, { legna: 150 }], ['night', 15, { monete: 500, ferro: 150 }], ['conquer', 4, { cristallo: 80 }],
   ['army', 12, { ferro: 150 }], ['castle', 5, { monete: 800, cristallo: 100 }], ['tech', 10, { monete: 600 }], ['night', 20, { monete: 800, cristallo: 100 }], ['conquer', 6, { monete: 1000, ferro: 300, cristallo: 150 }],
+  ['scalo', 1, { legna: 150, monete: 100 }], ['ship', 1, { monete: 120 }], ['sail', 1, { monete: 150, ferro: 40 }],
 ];
 
 // Potenziare il castello: costo per passare dal livello L a L+1 e notti da aver superato.
@@ -379,7 +382,7 @@ export const NATURE = (function () {
 export const CHOP = { tree: { res: 'legna', gain: 7 }, rock: { res: 'pietra', gain: 6 }, iron: { res: 'ferro', gain: 8, tech: 'ferro' }, crystal: { res: 'cristallo', gain: 6, tech: 'cristallo' } };
 
 // ---------- cantieri: secondi per costruire (i pezzi in fila e la bellezza piccola compaiono subito) ----------
-const TIMES = { casa: 6, campo: 3, segheria: 6, cava: 7, mercato: 7, bottega: 8, miniera: 8, cristalliera: 9, mulino: 8, fucina: 9, arcieri: 6, radici: 6, caserma: 9, mago: 7, catapulta: 8, braciere: 7, fontana: 5, taverna: 8, statua: 6, porto: 8 };
+const TIMES = { casa: 6, campo: 3, segheria: 6, cava: 7, mercato: 7, bottega: 8, miniera: 8, cristalliera: 9, mulino: 8, fucina: 9, arcieri: 6, radici: 6, caserma: 9, mago: 7, catapulta: 8, braciere: 7, fontana: 5, taverna: 8, statua: 6, porto: 8, scalo: 11 };
 for (const k in TIMES) BUILD[k].time = TIMES[k];
 
 // ---------- mestieri: gli abitanti con un mestiere lavorano da soli (gli altri aspettano i tuoi tocchi) ----------
@@ -444,9 +447,31 @@ export const LEVELS = {
   cristalliera: [{ monete: 220, ferro: 60 },  { monete: 400, ferro: 140, cristallo: 30 }],
   mulino:       [{ monete: 140, legna: 100 }, { monete: 280, pietra: 140 }],
   porto:        [{ monete: 140, legna: 120 }, { monete: 280, legna: 200, ferro: 30 }],
+  scalo:        [{ monete: 200, legna: 200 }, { monete: 360, legna: 300, ferro: 60 }, { monete: 560, pietra: 300, ferro: 140 }, { monete: 800, ferro: 220, cristallo: 60 }],
   caserma:      [{ legna: 120, pietra: 80 },  { pietra: 200, ferro: 80 }],
 };
 export const LEVEL_MIN = [2, 3];          // il castello che serve per il livello 2 e per il 3
+export const LEVEL_MIN_BY = { scalo: [3, 4, 4, 5] };      // il Porto ha cinque livelli: il castello che serve per ognuno dei quattro passi
+
+// ---------- navi ----------
+// Gli approdi danno i posti: un Porticciolo 1 (2 al livello 3), un Porto 2 + il suo livello. Il livello più alto di una nave è quello del Porto
+// (col solo Porticciolo: navi di livello 1, e niente navi da guerra). hold = quanta merce porta · luck = quanto trova · power = forza in battaglia.
+export const SHIP_MAX = 5;
+export const SHIPS = {
+  mercantile: { cost: { legna: 120, monete: 60 }, hp: 80, hold: [60, 100, 150, 210, 280] },
+  veliero:    { cost: { legna: 100, monete: 80 }, hp: 70, luck: [1, 1.3, 1.6, 2, 2.5] },
+  guerra:     { cost: { legna: 160, ferro: 50, monete: 100 }, hp: 120, power: [40, 70, 110, 160, 220], tech: 'ferro' },
+};
+export const SHIP_ORDER = ['mercantile', 'veliero', 'guerra'];
+/** Quanto costa portare una nave dal livello lvl (0 = il primo) al successivo. */
+export function shipUpCost(type, lvl) { const o = {}, C = SHIPS[type].cost; for (const k in C) o[k] = Math.round(C[k] * 1.1 * (lvl + 1) / 10) * 10; return o; }
+// Le rotte: vicina, media, lontana. sell / buy moltiplicano i prezzi del Mercato (vendere per nave rende di più, comprare costa meno,
+// ma comprare resta sempre più caro che vendere: niente giri a guadagno sicuro). risk = i pirati rubano il 30% se nessuna nave da guerra è in porto.
+export const SEA = {
+  trade: [{ mins: 20, sell: 1.2, buy: 0.9, risk: 0 }, { mins: 60, sell: 1.4, buy: 0.8, risk: 0.2 }, { mins: 180, sell: 1.6, buy: 0.7, risk: 0.35 }],
+  explore: [{ mins: 60, loot: 120 }, { mins: 180, loot: 320 }, { mins: 360, loot: 700 }],
+  fightMins: 45, raidMins: 90, fast: 0.07, repair: 0.6, pirate: 34, pirateExp: 1.35, raid: 45, steal: 0.3,
+};
 export const levelK = (lvl) => 1 + 0.5 * (lvl || 0);
 
 // ---------- cibo: i campi danno grano, il mulino lo macina (un grano = due di cibo), il porto pesca ----------

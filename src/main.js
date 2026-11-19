@@ -1,6 +1,6 @@
 // Avvio: scena 3D + interfaccia 2D, camera (trascina, pizzica, rotella), costruzione a quadretti, salvataggio.
 import { World } from './world.js';
-import { G, COLS, ROWS, BUILD, BUILD_CATS, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, TERRAIN, RUINS, HERO, LEVEL_MIN, UNITS as UNIT_DEFS } from './data.js';
+import { G, COLS, ROWS, BUILD, BUILD_CATS, SHIPS, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, TERRAIN, RUINS, HERO, LEVEL_MIN, UNITS as UNIT_DEFS } from './data.js';
 import { Scene3D } from './scene3d.js';
 import { drawUi } from './ui.js';
 import { stepFx, parts, ring, text, smoke, chips, arc } from './fx.js';
@@ -25,7 +25,7 @@ const ui = {
   screen: 'title', speed: 1, sound: saved.sound !== false, moved: !!saved.moved, seenVillage: !!saved.seenVillage,
   build: null, place: null, sel: null, vsel: null, aiming: false,
   quests: false, settings: false, tech: false, daily: false, lost: null, away: world.away,
-  online: null, onlineNew: 0,
+  online: null, onlineNew: 0, fleet: null, seaOpen: false,
   map: null, squad: null, qtab: 0, reportOpen: false, q: saved.q === 0 || saved.q === 1 || saved.q === 2 ? saved.q : 'auto', cloud: cloud.state,
   roles: false, story: null, rallyPick: false, fogSel: null, guideOpen: null, music: saved.music !== false, newGame: !saved.world, diffPick: 'normale',
   buttons: [], fx: [], fxTop: [], night: 0, shake: 0, flash: 0, time: 0, banner: null, bannerQ: [], toast: null,
@@ -117,7 +117,7 @@ function confirmPlace() {
 // ---------- azioni ----------
 const UNITS_MSG = { full: 'full', pop: 'needHouses', busy: 'notNow' };
 const world_unit = (type) => UNIT_DEFS[type] || {};
-const closeAll = () => { ui.resInfo = false; ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; ui.online = null; };
+const closeAll = () => { ui.resInfo = false; ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; ui.online = null; ui.fleet = null; };
 const A = {
   play() { if (ui.newGame) { world.setDiff(ui.diffPick); ui.newGame = false; save(); } ui.screen = 'play'; ui.daily = world.daily(Date.now()).available; audio.play('tap'); },
   diffPick(k) { ui.diffPick = k; audio.play('tap'); },
@@ -139,7 +139,7 @@ const A = {
   scout() { const M = ui.map, p = M && M.sel; if (!p) return; if (world.sendScout(p.x, p.y, Date.now())) { M.msg = t('scoutGone'); M.msgT = 5; M.sel = null; save(); } else audio.play('no'); },
   reportOk() { world.reportSeen(); audio.play('tap'); save(); },
   reportMap() { const R = world.reportSeen(); save(); A.mapOpen(); if (R) ui.map.sel = mapPick(world, R.x, R.y); },
-  levelUp(b) { if (world.levelUp(b)) save(); else { const w = world.levelCheck(b); toast(w === 'castle' ? t('needCastle', LEVEL_MIN[b.lvl || 0]) : w === 'cost' ? t('why_cost') : t('notNow')); } },
+  levelUp(b) { if (world.levelUp(b)) save(); else { const w = world.levelCheck(b); toast(w === 'castle' ? t('needCastle', world.levelMin(b)) : w === 'cost' ? t('why_cost') : t('notNow')); } },
   gift(i) { if (world.gift(i)) save(); else toast(t(world.giftCheck(i) === 'done' ? 'giftDone' : 'why_cost')); },
   squadClose() { ui.squad = null; audio.play('tap'); },
   squadAttack() { if (world.orderAttack(ui.squad)) audio.play('horn'); },
@@ -147,6 +147,25 @@ const A = {
   claimChallenge() { const n = world.claimChallenge(Date.now()); if (n) { audio.play('cleared'); buzz(20); save(); } },
   rebuild() { const n = world.rebuildLost(); if (n) { audio.play('build'); save(); } else toast(t('why_cost')); },
   rebuildSkip() { world.d.rebuild = []; audio.play('tap'); save(); },
+  // ---------- la flotta ----------
+  fleetOpen(tab) { closeAll(); ui.squad = null; ui.fleet = { tab: typeof tab === 'string' ? tab : 'ships', ship: null, buy: false, res: 'legna', tier: 0, n: 0, page: 0, scrap: null }; audio.play('page'); },
+  fleetClose() { ui.fleet = null; audio.play('tap'); },
+  fleetTab(k) { ui.fleet.tab = k; ui.fleet.scrap = null; audio.play('tap'); },
+  fleetPage(d) { ui.fleet.page = (ui.fleet.page || 0) + d; audio.play('tap'); },
+  fleetBuild(type) { const k = world.shipCheck(type); if (world.buildShip(type)) save(); else toast(t(k === 'cost' ? 'why_cost' : k === 'busy' ? 'notNow' : 'sea_e_' + k)); },
+  fleetUp(id) { const s = world.ship(id); if (world.shipUp(s)) save(); else toast(t(world.shipUpCheck(s) === 'port' ? 'sea_needPortLvl' : 'why_cost')); },
+  fleetRepair(id) { if (world.repairShip(world.ship(id))) { audio.play('build'); save(); } else toast(t('why_cost')); },
+  fleetScrap(id) { const U = ui.fleet; if (U.scrap !== id) { U.scrap = id; audio.play('tap'); return; } U.scrap = null; if (world.scrapShip(world.ship(id))) { audio.play('coin'); save(); } },
+  fleetPick(id) { ui.fleet.ship = id; ui.fleet.n = 0; audio.play('tap'); },
+  fleetBuy(b) { ui.fleet.buy = !!b; audio.play('tap'); },
+  fleetRes(r) { ui.fleet.res = r; audio.play('tap'); },
+  fleetTier(i) { ui.fleet.tier = i; audio.play('tap'); },
+  fleetAmount(d) { const U = ui.fleet, s = world.ship(U.ship); if (!s) return; const hold = SHIPS.mercantile.hold[s.lvl], step = Math.max(10, Math.round(hold / 6 / 10) * 10); U.n = Math.max(step, Math.min(hold, (U.n || hold) + d * step)); audio.play('tap'); },
+  fleetSail() { const U = ui.fleet, s = world.ship(U.ship); if (world.sendTrade(s, U.tier, U.res, U.n, U.buy, Date.now())) { U.tab = 'ships'; save(); } else toast(t('notNow')); },
+  fleetExplore(id, tier) { if (world.sendExplore(world.ship(id), tier, Date.now())) { ui.fleet.tab = 'ships'; save(); } else toast(t('notNow')); },
+  fleetWar(kind, i) { if (world.sendWar(kind, i, Date.now())) { ui.fleet.tab = 'ships'; save(); } else toast(t(world.warShips().length ? 'notNow' : 'sea_noWar')); },
+  seaOk() { world.seaSeen(); audio.play('tap'); save(); },
+  seaFleet() { world.seaSeen(); save(); A.fleetOpen(); },
   // ---------- il mondo online ----------
   onlineOpen() {
     closeAll(); ui.squad = null; ui.onlineNew = 0;
@@ -282,7 +301,7 @@ function hitButton(clientX, clientY, pad = 0) {
 }
 const DUMMY = 0; void DUMMY;
 void HERO;
-const TALL = { fontana: 46, taverna: 66, statua: 50, mulino: 76, fucina: 66, lampione: 40, albero: 40, castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26, bottega: 60, mercato: 50, miniera: 46, cristalliera: 46, porto: 40 };
+const TALL = { scalo: 70, fontana: 46, taverna: 66, statua: 50, mulino: 76, fucina: 66, lampione: 40, albero: 40, castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26, bottega: 60, mercato: 50, miniera: 46, cristalliera: 46, porto: 40 };
 /** Il villaggio sotto il dito: la piazza attorno alla casa del capo, oppure la casa stessa (che sullo schermo sta più in su). */
 function villageUnder(clientX, clientY, g) {
   for (let i = 0; i < TRIBES.length; i++) {
@@ -418,6 +437,8 @@ function back() {
   else if (cloud.state.open) cloud.close();
   else if (ui.story != null) A.storyOk();
   else if (ui.reportOpen) A.reportOk();
+  else if (ui.seaOpen) A.seaOk();
+  else if (ui.fleet) A.fleetClose();
   else if (ui.online) { if (ui.online.pick) ui.online.pick = null; else ui.online = null; }
   else if (ui.map) ui.map = null;
   else if (ui.squad != null) ui.squad = null;
@@ -463,6 +484,10 @@ function handleEvents() {
       case 'ruin': { banner(t('ruinGot'), '#ffe27a', 2.6); if (ev.item) banner(t('itemGot', t('it_' + ev.item)), '#ffe9a8', 2.8); audio.play('cleared'); let k = 0; for (const r in ev.loot) text(ui.fxTop, ev.x + k++ * 64, ev.y, 60, '+' + ev.loot[r], RES_FX[r], 24, 1.6); save(); break; }
       case 'scout': audio.play('hey'); break;
       case 'tripDone': audio.play('hey'); buzz(20); break;
+      case 'shipNew': banner(t('sea_built'), '#9fe9ff', 2.2); audio.play('build'); break;
+      case 'shipUp': audio.play('cleared'); break;
+      case 'shipOut': audio.play('horn'); break;
+      case 'shipBack': audio.play(ev.win === 0 || ev.robbed ? 'sad' : 'hey'); buzz(20); break;
       case 'pvp': banner(reportLine({ kind: ev.kind, data: ev.data }), ev.kind === 'won' || ev.kind === 'defended' ? '#9ff0b4' : ev.kind === 'bounced' ? '#cfd8ff' : '#ff8a80', 3.4); audio.play(ev.kind === 'won' || ev.kind === 'defended' ? 'won' : 'sad'); buzz(30); if (!ui.online) ui.onlineNew = (ui.onlineNew || 0) + 1; save(); break;
       case 'meal': if (ev.fed < 0.5) { banner(t('hungry'), '#ff8a80', 2.8); audio.play('sad'); } break;
       case 'gift': audio.play('coin'); parts(ui.fxTop, ev.x, ev.y, 60, 14, '#ff8fb0', 120, 0.9, 4.5, 160); break;
@@ -609,13 +634,15 @@ function tick(real) {
   ui.eventOpen = ui.screen === 'play' && !!world.d.event && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && ui.story == null;
   if (ui.screen === 'play' && ui.story == null && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && world.storyDue() >= 0) { ui.story = world.storyDue(); audio.play('page'); closeAll(); }
   ui.reportOpen = ui.screen === 'play' && world.d.reports.length > 0 && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && ui.story == null && !ui.eventOpen;
+  ui.seaOpen = ui.screen === 'play' && world.d.seaReports.length > 0 && world.status === 'day' && !ui.reportOpen && !ui.lost && !ui.away && !ui.daily && ui.story == null && !ui.eventOpen && !ui.online && !ui.map;
   if (ui.map && ui.map.msgT > 0) ui.map.msgT -= real;
   if (ui.online && ui.online.msgT > 0) ui.online.msgT -= real;
   for (const m of threats()) if (!warned.has(m.id)) { warned.add(m.id); banner(t('on_threat', m.from || (online.byId(m.village_id) || {}).name || '?'), '#ff8a80', 3.6); audio.play('horn'); buzz(40); }
   ui.onlineDanger = threats().length;
   onlineT += real; if (onlineT > (ui.online ? 20 : 120)) { onlineT = 0; if (ui.screen === 'play' && (ui.online || world.status === 'day')) onlineRefresh(false); }
-  if (ui.screen === 'play' && (ui.map || ui.reportOpen || ui.settings || ui.quests)) world.stepTrips(Date.now());      // a pannello aperto il mondo è fermo, ma le spedizioni no
-  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away || ui.roles || ui.story != null || ui.eventOpen || ui.map || ui.online || ui.reportOpen || cloud.state.open;
+  if (ui.screen === 'play' && (ui.map || ui.reportOpen || ui.settings || ui.quests)) world.stepTrips(Date.now());
+  if (ui.screen === 'play' && (ui.fleet || ui.seaOpen || ui.map || ui.settings || ui.quests)) world.stepFleet(Date.now());      // a pannello aperto il mondo è fermo, ma le spedizioni no
+  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away || ui.roles || ui.story != null || ui.eventOpen || ui.map || ui.fleet || ui.seaOpen || ui.online || ui.reportOpen || cloud.state.open;
 
   if (!modal) {
     const fight = world.status !== 'day', steps = fight ? ui.speed * 2 : 1, dt = fight ? real / 2 : real;      // passi piccoli: stabile anche a x2

@@ -1,7 +1,7 @@
 // Il regno: regole pure (niente disegno, niente DOM). Griglia, costruzione libera, risorse, colture,
 // notti con i popoli rivali che scendono dai loro villaggi, torri, esercito, assalti, scoperte, missioni.
 import {
-  G, COLS, ROWS, CASTLE, START, SELL_REFUND, BUILD, towerCap, UNITS, CASERMA_SLOTS, GUARD_REACH, CASTLE_UP, MAX_CASTLE,
+  G, COLS, ROWS, CASTLE, START, SELL_REFUND, BUILD, SHIPS, SHIP_MAX, towerCap, UNITS, CASERMA_SLOTS, GUARD_REACH, CASTLE_UP, MAX_CASTLE,
   castleHp, TOWERS, ENEMIES, CROPS, genWave, hpMul, NATURE, CHOP, TRIBES, VILLAGE_R, REVOLT_NIGHTS, TECHS,
   villageHp, villageGuards, villageLoot, villageTribute, TRADE, TERRAIN, STEP, ALLY_NIGHTS, MAX_ALLIES, TRADES_PER_DAY,
   allyCost, allyHelpers, villageTrade, GOALS, MORALE, moraleK, WORK, WORKER_SPEED, JOBS_MAX, HERO, ROLES, AUTO_RANGE, REGROW_SECS, DIFFS, seasonOf, FOG, FW, FH, RUINS, EVENTS, CHAPTERS, mulberry32, LEVELS, levelK, REL, HERO_POWERS,
@@ -35,7 +35,7 @@ function fresh(now) {
   return {
     v: 4, map: 3, res: { ...START }, castle: 1, night: 0, nextId: 2, goal: 0, mood: 0, stats: {},
     diff: World.RULES.diff, roles: { bosco: 0, pietra: 0, campi: 0, cantiere: 0 }, rally: null, hero: { lvl: 1, xp: 0, items: {} }, weather: 'sole',
-    trips: [], reports: [], fed: 1, trophy: {}, crowns: 0, chal: null, endAt: 0, rebuild: [], pvpSeen: [], pvpName: '', seenB: null,
+    trips: [], reports: [], fed: 1, trophy: {}, crowns: 0, chal: null, endAt: 0, rebuild: [], pvpSeen: [], pvpName: '', seenB: null, fleet: [], shipId: 0, sea: { pirates: 1 }, seaReports: [],
     event: null, evNight: 0, fog: null, ruins: {}, met: {}, shards: [], story: -1, extra: 0,
     buildings: [{ id: 1, type: 'castello', c: CASTLE.c, r: CASTLE.r, hp: castleHp(1) }],
     cut: [], tech: {}, villages: TRIBES.map(t => ({ level: t.level, state: 'free', since: 0, until: 0, trades: 0, rel: REL.start })),
@@ -70,6 +70,9 @@ export class World {
       for (const k of ['rally', 'weather', 'event', 'evNight', 'ruins', 'met', 'shards', 'story', 'extra', 'fed', 'trophy', 'crowns', 'chal', 'endAt', 'pvpName']) if (data[k] != null) d[k] = data[k];
       if (Array.isArray(data.pvpSeen)) d.pvpSeen = data.pvpSeen.slice(-80);
       if (data.seenB && typeof data.seenB === 'object') d.seenB = { ...data.seenB };
+      if (Array.isArray(data.fleet)) d.fleet = data.fleet.filter(s => s && SHIPS[s.type] && isFinite(s.id)).map(s => ({ id: s.id, type: s.type, lvl: Math.max(0, Math.min(SHIP_MAX - 1, s.lvl | 0)), hp: Math.max(1, +s.hp || 1), job: s.job && isFinite(s.job.at) && s.job.ms > 0 ? { ...s.job } : null }));
+      d.shipId = Math.max(data.shipId | 0, ...d.fleet.map(s => s.id), 0); if (data.sea && data.sea.pirates > 0) d.sea = { pirates: Math.min(99, data.sea.pirates | 0) };
+      if (Array.isArray(data.seaReports)) d.seaReports = data.seaReports.slice(0, 12);
       if (Array.isArray(data.rebuild)) d.rebuild = data.rebuild.filter(o => o && BUILD[o.type] && BUILD[o.type].cost).slice(0, 300);
       if (data.fed == null && !(data.res && data.res.cibo > 0)) d.res.cibo = 60;      // una partita di prima del cibo: una scorta per non trovarsi subito alla fame
       if (Array.isArray(data.trips)) d.trips = data.trips.filter(tr => tr && isFinite(tr.x) && isFinite(tr.at) && tr.ms > 0);
@@ -94,6 +97,7 @@ export class World {
     for (const b of d.buildings) if (b.type === 'caserma') (b.units || []).forEach((u, i) => this.spawnSoldier(b, u, i));
     this.fogInit(); this.ensureHero(); this.rehome();
     this.stepTrips(now);          // le spedizioni sono andate avanti anche a gioco chiuso
+    this.stepFleet(now);          // e anche le navi
     if (!this.d.seenB) { this.d.seenB = {}; this.seeBuilds(Object.keys(BUILD)); }      // all'inizio (e nelle partite di prima) niente è «nuovo»: lo diventa quello che sblocchi da qui in poi
     this.offline(now);
   }
@@ -487,7 +491,7 @@ export class World {
       case 'morale': have = this.morale(); break;
       case 'army': have = this.popUsed(); break;
       case 'tech': have = Object.keys(this.d.tech).length; break;
-      case 'harvest': case 'ally': case 'trade': case 'conquer': case 'explore': case 'sell': case 'gift': case 'order': have = S[kind] || 0; break;
+      case 'harvest': case 'ally': case 'trade': case 'conquer': case 'explore': case 'sell': case 'gift': case 'order': case 'ship': case 'sail': have = S[kind] || 0; break;
       case 'level': have = S.levels || 0; break;
       default: have = this.count(kind);
     }
@@ -1201,7 +1205,7 @@ export class World {
     const rate = dt * (1 + this.builders());
     for (const b of this.d.buildings) if (b.build > 0) { b.build -= rate; if (b.build <= 0) { b.build = 0; this.rev++; this.events.push({ k: 'built', x: b.x, y: b.y, type: b.type }); if (b.type === 'fucina') for (const o of this.soldiers) if (o.ally == null && !o.hero) { o.maxHp = Math.round(UNITS[o.type].hp * 1.2); o.hp = o.maxHp; } } }
     this.millStep(dt);
-    this.tripT += dt; if (this.tripT > 1) { this.tripT = 0; this.stepTrips(now); this.checkTrophies(); }
+    this.tripT += dt; if (this.tripT > 1) { this.tripT = 0; this.stepTrips(now); this.stepFleet(now); this.checkTrophies(); }
     if (st !== 'night') {
       this.stepWorkers(dt);
       this.fogT += dt; if (this.fogT > 0.4) { this.fogT = 0; this.lookAround(); }
@@ -1322,5 +1326,5 @@ export class World {
 }
 /** Le novità che si possono spegnere (lo fanno le prove vecchie, per restare semplici): cantieri, difficoltà dei mondi nuovi,
  *  nebbia, eroe, eventi a sorpresa, villaggi che vivono. */
-World.RULES = { buildTime: true, diff: 'normale', fog: true, hero: true, events: true, life: true, food: true, levels: true, tribes: true, siege: true, dipl: true, roads: true };
+World.RULES = { buildTime: true, diff: 'normale', fog: true, hero: true, events: true, life: true, food: true, levels: true, tribes: true, siege: true, dipl: true, roads: true, sea: true };
 extend(World);

@@ -8,6 +8,7 @@ import { t, has, LANGS, getLang } from './i18n.js';
 import * as X from './ui2.js';
 import * as Y from './ui3.js';
 import * as Z from './ui4.js';
+import * as V from './ui6.js';
 
 const F = '"Trebuchet MS","Segoe UI",Roboto,sans-serif';
 const SERIF = 'Georgia,"Palatino Linotype","Book Antiqua","Noto Serif",serif';      // i titoli: un carattere da libro di fiabe
@@ -279,6 +280,7 @@ function buildIcon(c, type, x, y, s, time) {
   else if (type === 'mura') { R(-26, -8, 52, 30, '#9a9ba4', '#44454d'); for (let i = 0; i < 4; i++) R(-26 + i * 14.6, -18, 8.4, 10, '#b2b3be', '#44454d'); c.strokeStyle = 'rgba(60,60,70,0.55)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-26, 6); c.lineTo(26, 6); c.moveTo(-8, -8); c.lineTo(-8, 6); c.moveTo(10, 6); c.lineTo(10, 22); c.stroke(); }
   else if (type === 'cancello') { R(-26, -18, 12, 40, '#9a9ba4', '#44454d'); R(14, -18, 12, 40, '#9a9ba4', '#44454d'); Pg([-28, -18, -20, -27, -12, -18], '#b5482f'); Pg([12, -18, 20, -27, 28, -18], '#b5482f'); R(-14, -8, 28, 30, '#8a5a33', '#4a2f17'); c.strokeStyle = '#4a2f17'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(0, -8); c.lineTo(0, 22); c.stroke(); R(-14, 2, 28, 4, '#55565e', null); }
   else if (type === 'ponte') { c.beginPath(); c.ellipse(0, 12, 28, 9, 0, 0, TAU); c.fillStyle = '#5ec3ea'; c.fill(); R(-28, -4, 56, 9, '#c08e58', '#5c3a1e'); for (const px of [-22, 0, 22]) R(px - 2.5, -14, 5, 26, '#6f4526', null); R(-28, -14, 56, 4, '#9b6b3d', '#5c3a1e'); }
+  else if (type === 'scalo') { c.beginPath(); c.ellipse(2, 15, 32, 10, 0, 0, TAU); c.fillStyle = '#5ec3ea'; c.fill(); R(-30, -4, 20, 16, '#e9dcc0'); Pg([-33, -4, -20, -17, -7, -4], '#b5482f'); R(-34, -24, 5, 36, '#f4f1ea', '#8a8478'); R(-35, -29, 7, 6, '#ffd24a', '#8a5a1c'); R(-10, 9, 40, 5, '#9b6b3d', '#5c3a1e'); Pg([-2, 14, 32, 14, 27, 24, 3, 24], '#4a3a34'); R(9, -16, 2, 30, '#6f4526', null); R(21, -10, 2, 24, '#6f4526', null); Pg([2, -14, 16, -14, 16, 2, 2, 2], '#f4ecd6'); Pg([17, -8, 28, -8, 28, 4, 17, 4], '#c0392b'); }
   else if (type === 'porto') { c.beginPath(); c.ellipse(0, 14, 30, 10, 0, 0, TAU); c.fillStyle = '#5ec3ea'; c.fill(); R(-26, -6, 30, 18, '#e9dcc0'); Pg([-30, -6, -11, -22, 8, -6], '#3f7fb5'); R(-2, 8, 30, 6, '#9b6b3d', '#5c3a1e'); Pg([6, 16, 30, 16, 26, 24, 10, 24], '#b5482f'); R(17, -2, 2, 18, '#6f4526', null); Pg([19, -2, 30, 6, 19, 10], '#f4f1ea'); }
   else if (type === 'castello') { R(-22, -8, 44, 30, '#a3a4b0', '#44454d'); R(-30, -18, 12, 40, '#b2b3be', '#44454d'); R(18, -18, 12, 40, '#b2b3be', '#44454d'); Pg([-32, -18, -24, -30, -16, -18], '#2f8f5b'); Pg([16, -18, 24, -30, 32, -18], '#2f8f5b'); R(-5, 6, 10, 16, '#4a3020'); }
   c.restore();
@@ -350,8 +352,8 @@ function langRow(S, cx, y) {
 // =====================================================================
 //  SOPRA IL MONDO: evidenziazioni, barre della vita, fumetti, notte
 // =====================================================================
-const B_H = { fontana: 50, taverna: 70, statua: 54, mulino: 80, fucina: 70, lampione: 44, albero: 46, aiuola: 16, strada: 6, castello: 120, arcieri: 84, mago: 90, catapulta: 60, braciere: 70, radici: 50, casa: 62, caserma: 70, segheria: 54, cava: 54, campo: 26, recinto: 34, mura: 48, cancello: 56, bottega: 66, mercato: 56, miniera: 54, cristalliera: 54, porto: 46, ponte: 10 };
-const LIGHT = { porto: 100, lampione: 120, taverna: 140, fucina: 120, mulino: 90, fontana: 70, statua: 60, castello: 240, casa: 120, caserma: 120, segheria: 80, cava: 80, cancello: 70, bottega: 120, mercato: 110, miniera: 80, cristalliera: 90 };
+const B_H = { scalo: 74, fontana: 50, taverna: 70, statua: 54, mulino: 80, fucina: 70, lampione: 44, albero: 46, aiuola: 16, strada: 6, castello: 120, arcieri: 84, mago: 90, catapulta: 60, braciere: 70, radici: 50, casa: 62, caserma: 70, segheria: 54, cava: 54, campo: 26, recinto: 34, mura: 48, cancello: 56, bottega: 66, mercato: 56, miniera: 54, cristalliera: 54, porto: 46, ponte: 10 };
+const LIGHT = { scalo: 130, porto: 100, lampione: 120, taverna: 140, fucina: 120, mulino: 90, fontana: 70, statua: 60, castello: 240, casa: 120, caserma: 120, segheria: 80, cava: 80, cancello: 70, bottega: 120, mercato: 110, miniera: 80, cristalliera: 90 };
 const cellPoly = (P, c0, r0, w, h) => [P.pt(c0 * G, r0 * G), P.pt((c0 + w) * G, r0 * G), P.pt((c0 + w) * G, (r0 + h) * G), P.pt(c0 * G, (r0 + h) * G)];
 const onScreen = (S, p, m) => p.x > -m && p.x < S.vw + m && p.y > -m && p.y < S.vh + m;
 
@@ -797,15 +799,17 @@ function selPanel(S) {
     if (b.type === 'mulino') parts.push(t('millInfo'));
     if (D.beauty) parts.push(`${t('morale')} +${D.beauty}`);
     if (b.type === 'fucina') parts.push(t('k_fucina'));
+    if (b.type === 'scalo' || b.type === 'porto') parts.push(t('sea_berths', b.type === 'scalo' ? 2 + lv : lv >= 2 ? 2 : 1));
     txt(c, parts.length ? parts.join(' · ') : t('d_' + b.type), x + 82, y + 54, 17, DIM);
     if (hasLv) {
       if (lc === 'max') txt(c, t('maxed'), x + 22, y + 100, 15, DIM, 'left', 700);
       else {
         button(c, ui, x + 20, y + 76, 170, 44, t('improve'), { color: '#2f7d3a', disabled: lc !== 'ok', fs: 18, tag: 'levelUp' }, () => A.levelUp(b));
         costRow(c, world, world.levelCost(b), x + 204, y + 99, 16, 1, true);
-        txt(c, lc === 'castle' ? t('needCastle', LEVEL_MIN[lv]) : t(b.type === 'casa' ? 'lvl_casa' : 'lvl_prod'), x + w - 22, y + 99, 13.5, lc === 'castle' ? BAD : '#9ff0b4', 'right', 700);
+        txt(c, lc === 'castle' ? t('needCastle', world.levelMin(b)) : t(b.type === 'casa' ? 'lvl_casa' : b.type === 'scalo' ? 'lvl_scalo' : 'lvl_prod'), x + w - 22, y + 99, 13.5, lc === 'castle' ? BAD : '#9ff0b4', 'right', 700);
       }
     }
+    if (b.type === 'scalo' || b.type === 'porto') { button(c, ui, x + w - 214, by, 194, 50, t('fleet'), { color: '#2f5d7a', fs: 19, dx: 14, tag: 'fleetOpen' }, A.fleetOpen); V.anchorIcon(c, x + w - 178, by + 25, 12); const out = world.d.fleet.filter(q => q.job).length; if (out) { c.beginPath(); c.arc(x + w - 24, by + 4, 11, 0, TAU); c.fillStyle = '#2f7d5a'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, String(out), x + w - 24, by + 5, 13, '#fff', 'center', 800); } }
     const back = demol(x + 20, by, 190), keys = Object.keys(back).filter(k => back[k] > 0);
     if (keys.length) { txt(c, t('back'), x + 230, by + 26, 16, DIM); const o = {}; keys.forEach(k => { o[k] = back[k]; }); costRowPlain(c, o, x + 230 + width(c, t('back'), 16) + 12, by + 26, 17); }
   }
@@ -1059,11 +1063,13 @@ function drawAll(S) {
   else if (ui.story != null) X.storyPanel(S, K);
   else if (ui.eventOpen) X.eventPanel(S, K);
   else if (ui.reportOpen) Y.reportPanel(S, K);
+  else if (ui.seaOpen) V.seaReport(S, K);
+  else if (ui.fleet) V.fleetPanel(S, K);
   else if (ui.online) Z.worldPanel(S, K);
   else if (ui.map) Y.mapPanel(S, K);
   else if (ui.roles) X.rolesPanel(S, K);
   else if (ui.quests) questsPanel(S);
   else if (ui.tech) techPanel(S);
   else if (ui.settings) settingsPanel(S);
-  if (!(ui.lost || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.reportOpen || ui.roles || ui.quests || ui.tech || ui.settings || ui.online)) Y.finger(S, K);
+  if (!(ui.lost || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.reportOpen || ui.roles || ui.quests || ui.tech || ui.settings || ui.online || ui.fleet || ui.seaOpen)) Y.finger(S, K);
 }
