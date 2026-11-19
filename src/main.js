@@ -16,7 +16,7 @@ const uiCanvas = document.getElementById('ui');
 const ctx = uiCanvas.getContext('2d');
 const scene = new Scene3D(glCanvas);
 
-const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 8;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
+const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 9;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
 const KEY = 'tuzu_difesa_v3';       // la chiave resta questa: i salvataggi vecchi li converte World
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
@@ -33,10 +33,21 @@ const ui = {
 };
 world.away = null;
 let frozen = false;      // dopo reset() non si salva più: altrimenti la pagina che si chiude riscrive il salvataggio
-function save() { if (frozen) return; try { localStorage.setItem(KEY, JSON.stringify({ world, lang: getLang(), sound: ui.sound, music: ui.music, moved: ui.moved, seenVillage: ui.seenVillage, cam: scene.view, q: ui.q, qa: quality })); } catch (e) { /* senza memoria si gioca lo stesso */ } cloud.touch(); }
+function save() { if (frozen) return; try { localStorage.setItem(KEY, JSON.stringify({ world, lang: getLang(), langSet: !!ui.langSet, sound: ui.sound, music: ui.music, moved: ui.moved, seenVillage: ui.seenVillage, cam: scene.view, q: ui.q, qa: quality })); } catch (e) { /* senza memoria si gioca lo stesso */ } cloud.touch(); }
 
-const browserLang = (navigator.language || 'it').slice(0, 2);
-setLang(saved.lang || (LANGS.includes(browserLang) ? browserLang : 'en'));      // una lingua che non abbiamo: inglese
+/** La lingua del telefono o del browser: la prima, fra quelle che l'utente preferisce, che il gioco ha. Nessuna: inglese. */
+function deviceLang() {
+  let list = []; try { list = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]; } catch (e) { /* niente */ }
+  for (const l of list) { const k = String(l || '').slice(0, 2).toLowerCase(); if (LANGS.includes(k)) return k; }
+  return 'en';
+}
+// La lingua è «automatica» (segue il telefono, anche se lui la cambia) finché il giocatore non ne sceglie una dal pannello: `ui.langSet`.
+// Chi ha una partita di prima di questa regola: se la lingua salvata non è quella che il gioco di allora metteva da solo, l'aveva scelta lui.
+{ const first = (navigator.language || 'it').slice(0, 2).toLowerCase(), oldAuto = ['it', 'fr', 'en'].includes(first) ? first : 'it';
+  ui.langSet = saved.langSet != null ? !!saved.langSet : (!!saved.lang && saved.lang !== oldAuto);
+  ui.devLang = deviceLang();
+  setLang(ui.langSet && LANGS.includes(saved.lang) ? saved.lang : ui.devLang); }
+window.addEventListener('languagechange', () => { ui.devLang = deviceLang(); if (!ui.langSet) setLang(ui.devLang); });
 audio.setSound(ui.sound); audio.setMusic(ui.music);
 
 // qualità grafica: 2 = piena, 1 = meno pixel, 0 = meno pixel e niente ombre (scende da sola se il telefono fatica)
@@ -296,7 +307,8 @@ const A = {
   quests() { ui.quests = !ui.quests; ui.sel = null; audio.play('tap'); },
   claimQuest(i) { const n = world.claimQuest(i); if (n) { audio.play('cleared'); buzz(20); save(); } },
   settings() { ui.settings = !ui.settings; ui.sel = null; audio.play('tap'); },
-  lang(l) { setLang(l); ui.langPick = false; save(); audio.play('tap'); },
+  lang(l) { ui.langSet = true; setLang(l); ui.langPick = false; save(); audio.play('tap'); },
+  langAuto() { ui.langSet = false; ui.devLang = deviceLang(); setLang(ui.devLang); ui.langPick = false; save(); audio.play('tap'); },
   langOpen() { ui.langPick = true; audio.play('tap'); },
   langClose() { ui.langPick = false; audio.play('tap'); },
   sound() { ui.sound = !ui.sound; audio.setSound(ui.sound); save(); audio.play('tap'); },

@@ -318,7 +318,8 @@ function button(c, ui, x, y, w, h, label, o, fn) {
   c.beginPath(); c.roundRect(x + 2.2, y + 2.2, w - 4.4, h - 4.4, Math.max(2, r - 2)); c.strokeStyle = o.disabled ? 'rgba(255,255,255,0.12)' : (o.stroke || 'rgba(255,236,170,0.72)'); c.lineWidth = 1.5; c.stroke();
   if (!o.disabled) { c.beginPath(); c.roundRect(x + 4.5, y + 4, w - 9, h * 0.36, Math.max(2, r - 4)); c.fillStyle = 'rgba(255,255,255,0.13)'; c.fill(); }
   if (label) {
-    const fs = fit(c, label, w - 14 - 2 * Math.abs(o.dx || 0), o.fs || 22, 800), lx = x + w / 2 + (o.dx || 0), ly = y + h / 2 + 1;      // la scritta si stringe da sola: in tedesco o in russo è spesso più lunga
+    const fs = fit(c, label, o.dx > 0 ? 2 * Math.min(w / 2 + o.dx - 34, w / 2 - o.dx - 7) : w - 14 - 2 * Math.abs(o.dx || 0), o.fs || 22, 800),      // con un'icona a sinistra (dx) la scritta non deve finirle sopra
+       lx = x + w / 2 + (o.dx || 0), ly = y + h / 2 + 1;      // la scritta si stringe da sola: in tedesco o in russo è spesso più lunga
     if (!o.disabled) txt(c, label, lx, ly + 1.6, fs, 'rgba(0,0,0,0.42)', 'center', 800);
     txt(c, label, lx, ly, fs, o.disabled ? '#9a948a' : (o.fg || CREAM), 'center', 800);
   }
@@ -353,7 +354,8 @@ function langRow(S, cx, y) {
   let x = cx - total / 2;
   const nm = LANG_NAMES[getLang()];
   button(c, ui, x, y, lw, 44, '', { color: '#2f5d7a', tag: 'langOpen' }, A.langOpen);
-  Z.globeIcon(c, x + 26, y + 22, 12); txt(c, nm, x + 48, y + 23, fit(c, nm, lw - 78, 18, 700), '#fff3d6', 'left', 700); txt(c, '▾', x + lw - 20, y + 23, 16, '#fff3d6', 'center', 700);
+  txt(c, nm, x + 48, y + 23, fit(c, nm, lw - 78, 18, 700), '#fff3d6', 'left', 700); txt(c, '▾', x + lw - 20, y + 23, 16, '#fff3d6', 'center', 700);
+  Z.globeIcon(c, x + 26, y + 22, 12);      // l'icona DOPO la scritta: regola Samsung
   x += lw + gap;
   const sl = `${t('sound')}: ${ui.sound ? t('on') : t('off')}`;
   button(c, ui, x, y, sw, 44, sl, { color: '#5c4330', fs: fit(c, sl, sw - 16, 17, 700) }, A.sound);
@@ -362,10 +364,12 @@ function langRow(S, cx, y) {
 function langPanel(S) {
   const { c, ui, vw, vh, A } = S, tall = S.tall, cols = tall ? 3 : 5, rows = Math.ceil(LANGS.length / cols), bw = tall ? 204 : 170, bh = 56, gap = 10;
   dim(S, 0.7);
-  const w = cols * bw + (cols - 1) * gap + 40, h = 74 + rows * (bh + gap) + 66, x = vw / 2 - w / 2, y = Math.max(20, vh / 2 - h / 2);
+  const w = cols * bw + (cols - 1) * gap + 40, h = 74 + (bh + gap + 6) + rows * (bh + gap) + 66, x = vw / 2 - w / 2, y = Math.max(20, vh / 2 - h / 2);
   panel(c, x, y, w, h, 16, 0.97); block(ui, x, y, w, h);
   head(c, t('langTitle'), vw / 2, y + 38, 26, '#f2cf73', 'center');
-  LANGS.forEach((l, i) => { const bx = x + 20 + (i % cols) * (bw + gap), by = y + 74 + Math.floor(i / cols) * (bh + gap), on = getLang() === l; button(c, ui, bx, by, bw, bh, LANG_NAMES[l], { color: on ? '#8a5a1c' : '#5c4330', fs: 20, r: 12, tag: 'lang_' + l }, () => A.lang(l)); });
+  // in cima: la lingua del telefono (o del browser). È accesa finché il giocatore non ne sceglie una qui sotto.
+  { const s = t('langAuto') + ': ' + (LANG_NAMES[ui.devLang] || LANG_NAMES.en), aw = Math.min(w - 40, 2 * bw + gap); button(c, ui, vw / 2 - aw / 2, y + 74, aw, bh, '', { color: !ui.langSet ? '#2f7d3a' : '#2f5d7a', r: 12, tag: 'langAuto' }, A.langAuto); const fs = fit(c, s, aw - 76, 19, 800), gx = vw / 2 - width(c, s, fs, 800) / 2 - 20; txt(c, s, vw / 2 + 10, y + 75 + bh / 2, fs, '#fff3d6', 'center', 800); Z.globeIcon(c, gx, y + 74 + bh / 2, 12); }
+  LANGS.forEach((l, i) => { const bx = x + 20 + (i % cols) * (bw + gap), by = y + 74 + (bh + gap + 6) + Math.floor(i / cols) * (bh + gap), on = !!ui.langSet && getLang() === l; button(c, ui, bx, by, bw, bh, LANG_NAMES[l], { color: on ? '#8a5a1c' : '#5c4330', fs: 20, r: 12, tag: 'lang_' + l }, () => A.lang(l)); });
   button(c, ui, vw / 2 - 110, y + h - 60, 220, 46, t('close'), { color: '#5c4330', fs: 18, tag: 'langClose' }, A.langClose);
 }
 
@@ -989,9 +993,9 @@ function newsPanel(S) {
   for (let i = 0; i < 5; i++) {
     const ry = y + 84 + i * rowH;
     c.beginPath(); c.arc(x + 44, ry + rowH / 2 - 6, 24, 0, TAU); c.fillStyle = 'rgba(122,84,40,0.14)'; c.fill(); c.strokeStyle = 'rgba(122,84,40,0.45)'; c.lineWidth = 1.4; c.stroke();
-    icon[i](x + 44, ry + rowH / 2 - 6);
     head(c, t('news' + (i + 1) + 't'), x + 84, ry + 12, 18, PENRED, 'left', false);
     wrap(c, t('news' + (i + 1)), x + 84, ry + 36, w - 110, 14, PEN, 18, 'left');
+    icon[i](x + 44, ry + rowH / 2 - 6);      // l'icona DOPO le scritte: regola Samsung
   }
   const by = y + h - 68;
   button(c, ui, x + 24, by, 230, 50, t('account'), { color: '#2f5d7a', fs: 19, tag: 'newsAccount' }, A.newsAccount);

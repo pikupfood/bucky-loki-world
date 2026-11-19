@@ -1242,6 +1242,21 @@ export class Scene3D {
       LAKES.forEach((L, i) => { this.boats.push({ g: boat(i % 2 ? 'veliero' : 'pesca', i % 2 ? 0.7 : 0.9), lake: L, k: i === 4 ? 0.66 : 0.5, dir: i % 2 ? 1 : -1, ph: i * 2.1 }); });
     }
 
+    // Gabbiani e pesci: solo figura, due disegni in tutto (a istanze). Un gabbiano gira sopra ogni lago (tre su quello di casa);
+    // in ogni lago ogni sette secondi salta un pesce. Dove c'è nebbia non si vedono.
+    { const tri = [], T3 = (...v) => tri.push(...v);
+      for (const k of [-1, 1]) { T3(0, 0, -1.6, k * 9, 3.2, 0.6, 0, 0, 1.8); T3(k * 9, 3.2, 0.6, k * 4.5, 1.9, 2.6, 0, 0, 1.8); }      // le due ali a punta
+      T3(-1.2, -0.3, -3.2, 1.2, -0.3, -3.2, 0, -0.3, 3.6);                                                                           // il corpicino
+      const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(tri, 3)); gg.computeVertexNormals();
+      this.gulls = []; LAKES.forEach((L, i) => { for (let k = 0; k < (i === 0 ? 3 : 1); k++) this.gulls.push({ L, r: 0.42 + k * 0.2, sp: (0.16 + k * 0.05) * (i % 2 ? -1 : 1), ph: i * 1.9 + k * 2.4, h: 78 + k * 16 }); });
+      this.gullIM = new THREE.InstancedMesh(gg, new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide, emissive: 0x666666 }), this.gulls.length);
+      this.gullIM.castShadow = true; this.gullIM.frustumCulled = false; s.add(this.gullIM);
+      const fg = new THREE.ConeGeometry(2.4, 10, 5); fg.rotateX(Math.PI / 2);                                                        // la punta guarda avanti
+      this.fish = LAKES.map((L, i) => ({ L, ph: i * 3.3, a: i * 1.7 }));
+      this.fishIM = new THREE.InstancedMesh(fg, new THREE.MeshLambertMaterial({ color: 0xff9d5c, emissive: 0x5a2a10 }), this.fish.length);
+      this.fishIM.frustumCulled = false; s.add(this.fishIM);
+      this._up = new THREE.Vector3(0, 1, 0); this._eu = new THREE.Euler(); }
+
     { const ix = (ISLAND.c + 0.5) * G, iz = (ISLAND.r + 0.5) * G, R = (ISLAND.rad + 0.62) * G;       // l'isola: sabbia attorno, prato sopra
       const sand = new THREE.Mesh(geom('isl', () => new THREE.SphereGeometry(1, 18, 8)), M('#d8c79a')); sand.scale.set(R, 5, R * 0.94); sand.position.set(ix, 0.4, iz); sand.receiveShadow = true; s.add(sand);
       const top = new THREE.Mesh(geom('isl', () => new THREE.SphereGeometry(1, 18, 8)), M(GRASS)); top.scale.set(R * 0.84, 6.4, R * 0.78); top.position.set(ix, 0.8, iz); top.receiveShadow = true; s.add(top); }
@@ -1538,6 +1553,26 @@ export class Scene3D {
       B.g.position.set(x, 1 + Math.sin(time * 2 + B.ph) * 0.6, y);
       let d = ang - B.g.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); B.g.rotation.y += d * Math.min(1, dt * 2.2 + (B.init ? 0 : 1)); B.init = true;
       B.g.rotation.z = Math.sin(time * 1.3 + B.ph) * 0.03;
+    }
+    if (this.gullIM) {
+      const m4 = this._m4, q = this._q, P3 = this._P3, S3 = this._S3;
+      this.gulls.forEach((g, i) => {
+        const a = time * g.sp + g.ph, x = g.L.x + Math.cos(a) * g.L.rx * g.r, y = g.L.y + Math.sin(a) * g.L.ry * g.r;
+        const k = world.seen(Math.floor(x / G), Math.floor(y / G)) ? 1.5 : 0.0001, glide = Math.sin(time * 0.5 + g.ph) > 0.25;      // ogni tanto plana ad ali ferme
+        q.setFromAxisAngle(this._up, Math.atan2(-Math.sin(a) * g.L.rx * g.sp, Math.cos(a) * g.L.ry * g.sp));
+        m4.compose(P3.set(x, g.h + Math.sin(time * 0.8 + g.ph) * 6, y), q, S3.set(k, k * (glide ? 0.45 : Math.sin(time * 7 + g.ph * 3)), k));
+        this.gullIM.setMatrixAt(i, m4);
+      });
+      this.gullIM.instanceMatrix.needsUpdate = true;
+      this.fish.forEach((F, i) => {
+        const tt = time + F.ph, n = Math.floor(tt / 7), u = (tt - n * 7) / 0.9;                                                      // un salto di 0,9 secondi ogni 7
+        const ang = F.a + n * 2.4, rr = 0.2 + ((n * 37) % 10) / 26, x = F.L.x + Math.cos(ang) * F.L.rx * rr, y = F.L.y + Math.sin(ang) * F.L.ry * rr;
+        const hx = Math.cos(ang + 1.3), hy = Math.sin(ang + 1.3), on = u < 1 && world.seen(Math.floor(x / G), Math.floor(y / G));
+        this._eu.set(-(1 - 2 * u) * 1.1, Math.atan2(hx, hy), 0, 'YXZ'); q.setFromEuler(this._eu);
+        m4.compose(P3.set(x + hx * (u - 0.5) * 26, Math.sin(Math.min(1, u) * Math.PI) * 15 - 3, y + hy * (u - 0.5) * 26), q, S3.setScalar(on ? 1 : 0.0001));
+        this.fishIM.setMatrixAt(i, m4);
+      });
+      this.fishIM.instanceMatrix.needsUpdate = true;
     }
     for (let n = (this.sails || []).length - 1; n >= 0; n--) {
       const S = this.sails[n]; S.d += dt * 62;
