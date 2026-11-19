@@ -1,6 +1,6 @@
 // Pittore del terreno: una texture 2D stesa sul piano 3D della mappa.
 // Prato a chiazze, sottobosco, ghiaioni sotto le montagne, laghi con la riva, strade a curve, piazze dei villaggi.
-import { WORLD_W, WORLD_H, G, CASTLE, TRIBES, NATURE, ROADS, LAKES, HILLS, PEAKS, lakeEdge, mulberry32, ISLAND, ROAD_AT, COLS, ROWS, RIVERS, RIVER_AT } from './data.js';
+import { WORLD_W, WORLD_H, G, CASTLE, TRIBES, NATURE, ROADS, LAKES, HILLS, PEAKS, lakeEdge, mulberry32, ISLAND, ROAD_AT, COLS, ROWS, RIVERS, RIVER_AT, SEA_W } from './data.js';
 
 const TAU = Math.PI * 2;
 export const GRASS = '#5f9f47';
@@ -18,16 +18,22 @@ function lakePath(c, L, s) {
   c.closePath();
 }
 
-/** Dove una strada scavalca un fiume: il punto della strada, la sua direzione, e se è una strada maestra. */
+/** Dove una strada scavalca un fiume: il centro del ponte, la direzione della strada, quanto è lungo, e se è una strada maestra. */
+/** Il colore del mare al largo: lo stesso della distesa fuori dalla mappa. */
+export const SEA = '#3aa3d6';
 export function bridgeSpots() {
-  const out = [];
-  for (const R of RIVERS) for (const m of R.marks) {
-    if (m.kind !== 3) continue;
-    let best = null, bd = 220 * 220;
-    for (const Q of ROADS) for (let i = 2; i < Q.pts.length - 2; i++) { const p = Q.pts[i], d = (p.x - m.x) * (p.x - m.x) + (p.y - m.y) * (p.y - m.y); if (d < bd) { bd = d; best = [Q, i]; } }
-    if (!best) continue;
-    const [Q, i] = best, p = Q.pts[i], a = Q.pts[i - 2], b = Q.pts[i + 2], L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-    if (!out.some(o => Math.hypot(o.x - p.x, o.y - p.y) < 120)) out.push({ x: p.x, y: p.y, dx: (b.x - a.x) / L, dy: (b.y - a.y) / L, main: Q.main });
+  const out = [], on = (p) => { const c = Math.floor(p.x / G), r = Math.floor(p.y / G); return c >= 0 && r >= 0 && c < COLS && r < ROWS && RIVER_AT[r * COLS + c] === 3; };
+  for (const Q of ROADS) {
+    let i0 = -1;
+    for (let i = 0; i <= Q.pts.length; i++) {
+      const hit = i < Q.pts.length && on(Q.pts[i]);
+      if (hit && i0 < 0) i0 = i;
+      if (!hit && i0 >= 0) {
+        const a = Q.pts[Math.max(0, i0 - 1)], b = Q.pts[Math.min(Q.pts.length - 1, i)], L = Math.hypot(b.x - a.x, b.y - a.y) || 1, x = (a.x + b.x) / 2, y = (a.y + b.y) / 2;
+        if (L > 60 && !out.some(o => Math.hypot(o.x - x, o.y - y) < 110)) out.push({ x, y, dx: (b.x - a.x) / L, dy: (b.y - a.y) / L, len: L, main: Q.main });
+        i0 = -1;
+      }
+    }
   }
   return out;
 }
@@ -54,12 +60,25 @@ export function paintWorld(canvas, k) {
   // fiumi, primo passaggio (sotto i laghi, così alla foce non resta una riga di sabbia): l'erba umida e la sabbia delle rive
   const river = (R) => { c.beginPath(); R.pts.forEach((p, i) => { if (i) c.lineTo(p.x, p.y); else c.moveTo(p.x, p.y); }); };
   c.lineCap = 'round'; c.lineJoin = 'round';
-  for (const R of RIVERS) { river(R); c.strokeStyle = 'rgba(96,150,74,0.55)'; c.lineWidth = 158; c.stroke(); river(R); c.strokeStyle = '#d8c79a'; c.lineWidth = 134; c.stroke(); }
+  for (const R of RIVERS) { river(R); c.strokeStyle = 'rgba(96,150,74,0.55)'; c.lineWidth = 246; c.stroke(); river(R); c.strokeStyle = '#d8c79a'; c.lineWidth = 222; c.stroke(); }
+
+  // il mare tutto attorno: spiaggia, acqua bassa, mare; la riva ondeggia un po'. Va sopra le rive dei fiumi (la foce resta aperta).
+  { const S = SEA_W * G + 8, wob = (q) => 15 * Math.sin(q * 0.011) + 9 * Math.sin(q * 0.027 + 1.3) + 5 * Math.sin(q * 0.063 + 0.4);
+    const band = (inset, col) => {
+      c.fillStyle = col;
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(WORLD_W, 0); for (let x = WORLD_W; x >= 0; x -= 30) c.lineTo(x, Math.max(0, inset + wob(x))); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(0, WORLD_H); c.lineTo(WORLD_W, WORLD_H); for (let x = WORLD_W; x >= 0; x -= 30) c.lineTo(x, WORLD_H - Math.max(0, inset + wob(x + 900))); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(0, WORLD_H); for (let y = WORLD_H; y >= 0; y -= 30) c.lineTo(Math.max(0, inset + wob(y + 1700)), y); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(WORLD_W, 0); c.lineTo(WORLD_W, WORLD_H); for (let y = WORLD_H; y >= 0; y -= 30) c.lineTo(WORLD_W - Math.max(0, inset + wob(y + 2600)), y); c.closePath(); c.fill();
+    };
+    band(S + 52, 'rgba(96,150,74,0.5)'); band(S + 36, '#e4d3a4'); band(S + 10, '#9adcea'); band(S - 6, '#55b9e0'); band(S - 44, SEA);
+    const rs = mulberry32(808); c.strokeStyle = 'rgba(255,255,255,0.4)'; c.lineWidth = 2.2; c.lineCap = 'round';
+    for (let i = 0; i < 150; i++) { const side = i % 4, q = rs(), d = 10 + rs() * (S - 34), w = 12 + rs() * 16, x = side === 0 ? q * WORLD_W : side === 1 ? q * WORLD_W : side === 2 ? d : WORLD_W - d, y = side === 0 ? d : side === 1 ? WORLD_H - d : q * WORLD_H; c.beginPath(); c.moveTo(x - w, y); c.quadraticCurveTo(x, y - 3, x + w, y); c.stroke(); } }
 
   // laghi: riva di sabbia, acqua bassa, acqua, fondo
   for (const L of LAKES) { lakePath(c, L, 1.2); c.fillStyle = 'rgba(96,150,74,0.55)'; c.fill(); lakePath(c, L, 1.12); c.fillStyle = '#d8c79a'; c.fill(); }
   // l'acqua dei fiumi va qui: sopra la sabbia dei laghi (la foce resta aperta) e sotto la loro acqua (nel lago il fiume non si vede)
-  for (const R of RIVERS) { river(R); c.strokeStyle = '#8fd6e8'; c.lineWidth = 116; c.stroke(); river(R); c.strokeStyle = '#4fb4de'; c.lineWidth = 100; c.stroke(); river(R); c.strokeStyle = 'rgba(40,140,200,0.5)'; c.lineWidth = 54; c.stroke(); }
+  for (const R of RIVERS) { river(R); c.strokeStyle = '#8fd6e8'; c.lineWidth = 202; c.stroke(); river(R); c.strokeStyle = '#4fb4de'; c.lineWidth = 184; c.stroke(); river(R); c.strokeStyle = 'rgba(40,140,200,0.5)'; c.lineWidth = 112; c.stroke(); }
   for (const L of LAKES) {
     lakePath(c, L, 1.05); c.fillStyle = '#8fd6e8'; c.fill();
     lakePath(c, L, 0.98); c.fillStyle = '#4fb4de'; c.fill();
@@ -78,16 +97,16 @@ export function paintWorld(canvas, k) {
     c.lineCap = 'round'; c.lineJoin = 'round';
     for (const R of RIVERS) {
       c.strokeStyle = 'rgba(255,255,255,0.42)'; c.lineWidth = 2.2;
-      for (let i = 3; i < R.pts.length - 4; i += 4) { const p = R.pts[i], q = R.pts[i + 2]; if (!inRiver(p)) { rr(); rr(); continue; } const ox = (rr() - 0.5) * 64, oy = (rr() - 0.5) * 64; c.beginPath(); c.moveTo(p.x + ox, p.y + oy); c.lineTo(q.x + ox, q.y + oy); c.stroke(); }
-      for (let i = 2; i < R.pts.length - 2; i += 2) if (rr() < 0.5 && inRiver(R.pts[i])) { const p = R.pts[i], q = R.pts[i + 1], L = Math.hypot(q.x - p.x, q.y - p.y) || 1, s = rr() < 0.5 ? -1 : 1, d = 60 + rr() * 8; ell(c, p.x - (q.y - p.y) / L * d * s, p.y + (q.x - p.x) / L * d * s, 2 + rr() * 3.4, 1.6 + rr() * 2.4, rr() < 0.5 ? 'rgba(120,110,96,0.7)' : 'rgba(240,232,210,0.8)'); }
+      for (let i = 3; i < R.pts.length - 4; i += 4) { const p = R.pts[i], q = R.pts[i + 2]; if (!inRiver(p)) { rr(); rr(); continue; } const ox = (rr() - 0.5) * 130, oy = (rr() - 0.5) * 130; c.beginPath(); c.moveTo(p.x + ox, p.y + oy); c.lineTo(q.x + ox, q.y + oy); c.stroke(); }
+      for (let i = 2; i < R.pts.length - 2; i += 2) if (rr() < 0.5 && inRiver(R.pts[i])) { const p = R.pts[i], q = R.pts[i + 1], L = Math.hypot(q.x - p.x, q.y - p.y) || 1, s = rr() < 0.5 ? -1 : 1, d = 104 + rr() * 8; ell(c, p.x - (q.y - p.y) / L * d * s, p.y + (q.x - p.x) / L * d * s, 2 + rr() * 3.4, 1.6 + rr() * 2.4, rr() < 0.5 ? 'rgba(120,110,96,0.7)' : 'rgba(240,232,210,0.8)'); }
     }
     for (const R of RIVERS) for (const m of R.marks) {
       if (m.kind !== 2) continue;
-      const nx = -m.ty, ny = m.tx, half = Math.max(1.4, m.len * 0.5) * G;
-      c.lineCap = 'butt'; c.beginPath(); c.moveTo(m.x - m.tx * half, m.y - m.ty * half); c.lineTo(m.x + m.tx * half, m.y + m.ty * half); c.strokeStyle = '#bfe9ee'; c.lineWidth = 114; c.stroke(); c.strokeStyle = 'rgba(216,199,154,0.5)'; c.lineWidth = 56; c.stroke(); c.lineCap = 'round';
-      for (let k = -4; k <= 4; k++) for (const s of [-1, 1]) ell(c, m.x + nx * k * 13.5 + m.tx * s * 15 + (rr() - 0.5) * 8, m.y + ny * k * 13.5 + m.ty * s * 15 + (rr() - 0.5) * 8, 6 + rr() * 4, 4.6 + rr() * 3, rr() < 0.5 ? '#a9a59c' : '#cbc7bc', rr() * 3);
+      const nx = -m.ty, ny = m.tx, half = Math.max(1.6, m.len * 0.5) * G;
+      c.lineCap = 'butt'; c.beginPath(); c.moveTo(m.x - m.tx * half, m.y - m.ty * half); c.lineTo(m.x + m.tx * half, m.y + m.ty * half); c.strokeStyle = '#bfe9ee'; c.lineWidth = 202; c.stroke(); c.strokeStyle = 'rgba(216,199,154,0.5)'; c.lineWidth = 120; c.stroke(); c.lineCap = 'round';
+      for (let k = -7; k <= 7; k++) for (const s of [-1, 1]) ell(c, m.x + nx * k * 13.5 + m.tx * s * 15 + (rr() - 0.5) * 8, m.y + ny * k * 13.5 + m.ty * s * 15 + (rr() - 0.5) * 8, 6 + rr() * 4, 4.6 + rr() * 3, rr() < 0.5 ? '#a9a59c' : '#cbc7bc', rr() * 3);
     }
-    for (const B of bridgeSpots()) { const W = (B.main ? 34 : 24) + 34; c.lineCap = 'butt'; c.beginPath(); c.moveTo(B.x - B.dx * 92, B.y - B.dy * 92); c.lineTo(B.x + B.dx * 92, B.y + B.dy * 92); c.strokeStyle = '#55514b'; c.lineWidth = W + 9; c.stroke(); c.strokeStyle = '#aaa69d'; c.lineWidth = W; c.stroke(); c.lineCap = 'round'; }
+    for (const B of bridgeSpots()) { const W = (B.main ? 34 : 24) + 34, hl = B.len / 2 + 22; c.lineCap = 'butt'; c.beginPath(); c.moveTo(B.x - B.dx * hl, B.y - B.dy * hl); c.lineTo(B.x + B.dx * hl, B.y + B.dy * hl); c.strokeStyle = '#55514b'; c.lineWidth = W + 9; c.stroke(); c.strokeStyle = '#aaa69d'; c.lineWidth = W; c.stroke(); c.lineCap = 'round'; }
   }
 
   // strade: prima le secondarie (da villaggio a villaggio), poi quelle che portano al castello
@@ -146,7 +165,7 @@ export function paintBuiltRoads(canvas, base, k, cells, prev) {
   if (cells.length) {
     let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
     for (const q of cells) { x0 = Math.min(x0, q.c); y0 = Math.min(y0, q.r); x1 = Math.max(x1, q.c + 1); y1 = Math.max(y1, q.r + 1); }
-    box = [Math.max(0, Math.floor((x0 * G - 60) * k)), Math.max(0, Math.floor((y0 * G - 60) * k)), Math.min(canvas.width, Math.ceil((x1 * G + 60) * k)), Math.min(canvas.height, Math.ceil((y1 * G + 60) * k))];
+    box = [Math.max(0, Math.floor((x0 * G - 130) * k)), Math.max(0, Math.floor((y0 * G - 130) * k)), Math.min(canvas.width, Math.ceil((x1 * G + 130) * k)), Math.min(canvas.height, Math.ceil((y1 * G + 130) * k))];
   }
   const all = prev && box ? [Math.min(prev[0], box[0]), Math.min(prev[1], box[1]), Math.max(prev[2], box[2]), Math.max(prev[3], box[3])] : prev || box;
   if (!all) return null;
@@ -154,8 +173,19 @@ export function paintBuiltRoads(canvas, base, k, cells, prev) {
   c.drawImage(base, all[0], all[1], all[2] - all[0], all[3] - all[1], all[0], all[1], all[2] - all[0], all[3] - all[1]);      // via le strade di prima
   if (!cells.length) return null;
   const on = (cc, rr) => cc >= 0 && rr >= 0 && cc < COLS && rr < ROWS && (set.has(rr * COLS + cc) || !!ROAD_AT[rr * COLS + cc]), H = G / 2;
+  // I raccordi. Le strade della mappa sono curve morbide: non passano dal centro dei loro quadretti. Un pezzo costruito lì accanto
+  // si allunga quindi fino al punto più vicino della strada DIPINTA (prima si fermava al quadretto, e fra i due restava un taglio).
+  const links = [];
+  for (const q of cells) {
+    const x = (q.c + 0.5) * G, y = (q.r + 0.5) * G;
+    let close = false; for (let dr = -2; dr <= 2 && !close; dr++) for (let dc = -2; dc <= 2; dc++) { const cc = q.c + dc, rr = q.r + dr; if (cc >= 0 && rr >= 0 && cc < COLS && rr < ROWS && ROAD_AT[rr * COLS + cc]) { close = true; break; } }
+    if (close) { let bd = (G * 2.4) ** 2, bp = null; for (const R of ROADS) for (const p of R.pts) { const d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y); if (d < bd) { bd = d; bp = p; } } if (bp && bd > 9) links.push([x, y, bp.x, bp.y]); }
+    // due pezzi in diagonale senza niente in mezzo si toccano lo stesso
+    for (const [dc, dr] of [[1, 1], [1, -1]]) if (set.has((q.r + dr) * COLS + q.c + dc) && !set.has(q.r * COLS + q.c + dc) && !set.has((q.r + dr) * COLS + q.c)) links.push([x, y, x + dc * G, y + dr * G]);
+  }
   const trace = () => {
     c.beginPath();
+    for (const [ax, ay, bx, by] of links) { c.moveTo(ax, ay); c.lineTo(bx, by); }
     for (const q of cells) {
       const x = (q.c + 0.5) * G, y = (q.r + 0.5) * G, m = [[x + H, y], [x - H, y], [x, y + H], [x, y - H]];
       const n = [on(q.c + 1, q.r), on(q.c - 1, q.r), on(q.c, q.r + 1), on(q.c, q.r - 1)], idx = [0, 1, 2, 3].filter(i => n[i]);

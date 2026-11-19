@@ -16,7 +16,7 @@ const uiCanvas = document.getElementById('ui');
 const ctx = uiCanvas.getContext('2d');
 const scene = new Scene3D(glCanvas);
 
-const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 4;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
+const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 5;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
 const KEY = 'tuzu_difesa_v3';       // la chiave resta questa: i salvataggi vecchi li converte World
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
@@ -99,7 +99,10 @@ function inGhost(g) {
 function moveGhost(g) {
   const pl = ui.place; if (!pl || !g) return;
   const k = cellFor(pl.type, g);
-  if (BUILD[pl.type].line) { if (pl.a) pl.b = k; else pl.a = k; } else { pl.c = k.c; pl.r = k.r; }
+  if (BUILD[pl.type].line) {
+    if (pl.a) pl.b = k;
+    else { const sp = pl.type === 'ponte' ? world.bridgeSpan(k.c, k.r) : null; if (sp) { pl.a = sp.a; pl.b = sp.b; } else pl.a = k; }      // un tocco sull'acqua: il ponte si stende da solo da riva a riva
+  } else { pl.c = k.c; pl.r = k.r; }
 }
 function confirmPlace() {
   const pl = ui.place; if (!pl) return;
@@ -730,7 +733,7 @@ try { const seenNews = +(localStorage.getItem(NEWS_KEY) || 0); if (seenNews < NE
 if (world.flooded) setTimeout(() => { banner(t('riverMoved', world.flooded), '#9fe9ff', 5); save(); }, 2600);
 online.init({ getSnap: () => world.pvpSnap(), onSent: (army) => { world.pvpSend(army); save(); }, onReports: (list) => { for (const r of list) world.pvpApply(r); save(); return list.map(r => r.id); } });
 cloud.init({ key: KEY, beforeLeave: () => save(), getSave: () => JSON.parse(JSON.stringify(world)), t, onLoad: (data) => { frozen = true; try { const cur = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; cur.world = data; localStorage.setItem(KEY, JSON.stringify(cur)); } catch (e) { /* niente */ } window.removeEventListener('pagehide', save); location.reload(); } });
-if (saved.cam && isFinite(saved.cam.x) && saved.world && saved.world.map === 3) scene.setView(saved.cam.x, saved.cam.y, saved.cam.dist);      // la mappa vecchia era più piccola
+if (saved.cam && isFinite(saved.cam.x) && saved.world && saved.world.map >= 3) scene.setView(saved.cam.x, saved.cam.y, saved.cam.dist);      // la mappa vecchia era più piccola
 console.log('[tuzu] avvio ' + view.cw + 'x' + view.ch + ' dpr ' + view.dpr + ' gl ' + (scene.r.getContext().isContextLost() ? 'PERSO' : 'ok') + ' ' + scene.r.capabilities.maxTextureSize);
 window.__tuzu = { world, ui, view, scene, A, tap, P, save, shot, tick, back, kick, blank, reset, NATURE, TOWERS, TRIBES, cloud, online, get quality() { return quality; }, get kicks() { return kicks; } };   // per le prove automatiche
 requestAnimationFrame(frame);

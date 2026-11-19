@@ -6,7 +6,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { RIVERS, RIVER_AT } from './data.js';
 import { G, COLS, ROWS, WORLD_W, WORLD_H, CASTLE, TRIBES, MY_COLOR, ENEMIES, NATURE, PEAKS, HILLS, LAKES, BUILD, RUINS, FOG, FW, FH, lakeEdge, mulberry32, ISLAND, TRAITS, TERRAIN, LEVELS } from './data.js';
-import { GRASS, paintWorld, paintBuiltRoads, bridgeSpots } from './ground.js';
+import { GRASS, SEA, paintWorld, paintBuiltRoads, bridgeSpots } from './ground.js';
 
 // ---------- mattoncini: geometrie e materiali condivisi ----------
 const geos = new Map(), mats = new Map();
@@ -478,6 +478,8 @@ function levelMarks(g, lvl, w = 34, h = 44) {
   }
   if (lvl >= 2) for (const [x, z] of [[-w, w * 0.8], [w, w * 0.8]]) { cyl(g, 4, 5, 9, '#8f8f98', x, 4.5, z, { seg: 8 }); ball(g, 4.4, GOLDC, x, 12, z, { e: 0x8a6410, ei: 0.35 }); }
 }
+const RAIL_Q = [0, 1, 2, 3].map(i => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), i * Math.PI / 2));
+
 // ---------- navi ----------
 /** Lo scafo: una barca vera, con la prua a punta, la poppa tronca e il bordo che sale alle estremità. Lunga L (lungo z, prua verso +z), larga B, alta H. */
 function hullGeo(L, B, H) {
@@ -1047,7 +1049,7 @@ export class Scene3D {
     sun.castShadow = this.shadowsOn !== false; sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.camera.near = 100; sun.shadow.camera.far = 4600; sun.shadow.bias = -0.0004; sun.shadow.normalBias = 1.5;
     s.add(sun, sun.target); this.sun = sun;
-    const big = new THREE.Mesh(new THREE.PlaneGeometry(22000, 20000), M(GRASS, { smooth: true }));
+    const big = new THREE.Mesh(new THREE.PlaneGeometry(22000, 20000), M(SEA, { smooth: true }));      // fuori dalla mappa c'è il mare
     big.rotation.x = -Math.PI / 2; big.position.set(WORLD_W / 2, -0.6, WORLD_H / 2); big.receiveShadow = true; s.add(big);
     const cv = document.createElement('canvas'); paintWorld(cv, 0.5); this.mapCv = cv; this.baseCv = null; this.roadSig = ''; this.roadBox = null; this.roadRev = 0;
     this.tex = new THREE.CanvasTexture(cv); this.tex.colorSpace = THREE.SRGBColorSpace; this.tex.anisotropy = 8;
@@ -1163,7 +1165,7 @@ export class Scene3D {
       const flush = () => {
         if (run.length > 1) {
           const pos = [], ind = [];
-          run.forEach((p, i) => { const a = run[Math.max(0, i - 1)], b = run[Math.min(run.length - 1, i + 1)], L = Math.hypot(b.x - a.x, b.y - a.y) || 1, nx = -(b.y - a.y) / L, ny = (b.x - a.x) / L, hw = 51; pos.push(p.x + nx * hw, 0.5, p.y + ny * hw, p.x - nx * hw, 0.5, p.y - ny * hw); if (i) { const k = i * 2; ind.push(k - 2, k, k - 1, k - 1, k, k + 1); } });
+          run.forEach((p, i) => { const a = run[Math.max(0, i - 1)], b = run[Math.min(run.length - 1, i + 1)], L = Math.hypot(b.x - a.x, b.y - a.y) || 1, nx = -(b.y - a.y) / L, ny = (b.x - a.x) / L, hw = 93; pos.push(p.x + nx * hw, 0.5, p.y + ny * hw, p.x - nx * hw, 0.5, p.y - ny * hw); if (i) { const k = i * 2; ind.push(k - 2, k, k - 1, k - 1, k, k + 1); } });
           const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(ind); geo.computeVertexNormals();
           const w = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x49b4e2, transparent: true, opacity: 0.74, emissive: 0x0e4f70, emissiveIntensity: 0.35, side: THREE.DoubleSide }));
           w.receiveShadow = true; s.add(w); this.water.push(w);
@@ -1176,14 +1178,18 @@ export class Scene3D {
     // i ponti di pietra delle strade: due parapetti e quattro pilastrini
     for (const B of bridgeSpots()) {
       const g = grp(null, B.x, 0, B.y), off = (B.main ? 17 : 12) + 20; g.rotation.y = Math.atan2(B.dx, B.dy);
-      for (const sx of [-1, 1]) { box(g, 7, 9, 176, STONE, sx * off, 4.5, 0); box(g, 9, 3, 180, '#c4c5d0', sx * off, 10, 0, { ns: true }); for (const sz of [-1, 1]) { cyl(g, 6.5, 7.5, 16, STONE_D, sx * off, 8, sz * 90, { seg: 8 }); ball(g, 5, '#c4c5d0', sx * off, 18, sz * 90, { ns: true }); } }
+      const bl = Math.round(B.len + 40);
+      for (const sx of [-1, 1]) { box(g, 7, 9, bl, STONE, sx * off, 4.5, 0); box(g, 9, 3, bl + 4, '#c4c5d0', sx * off, 10, 0, { ns: true }); for (const sz of [-1, 0, 1]) { cyl(g, 6.5, 7.5, 16, STONE_D, sx * off, 8, sz * bl / 2, { seg: 8 }); ball(g, 5, '#c4c5d0', sx * off, 18, sz * bl / 2, { ns: true }); } }
       s.add(bake(g));
     }
 
     { const ix = (ISLAND.c + 0.5) * G, iz = (ISLAND.r + 0.5) * G, R = (ISLAND.rad + 0.62) * G;       // l'isola: sabbia attorno, prato sopra
       const sand = new THREE.Mesh(geom('isl', () => new THREE.SphereGeometry(1, 18, 8)), M('#d8c79a')); sand.scale.set(R, 5, R * 0.94); sand.position.set(ix, 0.4, iz); sand.receiveShadow = true; s.add(sand);
       const top = new THREE.Mesh(geom('isl', () => new THREE.SphereGeometry(1, 18, 8)), M(GRASS)); top.scale.set(R * 0.84, 6.4, R * 0.78); top.position.set(ix, 0.8, iz); top.receiveShadow = true; s.add(top); }
-    this.bridgeIM = mk(geom('bridge', () => mergeGeos([[0, 3.4, 0, G + 1, 2.6, G - 10], [0, 9, -(G / 2 - 6), G + 1, 1.6, 1.6], [0, 9, G / 2 - 6, G + 1, 1.6, 1.6], [-G / 2 + 3, 5, -(G / 2 - 6), 2.6, 9, 2.6], [-G / 2 + 3, 5, G / 2 - 6, 2.6, 9, 2.6], [G / 2 - 3, 5, -(G / 2 - 6), 2.6, 9, 2.6], [G / 2 - 3, 5, G / 2 - 6, 2.6, 9, 2.6]].map(([x, y, z, w, h, d]) => { const m = new THREE.BoxGeometry(w, h, d); m.translate(x, y, z); return m; }))), M(WOOD_L), 400);
+    this.railIM = mk(geom('bridgeRail', () => mergeGeos([[0, 10.4, -(G / 2 - 2.5), G + 1, 2, 2.2], [0, 6.6, -(G / 2 - 2.5), G + 1, 1.4, 1.6], [-(G / 2 - 3), 6, -(G / 2 - 2.5), 3, 12, 3], [G / 2 - 3, 6, -(G / 2 - 2.5), 3, 12, 3]].map(([x, y, z, w, h, d]) => { const m = new THREE.BoxGeometry(w, h, d); m.translate(x, y, z); return m; }))), M(WOOD_D), 1600);
+    this.railIM.count = 0;
+    this.bridgeIM = mk(geom('bridgeDeck', () => mergeGeos([[0, 3.4, 0, G + 0.6, 2.8, G + 0.6], [-G / 4, 4.9, 0, 0.8, 0.3, G], [G / 4, 4.9, 0, 0.8, 0.3, G], [0, 4.9, 0, 0.8, 0.3, G], [0, 0, 0, 5, 7, 5]].map(([x, y, z, w, h, d]) => { const m = new THREE.BoxGeometry(w, h, d); m.translate(x, y, z); return m; }))), M(WOOD_L), 400);
+    this.bridgeIM.count = 0;
     this.bridgeIM.count = 0;
 
     // neve d'inverno: un velo bianco sopra il prato
@@ -1345,14 +1351,16 @@ export class Scene3D {
     }
     this.aoIM.count = na; this.aoIM.instanceMatrix.needsUpdate = true;
     // strade, aiuole, lampioni, alberi piantati
-    let nR = 0, nB = 0, nF = 0, nL = 0, nT = 0, nBr = 0;
+    let nR = 0, nB = 0, nF = 0, nL = 0, nT = 0, nBr = 0, nRail = 0;
     const col = this._col, isBr = (c, r) => { const o = world.buildingAt(c, r); return !!o && o.type === 'ponte'; }, dry = (c, r) => TERRAIN[r * COLS + c] !== 3;
     for (const b of world.d.buildings) {
       if (!BUILD[b.type].deco) continue;
       if (b.type === 'ponte') {        // corre verso un altro pezzo di ponte; un pezzo solo, verso la riva più vicina
         const hz = isBr(b.c - 1, b.r) || isBr(b.c + 1, b.r), vt = isBr(b.c, b.r - 1) || isBr(b.c, b.r + 1);
         const alongX = hz ? true : vt ? false : dry(b.c - 1, b.r) || dry(b.c + 1, b.r);
-        if (nBr < 400) this.bridgeIM.setMatrixAt(nBr++, m4.compose(P3.set(b.x, 0, b.y), alongX ? q : qy, S3.set(1, 1, 1)));
+        if (nBr < 400) this.bridgeIM.setMatrixAt(nBr++, m4.compose(P3.set(b.x, 0, b.y), alongX ? qy : q, S3.set(1, 1, 1)));      // le assi corrono per il verso del ponte
+        // il parapetto solo dove di fianco c'è acqua aperta: 0 nord, 1 ovest, 2 sud, 3 est
+        [[0, -1], [-1, 0], [0, 1], [1, 0]].forEach(([dc, dr], i) => { const cc = b.c + dc, rr = b.r + dr; if (nRail < 1600 && cc >= 0 && rr >= 0 && cc < COLS && rr < ROWS && !dry(cc, rr) && !isBr(cc, rr)) this.railIM.setMatrixAt(nRail++, m4.compose(P3.set(b.x, 0, b.y), RAIL_Q[i], S3.set(1, 1, 1))); });
         continue;
       }
       if (b.type === 'strada') continue;        // le strade sono dipinte sulla mappa (più sotto)
@@ -1374,6 +1382,7 @@ export class Scene3D {
     for (let i = nT; i < (this._plantN || 0); i++) this._tree(this.plantT, i, 0, 0, 0, i % 4, 0);
     this._plantN = nT; this._flush(this.plantT);
     this.bridgeIM.count = nBr; this.bridgeIM.instanceMatrix.needsUpdate = true;
+    this.railIM.count = nRail; this.railIM.instanceMatrix.needsUpdate = true;
     this.roadIM.count = nR; this.bedIM.count = this.bedLeaf.count = nB; this.bedFlower.count = nF; this.lampPole.count = this.lampHead.count = nL;
     for (const im of [this.roadIM, this.bedIM, this.bedLeaf, this.bedFlower, this.lampPole, this.lampHead]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
     q.identity(); S3.set(1, 1, 1);

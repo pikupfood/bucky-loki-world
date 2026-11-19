@@ -426,6 +426,17 @@ export function extend(World) {
       return true;
     },
 
+    // ---------- ponti ----------
+    /** Il ponte più corto e dritto che passa da questo quadretto d'acqua e unisce due rive (o un altro ponte): { n, a, b }, oppure null. */
+    bridgeSpan(c, r) {
+      const inside = (cc, rr) => cc >= 0 && rr >= 0 && cc < COLS && rr < ROWS, wet = (cc, rr) => inside(cc, rr) && TERRAIN[rr * COLS + cc] === 3 && !this.buildingAt(cc, rr);
+      if (!wet(c, r)) return null;
+      const land = (cc, rr) => cc >= 2 && rr >= 2 && cc < COLS - 2 && rr < ROWS - 2 && (TERRAIN[rr * COLS + cc] === 0 || (this.buildingAt(cc, rr) || {}).type === 'ponte');
+      const run = (dc, dr) => { let a = 0, b = 0; while (a < 20 && wet(c - (a + 1) * dc, r - (a + 1) * dr)) a++; while (b < 20 && wet(c + (b + 1) * dc, r + (b + 1) * dr)) b++; return land(c - (a + 1) * dc, r - (a + 1) * dr) && land(c + (b + 1) * dc, r + (b + 1) * dr) ? { n: a + b + 1, a: { c: c - a * dc, r: r - a * dr }, b: { c: c + b * dc, r: r + b * dr } } : null; };
+      const h = run(1, 0), v = run(0, 1), best = !h ? v : !v ? h : h.n <= v.n ? h : v;
+      return best && best.n <= 18 ? best : null;
+    },
+
     // ---------- navi: approdi, flotta, commercio, esplorazioni, battaglie ----------
     harbours() { return this.d.buildings.filter(b => (b.type === 'porto' || b.type === 'scalo') && !(b.build > 0)); },
     /** Quante navi puoi tenere: un Porticciolo 1 (2 al livello 3), un Porto 2 + il suo livello. */

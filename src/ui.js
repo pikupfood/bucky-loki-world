@@ -683,7 +683,7 @@ function placeBar(S) {
   head(c, t('b_' + pl.type), x + 92, y + 27, 21, '#ffe9a8');
   const n = st.n || 1;
   if (D.line && st.n > 1) txt(c, '×' + st.n, x + 92 + width(c, t('b_' + pl.type), 21, 700, true) + 10, y + 28, 18, CREAM, 'left', 800);
-  txt(c, t('why_' + st.why), x + 92, y + 57, 16, st.ok || st.why.startsWith('pick') ? '#bfe9a8' : BAD, 'left', 700);
+  txt(c, t(pl.type === 'ponte' && st.why === 'pickStart' ? 'why_bridge' : 'why_' + st.why), x + 92, y + 57, 16, st.ok || st.why.startsWith('pick') ? '#bfe9a8' : BAD, 'left', 700);
   if (pl.move) txt(c, t('moving'), x + w - 170, y + 42, 16, DIM, 'right', 700); else costRow(c, world, D.cost, x + w - 236, y + 41, 19, n);
   button(c, ui, x + w - 150, y + 11, 64, 60, '', { color: '#2f7d3a', disabled: !st.ok, tag: 'placeOk' }, A.placeConfirm);
   check(c, x + w - 118, y + 41, 15, st.ok ? '#fff' : '#9a948a');
@@ -1074,7 +1074,7 @@ function drawAll(S) {
   Y.squadBar(S, K);
   if (ui.banner && ui.banner.t < ui.banner.T) {
     const u = ui.banner.t / ui.banner.T, a = u < 0.15 ? u / 0.15 : u > 0.8 ? (1 - u) / 0.2 : 1;
-    const bw0 = width(c, ui.banner.str, 46, 800), bs = bw0 > vw - 30 ? 46 * (vw - 30) / bw0 : 46;      // una scritta lunga si stringe, non esce dallo schermo
+    const bw0 = width(c, ui.banner.str, 46, 700, true), bs = bw0 > vw - 40 ? 46 * (vw - 40) / bw0 : 46;      // una scritta lunga si stringe, non esce dallo schermo
     c.globalAlpha = a; title2(c, ui.banner.str, vw / 2, S.tall ? 250 : 180, bs, ui.banner.color); c.globalAlpha = 1;
   }
   if (ui.toast && ui.toast.t < ui.toast.T) {

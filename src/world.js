@@ -33,7 +33,7 @@ for (let r = CASTLE.r; r < CASTLE.r + CASTLE.h; r++) for (let c = CASTLE.c; c < 
 
 function fresh(now) {
   return {
-    v: 4, map: 3, res: { ...START }, castle: 1, night: 0, nextId: 2, goal: 0, mood: 0, stats: {},
+    v: 4, map: 4, res: { ...START }, castle: 1, night: 0, nextId: 2, goal: 0, mood: 0, stats: {},
     diff: World.RULES.diff, roles: { bosco: 0, pietra: 0, campi: 0, cantiere: 0 }, rally: null, hero: { lvl: 1, xp: 0, items: {} }, weather: 'sole',
     trips: [], reports: [], fed: 1, trophy: {}, crowns: 0, chal: null, endAt: 0, rebuild: [], pvpSeen: [], pvpName: '', seenB: null, fleet: [], shipId: 0, sea: { pirates: 1 }, seaReports: [],
     event: null, evNight: 0, fog: null, ruins: {}, met: {}, shards: [], story: -1, extra: 0,
@@ -48,7 +48,7 @@ export class World {
     const d = fresh(now);
     if (data && (data.v === 3 || data.v === 4) && Array.isArray(data.buildings) && data.buildings.some(b => b.type === 'castello')) {
       // le mappe più vecchie erano più piccole: gli edifici si spostano insieme al castello, la natura si rifà
-      const was = data.buildings.find(b => b.type === 'castello'), old = data.map !== 3, dc = CASTLE.c - was.c, dr = CASTLE.r - was.r;
+      const was = data.buildings.find(b => b.type === 'castello'), old = data.map !== 3 && data.map !== 4, dc = CASTLE.c - was.c, dr = CASTLE.r - was.r;
       for (const k in START) if (data.res && isFinite(data.res[k])) d.res[k] = data.res[k];
       d.castle = Math.max(1, Math.min(MAX_CASTLE, data.castle || 1)); d.night = data.night || 0; d.nextId = data.nextId || 2;
       const flooded = [];
@@ -62,7 +62,7 @@ export class World {
       // quello che non ha più posto (per esempio dov'è arrivato un fiume) si smonta e rende tutto il suo costo
       for (const b of flooded) { const D = BUILD[b.type], L = LEVELS[b.type]; for (const k in D.cost || {}) d.res[k] = (d.res[k] || 0) + D.cost[k]; for (let i = 0; i < (b.lvl || 0) && L && L[i]; i++) for (const k in L[i]) d.res[k] = (d.res[k] || 0) + L[i][k]; }
       this.flooded = flooded.length;
-      d.cut = !old && Array.isArray(data.cut) ? data.cut.filter(i => NATURE[i]) : [];
+      d.cut = data.map === 4 && Array.isArray(data.cut) ? data.cut.filter(i => NATURE[i]) : [];      // mappa 3 → 4: laghi e fiumi nuovi, alberi e rocce sono altri (i numeri di prima non valgono più)
       Object.assign(d.tech, data.tech || {});
       if (Array.isArray(data.villages)) data.villages.forEach((v, i) => { if (d.villages[i] && v) d.villages[i] = { level: v.level || TRIBES[i].level, state: v.state === 'colony' || v.state === 'ally' ? v.state : 'free', since: v.since || 0, until: v.until || 0, trades: v.trades || 0, rel: v.rel == null ? REL.start : v.rel, gift: v.gift || 0, calm: v.calm || 0, rage: v.rage || 0 }; });
       if (Array.isArray(data.quests)) data.quests.forEach((q, i) => { if (d.quests[i] && q) d.quests[i] = { n: q.n || 0, p: q.p || 0 }; });

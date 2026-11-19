@@ -71,7 +71,10 @@ const HILL_AT = [
   ...spot([[46, 33, 2.6, 2.0], [71, 50, 2.8, 2.2], [44, 63, 2.4, 2.0], [97, 39, 2.6, 2.1], [57, 24, 2.3, 1.9], [24, 44, 2.5, 2.0], [14, 22, 2.8, 2.2], [78, 73, 2.6, 2.0], [108, 12, 2.4, 2.0], [62, 72, 2.0, 1.8], [8, 70, 2.6, 2.2], [92, 78, 2.4, 1.9]]),
   [58, 28, 3.0, 2.4], [112, 78, 3.0, 2.4], [26, 30, 2.8, 2.2], [150, 58, 3.0, 2.4], [84, 100, 2.8, 2.2], [120, 22, 2.6, 2.2], [48, 54, 2.6, 2.0], [140, 108, 2.8, 2.2],
 ];
-const LAKE_AT = [...spot([[72, 34, 4.6, 3.2], [34, 60, 3.6, 2.6], [93, 62, 3.6, 2.8], [50, 8, 4.2, 2.6]]), [56, 90, 4.8, 3.4], [142, 62, 4.2, 3.0], [22, 84, 4.0, 2.8]];
+// I laghi (centro e mezze misure, in quadretti). Il primo è il lago di casa: grande, a nord-est del castello, perché ogni giocatore abbia
+// vicino la riva per un Porto che cresce (richiesta del titolare, 19/11/2026). Gli altri sono larghi abbastanza per porti e navi.
+const LAKE_AT = [[100, 40, 9, 6.5], [47.6, 82.9, 6.5, 4.8], [130.2, 85.6, 6.5, 5], [70, 11.5, 7, 4.4], [56, 90, 7.5, 5.5], [142, 62, 6.8, 4.8], [22, 84, 6.5, 4.6]];
+export const SEA_W = 2;               // il mare: una fascia tutto attorno alla mappa (lì comunque non si costruisce)
 /** Il bordo di un lago visto dal suo centro, in direzione a (1 = l'ellisse esatta). */
 export const lakeEdge = (L, a) => 1 + 0.16 * Math.sin(3 * a + L.p1) + 0.1 * Math.sin(5 * a + L.p2);
 (function () {
@@ -94,9 +97,86 @@ export const lakeEdge = (L, a) => 1 + 0.16 * Math.sin(3 * a + L.p1) + 0.1 * Math
   }
   for (const [c, r, rx, ry] of LAKE_AT) {
     const L = { x: c * G, y: r * G, rx: rx * G, ry: ry * G, p1: rnd() * 6.283, p2: rnd() * 6.283 };
-    each(c, r, rx * 1.3, ry * 1.3, (cc, rr) => { const dx = (cc + 0.5 - c) / rx, dy = (rr + 0.5 - r) / ry, e = lakeEdge(L, Math.atan2(dy, dx)); if (dx * dx + dy * dy <= e * e * 0.92 && !TERRAIN[rr * COLS + cc]) TERRAIN[rr * COLS + cc] = 3; });
+    // i laghi possono arrivare un po' più vicino al castello del resto del rilievo (14 quadretti invece di 17)
+    for (let rr = Math.floor(r - ry * 1.3 - 1); rr <= Math.ceil(r + ry * 1.3 + 1); rr++) for (let cc = Math.floor(c - rx * 1.3 - 1); cc <= Math.ceil(c + rx * 1.3 + 1); cc++) {
+      if (cc < 0 || rr < 0 || cc >= COLS || rr >= ROWS || Math.hypot(cc - cx, rr - cy) <= 14 || TRIBES.some(t => Math.abs(t.c - cc) <= VILLAGE_R + 3 && Math.abs(t.r - rr) <= VILLAGE_R + 3)) continue;
+      const dx = (cc + 0.5 - c) / rx, dy = (rr + 0.5 - r) / ry, e = lakeEdge(L, Math.atan2(dy, dx)); if (dx * dx + dy * dy <= e * e * 0.92 && !TERRAIN[rr * COLS + cc]) TERRAIN[rr * COLS + cc] = 3;
+    }
     LAKES.push(L);
   }
+  // il mare tutto attorno
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if ((c < SEA_W || r < SEA_W || c >= COLS - SEA_W || r >= ROWS - SEA_W) && !TRIBES.some(t => Math.abs(t.c - c) <= VILLAGE_R + 1 && Math.abs(t.r - r) <= VILLAGE_R + 1)) TERRAIN[r * COLS + c] = 3;
+})();
+
+// ---------- l'isola nel lago grande (la costante sta qui perché serve ai fiumi; l'isola si scava più sotto, dopo natura e rovine) ----------
+export const ISLAND = { c: 56, r: 90, rad: 1 };
+
+// ---------- fiumi: tutti i laghi collegati fra loro, e da ogni parte l'acqua arriva al mare ----------
+// Larghi cinque quadretti (ci passa una nave). Nascono PRIMA delle strade: le strade li attraversano dove conviene, e lì resta un ponte di
+// pietra; ogni tanto un guado; alla fine un controllo apre un guado in più se un pezzo di terra restasse chiuso fuori.
+// RIVER_AT: 0 niente · 1 acqua di fiume (TERRAIN 3) · 2 guado · 3 ponte di una strada (2 e 3 sono terra: ci si cammina, non ci si costruisce).
+// RIVERS: { pts: [{x, y}] la linea morbida per chi dipinge, marks: [{ x, y, tx, ty, kind: 2, len }] i guadi con la direzione del fiume }
+export const RIVERS = [], RIVER_AT = new Uint8Array(COLS * ROWS);
+const RIVER_RAW = [];        // { path, modes }: serve alla seconda parte, dopo le strade
+(function () {
+  const N = COLS * ROWS, rnd = mulberry32(4242), GW = 14, GH = 10, grid = [], cx = CASTLE.c + 1, cy = CASTLE.r + 1;
+  for (let i = 0; i < (GW + 1) * (GH + 1); i++) grid.push(rnd());
+  const noise = (c, r) => { const x = c / COLS * GW, y = r / ROWS * GH, x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, g = (p, q) => grid[Math.min(GH, q) * (GW + 1) + Math.min(GW, p)]; const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy); return (g(x0, y0) * (1 - sx) + g(x0 + 1, y0) * sx) * (1 - sy) + (g(x0, y0 + 1) * (1 - sx) + g(x0 + 1, y0 + 1) * sx) * sy; };
+  const lake = (i) => TERRAIN[i] === 3 && !RIVER_AT[i];
+  const sea = (c, r) => c < SEA_W || r < SEA_W || c >= COLS - SEA_W || r >= ROWS - SEA_W;
+  // accanto a monti e colline il fiume non ci va volentieri: così fra l'acqua e la roccia resta terra per passare
+  const rocky = new Uint8Array(N); for (let i = 0; i < N; i++) if (TERRAIN[i] === 1 || TERRAIN[i] === 2) { const c = i % COLS, r = (i / COLS) | 0; for (let dr = -4; dr <= 4; dr++) for (let dc = -4; dc <= 4; dc++) { const cc = c + dc, rr = r + dr; if (cc >= 0 && rr >= 0 && cc < COLS && rr < ROWS) rocky[rr * COLS + cc] = 1; } }
+  const blocked = (c, r) => {
+    if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return true;
+    const i = r * COLS + c;
+    if (lake(i)) return false;
+    return TERRAIN[i] === 1 || TERRAIN[i] === 2 || Math.hypot(c - cx, r - cy) < 24 || TRIBES.some(t => Math.abs(t.c - c) <= VILLAGE_R + 5 && Math.abs(t.r - r) <= VILLAGE_R + 5) || (Math.abs(c - ISLAND.c) <= ISLAND.rad + 1 && Math.abs(r - ISLAND.r) <= ISLAND.rad + 1);
+  };
+  const D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  /** La strada dell'acqua: il cammino meno caro su un terreno «mosso», che gira attorno a monti, castello, villaggi e isola. Per mare non si fa il giro. */
+  const course = (from, to) => {
+    const dist = new Float64Array(N).fill(1e9), prev = new Int32Array(N).fill(-1), heap = [[0, from]]; dist[from] = 0;
+    while (heap.length) {
+      let m = 0; for (let k = 1; k < heap.length; k++) if (heap[k][0] < heap[m][0]) m = k;
+      const [v, i] = heap.splice(m, 1)[0];
+      if (i === to) break;
+      if (v > dist[i]) continue;
+      const c = i % COLS, r = (i / COLS) | 0;
+      for (const [dc, dr] of D8) {
+        const nc = c + dc, nr = r + dr; if (blocked(nc, nr)) continue;
+        const ni = nr * COLS + nc; if (sea(nc, nr) && ni !== to) continue;
+        const nv = v + (dc && dr ? 1.414 : 1) * (lake(ni) ? 0.25 : RIVER_AT[ni] ? 0.4 : (1 + 2.6 * noise(nc, nr)) * (rocky[ni] ? 4 : 1));
+        if (nv < dist[ni]) { dist[ni] = nv; prev[ni] = i; heap.push([nv, ni]); }
+      }
+    }
+    if (dist[to] >= 1e9) return null;
+    const out = []; for (let i = to; i >= 0; i = prev[i]) out.push([i % COLS, (i / COLS) | 0]);
+    return out.reverse();
+  };
+  const dig = (path) => {
+    const modes = []; let dry = 0;
+    for (const [c, r] of path) {
+      const i = r * COLS + c;
+      if (lake(i)) { modes.push(0); dry = 0; continue; }
+      const mode = dry % 34 >= 31 ? 2 : 1; dry++; modes.push(mode);
+      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
+        if (dc * dc + dr * dr > 5) continue;
+        const cc = c + dc, rr = r + dr; if (blocked(cc, rr)) continue;
+        const j = rr * COLS + cc; if (lake(j)) continue;
+        if (mode === 1) { if (RIVER_AT[j] !== 2) { TERRAIN[j] = 3; RIVER_AT[j] = 1; } }
+        else { TERRAIN[j] = 0; RIVER_AT[j] = 2; }
+      }
+    }
+    let pts = path.filter((_, k) => k % 3 === 0 || k === path.length - 1).map(([c, r]) => ({ x: (c + 0.5) * G, y: (r + 0.5) * G }));
+    for (let k = 0; k < 3; k++) { const o = [pts[0]]; for (let i = 0; i < pts.length - 1; i++) { const p = pts[i], q = pts[i + 1]; o.push({ x: p.x * 0.75 + q.x * 0.25, y: p.y * 0.75 + q.y * 0.25 }, { x: p.x * 0.25 + q.x * 0.75, y: p.y * 0.25 + q.y * 0.75 }); } o.push(pts[pts.length - 1]); pts = o; }
+    RIVERS.push({ pts, marks: [] }); RIVER_RAW.push({ path, modes });
+  };
+  const at = (L) => { const c0 = Math.round(L.x / G - 0.5), r0 = Math.round(L.y / G - 0.5); for (let d = 0; d < 6; d++) for (let dr = -d; dr <= d; dr++) for (let dc = -d; dc <= d; dc++) { const c = c0 + dc, r = r0 + dr; if (c >= 0 && r >= 0 && c < COLS && r < ROWS && lake(r * COLS + c) && !sea(c, r)) return r * COLS + c; } return r0 * COLS + c0; };
+  const edge = (c, r) => Math.max(SEA_W - 1, Math.min(ROWS - SEA_W, r)) * COLS + Math.max(SEA_W - 1, Math.min(COLS - SEA_W, c));
+  // nord → lago di casa → est → mare; ovest → sud-ovest → isola → sud-est → est; quattro foci (nord, ovest, sud, est)
+  const PLAN = [[at(LAKES[3]), at(LAKES[0])], [at(LAKES[0]), at(LAKES[5])], [at(LAKES[5]), edge(COLS - 1, 76)], [at(LAKES[3]), edge(60, 0)],
+    [at(LAKES[6]), edge(0, 98)], [at(LAKES[6]), at(LAKES[1])], [at(LAKES[1]), at(LAKES[4])], [at(LAKES[4]), edge(54, ROWS - 1)], [at(LAKES[4]), at(LAKES[2])], [at(LAKES[2]), at(LAKES[5])], [at(LAKES[2]), edge(138, ROWS - 1)]];
+  for (const [p, q] of PLAN) { if (!lake(p)) continue; const path = course(p, q); if (path && path.length > 4) dig(path); }
 })();
 
 // ---------- strade: da ogni villaggio al castello e da un villaggio al vicino, a curve attorno al rilievo ----------
@@ -131,6 +211,7 @@ export function terrainFlow(targets) {
   for (let i = 0; i < (GW + 1) * (GH + 1); i++) grid.push(rnd());
   const noise = (c, r) => { const x = c / COLS * GW, y = r / ROWS * GH, x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, g = (a, b) => grid[Math.min(GH, b) * (GW + 1) + Math.min(GW, a)]; const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy); return (g(x0, y0) * (1 - sx) + g(x0 + 1, y0) * sx) * (1 - sy) + (g(x0, y0 + 1) * (1 - sx) + g(x0 + 1, y0 + 1) * sx) * sy; };
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) STEP[r * COLS + c] = 1 + 1.7 * noise(c, r);      // terreno «mosso»: le strade non vanno dritte
+  for (let i = 0; i < COLS * ROWS; i++) if (RIVER_AT[i] === 1) { TERRAIN[i] = 0; STEP[i] = 16; }      // un fiume si può scavalcare, ma costa: la strada lo passa dritta e nel punto più stretto
   const castle = []; for (let r = CASTLE.r; r < CASTLE.r + CASTLE.h; r++) for (let c = CASTLE.c; c < CASTLE.c + CASTLE.w; c++) castle.push(r * COLS + c);
   const trace = (dist, c, r) => {
     const out = [[c, r]];
@@ -153,6 +234,43 @@ export function terrainFlow(targets) {
   // da un villaggio al vicino, in giro attorno al castello
   const ring = TRIBES.map((t, i) => i).sort((a, b) => Math.atan2(TRIBES[a].r - CASTLE.r, TRIBES[a].c - CASTLE.c) - Math.atan2(TRIBES[b].r - CASTLE.r, TRIBES[b].c - CASTLE.c));
   ring.forEach((a, k) => { const A = TRIBES[a], B = TRIBES[ring[(k + 1) % ring.length]]; lay(trace(terrainFlow([A.r * COLS + A.c]), B.c, B.r), false); });
+  // dove passa una strada (e un quadretto attorno) il fiume resta terra: è il ponte di pietra. Il resto torna acqua.
+  const roadBy = (c, r) => { for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const cc = c + dc, rr = r + dr; if (cc >= 0 && rr >= 0 && cc < COLS && rr < ROWS && ROAD_AT[rr * COLS + cc]) return true; } return false; };
+  for (let i = 0; i < COLS * ROWS; i++) {
+    if (!RIVER_AT[i]) continue;
+    if (roadBy(i % COLS, (i / COLS) | 0)) { RIVER_AT[i] = 3; TERRAIN[i] = 0; if (!ROAD_AT[i]) STEP[i] = 1.2; }
+    else if (RIVER_AT[i] === 1) TERRAIN[i] = 3;
+  }
+})();
+
+// i fiumi, seconda parte: nessun pezzo di terra resta chiuso fuori (se serve si apre un guado in più), poi i segni dei guadi per chi dipinge
+(function () {
+  const N = COLS * ROWS, cx = CASTLE.c + 1, cy = CASTLE.r + 1, D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  const reach = () => { const seen = new Uint8Array(N), st = [cy * COLS + cx]; seen[st[0]] = 1; while (st.length) { const i = st.pop(), c = i % COLS, r = (i / COLS) | 0; for (const [dc, dr] of D8) { const nc = c + dc, nr = r + dr; if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue; const ni = nr * COLS + nc; if (seen[ni] || TERRAIN[ni] || (dc && dr && (TERRAIN[r * COLS + nc] || TERRAIN[nr * COLS + c]))) continue; seen[ni] = 1; st.push(ni); } } return seen; };
+  const extra = [];
+  for (let pass = 0; pass < 60; pass++) {
+    const seen = reach(); let fixed = false;
+    for (let i = 0; i < N && !fixed; i++) {
+      if (RIVER_AT[i] !== 1) continue;
+      const c = i % COLS, r = (i / COLS) | 0; let inSide = 0, outSide = 0;
+      for (let dr = -3; dr <= 3; dr++) for (let dc = -3; dc <= 3; dc++) { const cc = c + dc, rr = r + dr; if (cc < 2 || rr < 2 || cc >= COLS - 2 || rr >= ROWS - 2) continue; const j = rr * COLS + cc; if (TERRAIN[j]) continue; if (seen[j]) inSide++; else outSide++; }
+      if (!inSide || outSide < 3) continue;        // (un quadretto o due rimasti fra acqua e roccia non valgono un guado)
+      for (let dr = -4; dr <= 4; dr++) for (let dc = -4; dc <= 4; dc++) { const cc = c + dc, rr = r + dr; if (cc < 0 || rr < 0 || cc >= COLS || rr >= ROWS || dc * dc + dr * dr > 18) continue; const j = rr * COLS + cc; if (RIVER_AT[j] === 1) { TERRAIN[j] = 0; RIVER_AT[j] = 2; } }
+      extra.push([c, r]); fixed = true;
+    }
+    if (!fixed) break;
+  }
+  const tangent = (R, x, y) => { let k = 0, bd = 1e12; R.pts.forEach((p, i) => { const d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y); if (d < bd) { bd = d; k = i; } }); const p0 = R.pts[Math.max(0, k - 2)], p1 = R.pts[Math.min(R.pts.length - 1, k + 2)], L = Math.hypot(p1.x - p0.x, p1.y - p0.y) || 1; return { tx: (p1.x - p0.x) / L, ty: (p1.y - p0.y) / L, d: Math.sqrt(bd) }; };
+  RIVER_RAW.forEach(({ path, modes }, n) => {
+    for (let k = 0; k < modes.length; k++) {
+      if (modes[k] !== 2) continue;
+      let e = k; while (e + 1 < modes.length && modes[e + 1] === 2) e++;
+      const m = (k + e) >> 1, [c, r] = path[m];
+      if (RIVER_AT[r * COLS + c] === 2) { const x = (c + 0.5) * G, y = (r + 0.5) * G, t = tangent(RIVERS[n], x, y); RIVERS[n].marks.push({ x, y, tx: t.tx, ty: t.ty, kind: 2, len: e - k + 1 }); }
+      k = e;
+    }
+  });
+  for (const [c, r] of extra) { const x = (c + 0.5) * G, y = (r + 0.5) * G; let best = null; for (const R of RIVERS) { const t = tangent(R, x, y); if (!best || t.d < best.t.d) best = { R, t }; } if (best) best.R.marks.push({ x, y, tx: best.t.tx, ty: best.t.ty, kind: 2, len: 5 }); }
 })();
 
 // ---------- edifici ----------
@@ -359,7 +477,7 @@ export const NATURE = (function () {
     c = Math.round(c); r = Math.round(r);
     if (c < 1 || r < 1 || c >= COLS - 1 || r >= ROWS - 1 || !far(c, r) || !clear(c, r)) return;
     const k = r * COLS + c;
-    if (used.has(k) || TERRAIN[k] || ROAD_AT[k]) return;
+    if (used.has(k) || TERRAIN[k] || ROAD_AT[k] || RIVER_AT[k]) return;
     used.add(k);
     out.push({ id: out.length, c, r, kind, size: 0.8 + rnd() * 0.45, tint: Math.floor(rnd() * 6) });
   };
@@ -433,99 +551,9 @@ export const CHAPTERS = [{ id: 0 }, { id: 1, night: 1 }, { id: 2, shards: 1 }, {
 
 // ---------- un'isola nel lago grande: ci si arriva con un ponte, o in barca dal porto ----------
 // (dopo natura e rovine: così alberi, rocce e rovine di prima restano identici, e i salvataggi non si spostano)
-export const ISLAND = { c: 56, r: 90, rad: 1 };
 for (let r = ISLAND.r - ISLAND.rad; r <= ISLAND.r + ISLAND.rad; r++) for (let c = ISLAND.c - ISLAND.rad; c <= ISLAND.c + ISLAND.rad; c++) TERRAIN[r * COLS + c] = 0;
 RUINS.push({ id: RUINS.length, c: ISLAND.c, r: ISLAND.r, loot: { monete: 400, cristallo: 60 }, island: true });
 
-// ---------- fiumi: da un lago all'altro e dai laghi fino al bordo della mappa ----------
-// Nascono DOPO strade, natura e rovine, così tutto il resto resta com'era e i salvataggi non si spostano. Dove passa una strada il fiume
-// lascia un ponte di pietra (terra), e ogni tanto un guado: nessun pezzo di mappa resta chiuso fuori. Sulla riva si costruiscono
-// porticcioli e porti; sull'acqua si tirano i ponti. RIVER_AT: 0 niente · 1 acqua di fiume · 2 guado · 3 ponte di una strada.
-// RIVERS: { pts: [{x, y}] la linea morbida per chi dipinge, marks: [{ x, y, tx, ty, kind: 2 | 3 }] guadi e ponti con la direzione del fiume }
-export const RIVERS = [], RIVER_AT = new Uint8Array(COLS * ROWS);
-(function () {
-  const N = COLS * ROWS, rnd = mulberry32(4242), GW = 14, GH = 10, grid = [], cx = CASTLE.c + 1, cy = CASTLE.r + 1;
-  for (let i = 0; i < (GW + 1) * (GH + 1); i++) grid.push(rnd());
-  const noise = (c, r) => { const x = c / COLS * GW, y = r / ROWS * GH, x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, g = (p, q) => grid[Math.min(GH, q) * (GW + 1) + Math.min(GW, p)]; const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy); return (g(x0, y0) * (1 - sx) + g(x0 + 1, y0) * sx) * (1 - sy) + (g(x0, y0 + 1) * (1 - sx) + g(x0 + 1, y0 + 1) * sx) * sy; };
-  const lake = (i) => TERRAIN[i] === 3 && !RIVER_AT[i];
-  const keep = new Uint8Array(N);          // accanto ai giacimenti il fiume non scava
-  for (const n of NATURE) if (n.kind === 'iron' || n.kind === 'crystal') for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const c = n.c + dc, r = n.r + dr; if (c >= 0 && r >= 0 && c < COLS && r < ROWS) keep[r * COLS + c] = 1; }
-  const blocked = (c, r) => {
-    if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return true;
-    const i = r * COLS + c;
-    if (lake(i)) return false;
-    return TERRAIN[i] === 1 || TERRAIN[i] === 2 || Math.hypot(c - cx, r - cy) < 23 || TRIBES.some(t => Math.abs(t.c - c) <= VILLAGE_R + 4 && Math.abs(t.r - r) <= VILLAGE_R + 4) || RUINS.some(R => !R.island && Math.abs(R.c - c) <= 2 && Math.abs(R.r - r) <= 2) || (Math.abs(c - ISLAND.c) <= ISLAND.rad + 1 && Math.abs(r - ISLAND.r) <= ISLAND.rad + 1);      // nemmeno sull'isola
-  };
-  const roadNear = (c, r, m) => { for (let dr = -m; dr <= m; dr++) for (let dc = -m; dc <= m; dc++) { const cc = c + dc, rr = r + dr; if (cc >= 0 && rr >= 0 && cc < COLS && rr < ROWS && ROAD_AT[rr * COLS + cc]) return true; } return false; };
-  const D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-  /** La strada dell'acqua: il cammino meno caro su un terreno «mosso», che gira attorno a monti, castello, villaggi e rovine. */
-  const course = (from, to) => {
-    const dist = new Float64Array(N).fill(1e9), prev = new Int32Array(N).fill(-1), heap = [[0, from]]; dist[from] = 0;
-    while (heap.length) {
-      let m = 0; for (let k = 1; k < heap.length; k++) if (heap[k][0] < heap[m][0]) m = k;
-      const [v, i] = heap.splice(m, 1)[0];
-      if (i === to) break;
-      if (v > dist[i]) continue;
-      const c = i % COLS, r = (i / COLS) | 0;
-      for (const [dc, dr] of D8) {
-        const nc = c + dc, nr = r + dr; if (blocked(nc, nr)) continue;
-        const ni = nr * COLS + nc, nv = v + (dc && dr ? 1.414 : 1) * (lake(ni) ? 0.25 : RIVER_AT[ni] ? 0.4 : (1 + 2.6 * noise(nc, nr)) * (roadNear(nc, nr, 2) ? 6 : 1));      // accanto a una strada costa caro: il fiume la attraversa, non la segue
-        if (nv < dist[ni]) { dist[ni] = nv; prev[ni] = i; heap.push([nv, ni]); }
-      }
-    }
-    if (dist[to] >= 1e9) return null;
-    const out = []; for (let i = to; i >= 0; i = prev[i]) out.push([i % COLS, (i / COLS) | 0]);
-    return out.reverse();
-  };
-  const dig = (path) => {
-    const modes = []; let dry = 0;
-    for (const [c, r] of path) {
-      const i = r * COLS + c;
-      if (lake(i)) { modes.push(0); dry = 0; continue; }
-      const mode = roadNear(c, r, 2) ? 3 : dry % 24 >= 22 ? 2 : 1; dry++; modes.push(mode);
-      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-        const cc = c + dc, rr = r + dr; if (dc && dr && mode === 1 && (c + r) % 2) continue;      // gli angoli un po' sì un po' no: la riva non è un righello
-        if (blocked(cc, rr)) continue;
-        const j = rr * COLS + cc; if (lake(j) || keep[j]) continue;
-        if (mode === 1) { if (RIVER_AT[j] > 1) continue; if (roadNear(cc, rr, 1)) { RIVER_AT[j] = 3; TERRAIN[j] = 0; continue; } TERRAIN[j] = 3; RIVER_AT[j] = 1; }
-        else { if (RIVER_AT[j] === 1) TERRAIN[j] = 0; if (!TERRAIN[j]) RIVER_AT[j] = Math.max(RIVER_AT[j], mode); }
-      }
-    }
-    // la linea morbida, e dove stanno guadi e ponti
-    let pts = path.filter((_, k) => k % 3 === 0 || k === path.length - 1).map(([c, r]) => ({ x: (c + 0.5) * G, y: (r + 0.5) * G }));
-    for (let k = 0; k < 3; k++) { const o = [pts[0]]; for (let i = 0; i < pts.length - 1; i++) { const p = pts[i], q = pts[i + 1]; o.push({ x: p.x * 0.75 + q.x * 0.25, y: p.y * 0.75 + q.y * 0.25 }, { x: p.x * 0.25 + q.x * 0.75, y: p.y * 0.25 + q.y * 0.75 }); } o.push(pts[pts.length - 1]); pts = o; }
-    const marks = [];
-    for (let k = 0; k < modes.length; k++) {
-      if (modes[k] < 2) continue;
-      let e = k; while (e + 1 < modes.length && modes[e + 1] === modes[k]) e++;
-      const m = (k + e) >> 1, p0 = path[Math.max(0, m - 2)], p1 = path[Math.min(path.length - 1, m + 2)], L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1;
-      marks.push({ x: (path[m][0] + 0.5) * G, y: (path[m][1] + 0.5) * G, tx: (p1[0] - p0[0]) / L, ty: (p1[1] - p0[1]) / L, kind: modes[k], len: e - k + 1 });
-      k = e;
-    }
-    RIVERS.push({ pts, marks });
-  };
-  const at = (L) => { const c0 = Math.round(L.x / G - 0.5), r0 = Math.round(L.y / G - 0.5); for (let d = 0; d < 6; d++) for (let dr = -d; dr <= d; dr++) for (let dc = -d; dc <= d; dc++) { const c = c0 + dc, r = r0 + dr; if (c >= 0 && r >= 0 && c < COLS && r < ROWS && lake(r * COLS + c)) return r * COLS + c; } return r0 * COLS + c0; }, edge = (c, r) => Math.max(0, Math.min(ROWS - 1, r)) * COLS + Math.max(0, Math.min(COLS - 1, c));
-  // i corsi: lago del nord → lago vicino al castello → lago a est → mare; e i laghi del sud e dell'ovest fino al bordo
-  const PLAN = [[at(LAKES[3]), at(LAKES[0])], [at(LAKES[0]), at(LAKES[5])], [at(LAKES[5]), edge(COLS - 1, 76)], [at(LAKES[1]), at(LAKES[4])], [at(LAKES[4]), edge(66, ROWS - 1)], [at(LAKES[6]), edge(0, 98)], [at(LAKES[2]), edge(138, ROWS - 1)], [at(LAKES[3]), edge(60, 0)]];
-  for (const [p, q] of PLAN) { if (!lake(p)) continue; const path = course(p, q); if (path && path.length > 4) dig(path); }
-  // nessun pezzo di terra resta chiuso fuori: se un tratto di fiume isola qualcosa, lì si apre un guado in più
-  const reach = () => { const seen = new Uint8Array(N), st = [cy * COLS + cx]; seen[st[0]] = 1; while (st.length) { const i = st.pop(), c = i % COLS, r = (i / COLS) | 0; for (const [dc, dr] of D8) { const nc = c + dc, nr = r + dr; if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue; const ni = nr * COLS + nc; if (seen[ni] || TERRAIN[ni] || (dc && dr && (TERRAIN[r * COLS + nc] || TERRAIN[nr * COLS + c]))) continue; seen[ni] = 1; st.push(ni); } } return seen; };
-  for (let pass = 0; pass < 40; pass++) {
-    const seen = reach(); let fixed = false;
-    for (let i = 0; i < N && !fixed; i++) {
-      if (RIVER_AT[i] !== 1) continue;
-      const c = i % COLS, r = (i / COLS) | 0; let inSide = false, outSide = false;
-      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) { const cc = c + dc, rr = r + dr; if (cc < 2 || rr < 2 || cc >= COLS - 2 || rr >= ROWS - 2) continue; const j = rr * COLS + cc; if (TERRAIN[j]) continue; if (seen[j]) inSide = true; else outSide = true; }
-      if (!inSide || !outSide) continue;
-      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) { const cc = c + dc, rr = r + dr; if (cc < 0 || rr < 0 || cc >= COLS || rr >= ROWS) continue; const j = rr * COLS + cc; if (RIVER_AT[j] === 1) { TERRAIN[j] = 0; RIVER_AT[j] = 2; } }
-      const R0 = RIVERS.reduce((best, R) => { for (const p of R.pts) { const d = Math.hypot(p.x - (c + 0.5) * G, p.y - (r + 0.5) * G); if (d < best.d) best = { d, R, p }; } return best; }, { d: 1e9 });
-      if (R0.R) { const k = R0.R.pts.indexOf(R0.p), p0 = R0.R.pts[Math.max(0, k - 2)], p1 = R0.R.pts[Math.min(R0.R.pts.length - 1, k + 2)], L = Math.hypot(p1.x - p0.x, p1.y - p0.y) || 1; R0.R.marks.push({ x: (c + 0.5) * G, y: (r + 0.5) * G, tx: (p1.x - p0.x) / L, ty: (p1.y - p0.y) / L, kind: 2, len: 4 }); }
-      fixed = true;
-    }
-    if (!fixed) break;
-  }
-  for (const n of NATURE) if (TERRAIN[n.r * COLS + n.c] === 3 || RIVER_AT[n.r * COLS + n.c]) n.wet = true;       // alberi e rocce finiti nel fiume: non ci sono più (restano in elenco per non spostare i numeri)
-})();
 
 // ---------- edifici a livelli: costo per salire al livello 2 e al 3 ----------
 // resa ×1,5 e ×2 · una casa ospita 2 abitanti in più a livello · una caserma un soldato in più a livello · vita +25% a livello
