@@ -10,23 +10,94 @@ import * as Y from './ui3.js';
 import * as Z from './ui4.js';
 
 const F = '"Trebuchet MS","Segoe UI",Roboto,sans-serif';
+const SERIF = 'Georgia,"Palatino Linotype","Book Antiqua","Noto Serif",serif';      // i titoli: un carattere da libro di fiabe
 const GOLD = '#e9c46a', CREAM = '#f5ecd7', DIM = '#cbbf9f', BAD = '#e8897e', TAU = Math.PI * 2;
+// gli inchiostri per scrivere sulla pergamena
+const PEN = '#3a2614', PEN2 = '#7a5f3e', PENBAD = '#a3321f', PENOK = '#2f6b2a', PENRED = '#7a2c1e';
 
 function txt(c, s, x, y, size, color = CREAM, align = 'left', weight = 700) {
   c.font = `${weight} ${size}px ${F}`; c.textAlign = align; c.textBaseline = 'middle';
   c.fillStyle = color; c.fillText(s, x, y);
 }
-function width(c, s, size, weight = 700) { c.font = `${weight} ${size}px ${F}`; return c.measureText(s).width; }
+function width(c, s, size, weight = 700, serif = false) { c.font = `${weight} ${size}px ${serif ? SERIF : F}`; return c.measureText(s).width; }
+
+// ---------- la pelle: legno con bordo d'oro per i comandi, pergamena per chi ti parla ----------
+const SHADES = new Map();
+/** Un colore #rrggbb più chiaro (k > 0) o più scuro (k < 0). */
+function shade(hex, k) {
+  if (typeof hex !== 'string' || hex[0] !== '#' || hex.length !== 7) return hex;
+  const key = hex + k; let v = SHADES.get(key); if (v) return v;
+  const ch = (i) => { const n = parseInt(hex.slice(i, i + 2), 16); return Math.round(k > 0 ? n + (255 - n) * k : n * (1 + k)); };
+  v = `rgb(${ch(1)},${ch(3)},${ch(5)})`; SHADES.set(key, v); return v;
+}
+let WOOD = null, PAPER = null, skinned = false;
+/** Le due trame (venature del legno, grana della carta): si disegnano una volta sola e poi si ripetono. */
+function skins(c) {
+  if (skinned) return; skinned = true;
+  if (typeof document === 'undefined') return;
+  try {
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const mk = (w, h, fn) => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; fn(cv.getContext('2d')); return c.createPattern(cv, 'repeat'); };
+    WOOD = mk(160, 96, (g) => { for (let i = 0; i < 46; i++) { const y = rnd() * 96, a = 0.035 + rnd() * 0.07; g.strokeStyle = rnd() < 0.55 ? 'rgba(0,0,0,' + a + ')' : 'rgba(255,214,150,' + a * 0.7 + ')'; g.lineWidth = 0.6 + rnd() * 1.5; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(50, y + rnd() * 5 - 2.5, 110, y + rnd() * 5 - 2.5, 160, y); g.stroke(); } });
+    PAPER = mk(128, 128, (g) => { for (let i = 0; i < 460; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(120,84,40,' + (0.03 + rnd() * 0.06) + ')' : 'rgba(255,255,240,' + (0.05 + rnd() * 0.06) + ')'; const q = 0.6 + rnd() * 2.2; g.fillRect(rnd() * 128, rnd() * 128, q, q); } });
+  } catch (e) { WOOD = PAPER = null; }
+}
+/** Una tavola di legno scuro con il filo d'oro: il fondo di ogni pannello coi comandi. */
 function panel(c, x, y, w, h, r = 12, alpha = 0.86) {
+  flushIcons(c); skins(c);
+  const a = Math.max(alpha, 0.9);
+  c.beginPath(); c.roundRect(x, y + 3, w, h, r); c.fillStyle = 'rgba(0,0,0,0.3)'; c.fill();
+  const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, 'rgba(70,49,31,' + a + ')'); g.addColorStop(1, 'rgba(36,24,15,' + a + ')');
+  c.beginPath(); c.roundRect(x, y, w, h, r); c.fillStyle = g; c.fill();
+  if (WOOD) { c.fillStyle = WOOD; c.fill(); }
+  c.strokeStyle = 'rgba(16,10,5,0.95)'; c.lineWidth = 3; c.stroke();
+  c.beginPath(); c.roundRect(x + 2.5, y + 2.5, w - 5, h - 5, Math.max(2, r - 2)); c.strokeStyle = 'rgba(233,196,106,0.66)'; c.lineWidth = 1.5; c.stroke();
+  if (w > r * 2 + 12) { c.beginPath(); c.moveTo(x + r + 2, y + 5.5); c.lineTo(x + w - r - 2, y + 5.5); c.strokeStyle = 'rgba(255,240,200,0.13)'; c.lineWidth = 1.5; c.stroke(); }
+  if (w >= 260 && h >= 170) for (const [px, py] of [[x + 11, y + 11], [x + w - 11, y + 11], [x + 11, y + h - 11], [x + w - 11, y + h - 11]]) {      // le borchie agli angoli dei pannelli grandi
+    c.beginPath(); c.arc(px, py, 3.1, 0, TAU); c.fillStyle = '#e9c46a'; c.fill(); c.strokeStyle = 'rgba(40,24,8,0.9)'; c.lineWidth = 1; c.stroke();
+    c.beginPath(); c.arc(px - 0.8, py - 0.9, 1, 0, TAU); c.fillStyle = 'rgba(255,250,225,0.9)'; c.fill();
+  }
+}
+/** Un foglio di pergamena: il fondo dei messaggi (la guida, gli eventi, il racconto, i rapporti). Sopra si scrive con PEN. */
+function scroll(c, x, y, w, h, r = 12) {
+  flushIcons(c); skins(c);
+  c.beginPath(); c.roundRect(x, y + 3, w, h, r); c.fillStyle = 'rgba(0,0,0,0.32)'; c.fill();
+  const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, '#f8ecd2'); g.addColorStop(1, '#e2cd9f');
+  c.beginPath(); c.roundRect(x, y, w, h, r); c.fillStyle = g; c.fill();
+  if (PAPER) { c.fillStyle = PAPER; c.fill(); }
+  c.strokeStyle = '#4e351d'; c.lineWidth = 2.5; c.stroke();
+  if (w > 70 && h > 44) { c.beginPath(); c.roundRect(x + 5, y + 5, w - 10, h - 10, Math.max(2, r - 4)); c.strokeStyle = 'rgba(138,98,48,0.42)'; c.lineWidth = 1.2; c.stroke(); }
+}
+/** Un nastro col titolo, a coda di rondine: sta a cavallo del bordo alto di un foglio. */
+function ribbon(c, cx, y, w, h, label, col = '#8a2f24', fs = 20) {
   flushIcons(c);
-  c.beginPath(); c.roundRect(x, y, w, h, r);
-  c.fillStyle = `rgba(26,20,14,${alpha})`; c.fill();
-  c.strokeStyle = 'rgba(233,196,106,0.55)'; c.lineWidth = 2; c.stroke();
+  const x = cx - w / 2;
+  c.fillStyle = shade(col, -0.4);
+  for (const k of [-1, 1]) { const e = k < 0 ? x : x + w; c.beginPath(); c.moveTo(e - k * 12, y + 7); c.lineTo(e + k * 17, y + 7); c.lineTo(e + k * 8, y + 7 + h / 2); c.lineTo(e + k * 17, y + 7 + h); c.lineTo(e - k * 12, y + 7 + h); c.closePath(); c.fill(); }
+  const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, shade(col, 0.2)); g.addColorStop(1, shade(col, -0.14));
+  c.beginPath(); c.roundRect(x, y, w, h, 5); c.fillStyle = g; c.fill(); c.strokeStyle = 'rgba(30,12,8,0.85)'; c.lineWidth = 2; c.stroke();
+  c.strokeStyle = 'rgba(255,226,150,0.6)'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(x + 8, y + 4.5); c.lineTo(x + w - 8, y + 4.5); c.moveTo(x + 8, y + h - 4.5); c.lineTo(x + w - 8, y + h - 4.5); c.stroke();
+  head(c, label, cx, y + h / 2 + 1, fs, '#fff3d6', 'center');
+}
+/** Un titolo (carattere coi piedini). Su fondo scuro ha un'ombra; sulla pergamena no (shadow = false). */
+function head(c, s, x, y, size, color = '#f2cf73', align = 'left', shadow = true) {
+  c.font = `700 ${size}px ${SERIF}`; c.textAlign = align; c.textBaseline = 'middle';
+  if (shadow) { c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillText(s, x, y + 1.6); }
+  c.fillStyle = color; c.fillText(s, x, y);
+}
+/** La misura giusta perché una scritta stia in maxW. */
+function fit(c, s, maxW, size, weight = 700, serif = false) { const w = width(c, s, size, weight, serif); return w > maxW ? Math.max(9, size * maxW / w) : size; }
+/** Una riga sottile d'oro che sfuma ai lati, con un rombo in mezzo: separa le parti di un pannello. */
+function rule(c, x, y, w, col = '233,196,106') {
+  const g = c.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, 'rgba(' + col + ',0)'); g.addColorStop(0.5, 'rgba(' + col + ',0.75)'); g.addColorStop(1, 'rgba(' + col + ',0)');
+  c.fillStyle = g; c.fillRect(x, y - 0.75, w, 1.5);
+  c.beginPath(); c.moveTo(x + w / 2, y - 4); c.lineTo(x + w / 2 + 4, y); c.lineTo(x + w / 2, y + 4); c.lineTo(x + w / 2 - 4, y); c.closePath(); c.fillStyle = 'rgba(' + col + ',0.95)'; c.fill();
 }
 function title2(c, s, x, y, size, color) {
-  c.font = `800 ${size}px ${F}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.lineWidth = Math.max(4, size / 8); c.strokeStyle = 'rgba(20,12,6,0.9)'; c.lineJoin = 'round'; c.strokeText(s, x, y);
-  c.fillStyle = color; c.fillText(s, x, y);
+  c.font = `700 ${size}px ${SERIF}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.lineWidth = Math.max(4, size / 7); c.strokeStyle = 'rgba(24,13,5,0.92)'; c.lineJoin = 'round'; c.strokeText(s, x, y);
+  const g = c.createLinearGradient(0, y - size * 0.5, 0, y + size * 0.5); g.addColorStop(0, shade(color, 0.5)); g.addColorStop(0.55, color); g.addColorStop(1, shade(color, -0.28));
+  c.fillStyle = g; c.fillText(s, x, y);
 }
 function wrap(c, s, x, y, maxW, size, color, lh, align = 'center') {
   c.font = `600 ${size}px ${F}`;
@@ -231,11 +302,18 @@ function button(c, ui, x, y, w, h, label, o, fn) {
   flushIcons(c);
   o = o || {};
   const col = o.disabled ? '#4a4640' : (o.color || '#3a6b35'), r = o.r ?? 12;
-  c.beginPath(); c.roundRect(x, y + 3, w, h, r); c.fillStyle = 'rgba(0,0,0,0.35)'; c.fill();
-  c.beginPath(); c.roundRect(x, y, w, h, r); c.fillStyle = col; c.fill();
-  c.beginPath(); c.roundRect(x + 2, y + 2, w - 4, h * 0.45, Math.max(2, r - 2)); c.fillStyle = 'rgba(255,255,255,0.12)'; c.fill();
-  c.beginPath(); c.roundRect(x, y, w, h, r); c.strokeStyle = o.disabled ? 'rgba(255,255,255,0.15)' : (o.stroke || 'rgba(255,236,170,0.75)'); c.lineWidth = 2; c.stroke();
-  if (label) txt(c, label, x + w / 2 + (o.dx || 0), y + h / 2 + 1, o.fs || 22, o.disabled ? '#9a948a' : (o.fg || CREAM), 'center', 800);
+  c.beginPath(); c.roundRect(x, y + 4.5, w, h, r); c.fillStyle = 'rgba(0,0,0,0.36)'; c.fill();                 // l'ombra
+  c.beginPath(); c.roundRect(x, y + 2.5, w, h, r); c.fillStyle = shade(col, -0.45); c.fill();                   // lo spessore
+  const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, shade(col, 0.22)); g.addColorStop(0.5, col); g.addColorStop(1, shade(col, -0.18));
+  c.beginPath(); c.roundRect(x, y, w, h, r); c.fillStyle = g; c.fill();
+  c.strokeStyle = 'rgba(22,13,6,0.9)'; c.lineWidth = 2.5; c.stroke();
+  c.beginPath(); c.roundRect(x + 2.2, y + 2.2, w - 4.4, h - 4.4, Math.max(2, r - 2)); c.strokeStyle = o.disabled ? 'rgba(255,255,255,0.12)' : (o.stroke || 'rgba(255,236,170,0.72)'); c.lineWidth = 1.5; c.stroke();
+  if (!o.disabled) { c.beginPath(); c.roundRect(x + 4.5, y + 4, w - 9, h * 0.36, Math.max(2, r - 4)); c.fillStyle = 'rgba(255,255,255,0.13)'; c.fill(); }
+  if (label) {
+    const fs = o.fs || 22, lx = x + w / 2 + (o.dx || 0), ly = y + h / 2 + 1;
+    if (!o.disabled) txt(c, label, lx, ly + 1.6, fs, 'rgba(0,0,0,0.42)', 'center', 800);
+    txt(c, label, lx, ly, fs, o.disabled ? '#9a948a' : (o.fg || CREAM), 'center', 800);
+  }
   ui.buttons.push({ x, y, w, h, tag: o.tag, fn: fn || (() => {}) });
 }
 function block(ui, x, y, w, h) { ui.buttons.push({ x, y, w, h, fn: () => {} }); }
@@ -249,8 +327,14 @@ function fmtTime(ms) {
 function fmtDur(secs) { return secs < 3600 ? Math.round(secs / 60) + ' min' : Math.round(secs / 3600) + ' h'; }
 function bubble(c, x, y, r, fill) { flushIcons(c); c.beginPath(); c.arc(x, y, r, 0, TAU); c.fillStyle = fill; c.fill(); c.strokeStyle = 'rgba(20,14,8,0.8)'; c.lineWidth = 2; c.stroke(); c.beginPath(); c.moveTo(x - r * 0.4, y + r * 0.85); c.lineTo(x, y + r * 1.5); c.lineTo(x + r * 0.4, y + r * 0.85); c.fillStyle = fill; c.fill(); }
 function bar(c, x, y, w, h, f, col) {
-  c.fillStyle = 'rgba(15,10,8,0.8)'; c.beginPath(); c.roundRect(x - 1.5, y - 1.5, w + 3, h + 3, 3); c.fill();
-  c.fillStyle = col || (f > 0.55 ? '#6fd45a' : f > 0.25 ? '#f1c232' : '#e0452f'); c.beginPath(); c.roundRect(x, y, Math.max(2, w * Math.max(0, f)), h, 2); c.fill();
+  const r = Math.min(h / 2, 5), fw = Math.max(h, w * Math.max(0, Math.min(1, f))), k = col || (f > 0.55 ? '#6fd45a' : f > 0.25 ? '#f1c232' : '#e0452f');
+  c.fillStyle = 'rgba(15,10,6,0.85)'; c.beginPath(); c.roundRect(x - 1.5, y - 1.5, w + 3, h + 3, r + 1.5); c.fill();
+  c.strokeStyle = 'rgba(233,196,106,0.4)'; c.lineWidth = 1; c.stroke();
+  if (f > 0.001) {
+    const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, shade(k, 0.3)); g.addColorStop(1, shade(k, -0.18));
+    c.fillStyle = g; c.beginPath(); c.roundRect(x, y, fw, h, r); c.fill();
+    if (h >= 6) { c.fillStyle = 'rgba(255,255,255,0.28)'; c.beginPath(); c.roundRect(x + 1.5, y + 1, Math.max(1, fw - 3), h * 0.34, r); c.fill(); }
+  }
 }
 const ICON_K = { predone: 0.85, bruto: 1.15, capo: 1.25, campione: 1.35 };
 /** Un nemico (o un soldato) come icona, centrata in (x, y), nel colore del suo popolo. */
@@ -259,8 +343,8 @@ const enemyIcon = (c, ty, x, y, k, color, eyes) => tuzuIcon(c, ty, x, y, 15 * k 
 function langRow(S, cx, y) {
   const { c, ui, A } = S, bw = 62, gap = 10, total = LANGS.length * (bw + gap) + 150;
   let x = cx - total / 2;
-  for (const l of LANGS) { button(c, ui, x, y, bw, 44, l.toUpperCase(), { color: getLang() === l ? '#8a5a1c' : '#3b3229', fs: 18 }, () => A.lang(l)); x += bw + gap; }
-  button(c, ui, x, y, 150, 44, `${t('sound')}: ${ui.sound ? t('on') : t('off')}`, { color: '#3b3229', fs: 17 }, A.sound);
+  for (const l of LANGS) { button(c, ui, x, y, bw, 44, l.toUpperCase(), { color: getLang() === l ? '#8a5a1c' : '#5c4330', fs: 18 }, () => A.lang(l)); x += bw + gap; }
+  button(c, ui, x, y, 150, 44, `${t('sound')}: ${ui.sound ? t('on') : t('off')}`, { color: '#5c4330', fs: 17 }, A.sound);
 }
 
 // =====================================================================
@@ -448,7 +532,7 @@ function hud(S) {
 
   // in alto a destra: menu, missioni, torna al castello, velocità
   let bx = vw - 14 - 54;
-  button(c, ui, bx, 10, 54, 48, '', { color: '#3b3229', tag: 'menu' }, A.settings);
+  button(c, ui, bx, 10, 54, 48, '', { color: '#5c4330', tag: 'menu' }, A.settings);
   c.fillStyle = CREAM; for (let i = 0; i < 3; i++) c.fillRect(bx + 15, 23 + i * 9, 24, 4);
   bx -= 64;
   button(c, ui, bx, 10, 54, 48, '', { color: '#5b4a8a', tag: 'quests' }, A.quests);
@@ -456,7 +540,7 @@ function hud(S) {
   const rdy = world.questsReady();
   if (rdy) { c.beginPath(); c.arc(bx + 50, 14, 12, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, String(rdy), bx + 50, 15, 15, '#fff', 'center', 800); }
   bx -= 64;
-  button(c, ui, bx, 10, 54, 48, '', { color: '#3b3229', tag: 'home' }, A.home);
+  button(c, ui, bx, 10, 54, 48, '', { color: '#5c4330', tag: 'home' }, A.home);
   buildIcon(c, 'castello', bx + 27, 35, 13, 0);
   bx -= 64;
   button(c, ui, bx, 10, 54, 48, '', { color: '#2f5d7a', tag: 'map' }, A.mapOpen);
@@ -468,7 +552,7 @@ function hud(S) {
     Z.globeIcon(c, bx + 27, 34, 13);
     if (ui.onlineNew) { c.beginPath(); c.arc(bx + 50, 14, 11, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, String(ui.onlineNew), bx + 50, 15, 14, '#fff', 'center', 800); }
   }
-  if (isNight || raid) { bx -= 76; button(c, ui, bx, 10, 66, 48, 'x' + ui.speed, { color: ui.speed > 1 ? '#8a5a1c' : '#3b3229', fs: 22, tag: 'speed' }, A.speed); }
+  if (isNight || raid) { bx -= 76; button(c, ui, bx, 10, 66, 48, 'x' + ui.speed, { color: ui.speed > 1 ? '#8a5a1c' : '#5c4330', fs: 22, tag: 'speed' }, A.speed); }
 
   {
     const m = world.morale(), k = moraleK(m), ws = `${Math.max(0, world.workersFree())}/${world.workersMax()}`, ms = String(m) + (k !== 1 ? (k > 1 ? ' +' : ' −') + Math.round(Math.abs(k - 1) * 100) + '%' : '');
@@ -547,25 +631,38 @@ function buildBar(S) {
   const cols = tall ? 4 : list.length, rows = Math.ceil(list.length / cols);
   const h = tall ? 58 + rows * (ch + gap) + 4 : 176, x = 14, y = vh - h - 12, w = vw - 28;
   panel(c, x, y, w, h, 14, 0.94); block(ui, x, y, w, h);
-  if (tall) { const tw = (w - 24 - 52 - 4 * 6) / 5; CAT_ORDER.forEach((cat, i) => button(c, ui, x + 12 + i * (tw + 6), y + 10, tw, 38, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#3b3229', fs: 15.5, r: 9, tag: 'cat_' + cat }, () => A.cat(cat))); }
-  else CAT_ORDER.forEach((cat, i) => button(c, ui, x + 12, y + 9 + i * 32, 150, 28, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#3b3229', fs: 15.5, r: 9, tag: 'cat_' + cat }, () => A.cat(cat)));
+  if (tall) { const tw = (w - 24 - 52 - 4 * 6) / 5; CAT_ORDER.forEach((cat, i) => button(c, ui, x + 12 + i * (tw + 6), y + 10, tw, 38, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#5c4330', fs: 15.5, r: 9, tag: 'cat_' + cat }, () => A.cat(cat))); }
+  else CAT_ORDER.forEach((cat, i) => button(c, ui, x + 12, y + 9 + i * 32, 150, 28, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#5c4330', fs: 15.5, r: 9, tag: 'cat_' + cat }, () => A.cat(cat)));
   const x0 = tall ? x + 12 : x + 12 + 150 + 14;
   const cw = tall ? (w - 24 - gap * (cols - 1)) / cols : Math.min(122, Math.floor((w - (x0 - x) - 62) / list.length) - gap), small = cw < 112;       // con tante carte si stringono
   list.forEach((ty, i) => {
     const D = BUILD[ty], bx = x0 + (i % cols) * (cw + gap), by = tall ? y + 56 + Math.floor(i / cols) * (ch + gap) : y + 12, open = D.min <= L, tech = !D.tech || !!world.d.tech[D.tech], cp = world.cap(ty), full = cp.have >= cp.max, can = open && tech && !full, ok = can && world.afford(D.cost);
+    const locked = !open || !tech, mx = bx + cw / 2, my = by + 39, mr = 29;
     flushIcons(c);
-    c.beginPath(); c.roundRect(bx, by, cw, ch, 10);
-    c.fillStyle = ok ? 'rgba(74,92,58,0.95)' : 'rgba(56,52,48,0.95)'; c.fill();
-    c.strokeStyle = ok ? 'rgba(255,236,170,0.7)' : 'rgba(255,255,255,0.12)'; c.lineWidth = 2; c.stroke();
-    c.globalAlpha = can ? 1 : 0.3; buildIcon(c, ty, bx + cw / 2, by + 36, 27, ui.time); c.globalAlpha = 1;
-    txt(c, t('b_' + ty), bx + cw / 2, by + 80, small ? 14.5 : 16, can ? CREAM : '#9a948a', 'center', 800);
-    if (!open) { lock(c, bx + cw / 2, by + 34, 13); txt(c, t('needCastle', D.min), bx + cw / 2, by + 118, 13, DIM, 'center', 700); }
-    else if (!tech) { lock(c, bx + cw / 2, by + 34, 13); txt(c, t('needTech', t('t_' + D.tech)), bx + cw / 2, by + 118, 13, DIM, 'center', 700); }
+    c.beginPath(); c.roundRect(bx, by + 3, cw, ch, 11); c.fillStyle = 'rgba(0,0,0,0.36)'; c.fill();
+    const g = c.createLinearGradient(0, by, 0, by + ch);
+    if (locked) { g.addColorStop(0, '#4d4238'); g.addColorStop(1, '#342b23'); } else if (ok) { g.addColorStop(0, '#fbf0d6'); g.addColorStop(1, '#e6d1a2'); } else { g.addColorStop(0, '#d9cdb4'); g.addColorStop(1, '#bbad8f'); }
+    c.beginPath(); c.roundRect(bx, by, cw, ch, 11); c.fillStyle = g; c.fill();
+    if (PAPER && !locked) { c.fillStyle = PAPER; c.fill(); }
+    c.strokeStyle = 'rgba(24,14,6,0.92)'; c.lineWidth = 2.5; c.stroke();
+    c.beginPath(); c.roundRect(bx + 2.4, by + 2.4, cw - 4.8, ch - 4.8, 9); c.strokeStyle = locked ? 'rgba(255,255,255,0.1)' : ok ? '#f2cf73' : 'rgba(110,84,50,0.55)'; c.lineWidth = ok ? 2 : 1.3; c.stroke();
+    // il medaglione
+    if (!locked) {
+      const mg = c.createRadialGradient(mx, my - 8, 3, mx, my, mr); mg.addColorStop(0, '#fffdf0'); mg.addColorStop(1, ok ? '#cfe2a4' : '#cdc3ab');
+      c.beginPath(); c.arc(mx, my, mr, 0, TAU); c.fillStyle = mg; c.fill(); c.strokeStyle = ok ? '#8a6a2c' : '#8b7c62'; c.lineWidth = 2; c.stroke();
+      c.beginPath(); c.arc(mx, my, mr - 3.5, 0, TAU); c.strokeStyle = 'rgba(138,106,44,0.3)'; c.lineWidth = 1; c.stroke();
+    } else { c.beginPath(); c.arc(mx, my, mr, 0, TAU); c.fillStyle = 'rgba(0,0,0,0.22)'; c.fill(); }
+    c.globalAlpha = locked ? 0.28 : can ? 1 : 0.5; buildIcon(c, ty, mx, my - 1, 24, ui.time); c.globalAlpha = 1;
+    const nm = t('b_' + ty), ns = fit(c, nm, cw - 12, small ? 15 : 16.5, 700, true);
+    head(c, nm, mx, by + 83, ns, locked ? '#a39c90' : PEN, 'center', locked);
+    if (!open) { lock(c, mx, my, 13); txt(c, t('needCastle', D.min), mx, by + 118, 13, DIM, 'center', 700); }
+    else if (!tech) { lock(c, mx, my, 13); const q = t('needTech', t('t_' + D.tech)); txt(c, q, mx, by + 118, fit(c, q, cw - 10, 13), DIM, 'center', 700); }
     else {
-      txt(c, t('k_' + ty), bx + cw / 2, by + 100, small ? 10.5 : 11.5, DIM, 'center', 600);
-      if (full) txt(c, `${t('limit')} ${cp.have}/${cp.max}`, bx + cw / 2, by + 130, 14, BAD, 'center', 800);
-      else costRow(c, world, D.cost, bx + cw / 2, by + 130, small ? 14.5 : 16);
-      if (cp.max !== Infinity && !full) txt(c, `${cp.have}/${cp.max}`, bx + cw - 8, by + 14, 12, DIM, 'right', 700);
+      const ks = t('k_' + ty); txt(c, ks, mx, by + 101, fit(c, ks, cw - 10, small ? 10.5 : 11.5, 600), PEN2, 'center', 600);
+      c.beginPath(); c.roundRect(bx + 6, by + ch - 37, cw - 12, 30, 8); c.fillStyle = 'rgba(52,35,20,0.94)'; c.fill(); c.strokeStyle = 'rgba(233,196,106,0.45)'; c.lineWidth = 1; c.stroke();
+      if (full) txt(c, `${t('limit')} ${cp.have}/${cp.max}`, mx, by + ch - 21, 13.5, BAD, 'center', 800);
+      else costRow(c, world, D.cost, mx, by + ch - 22, small ? 14.5 : 15.5);
+      if (cp.max !== Infinity && !full) txt(c, `${cp.have}/${cp.max}`, bx + cw - 9, by + 14, 11.5, PEN2, 'right', 800);
     }
     ui.buttons.push({ x: bx, y: by, w: cw, h: ch, tag: 'card_' + ty, fn: () => A.pick(ty) });
   });
@@ -578,9 +675,9 @@ function placeBar(S) {
   const w = Math.min(660, vw - 16), h = 82, x = vw / 2 - w / 2, y = vh - h - 12;
   panel(c, x, y, w, h, 14, 0.94); block(ui, x, y, w, h);
   buildIcon(c, pl.type, x + 46, y + 38, 24, ui.time);
-  txt(c, t('b_' + pl.type), x + 92, y + 27, 21, '#ffe9a8', 'left', 800);
+  head(c, t('b_' + pl.type), x + 92, y + 27, 21, '#ffe9a8');
   const n = st.n || 1;
-  if (D.line && st.n > 1) txt(c, '×' + st.n, x + 92 + width(c, t('b_' + pl.type), 21, 800) + 10, y + 28, 18, CREAM, 'left', 800);
+  if (D.line && st.n > 1) txt(c, '×' + st.n, x + 92 + width(c, t('b_' + pl.type), 21, 700, true) + 10, y + 28, 18, CREAM, 'left', 800);
   txt(c, t('why_' + st.why), x + 92, y + 57, 16, st.ok || st.why.startsWith('pick') ? '#bfe9a8' : BAD, 'left', 700);
   if (pl.move) txt(c, t('moving'), x + w - 170, y + 42, 16, DIM, 'right', 700); else costRow(c, world, D.cost, x + w - 236, y + 41, 19, n);
   button(c, ui, x + w - 150, y + 11, 64, 60, '', { color: '#2f7d3a', disabled: !st.ok, tag: 'placeOk' }, A.placeConfirm);
@@ -591,8 +688,11 @@ function placeBar(S) {
 
 function card(c, x, y, w, h, ok) {
   flushIcons(c);
-  c.beginPath(); c.roundRect(x, y, w, h, 10); c.fillStyle = ok ? 'rgba(74,92,58,0.95)' : 'rgba(56,52,48,0.95)'; c.fill();
-  c.strokeStyle = ok ? 'rgba(255,236,170,0.7)' : 'rgba(255,255,255,0.12)'; c.lineWidth = 2; c.stroke();
+  const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, ok ? '#62814a' : '#54453a'); g.addColorStop(1, ok ? '#3c5630' : '#382d23');
+  c.beginPath(); c.roundRect(x, y + 2.5, w, h, 10); c.fillStyle = 'rgba(0,0,0,0.3)'; c.fill();
+  c.beginPath(); c.roundRect(x, y, w, h, 10); c.fillStyle = g; c.fill();
+  c.strokeStyle = 'rgba(20,12,6,0.85)'; c.lineWidth = 2.5; c.stroke();
+  c.beginPath(); c.roundRect(x + 2, y + 2, w - 4, h - 4, 8); c.strokeStyle = ok ? 'rgba(255,236,170,0.7)' : 'rgba(255,236,170,0.16)'; c.lineWidth = 1.4; c.stroke();
 }
 function selPanel(S) {
   const { c, world, ui, vw, vh, A, now } = S, b = ui.sel.b, D = BUILD[b.type], L = world.d.castle;
@@ -603,10 +703,10 @@ function selPanel(S) {
   panel(c, x, y, w, h, 14, 0.95); block(ui, x, y, w, h);
   buildIcon(c, b.type, x + 42, y + 36, 22, ui.time);
   const lvl = TOWERS[b.type] || hasLv ? ` · ${t('level')} ${(b.lvl || 0) + 1}` : b.type === 'castello' ? ` · ${t('level')} ${L}` : '';
-  txt(c, t('b_' + b.type) + lvl, x + 82, y + 26, 22, '#ffe9a8', 'left', 800);
-  button(c, ui, x + w - 52, y + 8, 42, 42, '', { color: '#3b3229', r: 21, tag: 'selClose' }, A.selClose);
+  head(c, t('b_' + b.type) + lvl, x + 82, y + 26, 22, '#ffe9a8');
+  button(c, ui, x + w - 52, y + 8, 42, 42, '', { color: '#5c4330', r: 21, tag: 'selClose' }, A.selClose);
   cross(c, x + w - 31, y + 29, 9);
-  if (world.moveCheck(b) === 'ok') button(c, ui, tallB ? x + 16 : b.type === 'caserma' ? x + w - 596 : x + w - 172, tallB ? y + 80 : y + 9, 104, 36, t('move'), { color: '#3b3229', fs: 15, r: 10, tag: 'move' }, () => A.move(b));
+  if (world.moveCheck(b) === 'ok') button(c, ui, tallB ? x + 16 : b.type === 'caserma' ? x + w - 596 : x + w - 172, tallB ? y + 80 : y + 9, 104, 36, t('move'), { color: '#5c4330', fs: 15, r: 10, tag: 'move' }, () => A.move(b));
   const demol = (bx, by, bw = 150) => { const back = world.refund(b); button(c, ui, bx, by, bw, 50, t(ui.demoAsk === b.id ? 'sure' : 'demolish'), { color: ui.demoAsk === b.id ? '#a8322a' : '#7a3a2c', fs: 17, tag: 'demolish' }, () => A.demolish(b)); return back; };
   const by = y + h - 62;
 
@@ -636,7 +736,7 @@ function selPanel(S) {
     }
   } else if (b.type === 'campo') {
     if (crops) {
-      if (world.d.buildings.filter(o => o.type === 'campo' && !o.crop && !(o.build > 0)).length > 1) button(c, ui, x + w - 372, y + 9, 190, 36, t('plantAll') + ': ' + (ui.plantAll ? t('on') : t('off')), { color: ui.plantAll ? '#8a5a1c' : '#3b3229', fs: 14.5, r: 10, tag: 'plantAll' }, A.plantAll);
+      if (world.d.buildings.filter(o => o.type === 'campo' && !o.crop && !(o.build > 0)).length > 1) button(c, ui, x + w - 372, y + 9, 190, 36, t('plantAll') + ': ' + (ui.plantAll ? t('on') : t('off')), { color: ui.plantAll ? '#8a5a1c' : '#5c4330', fs: 14.5, r: 10, tag: 'plantAll' }, A.plantAll);
       const cw = 118, ch = 112, gap = 8, COL = { grano: '#e8c64a', carote: '#f08a2a', zucche: '#f0822a', uva: '#7a3fb0' };
       CROP_ORDER.forEach((cr, k) => {
         const d = CROPS[cr], bx = x + 20 + k * (cw + gap), cy = y + 68, ok = world.d.res.monete >= d.cost;
@@ -725,9 +825,9 @@ function villagePanel(S) {
   ui.box = [x, x + w];
   panel(c, x, y, w, h, 14, 0.95); block(ui, x, y, w, h);
   tuzu2d(c, x + 44, y + 38, 22, T.color, T.eyes);
-  const head = `${t('tr_' + T.id)} · ${col ? t('colony') : ally ? t('allyTag') : t('level') + ' ' + v.level}`;
-  txt(c, head, x + 82, y + 26, 22, '#ffe9a8', 'left', 800);
-  txt(c, `${t('chief')} ${TRAITS[T.id].chief} · ${t('e_sp_' + T.id)}`, x + 96 + width(c, head, 22, 800), y + 28, 13.5, DIM, 'left', 600);
+  const vname = `${t('tr_' + T.id)} · ${col ? t('colony') : ally ? t('allyTag') : t('level') + ' ' + v.level}`;
+  head(c, vname, x + 82, y + 26, 22, '#ffe9a8');
+  txt(c, `${t('chief')} ${TRAITS[T.id].chief} · ${t('e_sp_' + T.id)}`, x + 96 + width(c, vname, 22, 700, true), y + 28, 13.5, DIM, 'left', 600);
   if (gc !== 'no') {      // la simpatia di questo popolo, e il dono del giorno
     const ry = y + 132, rl = t('rel'), rx = x + 22 + width(c, rl, 15, 600) + 10, r = v.rel;
     txt(c, rl, x + 22, ry + 1, 15, DIM, 'left', 600);
@@ -736,7 +836,7 @@ function villagePanel(S) {
     button(c, ui, x + w - 262, ry - 20, 110, 40, t('gift'), { color: '#8a5a1c', disabled: gc !== 'ok', fs: 16, tag: 'gift' }, () => A.gift(i));
     if (gc === 'done') txt(c, t('giftDone'), x + w - 142, ry + 1, 13, DIM, 'left', 600); else costRow(c, world, giftCost(v.level), x + w - 142, ry + 1, 15, 1, true);
   }
-  button(c, ui, x + w - 52, y + 8, 42, 42, '', { color: '#3b3229', r: 21, tag: 'vClose' }, A.vClose);
+  button(c, ui, x + w - 52, y + 8, 42, 42, '', { color: '#5c4330', r: 21, tag: 'vClose' }, A.vClose);
   cross(c, x + w - 31, y + 29, 9);
 
   if (col || ally) {
@@ -771,9 +871,9 @@ function villagePanel(S) {
 }
 
 /** Una riga di premi o guadagni (icona + «+numero»), che parte da x. */
-function costRowPlain(c, cost, x, y, size) {
+function costRowPlain(c, cost, x, y, size, col) {
   const r = size * 0.42;
-  for (const key in cost) { RES_ICON[key](c, x + r, y, r); const s2 = '+' + cost[key]; txt(c, s2, x + r * 2 + 5, y + 1, size, RES_COL[key], 'left', 800); x += r * 2 + 5 + width(c, s2, size, 800) + 12; }
+  for (const key in cost) { RES_ICON[key](c, x + r, y, r); const s2 = '+' + cost[key]; txt(c, s2, x + r * 2 + 5, y + 1, size, col || RES_COL[key], 'left', 800); x += r * 2 + 5 + width(c, s2, size, 800) + 12; }
 }
 
 /** Le scoperte della Bottega. */
@@ -795,7 +895,7 @@ function techPanel(S) {
     costRow(c, world, T.cost, bx + 14, by + 70, 13.5, 1, true);
     button(c, ui, bx + cw - 96, by + 52, 84, 34, t('discover'), { color: '#5b4a8a', disabled: !ok, fs: 15, r: 9, tag: 'tech_' + id }, () => A.research(id));
   });
-  button(c, ui, vw / 2 - 100, y + h - 48, 200, 40, t('close'), { color: '#3b3229', fs: 19, tag: 'close' }, A.tech);
+  button(c, ui, vw / 2 - 100, y + h - 48, 200, 40, t('close'), { color: '#5c4330', fs: 19, tag: 'close' }, A.tech);
 }
 
 /** Il Tuzu guida: sempre in vista, dice cosa fare adesso, come farlo, e dà il premio. */
@@ -839,7 +939,7 @@ function settingsPanel(S) {
   title2(c, t('settings'), vw / 2, y0 + 46, 36, '#f2cf73');
   langRow(S, vw / 2, y0 + 86);
   X.settingsExtra(S, K, vw / 2, y0 + 150);
-  button(c, ui, vw / 2 - 110, y0 + h - 66, 220, 50, t('close'), { color: '#3b3229', fs: 22, tag: 'close' }, A.settings);
+  button(c, ui, vw / 2 - 110, y0 + h - 66, 220, 50, t('close'), { color: '#5c4330', fs: 22, tag: 'close' }, A.settings);
 }
 
 function questsPanel(S) {
@@ -847,16 +947,16 @@ function questsPanel(S) {
   dim(S, 0.6);
   const tro = ui.qtab === 1, w = tro ? Math.min(1060, vw - 16) : Math.min(660, vw - 16), h = tro && S.tall ? 790 : 516, x = vw / 2 - w / 2, y = vh / 2 - h / 2;
   panel(c, x, y, w, h, 18, 0.96);
-  [t('quests'), t('trophies')].forEach((s, k) => button(c, ui, vw / 2 - 206 + k * 212, y + 14, 200, 44, s, { color: (ui.qtab || 0) === k ? '#8a5a1c' : '#3b3229', fs: 20, tag: 'qtab' + k }, () => A.qtab(k)));
+  [t('quests'), t('trophies')].forEach((s, k) => button(c, ui, vw / 2 - 206 + k * 212, y + 14, 200, 44, s, { color: (ui.qtab || 0) === k ? '#8a5a1c' : '#5c4330', fs: 20, tag: 'qtab' + k }, () => A.qtab(k)));
   if (tro) {
     const yy = Y.trophyGrid(S, K, x + 20, y + 76, w - 40), got = world.trophies().filter(o => o.done).length;
     txt(c, t('trophyCount', got, world.trophies().length) + (world.endless() ? '   ·   ' + t('crowns', world.d.crowns || 0) : ''), vw / 2, Math.min(yy + 18, y + h - 78), 16, '#ffe27a', 'center', 800);
   } else {
     const row = (ry, title, have, goal, ready, reward, tag, fn, blue) => {
-      c.beginPath(); c.roundRect(x + 20, ry, w - 40, 76, 12); c.fillStyle = ready ? 'rgba(74,92,58,0.9)' : blue ? 'rgba(58,74,110,0.6)' : 'rgba(255,255,255,0.06)'; c.fill();
-      txt(c, title, x + 38, ry + 24, 19, CREAM, 'left', 800);
-      c.beginPath(); c.roundRect(x + 38, ry + 46, 320, 14, 7); c.fillStyle = 'rgba(0,0,0,0.4)'; c.fill();
-      c.beginPath(); c.roundRect(x + 38, ry + 46, Math.max(6, 320 * have / goal), 14, 7); c.fillStyle = ready ? '#ffd24a' : '#6fd45a'; c.fill();
+      card(c, x + 20, ry, w - 40, 76, ready);
+      if (blue && !ready) { c.beginPath(); c.roundRect(x + 22, ry + 2, w - 44, 72, 8); c.fillStyle = 'rgba(70,92,150,0.42)'; c.fill(); }
+      txt(c, title, x + 38, ry + 24, fit(c, title, w - 260, 19, 800), CREAM, 'left', 800);
+      bar(c, x + 38, ry + 47, 320, 13, have / goal, ready ? '#ffd24a' : '#6fd45a');
       txt(c, have + '/' + goal, x + 370, ry + 54, 16, DIM);
       const bx = x + w - 196, bw = 160;
       if (ready) button(c, ui, bx, ry + 10, bw, 56, t('claim') + ' +' + reward, { color: '#2f7d3a', fs: 19, tag }, fn);
@@ -867,7 +967,7 @@ function questsPanel(S) {
     const ch = world.challenge(now);
     row(y + 72 + 3 * 84, t('chalTitle') + ': ' + t('q_' + ch.k, ch.need), ch.have, ch.need, ch.done && !ch.claimed, ch.claimed ? 0 : ch.reward, 'claimChal', A.claimChallenge, true);
   }
-  button(c, ui, vw / 2 - 110, y + h - 62, 220, 48, t('close'), { color: '#3b3229', fs: 22, tag: 'close' }, A.quests);
+  button(c, ui, vw / 2 - 110, y + h - 62, 220, 48, t('close'), { color: '#5c4330', fs: 22, tag: 'close' }, A.quests);
 }
 
 function dailyPanel(S) {
@@ -914,14 +1014,15 @@ function titleScreen(S) {
   dim(S, 0.55);
   const y0 = vh / 2 - 230;
   title2(c, t('title'), vw / 2, y0 + 60, Math.min(78, vw / 9.4), '#f2cf73');
-  txt(c, t('subtitle'), vw / 2, y0 + 128, Math.min(30, vw / 24), '#d7dcf5', 'center', 600);
+  rule(c, vw / 2 - Math.min(260, vw * 0.3), y0 + 104, Math.min(520, vw * 0.6));
+  head(c, t('subtitle'), vw / 2, y0 + 132, Math.min(28, vw / 26), '#f5ecd7', 'center');
   wrap(c, t('lore'), vw / 2, y0 + (S.tall ? 180 : 200), Math.min(780, vw - 50), 22, CREAM, 32);
   if (ui.newGame) X.titleDiff(S, K, vw / 2, y0 + 258);
   button(c, ui, vw / 2 - 150, y0 + (ui.newGame ? 312 : 290), 300, ui.newGame ? 72 : 84, t('play'), { color: '#2f7d3a', fs: 36, tag: 'play' }, A.play);
   langRow(S, vw / 2, y0 + 414);
 }
 
-const K = { txt, width, panel, title2, wrap, button, block, dim, bar, bubble, moon, cross, card, heart, lock, coin, costRow, costRowPlain, tuzu2d, tuzu2dNow, tuzuIcon, flushIcons, enemyIcon, tracePoly, buildIcon, check, hammer, swap, fmtTime, RES_ICON, RES_COL, CREAM, DIM, BAD, GOLD };
+const K = { txt, width, panel, scroll, ribbon, head, fit, rule, shade, PEN, PEN2, PENBAD, PENOK, PENRED, SERIF, title2, wrap, button, block, dim, bar, bubble, moon, cross, card, heart, lock, coin, costRow, costRowPlain, tuzu2d, tuzu2dNow, tuzuIcon, flushIcons, enemyIcon, tracePoly, buildIcon, check, hammer, swap, fmtTime, RES_ICON, RES_COL, CREAM, DIM, BAD, GOLD };
 let vig = null;
 /** Disegna tutta l'interfaccia in coordinate logiche (0..vw, 0..vh). */
 export function drawUi(S) { drawAll(S); flushIcons(S.c); }
@@ -947,7 +1048,7 @@ function drawAll(S) {
   }
   if (ui.toast && ui.toast.t < ui.toast.T) {
     const u = ui.toast.t / ui.toast.T, a = u > 0.75 ? (1 - u) / 0.25 : 1, w = width(c, ui.toast.str, 20) + 44, ty = vh - (ui.build && !ui.place ? 250 : 170);
-    c.globalAlpha = a; panel(c, vw / 2 - w / 2, ty, w, 44, 22, 0.92); txt(c, ui.toast.str, vw / 2, ty + 23, 20, '#ffd0c8', 'center'); c.globalAlpha = 1;
+    c.globalAlpha = a; scroll(c, vw / 2 - w / 2 - 17, ty, w + 34, 44, 22); c.beginPath(); c.arc(vw / 2 - w / 2 + 8, ty + 22, 12, 0, TAU); c.fillStyle = '#b23a2a'; c.fill(); c.strokeStyle = '#5a1c12'; c.lineWidth = 1.5; c.stroke(); txt(c, '!', vw / 2 - w / 2 + 8, ty + 23, 16, '#fff3d6', 'center', 800); txt(c, ui.toast.str, vw / 2 + 15, ty + 23, 19, PENBAD, 'center', 800); c.globalAlpha = 1;
   }
   if (ui.lost) lostPanel(S);
   else if (ui.away) awayPanel(S);

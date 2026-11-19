@@ -33,6 +33,44 @@ function miniMap(src, rev = 0) {
   mini = c0;
   return mini;
 }
+let fogSk = null, fogKey = '';
+/** Le nuvole della mappa diventano carta non ancora disegnata: color pergamena, con le righe e le nuvolette a penna delle vecchie carte. */
+function oldPaper(src, key) {
+  if (!src || typeof document === 'undefined') return src;
+  if (fogSk && fogKey === key) return fogSk;
+  fogKey = key;
+  if (!fogSk) { fogSk = document.createElement('canvas'); fogSk.width = src.width; fogSk.height = src.height; }
+  const w = fogSk.width, h = fogSk.height, c = fogSk.getContext('2d');
+  c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, w, h);
+  const g = c.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#f3e5c2'); g.addColorStop(1, '#dbc391'); c.fillStyle = g; c.fillRect(0, 0, w, h);
+  c.strokeStyle = 'rgba(122,88,44,0.17)'; c.lineWidth = 1; c.beginPath(); const st = w / 14; for (let x = st / 2; x < w; x += st) { c.moveTo(x, 0); c.lineTo(x, h); } for (let y = st / 2; y < h; y += st) { c.moveTo(0, y); c.lineTo(w, y); } c.stroke();
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  c.strokeStyle = 'rgba(122,88,44,0.34)'; c.lineWidth = 1.2; c.lineCap = 'round';
+  for (let i = 0; i < 28; i++) { const x = rnd() * w, y = rnd() * h, q = 4 + rnd() * 4; c.beginPath(); c.arc(x, y, q, Math.PI, TAU); c.arc(x + q * 1.6, y, q * 0.72, Math.PI * 1.08, TAU); c.moveTo(x - q * 1.7, y); c.lineTo(x + q * 2.8, y); c.stroke(); }
+  c.globalCompositeOperation = 'destination-in'; c.drawImage(src, 0, 0, w, h); c.globalCompositeOperation = 'source-over';
+  return fogSk;
+}
+/** La rosa dei venti stampata sulla carta. */
+function compass(c, x, y, r) {
+  c.save(); c.translate(x, y);
+  c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fillStyle = 'rgba(243,229,194,0.82)'; c.fill(); c.strokeStyle = 'rgba(78,53,29,0.85)'; c.lineWidth = 1.6; c.stroke();
+  c.beginPath(); c.arc(0, 0, r * 0.78, 0, TAU); c.strokeStyle = 'rgba(78,53,29,0.4)'; c.lineWidth = 1; c.stroke();
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4, L = i % 2 ? r * 0.5 : r * 0.92, wd = i % 2 ? r * 0.1 : r * 0.17;
+    c.save(); c.rotate(a);
+    c.beginPath(); c.moveTo(0, -L); c.lineTo(wd, 0); c.lineTo(0, 0); c.closePath(); c.fillStyle = i === 0 ? '#a3321f' : '#4e351d'; c.fill();
+    c.beginPath(); c.moveTo(0, -L); c.lineTo(-wd, 0); c.lineTo(0, 0); c.closePath(); c.fillStyle = i === 0 ? '#d9694f' : '#b89862'; c.fill();
+    c.restore();
+  }
+  c.beginPath(); c.arc(0, 0, r * 0.1, 0, TAU); c.fillStyle = '#e9c46a'; c.fill(); c.strokeStyle = '#4e351d'; c.lineWidth = 1; c.stroke();
+  c.restore();
+}
+/** Un cartiglio di pergamena col nome, sotto un segnalino. */
+function tag(c, K, s, x, y, col) {
+  const w = K.width(c, s, 11.5, 800) + 14;
+  c.beginPath(); c.roundRect(x - w / 2, y - 8.5, w, 17, 5); c.fillStyle = '#f5e8c8'; c.fill(); c.strokeStyle = '#4e351d'; c.lineWidth = 1.3; c.stroke();
+  K.txt(c, s, x, y + 0.5, 11.5, col || K.PEN, 'center', 800);
+}
 /** L'icona della mappa (un foglio piegato in tre con un segnalino). */
 export function mapIcon(c, x, y, s) {
   c.save(); c.translate(x, y); c.lineJoin = 'round';
@@ -60,7 +98,11 @@ export function mapPanel(S, K) {
   c.fillStyle = 'rgba(14,12,22,0.93)'; c.fillRect(0, 0, vw, vh); K.block(ui, 0, 0, vw, vh);
   const tall = S.tall, aw = tall ? vw - pad * 2 : vw - side - pad * 3, ah = tall ? vh - pad * 3 - 400 : vh - pad * 2, k = Math.min(aw / WORLD_W, ah / WORLD_H), mw = WORLD_W * k, mh = WORLD_H * k, mx = pad + (aw - mw) / 2, hp = tall ? Math.min(470, vh - pad * 3 - mh) : 0, my = tall ? Math.max(pad, (vh - mh - pad - hp) / 2) : pad + (ah - mh) / 2;
   const X = (x) => mx + x * k, Y = (y) => my + y * k, pulse = 0.5 + Math.sin(ui.time * 5) * 0.5;
-  // il foglio
+  // la cornice di legno, poi il foglio
+  { const g = c.createLinearGradient(0, my - 7, 0, my + mh + 7); g.addColorStop(0, '#6a4a2e'); g.addColorStop(1, '#332215');
+    c.beginPath(); c.roundRect(mx - 7, my - 4, mw + 14, mh + 14, 15); c.fillStyle = 'rgba(0,0,0,0.4)'; c.fill();
+    c.beginPath(); c.roundRect(mx - 7, my - 7, mw + 14, mh + 14, 15); c.fillStyle = g; c.fill(); c.strokeStyle = 'rgba(16,10,5,0.95)'; c.lineWidth = 2.5; c.stroke();
+    for (const [px, py] of [[mx - 0.5, my - 0.5], [mx + mw + 0.5, my - 0.5], [mx - 0.5, my + mh + 0.5], [mx + mw + 0.5, my + mh + 0.5]]) { c.beginPath(); c.arc(px, py, 3, 0, TAU); c.fillStyle = '#e9c46a'; c.fill(); c.strokeStyle = 'rgba(40,24,8,0.9)'; c.lineWidth = 1; c.stroke(); } }
   c.save(); c.beginPath(); c.roundRect(mx, my, mw, mh, 10); c.clip();
   const img = miniMap(S.mapCv, S.roadRev);
   if (img) c.drawImage(img, mx, my, mw, mh); else { c.fillStyle = '#5f9f47'; c.fillRect(mx, my, mw, mh); }
@@ -71,11 +113,12 @@ export function mapPanel(S, K) {
     c.fillRect(X(b.c * G), Y(b.r * G), Math.max(1.5, D.w * G * k), Math.max(1.5, D.h * G * k));
   }
   // le nuvole su quello che non hai visto
-  if (S.fogCv && world.fogA.includes(0)) { c.globalAlpha = 0.97; c.drawImage(S.fogCv, mx, my, FW * FOG.cell * G * k, FH * FOG.cell * G * k); c.globalAlpha = 1; }
+  if (S.fogCv && world.fogA.includes(0)) { let seen = 0; for (const v of world.fogA) seen += v ? 1 : 0; c.drawImage(oldPaper(S.fogCv, seen + ':' + Math.floor(ui.time)), mx, my, FW * FOG.cell * G * k, FH * FOG.cell * G * k); }
+  compass(c, mx + 40, my + mh - 40, 26);
   // il pezzo che la camera guarda adesso
-  if (S.cam) { const h = S.cam.dist * 0.82 * k, w = h * Math.max(0.4, Math.min(2.2, vw / vh)); c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 1.6; c.strokeRect(X(S.cam.x) - w / 2, Y(S.cam.y) - h / 2 - h * 0.08, w, h); }
+  if (S.cam) { const h = S.cam.dist * 0.82 * k, w = h * Math.max(0.4, Math.min(2.2, vw / vh)); c.strokeStyle = 'rgba(40,24,8,0.55)'; c.lineWidth = 3.4; c.strokeRect(X(S.cam.x) - w / 2, Y(S.cam.y) - h / 2 - h * 0.08, w, h); c.strokeStyle = '#ffe9a8'; c.lineWidth = 1.8; c.strokeRect(X(S.cam.x) - w / 2, Y(S.cam.y) - h / 2 - h * 0.08, w, h); }
   c.restore();
-  c.beginPath(); c.roundRect(mx, my, mw, mh, 10); c.strokeStyle = 'rgba(233,196,106,0.75)'; c.lineWidth = 2.5; c.stroke();
+  c.beginPath(); c.roundRect(mx, my, mw, mh, 10); c.strokeStyle = 'rgba(24,14,6,0.9)'; c.lineWidth = 3; c.stroke(); c.strokeStyle = 'rgba(233,196,106,0.85)'; c.lineWidth = 1.4; c.stroke();
   ui.buttons.push({ x: mx, y: my, w: mw, h: mh, tag: 'mapArea', fn: (lx, ly) => A.mapTap((lx - mx) / k, (ly - my) / k) });
   ui.mapGeo = { mx, my, k };
 
@@ -87,54 +130,56 @@ export function mapPanel(S, K) {
     else { c.beginPath(); c.moveTo(px, py - 9); c.lineTo(px + 7, py); c.lineTo(px, py + 9); c.lineTo(px - 7, py); c.closePath(); c.fillStyle = '#ffe27a'; c.fill(); c.strokeStyle = '#5c3a10'; c.lineWidth = 1.6; c.stroke(); K.txt(c, '?', px, py + 1, 11, '#5c3a10', 'center', 800); }
   }
   // il castello
-  { const px = X(world.castle.x), py = Y(world.castle.y); c.beginPath(); c.arc(px, py, 13, 0, TAU); c.fillStyle = 'rgba(26,20,14,0.85)'; c.fill(); c.strokeStyle = MY_COLOR; c.lineWidth = 2.5; c.stroke(); K.buildIcon(c, 'castello', px, py, 8, 0); }
+  { const px = X(world.castle.x), py = Y(world.castle.y); c.beginPath(); c.arc(px, py + 1.5, 16.5, 0, TAU); c.fillStyle = 'rgba(0,0,0,0.35)'; c.fill(); c.beginPath(); c.arc(px, py, 15, 0, TAU); c.fillStyle = '#3a2f55'; c.fill(); c.strokeStyle = '#3a2614'; c.lineWidth = 5; c.stroke(); c.strokeStyle = '#f2cf73'; c.lineWidth = 2.6; c.stroke(); K.buildIcon(c, 'castello', px, py, 9, 0); }
   // i villaggi: quelli che conosci col loro colore e il nome; degli altri si sa solo che ci sono
   TRIBES.forEach((T, i) => {
     const px = X((T.c + 0.5) * G), py = Y((T.r + 0.5) * G), v = world.d.villages[i];
     if (!world.known(i)) {
-      c.beginPath(); c.arc(px, py, 12, 0, TAU); c.fillStyle = 'rgba(120,124,140,0.92)'; c.fill(); c.strokeStyle = 'rgba(255,255,255,0.8)'; c.lineWidth = 2; c.stroke();
-      K.txt(c, '?', px, py + 1, 15, '#fff', 'center', 800);
+      c.beginPath(); c.arc(px, py + 1.5, 13, 0, TAU); c.fillStyle = 'rgba(0,0,0,0.3)'; c.fill();
+      { const g = c.createRadialGradient(px - 3, py - 4, 1, px, py, 12.5); g.addColorStop(0, '#c9523c'); g.addColorStop(1, '#7a2416'); c.beginPath(); c.arc(px, py, 12.5, 0, TAU); c.fillStyle = g; c.fill(); c.strokeStyle = '#4a130c'; c.lineWidth = 1.8; c.stroke(); c.beginPath(); c.arc(px, py, 9.5, 0, TAU); c.strokeStyle = 'rgba(255,220,190,0.35)'; c.lineWidth = 1; c.stroke(); }
+      K.head(c, '?', px, py + 1, 15, '#ffe9d0', 'center');
       return;
     }
     const col = v.state === 'colony';
-    c.beginPath(); c.arc(px, py, 14, 0, TAU); c.fillStyle = 'rgba(26,20,14,0.85)'; c.fill();
+    c.beginPath(); c.arc(px, py + 1.5, 16, 0, TAU); c.fillStyle = 'rgba(0,0,0,0.32)'; c.fill();
+    c.beginPath(); c.arc(px, py, 14, 0, TAU); c.fillStyle = '#2a1d12'; c.fill(); c.strokeStyle = '#1a1009'; c.lineWidth = 5.5; c.stroke();
     c.strokeStyle = col ? MY_COLOR : v.state === 'ally' ? '#7fe6a0' : world.attackers(world.nextNight).includes(i) ? '#ff6a5a' : 'rgba(255,255,255,0.7)'; c.lineWidth = 2.5; c.stroke();
     K.tuzu2d(c, px, py, 9, col ? MY_COLOR : T.color, col ? '#2b2a33' : T.eyes);
-    const nm = t('tr_' + T.id), w = K.width(c, nm, 11.5, 800) + 12;
-    c.beginPath(); c.roundRect(px - w / 2, py + 16, w, 17, 8); c.fillStyle = 'rgba(26,20,14,0.8)'; c.fill(); K.txt(c, nm, px, py + 25, 11.5, K.CREAM, 'center', 800);
+    tag(c, K, t('tr_' + T.id), px, py + 27);
   });
   // le spedizioni in corso: la strada tratteggiata, dov'è adesso l'esploratore, la meta
   for (const tr of world.d.trips) {
     const s = world.tripFrom(tr), a = world.tripAt(tr, now);
-    c.strokeStyle = tr.boat ? 'rgba(160,220,255,0.95)' : 'rgba(255,255,255,0.95)'; c.lineWidth = 2; c.setLineDash([5, 5]); c.beginPath(); c.moveTo(X(s.x), Y(s.y)); c.lineTo(X(tr.x), Y(tr.y)); c.stroke(); c.setLineDash([]);
-    c.beginPath(); c.arc(X(tr.x), Y(tr.y), 5 + pulse * 2, 0, TAU); c.strokeStyle = '#ffe27a'; c.lineWidth = 2.5; c.stroke();
+    c.strokeStyle = tr.boat ? '#2f6f9a' : '#7a2c1e'; c.lineWidth = 2.2; c.setLineDash([6, 5]); c.beginPath(); c.moveTo(X(s.x), Y(s.y)); c.lineTo(X(tr.x), Y(tr.y)); c.stroke(); c.setLineDash([]);
+    { const ex = X(tr.x), ey = Y(tr.y), q = 5 + pulse * 1.5; c.strokeStyle = '#7a2c1e'; c.lineWidth = 3; c.lineCap = 'round'; c.beginPath(); c.moveTo(ex - q, ey - q); c.lineTo(ex + q, ey + q); c.moveTo(ex + q, ey - q); c.lineTo(ex - q, ey + q); c.stroke(); }
     c.beginPath(); c.arc(X(a.x), Y(a.y), 11, 0, TAU); c.fillStyle = 'rgba(26,20,14,0.85)'; c.fill(); K.tuzuIcon(c, 'esplora', X(a.x), Y(a.y) + 2, 7, MY_COLOR);
-    const s2 = fmtH(a.left), w = K.width(c, s2, 11.5, 800) + 12; c.beginPath(); c.roundRect(X(a.x) - w / 2, Y(a.y) - 31, w, 17, 8); c.fillStyle = 'rgba(26,20,14,0.85)'; c.fill(); K.txt(c, s2, X(a.x), Y(a.y) - 22, 11.5, '#ffe9a8', 'center', 800);
+    tag(c, K, fmtH(a.left), X(a.x), Y(a.y) - 23);
   }
   // il punto scelto
   const sel = M.sel;
-  if (sel) { c.beginPath(); c.arc(X(sel.x), Y(sel.y), 15 + pulse * 5, 0, TAU); c.strokeStyle = '#fff'; c.lineWidth = 3; c.setLineDash([6, 5]); c.stroke(); c.setLineDash([]); }
+  if (sel) { c.beginPath(); c.arc(X(sel.x), Y(sel.y), 15 + pulse * 5, 0, TAU); c.strokeStyle = 'rgba(40,24,8,0.7)'; c.lineWidth = 5; c.setLineDash([6, 5]); c.stroke(); c.strokeStyle = '#ffe27a'; c.lineWidth = 2.6; c.stroke(); c.setLineDash([]); }
 
   // ---- la colonna a destra: cosa hai scelto, e chi è in viaggio
   const x = tall ? pad : vw - side - pad, y = tall ? my + mh + pad : pad, h = tall ? hp : vh - pad * 2;
   if (tall) side = vw - pad * 2;
   K.panel(c, x, y, side, h, 14, 0.96);
   mapIcon(c, x + 32, y + 32, 13);
-  K.txt(c, t('mapTitle'), x + 58, y + 33, 24, '#f2cf73', 'left', 800);
-  K.button(c, ui, x + side - 52, y + 10, 42, 42, '', { color: '#3b3229', r: 21, tag: 'mapClose' }, A.mapClose); K.cross(c, x + side - 31, y + 31, 9);
+  K.head(c, t('mapTitle'), x + 58, y + 33, 25);
+  K.rule(c, x + 18, y + 60, side - 36);
+  K.button(c, ui, x + side - 52, y + 10, 42, 42, '', { color: '#5c4330', r: 21, tag: 'mapClose' }, A.mapClose); K.cross(c, x + side - 31, y + 31, 9);
   let yy = y + 78;
   const tw = side - 36;
   if (!sel) { yy = K.wrap(c, t('mapHint'), x + 18, yy, tw, 15.5, K.CREAM, 21, 'left') + 28; }
   else if (sel.kind === 'village') {
     const T = TRIBES[sel.i], v = world.village(sel.i), col = v.state === 'colony';
     K.tuzu2d(c, x + 36, yy + 8, 18, col ? MY_COLOR : T.color, col ? '#2b2a33' : T.eyes);
-    K.txt(c, t('tr_' + T.id), x + 66, yy, 20, '#ffe9a8', 'left', 800);
+    K.head(c, t('tr_' + T.id), x + 66, yy, 20, '#ffe9a8');
     K.txt(c, col ? t('colony') : v.state === 'ally' ? t('allyTag') : t('level') + ' ' + v.level, x + 66, yy + 22, 14, K.DIM, 'left', 700);
     K.txt(c, t('chief') + ' ' + TRAITS[T.id].chief, x + 18, yy + 52, 14, K.CREAM, 'left', 600);
     K.button(c, ui, x + 18, yy + 72, tw, 48, t('mapGoVillage'), { color: '#2f7d3a', fs: 18, tag: 'mapGo' }, A.mapGo);
     yy += 140;
   } else if (sel.kind === 'land') {
-    K.txt(c, t('mapLand'), x + 18, yy, 19, '#ffe9a8', 'left', 800);
+    K.head(c, t('mapLand'), x + 18, yy, 19, '#ffe9a8');
     K.button(c, ui, x + 18, yy + 22, tw, 48, t('mapGo'), { color: '#2f7d3a', fs: 18, tag: 'mapGo' }, A.mapGo);
     yy += 92;
   } else {
@@ -153,20 +198,20 @@ export function mapPanel(S, K) {
   }
   if (M.msg && M.msgT > 0) { K.txt(c, M.msg, x + 18, yy, 14.5, '#9ff0b4', 'left', 800); yy += 26; }
   // chi è in viaggio
-  c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(x + 18, yy, tw, 1.5); yy += 22;
+  K.rule(c, x + 18, yy, tw); yy += 22;
   K.txt(c, t('tripsOut') + ' ' + world.d.trips.length + '/' + world.tripsMax(), x + 18, yy, 15, K.CREAM, 'left', 800); yy += 18;
   for (const tr of world.d.trips) {
     if (yy + 50 > y + h - 66) break;
     const a = world.tripAt(tr, now), ask = M.recall === tr.id;
-    c.beginPath(); c.roundRect(x + 18, yy, tw, 46, 10); c.fillStyle = 'rgba(255,255,255,0.07)'; c.fill();
+    K.card(c, x + 18, yy, tw, 46, false);
     K.tuzuIcon(c, 'esplora', x + 38, yy + 26, 9, MY_COLOR);
     if (ask) K.button(c, ui, x + 58, yy + 6, tw - 92, 34, t('recallAsk'), { color: '#7a3a2c', fs: 14, r: 9, tag: 'recallYes' }, () => A.recall(tr.id));
     else { K.bar(c, x + 60, yy + 28, tw - 96, 7, a.p, '#ffd24a'); K.txt(c, fmtH(a.left) + ' · ' + t('tripAt', clock(tr.at + tr.ms)), x + 60, yy + 15, 13, '#ffe9a8', 'left', 800); }
-    K.button(c, ui, x + 18 + tw - 36, yy + 8, 30, 30, '', { color: ask ? '#3b3229' : '#4a3a34', r: 15, tag: 'recall' }, () => { M.recall = ask ? null : tr.id; }); K.cross(c, x + 18 + tw - 21, yy + 23, 6);
+    K.button(c, ui, x + 18 + tw - 36, yy + 8, 30, 30, '', { color: ask ? '#5c4330' : '#6b4a2c', r: 15, tag: 'recall' }, () => { M.recall = ask ? null : tr.id; }); K.cross(c, x + 18 + tw - 21, yy + 23, 6);
     yy += 52;
   }
   if (!world.d.trips.length) K.txt(c, t('tripsNone'), x + 18, yy + 6, 13, K.DIM, 'left', 600);
-  K.button(c, ui, x + 18, y + h - 58, tw, 46, t('close'), { color: '#3b3229', fs: 19, tag: 'close' }, A.mapClose);
+  K.button(c, ui, x + 18, y + h - 58, tw, 46, t('close'), { color: '#6b4a2c', fs: 19, tag: 'close' }, A.mapClose);
 }
 
 /** L'esploratore è tornato: cosa ha trovato. */
@@ -175,17 +220,18 @@ export function reportPanel(S, K) {
   if (!R) return;
   K.dim(S, 0.66);
   const lines = R.found.length + (R.ruins ? 1 : 0) + R.items.length, w = 620, h = 236 + Math.max(1, lines) * 40, x = vw / 2 - w / 2, y = vh / 2 - h / 2;
-  K.panel(c, x, y, w, h, 18, 0.97);
-  c.beginPath(); c.arc(x + 64, y + 66, 40, 0, TAU); c.fillStyle = '#3a2f55'; c.fill(); c.strokeStyle = 'rgba(233,196,106,0.8)'; c.lineWidth = 2.5; c.stroke();
+  K.scroll(c, x, y, w, h, 16);
+  { const g = c.createRadialGradient(x + 64, y + 54, 4, x + 64, y + 66, 40); g.addColorStop(0, '#6a58a0'); g.addColorStop(1, '#2c2344'); c.beginPath(); c.arc(x + 64, y + 66, 43, 0, TAU); c.fillStyle = '#3a2614'; c.fill(); c.beginPath(); c.arc(x + 64, y + 66, 40, 0, TAU); c.fillStyle = g; c.fill(); c.strokeStyle = '#e9c46a'; c.lineWidth = 3; c.stroke(); }
   K.tuzuIcon(c, 'esplora', x + 60, y + 78, 24, MY_COLOR);
-  K.txt(c, t(R.boat ? 'reportBoat' : 'reportTitle'), x + 124, y + 48, 26, '#f2cf73', 'left', 800);
-  K.txt(c, t('reportSub'), x + 124, y + 80, 15, K.DIM, 'left', 600);
-  let yy = y + 138;
-  for (const i of R.found) { const T = TRIBES[i]; K.tuzu2d(c, x + 46, yy, 14, T.color, T.eyes); K.txt(c, t('reportFound', t('tr_' + T.id)), x + 74, yy + 1, 18, K.CREAM, 'left', 800); yy += 40; }
-  if (R.ruins) { c.beginPath(); c.moveTo(x + 46, yy - 13); c.lineTo(x + 57, yy); c.lineTo(x + 46, yy + 13); c.lineTo(x + 35, yy); c.closePath(); c.fillStyle = '#ffe27a'; c.fill(); K.txt(c, t('reportRuin'), x + 74, yy + 1, 18, K.CREAM, 'left', 800); K.costRowPlain(c, R.loot, x + 86 + K.width(c, t('reportRuin'), 18, 800), yy + 1, 17); yy += 40; }
-  for (const it of R.items) { itemIcon(c, it, x + 46, yy, 13); K.txt(c, t('reportItem', t('it_' + it)), x + 74, yy + 1, 18, '#ffe9a8', 'left', 800); yy += 40; }
-  if (!lines) K.wrap(c, t('reportNothing'), x + 34, yy, w - 68, 17, K.CREAM, 24, 'left');
-  K.button(c, ui, x + 30, y + h - 74, 250, 54, t('reportMap'), { color: '#3b3229', fs: 19, tag: 'reportMap' }, A.reportMap);
+  K.head(c, t(R.boat ? 'reportBoat' : 'reportTitle'), x + 124, y + 48, 27, K.PENRED, 'left', false);
+  K.txt(c, t('reportSub'), x + 124, y + 80, 15, K.PEN2, 'left', 700);
+  K.rule(c, x + 30, y + 114, w - 60, '122,84,40');
+  let yy = y + 144;
+  for (const i of R.found) { const T = TRIBES[i]; K.tuzu2d(c, x + 46, yy, 14, T.color, T.eyes); K.txt(c, t('reportFound', t('tr_' + T.id)), x + 74, yy + 1, 18, K.PEN, 'left', 800); yy += 40; }
+  if (R.ruins) { c.beginPath(); c.moveTo(x + 46, yy - 13); c.lineTo(x + 57, yy); c.lineTo(x + 46, yy + 13); c.lineTo(x + 35, yy); c.closePath(); c.fillStyle = '#f2b830'; c.fill(); c.strokeStyle = '#5c3a10'; c.lineWidth = 1.5; c.stroke(); K.txt(c, t('reportRuin'), x + 74, yy + 1, 18, K.PEN, 'left', 800); K.costRowPlain(c, R.loot, x + 86 + K.width(c, t('reportRuin'), 18, 800), yy + 1, 17, K.PEN); yy += 40; }
+  for (const it of R.items) { itemIcon(c, it, x + 46, yy, 13); K.txt(c, t('reportItem', t('it_' + it)), x + 74, yy + 1, 18, '#8a5a1c', 'left', 800); yy += 40; }
+  if (!lines) K.wrap(c, t('reportNothing'), x + 34, yy, w - 68, 17, K.PEN, 24, 'left');
+  K.button(c, ui, x + 30, y + h - 74, 250, 54, t('reportMap'), { color: '#6b4a2c', fs: 19, tag: 'reportMap' }, A.reportMap);
   K.button(c, ui, x + w - 250, y + h - 74, 220, 54, t('ok'), { color: '#2f7d3a', fs: 22, tag: 'reportOk' }, A.reportOk);
 }
 
@@ -272,7 +318,7 @@ export function squadBar(S, K) {
   K.tuzuIcon(c, ui.squad === 0 ? 'eroe' : list[0].type, x + 26, y + 26, 10, MY_COLOR);
   K.txt(c, label, x + 46, y + 24, 16.5, '#ffe9a8', 'left', 800);
   if (raid) K.button(c, ui, x + 56 + lw, y + 6, 160, 34, t('squadAttack'), { color: '#a8322a', fs: 14.5, r: 10, tag: 'squadAttack' }, A.squadAttack);
-  K.button(c, ui, x + w - 42, y + 6, 34, 34, '', { color: '#3b3229', r: 17, tag: 'squadClose' }, A.squadClose); K.cross(c, x + w - 25, y + 23, 7);
+  K.button(c, ui, x + w - 42, y + 6, 34, 34, '', { color: '#5c4330', r: 17, tag: 'squadClose' }, A.squadClose); K.cross(c, x + w - 25, y + 23, 7);
 }
 
 // ---------- i trofei ----------

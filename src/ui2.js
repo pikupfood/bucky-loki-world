@@ -10,7 +10,11 @@ const TAU = Math.PI * 2, INK = '#2b2a33';
 /** Il Tuzu guida col cappello giallo, dentro un tondo. */
 export function guideFace(S, K, x, y, r, color = MY_COLOR, hat = true) {
   const { c, ui } = S, bob = Math.sin(ui.time * 2.6) * r * 0.06;
-  c.beginPath(); c.arc(x, y, r, 0, TAU); c.fillStyle = '#3a2f55'; c.fill(); c.strokeStyle = 'rgba(233,196,106,0.8)'; c.lineWidth = 2.5; c.stroke();
+  K.flushIcons(c);
+  c.beginPath(); c.arc(x, y + 2, r + 3, 0, TAU); c.fillStyle = 'rgba(0,0,0,0.3)'; c.fill();
+  c.beginPath(); c.arc(x, y, r + 3, 0, TAU); c.fillStyle = '#3a2614'; c.fill();
+  { const g = c.createRadialGradient(x, y - r * 0.3, r * 0.1, x, y, r); g.addColorStop(0, '#6a58a0'); g.addColorStop(1, '#2c2344'); c.beginPath(); c.arc(x, y, r, 0, TAU); c.fillStyle = g; c.fill(); }
+  { const g = c.createLinearGradient(0, y - r, 0, y + r); g.addColorStop(0, '#ffe9a8'); g.addColorStop(0.5, '#e9c46a'); g.addColorStop(1, '#a8782a'); c.strokeStyle = g; c.lineWidth = 3; c.stroke(); }
   c.save(); c.beginPath(); c.arc(x, y, r - 1.5, 0, TAU); c.clip(); K.tuzu2dNow(c, x, y + r * 0.24 + bob, r * 0.8, color); c.restore();
   if (!hat) return;
   c.beginPath(); c.moveTo(x - r * 0.52, y - r * 0.52 + bob); c.lineTo(x + r * 0.06, y - r * 1.3 + bob); c.lineTo(x + r * 0.52, y - r * 0.52 + bob); c.closePath(); c.fillStyle = '#f2c230'; c.fill(); c.strokeStyle = '#8a6410'; c.lineWidth = 2; c.stroke();
@@ -23,25 +27,26 @@ export function guide(S, K) {
   if (ui.screen !== 'play') return;
   const g = world.goal(), open = ui.guideOpen == null ? !!g && g.i < 12 : ui.guideOpen, tip = !!g && !g.done && open && has('gt_' + g.kind);
   const x = 14, y = S.tall ? 120 : 66, w = 366, h = tip ? 98 : 68, fx = x + 36, fy = y + 36;
-  K.panel(c, x, y, w, h, 14, 0.9); K.block(ui, x, y, w, h);
-  guideFace(S, K, fx, fy + 2, 27);
+  K.scroll(c, x, y, w, h, 14); K.block(ui, x, y, w, h);
+  guideFace(S, K, fx, fy + 2, 26);
   ui.buttons.push({ x, y, w: 72, h, tag: 'guideToggle', fn: A.guideToggle });
-  if (!g) { K.txt(c, t('goalsDone'), x + 76, y + 26, 16, '#ffe9a8', 'left', 800); K.txt(c, t('goalsDone2'), x + 76, y + 48, 12.5, K.DIM, 'left', 600); return; }
-  K.txt(c, t('g_' + g.kind, g.need), x + 76, y + 18, 16, '#ffe9a8', 'left', 800);
+  if (!g) { K.head(c, t('goalsDone'), x + 76, y + 26, 16.5, K.PEN, 'left', false); K.txt(c, t('goalsDone2'), x + 76, y + 48, 12.5, K.PEN2, 'left', 700); return; }
   // il frammento della Lanterna e a che punto sei degli obiettivi
-  const sh = world.shardCount();
-  K.txt(c, (sh ? '◆ ' + sh + '/' + TRIBES.length + '   ' : '') + (g.i + 1) + '/' + GOALS.length, x + w - 12, y + 15, 11, K.DIM, 'right', 700);
+  const sh = world.shardCount(), count = (sh ? '◆ ' + sh + '/' + TRIBES.length + '   ' : '') + (g.i + 1) + '/' + GOALS.length, cwid = K.width(c, count, 11, 800);
+  const ttl = t('g_' + g.kind, g.need);
+  K.head(c, ttl, x + 76, y + 19, K.fit(c, ttl, w - 96 - cwid, 16.5, 700, true), K.PEN, 'left', false);
+  K.txt(c, count, x + w - 12, y + 16, 11, K.PEN2, 'right', 800);
   if (g.done) {
     const pulse = 0.5 + Math.sin(ui.time * 6) * 0.5;
-    K.button(c, ui, x + 76, y + 30, 132, 32, t('claim'), { color: '#2f7d3a', fs: 16, r: 10, stroke: 'rgba(255,236,170,' + (0.6 + pulse * 0.4) + ')', tag: 'goalClaim' }, A.claimGoal);
-    K.costRowPlain(c, g.reward, x + 218, y + 47, 14.5);
+    K.button(c, ui, x + 76, y + 31, 132, 31, t('claim'), { color: '#2f7d3a', fs: 16, r: 10, stroke: 'rgba(255,236,170,' + (0.6 + pulse * 0.4) + ')', tag: 'goalClaim' }, A.claimGoal);
+    K.costRowPlain(c, g.reward, x + 218, y + 47, 14.5, K.PEN);
     c.beginPath(); c.arc(fx + 22, fy - 20, 10, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); K.txt(c, '!', fx + 22, fy - 19, 14, '#fff', 'center', 800);
     return;
   }
   let yy = y + 38;
-  if (tip) { K.wrap(c, t('gt_' + g.kind), x + 76, yy, w - 88, 12.5, K.CREAM, 15, 'left'); yy = y + 78; } else yy = y + 46;
-  if (g.need > 1) { K.bar(c, x + 76, yy - 5, 110, 8, g.have / g.need, '#ffd24a'); K.txt(c, g.have + '/' + g.need, x + 194, yy, 12.5, K.CREAM, 'left', 700); }
-  K.costRowPlain(c, g.reward, x + (g.need > 1 ? 246 : 76), yy, 13);
+  if (tip) { K.wrap(c, t('gt_' + g.kind), x + 76, yy, w - 90, 12.5, K.PEN, 15, 'left'); yy = y + 78; } else yy = y + 46;
+  if (g.need > 1) { K.bar(c, x + 76, yy - 5, 110, 8, g.have / g.need, '#e9a820'); K.txt(c, g.have + '/' + g.need, x + 194, yy, 12.5, K.PEN, 'left', 800); }
+  K.costRowPlain(c, g.reward, x + (g.need > 1 ? 246 : 76), yy, 13, K.PEN);
 }
 
 /** Chi arriva stanotte e da dove: una striscia in basso, fra «Costruisci» e «Inizia notte». */
@@ -62,9 +67,9 @@ export function incoming(S, K) {
   const fresh = types.find(ty => ty !== 'orco' && !world.d.seen[ty]);
   if (fresh) {
     const tip = t('tip_' + fresh), head = t('newEnemy') + ': ' + t('e_' + fresh), tw = Math.min(maxW + 220, Math.max(K.width(c, tip, 13.5, 600), K.width(c, head, 15, 800)) + 66);
-    K.panel(c, x, y - 58, tw, 50, 12, 0.9);
+    K.scroll(c, x, y - 58, tw, 50, 12);
     K.enemyIcon(c, fresh, x + 26, y - 32, 0.9, T0.color, T0.eyes);
-    K.txt(c, head, x + 52, y - 42, 15, '#ffe9a8', 'left', 800); K.txt(c, tip, x + 52, y - 22, 13.5, K.CREAM, 'left', 600);
+    K.head(c, head, x + 52, y - 43, 15, K.PENRED, 'left', false); K.txt(c, tip, x + 52, y - 23, 13.5, K.PEN, 'left', 700);
   }
 }
 
@@ -101,8 +106,8 @@ export function barracks(S, K, b, x, y, w, h) {
   // demolire, guardia e raccolta: in alto a destra, oppure (in verticale) su una riga loro accanto a «Sposta»
   const by = tall ? y + 80 : y + 9, bx0 = tall ? x + 128 : x + w - 482;
   K.button(c, ui, bx0, by, 92, 36, t(ui.demoAsk === b.id ? 'sure' : 'demolish'), { color: ui.demoAsk === b.id ? '#a8322a' : '#7a3a2c', fs: 13.5, r: 10, tag: 'demolish' }, () => A.demolish(b));
-  K.button(c, ui, bx0 + 100, by, 150, 36, t('stay') + ': ' + (b.stay ? t('on') : t('off')), { color: b.stay ? '#8a5a1c' : '#3b3229', fs: 14.5, r: 10, tag: 'stay' }, () => A.stay(b));
-  K.button(c, ui, bx0 + 256, by, 166, 36, world.d.rally ? t('rallyOff') : t('rally'), { color: '#3b3229', fs: 14.5, r: 10, tag: 'rally' }, world.d.rally ? A.rallyClear : A.rallyPick);
+  K.button(c, ui, bx0 + 100, by, 150, 36, t('stay') + ': ' + (b.stay ? t('on') : t('off')), { color: b.stay ? '#8a5a1c' : '#5c4330', fs: 14.5, r: 10, tag: 'stay' }, () => A.stay(b));
+  K.button(c, ui, bx0 + 256, by, 166, 36, world.d.rally ? t('rallyOff') : t('rally'), { color: '#5c4330', fs: 14.5, r: 10, tag: 'rally' }, world.d.rally ? A.rallyClear : A.rallyPick);
   const cols = tall ? 3 : UNIT_ORDER.length, gap = 6, ch = 106, cw = tall ? (w - 32 - gap * (cols - 1)) / cols : 134, y0 = tall ? y + 126 : y + 76;
   UNIT_ORDER.forEach((u, k) => {
     const U = UNITS[u], bx = x + 16 + (k % cols) * (cw + gap), cy = y0 + Math.floor(k / cols) * (ch + gap), chk = world.trainCheck(b, u), ok = chk === 'ok', shut = chk === 'castle' || chk === 'tech';
@@ -135,7 +140,7 @@ export function rolesPanel(S, K) {
     K.tuzuIcon(c, { bosco: 'ascia', pietra: 'piccone', campi: 'falce', cantiere: 'martello' }[r], x + 44, ry + 34, 14, MY_COLOR);
     K.txt(c, t('ro_' + r), x + 80, ry + 20, 17, K.CREAM, 'left', 800);
     K.txt(c, t('rod_' + r), x + 80, ry + 41, 12.5, K.DIM, 'left', 600);
-    K.button(c, ui, x + w - 172, ry + 9, 44, 40, '−', { color: '#3b3229', disabled: n <= 0, fs: 24, r: 10, tag: 'role_' + r + '_m' }, () => A.role(r, -1));
+    K.button(c, ui, x + w - 172, ry + 9, 44, 40, '−', { color: '#5c4330', disabled: n <= 0, fs: 24, r: 10, tag: 'role_' + r + '_m' }, () => A.role(r, -1));
     K.txt(c, String(n), x + w - 104, ry + 30, 22, K.CREAM, 'center', 800);
     K.button(c, ui, x + w - 80, ry + 9, 44, 40, '+', { color: '#2f7d3a', disabled: used >= max, fs: 24, r: 10, tag: 'role_' + r + '_p' }, () => A.role(r, 1));
   });
@@ -143,7 +148,7 @@ export function rolesPanel(S, K) {
     K.RES_ICON.cibo(c, x + 36, y + 372, 10);
     K.txt(c, t('foodLine', have, need) + ' · ' + t('food_' + st), x + 54, y + 373, 14.5, st === 'hungry' || (st !== 'off' && have < need) ? K.BAD : st === 'full' ? '#9ff0b4' : K.CREAM, 'left', 700); }
   K.wrap(c, t('moraleTip'), vw / 2, y + 400, w - 60, 13, K.DIM, 17);
-  K.button(c, ui, vw / 2 - 100, y + h - 54, 200, 42, t('close'), { color: '#3b3229', fs: 19, tag: 'close' }, A.roles);
+  K.button(c, ui, vw / 2 - 100, y + h - 54, 200, 42, t('close'), { color: '#5c4330', fs: 19, tag: 'close' }, A.roles);
 }
 
 /** Una riga che dice cosa comporta una scelta: costi, guadagni, morale, il resto. */
@@ -176,15 +181,16 @@ export function eventPanel(S, K) {
   const o = world.eventOpts(ev), T = ev.i != null ? TRIBES[ev.i] : null;
   K.dim(S, 0.62);
   const w = 680, h = 372, x = vw / 2 - w / 2, y = vh / 2 - h / 2, bw = (w - 60) / 2;
-  K.panel(c, x, y, w, h, 18, 0.97);
-  guideFace(S, K, x + 62, y + 70, 40, T ? T.color : MY_COLOR, !T);
-  K.txt(c, t('ev_' + ev.id), x + 122, y + 42, 25, '#f2cf73', 'left', 800);
-  if (T) K.txt(c, t('tr_' + T.id), x + 122, y + 68, 14, K.DIM, 'left', 700);
-  K.wrap(c, t('evt_' + ev.id, T ? t('tr_' + T.id) : '', ev.j != null ? t('tr_' + TRIBES[ev.j].id) : ''), x + 122, y + (T ? 96 : 82), w - 150, 16.5, K.CREAM, 22, 'left');
+  K.scroll(c, x, y, w, h, 16);
+  const ttl = t('ev_' + ev.id);
+  K.ribbon(c, vw / 2, y - 19, Math.min(w - 60, K.width(c, ttl, 23, 700, true) + 90), 42, ttl, T ? '#8a2f24' : '#5b4a8a', 23);
+  guideFace(S, K, x + 64, y + 86, 40, T ? T.color : MY_COLOR, !T);
+  if (T) K.head(c, t('tr_' + T.id), x + 124, y + 50, 16, K.PENRED, 'left', false);
+  K.wrap(c, t('evt_' + ev.id, T ? t('tr_' + T.id) : '', ev.j != null ? t('tr_' + TRIBES[ev.j].id) : ''), x + 124, y + (T ? 78 : 62), w - 154, 16.5, K.PEN, 22, 'left');
   [0, 1].forEach((k) => {
     const bx = x + 20 + k * (bw + 20), by = y + 168, can = (!o[k].cost || world.afford(o[k].cost)) && !(o[k].needArmy && world.popUsed() < o[k].needArmy);
-    c.beginPath(); c.roundRect(bx, by, bw, 184, 14); c.fillStyle = 'rgba(255,255,255,0.06)'; c.fill();
-    K.button(c, ui, bx + 14, by + 14, bw - 28, 52, t('ev' + (k ? 'b' : 'a') + '_' + ev.id), { color: k ? '#3b3229' : '#2f7d3a', disabled: !can, fs: 19, tag: 'event' + k }, () => A.eventChoose(k));
+    K.panel(c, bx, by, bw, 184, 13, 0.97);
+    K.button(c, ui, bx + 14, by + 14, bw - 28, 52, t('ev' + (k ? 'b' : 'a') + '_' + ev.id), { color: k ? '#6b4a2c' : '#2f7d3a', disabled: !can, fs: 19, tag: 'event' + k }, () => A.eventChoose(k));
     effects(S, K, o[k], bx + 20, by + 92, ev);
   });
 }
@@ -194,18 +200,19 @@ export function storyPanel(S, K) {
   const { c, world, ui, vw, vh, A } = S, k = ui.story;
   K.dim(S, 0.74);
   const w = Math.min(760, vw - 16), h = w < 760 ? 450 : 410, x = vw / 2 - w / 2, y = vh / 2 - h / 2;
-  K.panel(c, x, y, w, h, 20, 0.97);
-  guideFace(S, K, x + 84, y + 110, 56);
-  K.txt(c, t('chapter', k + 1), x + 170, y + 40, 14, K.DIM, 'left', 700);
-  K.txt(c, t('st' + k + 't'), x + 170, y + 70, 28, '#f2cf73', 'left', 800);
-  K.wrap(c, t('st' + k), x + 170, y + 112, w - 200, 17.5, K.CREAM, 25, 'left');
+  K.scroll(c, x, y, w, h, 18);
+  K.ribbon(c, vw / 2, y - 18, 230, 38, t('chapter', k + 1), '#5b4a8a', 18);
+  guideFace(S, K, x + 86, y + 118, 56);
+  K.head(c, t('st' + k + 't'), x + 170, y + 62, K.fit(c, t('st' + k + 't'), w - 200, 29, 700, true), K.PENRED, 'left', false);
+  K.rule(c, x + 170, y + 86, Math.min(300, w - 210), '122,44,30');
+  K.wrap(c, t('st' + k), x + 170, y + 116, w - 200, 17.5, K.PEN, 25, 'left');
   // la Lanterna: un frammento per popolo
   const n = world.shardCount(), lx = x + 170, ly = y + h - 104;
-  K.txt(c, t('lantern') + ' ' + n + '/' + TRIBES.length, lx, ly, 14, '#ffe27a', 'left', 800);
+  K.txt(c, t('lantern') + ' ' + n + '/' + TRIBES.length, lx, ly, 14, '#8a5a1c', 'left', 800);
   TRIBES.forEach((T, i) => {
     const px = lx + 14 + i * 30, py = ly + 30, got = !!world.d.shards[i];
     c.beginPath(); c.moveTo(px, py - 12); c.lineTo(px + 9, py); c.lineTo(px, py + 12); c.lineTo(px - 9, py); c.closePath();
-    c.fillStyle = got ? (T.id === 'neri' ? '#8f86b0' : T.color) : 'rgba(255,255,255,0.12)'; c.fill(); c.strokeStyle = got ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.25)'; c.lineWidth = 1.6; c.stroke();
+    c.fillStyle = got ? (T.id === 'neri' ? '#8f86b0' : T.color) : 'rgba(110,80,40,0.16)'; c.fill(); c.strokeStyle = got ? '#4e351d' : 'rgba(110,80,40,0.45)'; c.lineWidth = 1.6; c.stroke();
   });
   K.button(c, ui, x + w - 230, y + h - 74, 200, 52, t('goOn'), { color: '#2f7d3a', fs: 22, tag: 'storyOk' }, A.storyOk);
 }
@@ -215,9 +222,9 @@ export function fogPanel(S, K) {
   const { c, world, ui, vw, vh, A } = S, f = ui.fogSel, w = 600, h = 128, x = vw / 2 - w / 2, y = vh - h - 12, chk = world.scoutCheck();
   K.panel(c, x, y, w, h, 14, 0.95); K.block(ui, x, y, w, h);
   K.tuzuIcon(c, 'esplora', x + 42, y + 42, 19, MY_COLOR);
-  K.txt(c, t(f.ruin ? 'ruinTitle' : 'fogTitle'), x + 78, y + 26, 21, '#ffe9a8', 'left', 800);
+  K.head(c, t(f.ruin ? 'ruinTitle' : 'fogTitle'), x + 78, y + 26, 21, '#ffe9a8');
   K.txt(c, t(f.ruin ? 'ruinInfo' : 'fogInfo'), x + 78, y + 52, 14.5, K.DIM, 'left', 600);
-  K.button(c, ui, x + w - 52, y + 8, 42, 42, '', { color: '#3b3229', r: 21, tag: 'fogClose' }, A.fogClose); K.cross(c, x + w - 31, y + 29, 9);
+  K.button(c, ui, x + w - 52, y + 8, 42, 42, '', { color: '#5c4330', r: 21, tag: 'fogClose' }, A.fogClose); K.cross(c, x + w - 31, y + 29, 9);
   K.button(c, ui, x + 20, y + h - 56, 280, 46, t('sendScout'), { color: '#2f7d5a', disabled: chk !== 'ok', fs: 18, tag: 'scout' }, A.scout);
   K.costRow(c, world, { monete: FOG.cost }, x + 316, y + h - 33, 17, 1, true);
   if (chk === 'busy' || chk === 'full') K.txt(c, t(chk === 'full' ? 'scoutFull' : 'scoutBusy'), x + 380, y + h - 32, 13.5, K.BAD, 'left', 700);
@@ -265,7 +272,7 @@ export function rebuildPill(S, K) {
   K.panel(c, x, y, w, 44, 22, 0.93);
   K.button(c, ui, x + 5, y + 5, lw + 34, 34, label, { color: '#2f7d3a', disabled: !ok, fs: 16, r: 17, tag: 'rebuild' }, A.rebuild);
   K.costRow(c, world, P.cost, x + lw + 50, y + 23, 15, 1, true);
-  K.button(c, ui, x + w - 39, y + 5, 34, 34, '', { color: '#3b3229', r: 17, tag: 'rebuildSkip' }, A.rebuildSkip); K.cross(c, x + w - 22, y + 22, 7);
+  K.button(c, ui, x + w - 39, y + 5, 34, 34, '', { color: '#5c4330', r: 17, tag: 'rebuildSkip' }, A.rebuildSkip); K.cross(c, x + w - 22, y + 22, 7);
 }
 
 /** Quanto rende il villaggio: una riga per risorsa, al minuto; per il cibo anche quanto se ne mangia a notte. (Si apre toccando le risorse.) */
@@ -276,7 +283,7 @@ export function resPanel(S, K) {
   keys.push('grano', 'cibo');
   const x = 14, y = S.tall ? 118 : 64, w = 366, h = 62 + keys.length * 30 + 46;
   K.panel(c, x, y, w, h, 14, 0.97); ui.buttons.push({ x, y, w, h, tag: 'resClose', fn: A.resInfo });
-  K.txt(c, t('resTitle'), x + 16, y + 24, 17, '#f2cf73', 'left', 800);
+  K.head(c, t('resTitle'), x + 16, y + 24, 18);
   keys.forEach((k, i) => {
     const yy = y + 56 + i * 30, v = prod[k] || 0, s = (v > 0 ? '+' : '') + (Math.round(v * 10) / 10) + ' ' + t('perMin');
     K.txt(c, String(Math.floor(world.d.res[k] || 0)), x + 44, yy + 1, 16, K.RES_COL[k], 'left', 800);
@@ -297,16 +304,16 @@ export function heroItems(S, K, x, y) {
 /** Nelle impostazioni: musica e account, difficoltà, qualità. (cx = centro, y = riga) */
 export function settingsExtra(S, K, cx, y) {
   const { c, world, ui, A } = S;
-  K.button(c, ui, cx - 228, y, 222, 42, t('music') + ': ' + (ui.music ? t('on') : t('off')), { color: '#3b3229', fs: 17, tag: 'music' }, A.music);
+  K.button(c, ui, cx - 228, y, 222, 42, t('music') + ': ' + (ui.music ? t('on') : t('off')), { color: '#5c4330', fs: 17, tag: 'music' }, A.music);
   K.button(c, ui, cx + 6, y, 222, 42, t('account') + (ui.cloud && ui.cloud.user ? ' ✓' : ''), { color: '#2f5d7a', fs: 17, tag: 'account' }, A.account);
   K.txt(c, t('quality'), cx, y + 146, 15, K.DIM, 'center', 700);
-  ['auto', 2, 1, 0].forEach((q, k) => K.button(c, ui, cx - 228 + k * 115, y + 160, 110, 42, t('q_lv' + q), { color: ui.q === q ? '#8a5a1c' : '#3b3229', fs: 15.5, tag: 'q_' + q }, () => A.quality(q)));
+  ['auto', 2, 1, 0].forEach((q, k) => K.button(c, ui, cx - 228 + k * 115, y + 160, 110, 42, t('q_lv' + q), { color: ui.q === q ? '#8a5a1c' : '#5c4330', fs: 15.5, tag: 'q_' + q }, () => A.quality(q)));
   K.txt(c, t('difficulty'), cx, y + 68, 15, K.DIM, 'center', 700);
-  DIFF_ORDER.forEach((d, k) => K.button(c, ui, cx - 228 + k * 154, y + 82, 148, 42, t('diff_' + d), { color: world.d.diff === d ? '#8a5a1c' : '#3b3229', fs: 16.5, tag: 'diff_' + d }, () => A.diff(d)));
+  DIFF_ORDER.forEach((d, k) => K.button(c, ui, cx - 228 + k * 154, y + 82, 148, 42, t('diff_' + d), { color: world.d.diff === d ? '#8a5a1c' : '#5c4330', fs: 16.5, tag: 'diff_' + d }, () => A.diff(d)));
 }
 /** Sul titolo, per una partita nuova: la scelta della difficoltà. */
 export function titleDiff(S, K, cx, y) {
   const { c, ui, A } = S;
-  DIFF_ORDER.forEach((d, k) => K.button(c, ui, cx - 228 + k * 154, y, 148, 40, t('diff_' + d), { color: ui.diffPick === d ? '#8a5a1c' : '#3b3229', fs: 16.5, tag: 'pick_' + d }, () => A.diffPick(d)));
+  DIFF_ORDER.forEach((d, k) => K.button(c, ui, cx - 228 + k * 154, y, 148, 40, t('diff_' + d), { color: ui.diffPick === d ? '#8a5a1c' : '#5c4330', fs: 16.5, tag: 'pick_' + d }, () => A.diffPick(d)));
 }
 void INK; void FOOD; void BUILD;

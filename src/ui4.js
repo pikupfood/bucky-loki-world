@@ -77,8 +77,8 @@ function drawMap(S, K, ax, ay, aw, ah) {
   ui.onlineGeo = { ax, ay, aw, ah };
   ui.buttons.push({ x: ax, y: ay, w: aw, h: ah, tag: 'worldArea', fn: (lx, ly) => A.onlineTap(cam.x + (lx - ax - aw / 2) / z, cam.y + (ly - ay - ah / 2) / z) });
   // zoom e «casa mia»
-  K.button(c, ui, ax + aw - 50, ay + 10, 40, 40, '+', { color: '#3b3229', fs: 24, r: 20, tag: 'wZoomIn' }, () => A.onlineZoom(1.3));
-  K.button(c, ui, ax + aw - 50, ay + 56, 40, 40, '−', { color: '#3b3229', fs: 24, r: 20, tag: 'wZoomOut' }, () => A.onlineZoom(1 / 1.3));
+  K.button(c, ui, ax + aw - 50, ay + 10, 40, 40, '+', { color: '#5c4330', fs: 24, r: 20, tag: 'wZoomIn' }, () => A.onlineZoom(1.3));
+  K.button(c, ui, ax + aw - 50, ay + 56, 40, 40, '−', { color: '#5c4330', fs: 24, r: 20, tag: 'wZoomOut' }, () => A.onlineZoom(1 / 1.3));
   if (st.me) { K.button(c, ui, ax + aw - 50, ay + 102, 40, 40, '', { color: '#8a5a1c', r: 20, tag: 'wHome' }, A.onlineHome); K.buildIcon(c, 'castello', ax + aw - 30, ay + 123, 10, 0); }
   // la legenda: la differenza fra persone e computer
   const ly = ay + ah - 30; c.beginPath(); c.roundRect(ax + 8, ly - 4, 300, 28, 10); c.fillStyle = 'rgba(26,20,14,0.8)'; c.fill();
@@ -98,25 +98,25 @@ function picker(S, K, x, y, w) {
     K.txt(c, t('u_' + u), x + 44, yy + 21, 15, K.CREAM, 'left', 800);
     K.txt(c, n + '/' + max, x + w - 100, yy + 21, 16, K.CREAM, 'center', 800);
     K.tuzuIcon(c, u, x + 22, yy + 24, 10, MY_COLOR);
-    K.button(c, ui, x + w - 172, yy + 4, 36, 32, '−', { color: '#3b3229', disabled: n <= 0, fs: 20, r: 9, tag: 'pk_' + u + '_m' }, () => A.onlinePick(u, -1));
+    K.button(c, ui, x + w - 172, yy + 4, 36, 32, '−', { color: '#5c4330', disabled: n <= 0, fs: 20, r: 9, tag: 'pk_' + u + '_m' }, () => A.onlinePick(u, -1));
     K.button(c, ui, x + w - 64, yy + 4, 36, 32, '+', { color: '#2f7d3a', disabled: n >= max, fs: 20, r: 9, tag: 'pk_' + u + '_p' }, () => A.onlinePick(u, 1));
     yy += 44;
   }
   if (yy === y) { K.wrap(c, t('on_noArmy'), x, yy + 12, w, 14.5, K.BAD, 20, 'left'); return yy + 50; }
-  K.button(c, ui, x, yy + 2, 120, 32, t('on_all'), { color: '#3b3229', fs: 14, r: 9, tag: 'pkAll' }, () => A.onlinePick(null, 99));
+  K.button(c, ui, x, yy + 2, 120, 32, t('on_all'), { color: '#5c4330', fs: 14, r: 9, tag: 'pkAll' }, () => A.onlinePick(null, 99));
   const pw = O.armyPower(P.army), df = tgt ? O.defenseOf(tgt) : 0, odds = pw < df * 0.9 ? 'low' : pw < df * 1.15 ? 'even' : 'good';
   K.txt(c, t('on_force') + ' ' + pw + (P.mode !== 'join' ? ' / ' + df : ''), x + 132, yy + 12, 14, K.CREAM, 'left', 800);
   if (P.mode === 'attack') K.txt(c, t('odds_' + odds), x + 132, yy + 30, 13.5, odds === 'low' ? K.BAD : odds === 'even' ? '#ffd24a' : '#9ff0b4', 'left', 800);
   yy += 44;
   if (P.mode === 'rally') {       // quanto si aspettano i compagni
     K.txt(c, t('on_wait'), x, yy + 12, 13.5, K.DIM, 'left', 700); yy += 24;
-    [10, 60, 360].forEach((mn, i) => K.button(c, ui, x + i * ((w - 12) / 3 + 6), yy, (w - 12) / 3, 34, mn < 60 ? mn + ' min' : mn / 60 + ' h', { color: P.mins === mn ? '#8a5a1c' : '#3b3229', fs: 14.5, r: 9, tag: 'pkMin' + mn }, () => A.onlineMins(mn)));
+    [10, 60, 360].forEach((mn, i) => K.button(c, ui, x + i * ((w - 12) / 3 + 6), yy, (w - 12) / 3, 34, mn < 60 ? mn + ' min' : mn / 60 + ' h', { color: P.mins === mn ? '#8a5a1c' : '#5c4330', fs: 14.5, r: 9, tag: 'pkMin' + mn }, () => A.onlineMins(mn)));
     yy += 44;
   }
   if (tgt && me && P.mode !== 'join') { K.txt(c, t('on_march', fmtH(O.travelSecs(me, tgt) * 1000)), x, yy + 10, 13.5, K.DIM, 'left', 700); yy += 24; }
   const n = O.armyCount(P.army);
   K.button(c, ui, x, yy, w - 110, 46, t(P.mode === 'rally' ? 'on_rallyGo' : P.mode === 'join' ? 'on_joinGo' : 'on_go'), { color: '#a8322a', disabled: !n || O.state.busy, fs: 17, tag: 'pkGo' }, A.onlineGo);
-  K.button(c, ui, x + w - 102, yy, 102, 46, t('on_back'), { color: '#3b3229', fs: 15, tag: 'pkBack' }, A.onlineBack);
+  K.button(c, ui, x + w - 102, yy, 102, 46, t('on_back'), { color: '#5c4330', fs: 15, tag: 'pkBack' }, A.onlineBack);
   return yy + 56;
 }
 
@@ -137,7 +137,7 @@ function infoPanel(S, K, x, y, w, h) {
     if (me && k !== 'me') { K.txt(c, t('on_dist', Math.round(Math.hypot(v.x - me.x, v.y - me.y))) + ' · ' + t('on_march', fmtH(O.travelSecs(me, v) * 1000)), x + 16, yy, 13.5, K.DIM, 'left', 700); yy += 22; }
     if (O.shielded(v)) { K.txt(c, t('on_shield', fmtH(secsLeft(v.shield_until) * 1000)), x + 16, yy, 13.5, '#9fe9ff', 'left', 800); yy += 22; }
     yy += 6;
-    if (k === 'me') { K.button(c, ui, x + 16, yy, tw, 42, t('on_rename'), { color: '#3b3229', fs: 16, tag: 'wRename' }, A.onlineRename); yy += 50; }
+    if (k === 'me') { K.button(c, ui, x + 16, yy, tw, 42, t('on_rename'), { color: '#5c4330', fs: 16, tag: 'wRename' }, A.onlineRename); yy += 50; }
     else if (k === 'ally') { K.txt(c, t('on_isAlly'), x + 16, yy + 8, 14, '#9ff0b4', 'left', 800); yy += 30; }
     else if (me) {
       const open = st.marches.find(m => m.kind === 'rally' && m.status === 'gather' && m.target_id === v.id && me.alliance_id && m.alliance_id === me.alliance_id), sh = O.shielded(v);
@@ -169,7 +169,7 @@ function rankTab(S, K, x, y, w, h) {
   const players = st.villages.filter(v => v.kind === 'player').sort((a, b) => b.score - a.score);
   const al = st.alliances.map(a => { const ms = st.villages.filter(v => v.alliance_id === a.id); return { a, n: ms.length, score: ms.reduce((s, v) => s + v.score, 0) }; }).sort((p, q) => q.score - p.score);
   const list = (lx, ly, lh, title, rows) => {
-    K.panel(c, lx, ly, cw, lh, 14, 0.96); K.txt(c, title, lx + 16, ly + 22, 17, '#f2cf73', 'left', 800);
+    K.panel(c, lx, ly, cw, lh, 14, 0.96); K.head(c, title, lx + 16, ly + 22, 18);
     let yy = ly + 44; const max = Math.floor((lh - 52) / 30);
     rows.slice(0, max).forEach((r, i) => { if (r.me) { c.beginPath(); c.roundRect(lx + 8, yy - 13, cw - 16, 28, 8); c.fillStyle = 'rgba(138,90,28,0.6)'; c.fill(); }
       K.txt(c, String(r.pos || i + 1), lx + 28, yy + 1, 14, i < 3 ? '#ffd24a' : K.DIM, 'center', 800); K.txt(c, r.name, lx + 50, yy + 1, 14.5, K.CREAM, 'left', 800); K.txt(c, r.info, lx + cw - 96, yy + 1, 12.5, K.DIM, 'right', 700); K.txt(c, String(r.score), lx + cw - 16, yy + 1, 15, '#ffe9a8', 'right', 800); yy += 30; });
@@ -190,7 +190,7 @@ function allyTab(S, K, x, y, w, h) {
   const mine = O.allianceOf(me);
   let yy = y + 26;
   if (!mine) {
-    K.txt(c, t('on_noAlliance'), x + 18, yy, 17, '#f2cf73', 'left', 800);
+    K.head(c, t('on_noAlliance'), x + 18, yy, 18);
     K.button(c, ui, x + w - 218, y + 8, 200, 38, t('on_create'), { color: '#2f7d3a', fs: 15.5, r: 10, tag: 'aCreate' }, A.onlineAllyCreate);
     yy += 30;
     const list = st.alliances.map(a => ({ a, n: st.villages.filter(v => v.alliance_id === a.id).length })).sort((p, q) => q.n - p.n);
@@ -205,7 +205,7 @@ function allyTab(S, K, x, y, w, h) {
     return;
   }
   const members = st.villages.filter(v => v.alliance_id === mine.id).sort((a, b) => b.score - a.score), lead = mine.leader === me.id;
-  K.txt(c, '[' + mine.tag + '] ' + mine.name, x + 18, yy, 19, '#f2cf73', 'left', 800);
+  K.head(c, '[' + mine.tag + '] ' + mine.name, x + 18, yy, 20);
   K.txt(c, t('on_members', members.length) + '/20 · ' + t('on_score') + ' ' + members.reduce((s, v) => s + v.score, 0), x + 18, yy + 22, 13, K.DIM, 'left', 700);
   K.button(c, ui, x + w - 138, y + 10, 120, 36, t('on_leave'), { color: '#7a3a2c', disabled: st.busy, fs: 14.5, r: 10, tag: 'aLeave' }, A.onlineAllyLeave);
   yy += 44;
@@ -243,7 +243,7 @@ export function reportLine(r) {
 function reportsTab(S, K, x, y, w, h) {
   const { c } = S, st = O.state;
   K.panel(c, x, y, w, h, 14, 0.96);
-  K.txt(c, t('on_reports'), x + 18, y + 24, 17, '#f2cf73', 'left', 800);
+  K.head(c, t('on_reports'), x + 18, y + 24, 18);
   let yy = y + 46;
   if (!st.reports.length) K.txt(c, t('on_empty'), x + 18, yy + 8, 14, K.DIM, 'left', 600);
   for (const r of st.reports) {
@@ -263,7 +263,7 @@ export function worldPanel(S, K) {
   c.fillStyle = 'rgba(14,12,22,0.95)'; c.fillRect(0, 0, vw, vh); K.block(ui, 0, 0, vw, vh);
   // in alto: le schede e la chiusura
   const tw = Math.min(170, (vw - pad * 2 - 56 - 18) / 4);
-  TABS.forEach((k, i) => K.button(c, ui, pad + i * (tw + 6), pad, tw, 42, t('on_tab_' + k), { color: U.tab === k ? '#8a5a1c' : '#3b3229', fs: tw < 140 ? 14 : 16.5, r: 10, tag: 'wTab_' + k }, () => A.onlineTab(k)));
+  TABS.forEach((k, i) => K.button(c, ui, pad + i * (tw + 6), pad, tw, 42, t('on_tab_' + k), { color: U.tab === k ? '#8a5a1c' : '#5c4330', fs: tw < 140 ? 14 : 16.5, r: 10, tag: 'wTab_' + k }, () => A.onlineTab(k)));
   K.button(c, ui, vw - pad - 44, pad, 44, 42, '', { color: '#7a3a2c', r: 21, tag: 'wClose' }, A.onlineClose); K.cross(c, vw - pad - 22, pad + 21, 10);
   const x = pad, y = pad + 54, w = vw - pad * 2, h = vh - y - pad;
   // chi non è entrato, o il mondo che non c'è ancora
