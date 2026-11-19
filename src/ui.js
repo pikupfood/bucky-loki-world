@@ -272,6 +272,9 @@ function buildIcon(c, type, x, y, s, time) {
   else if (type === 'fontana') { c.beginPath(); c.ellipse(0, 12, 26, 10, 0, 0, TAU); c.fillStyle = '#b9bac6'; c.fill(); c.strokeStyle = '#55565e'; c.stroke(); c.beginPath(); c.ellipse(0, 10, 20, 6.5, 0, 0, TAU); c.fillStyle = '#5ec3ea'; c.fill(); R(-3, -12, 6, 22, '#cfd0da', '#55565e'); c.beginPath(); c.ellipse(0, -12, 11, 4, 0, 0, TAU); c.fillStyle = '#b9bac6'; c.fill(); c.stroke(); c.strokeStyle = '#d9f3ff'; c.lineWidth = 2.5; for (const k of [-1, 1]) { c.beginPath(); c.moveTo(0, -22); c.quadraticCurveTo(k * 10, -24, k * 12, -8); c.stroke(); } }
   else if (type === 'taverna') { R(-22, -4, 44, 26, '#f0dcb4'); Pg([-28, -4, 0, -28, 28, -4], '#3f7a66'); R(-5, 6, 10, 16, '#6b4226'); R(-18, 2, 8, 8, '#ffd97a'); c.beginPath(); c.roundRect(10, 0, 12, 13, 2); c.fillStyle = '#f2c230'; c.fill(); c.strokeStyle = '#8a6410'; c.stroke(); c.beginPath(); c.arc(23, 6, 4, -1.4, 1.4); c.stroke(); }
   else if (type === 'statua') { R(-14, 10, 28, 12, '#9a9ba4', '#55565e'); c.restore(); tuzu2dNow(c, x, y - s * 0.22, s * 0.62, '#d5d6e0', '#8f909c'); c.save(); c.translate(x, y); c.scale(s / 30, s / 30); }
+  else if (type === 'faro') { Pg([-22, 22, -16, 12, 16, 12, 22, 22], '#8f909c', '#55565e'); for (let k = 0; k < 4; k++) Pg([-9 + k * 1.2, 12 - k * 8, 9 - k * 1.2, 12 - k * 8, 7.8 - k * 1.2, 4 - k * 8, -7.8 + k * 1.2, 4 - k * 8], k % 2 ? '#f4f1ea' : '#c0392b'); c.fillStyle = 'rgba(255,236,150,0.6)'; c.beginPath(); c.moveTo(5, -23.5); c.lineTo(28, -31); c.lineTo(28, -16); c.closePath(); c.fill(); R(-6, -27, 12, 7, '#ffe27a', '#8a6410'); Pg([-8, -27, 0, -34, 8, -27], '#c0392b'); }
+  else if (type === 'giardino') { c.beginPath(); c.roundRect(-26, -18, 52, 38, 8); c.fillStyle = '#3f8f4a'; c.fill(); c.strokeStyle = 'rgba(20,50,25,0.75)'; c.stroke(); c.beginPath(); c.roundRect(-20, -12, 40, 26, 5); c.fillStyle = '#7cc05a'; c.fill(); R(-4, -12, 8, 26, '#d9c39a', null); c.beginPath(); c.arc(0, 1, 8.5, 0, TAU); c.fillStyle = '#d9c39a'; c.fill(); c.beginPath(); c.arc(0, 0, 5.5, 0, TAU); c.fillStyle = '#2f7a3b'; c.fill(); for (const [fx, fy, col] of [[-13, -5, '#ff8fb0'], [13, -5, '#fff0a0'], [-13, 8, '#ff6f6f'], [13, 8, '#c9b6ff']]) { c.beginPath(); c.arc(fx, fy, 3.6, 0, TAU); c.fillStyle = col; c.fill(); } }
+  else if (type === 'pozzo') { R(-14, 4, 28, 18, '#a3a4b0', '#55565e'); c.strokeStyle = 'rgba(60,60,70,0.55)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-14, 13); c.lineTo(14, 13); c.moveTo(-4, 4); c.lineTo(-4, 13); c.moveTo(6, 13); c.lineTo(6, 22); c.stroke(); c.lineWidth = 2; R(-13, -14, 3.5, 18, '#6f4526', null); R(9.5, -14, 3.5, 18, '#6f4526', null); Pg([-20, -12, 0, -26, 20, -12], '#b5482f'); c.strokeStyle = '#d9c39a'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(0, -12); c.lineTo(0, -3); c.stroke(); c.lineWidth = 2; R(-3.5, -3, 7, 6, '#c08e58', '#5c3a1e'); }
   else if (type === 'lampione') { R(-2.5, -14, 5, 36, '#3d3e46', null); c.beginPath(); c.arc(0, -18, 9, 0, TAU); c.fillStyle = '#ffe9a0'; c.fill(); c.strokeStyle = '#8a6410'; c.stroke(); R(-8, 20, 16, 4, '#3d3e46', null); }
   else if (type === 'aiuola') { c.beginPath(); c.roundRect(-22, -2, 44, 20, 6); c.fillStyle = '#7a5634'; c.fill(); c.strokeStyle = 'rgba(30,20,10,0.75)'; c.stroke(); c.beginPath(); c.ellipse(0, 2, 18, 8, 0, 0, TAU); c.fillStyle = '#4f9a4b'; c.fill(); for (const [fx, fy, col] of [[-10, -2, '#ff8fb0'], [0, -6, '#fff0a0'], [10, -1, '#ff6f6f'], [-2, 4, '#c9b6ff']]) { c.beginPath(); c.arc(fx, fy, 4.4, 0, TAU); c.fillStyle = col; c.fill(); } }
   else if (type === 'albero') { R(-3, 4, 6, 18, '#6a4528', null); c.beginPath(); c.arc(0, -6, 15, 0, TAU); c.fillStyle = '#3f8f4a'; c.fill(); c.strokeStyle = 'rgba(20,50,25,0.7)'; c.stroke(); c.beginPath(); c.arc(8, 2, 9, 0, TAU); c.fillStyle = '#57a857'; c.fill(); }
@@ -352,8 +355,8 @@ function langRow(S, cx, y) {
 // =====================================================================
 //  SOPRA IL MONDO: evidenziazioni, barre della vita, fumetti, notte
 // =====================================================================
-const B_H = { scalo: 74, fontana: 50, taverna: 70, statua: 54, mulino: 80, fucina: 70, lampione: 44, albero: 46, aiuola: 16, strada: 6, castello: 120, arcieri: 84, mago: 90, catapulta: 60, braciere: 70, radici: 50, casa: 62, caserma: 70, segheria: 54, cava: 54, campo: 26, recinto: 34, mura: 48, cancello: 56, bottega: 66, mercato: 56, miniera: 54, cristalliera: 54, porto: 46, ponte: 10 };
-const LIGHT = { scalo: 130, porto: 100, lampione: 120, taverna: 140, fucina: 120, mulino: 90, fontana: 70, statua: 60, castello: 240, casa: 120, caserma: 120, segheria: 80, cava: 80, cancello: 70, bottega: 120, mercato: 110, miniera: 80, cristalliera: 90 };
+const B_H = { faro: 108, giardino: 34, pozzo: 44, scalo: 74, fontana: 50, taverna: 70, statua: 54, mulino: 80, fucina: 70, lampione: 44, albero: 46, aiuola: 16, strada: 6, castello: 120, arcieri: 84, mago: 90, catapulta: 60, braciere: 70, radici: 50, casa: 62, caserma: 70, segheria: 54, cava: 54, campo: 26, recinto: 34, mura: 48, cancello: 56, bottega: 66, mercato: 56, miniera: 54, cristalliera: 54, porto: 46, ponte: 10 };
+const LIGHT = { faro: 210, scalo: 130, porto: 100, lampione: 120, taverna: 140, fucina: 120, mulino: 90, fontana: 70, statua: 60, castello: 240, casa: 120, caserma: 120, segheria: 80, cava: 80, cancello: 70, bottega: 120, mercato: 110, miniera: 80, cristalliera: 90 };
 const cellPoly = (P, c0, r0, w, h) => [P.pt(c0 * G, r0 * G), P.pt((c0 + w) * G, r0 * G), P.pt((c0 + w) * G, (r0 + h) * G), P.pt(c0 * G, (r0 + h) * G)];
 const onScreen = (S, p, m) => p.x > -m && p.x < S.vw + m && p.y > -m && p.y < S.vh + m;
 
@@ -592,7 +595,7 @@ function hud(S) {
   const hideL = ui.box && ui.box[0] < 14 + 208 + 6, hideR = ui.box && ui.box[1] > vw - 14 - 230 - 6;
   if (!hideL) { button(c, ui, 14, vh - 14 - 66, 208, 66, t('buildBtn'), { color: '#8a5a1c', fs: 24, dx: 16, tag: 'build' }, A.buildOpen); hammer(c, 44, vh - 14 - 31, 17); if (Object.keys(BUILD).some(ty => world.isNewBuild(ty))) { c.beginPath(); c.arc(14 + 208 - 6, vh - 14 - 66 + 6, 9, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, '!', 14 + 208 - 6, vh - 14 - 66 + 7, 13, '#fff', 'center', 800); } }
   if (!isNight) {
-    if (!ui.sel && ui.vsel == null) { X.incoming(S, K); X.rebuildPill(S, K); X.harvestPill(S, K); }
+    if (!ui.sel && ui.vsel == null) { X.incoming(S, K); if (!ui.rallyPick && !ui.aiming) { X.rebuildPill(S, K); X.harvestPill(S, K); } }      // mentre scegli un punto, le pillole lasciano il posto alla scritta che ti dice cosa fare
     const pulse = world.towers() ? 0.5 + Math.sin(ui.time * 4) * 0.5 : 0;
     if (!hideR) button(c, ui, vw - 14 - 230, vh - 14 - 66, 230, 66, t('startNight'), { color: '#2f7d3a', fs: 25, stroke: `rgba(255,236,170,${0.7 + pulse * 0.3})`, tag: 'night' }, A.start);
   } else {
@@ -639,9 +642,11 @@ function buildBar(S) {
   const cols = tall ? 4 : list.length, rows = Math.ceil(list.length / cols);
   const h = tall ? 58 + rows * (ch + gap) + 4 : 176, x = 14, y = vh - h - 12, w = vw - 28;
   panel(c, x, y, w, h, 14, 0.94); block(ui, x, y, w, h);
-  if (tall) { const tw = (w - 24 - 52 - 4 * 6) / 5; CAT_ORDER.forEach((cat, i) => button(c, ui, x + 12 + i * (tw + 6), y + 10, tw, 38, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#5c4330', fs: 15.5, r: 9, tag: 'cat_' + cat }, () => A.cat(cat))); }
-  else CAT_ORDER.forEach((cat, i) => button(c, ui, x + 12, y + 9 + i * 32, 150, 28, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#5c4330', fs: 15.5, r: 9, tag: 'cat_' + cat }, () => A.cat(cat)));
-  CAT_ORDER.forEach((cat, i) => { if (cat === ui.build.cat || !BUILD_CATS[cat].some(ty => world.isNewBuild(ty))) return; const dx = tall ? x + 12 + i * ((w - 24 - 52 - 4 * 6) / 5 + 6) + (w - 24 - 52 - 4 * 6) / 5 - 5 : x + 12 + 150 - 4, dy = tall ? y + 13 : y + 12 + i * 32; c.beginPath(); c.arc(dx, dy, 6, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.stroke(); });
+  const nc = CAT_ORDER.length, ctw = (w - 24 - 52 - (nc - 1) * 6) / nc, cstep = 156 / Math.ceil(nc / 2);
+  if (tall) CAT_ORDER.forEach((cat, i) => button(c, ui, x + 12 + i * (ctw + 6), y + 10, ctw, 38, t('cat_' + cat), { color: ui.build.cat === cat ? '#8a5a1c' : '#5c4330', fs: nc > 5 ? 14.5 : 15.5, r: 9, tag: 'cat_' + cat }, () => A.cat(cat)));
+  // in orizzontale le schede stanno su due colonne: sei in fila una sotto l'altra erano troppo basse per il dito
+  else CAT_ORDER.forEach((cat, i) => { const s = t('cat_' + cat); button(c, ui, x + 12 + (i % 2) * 77, y + 10 + (i >> 1) * cstep, 73, cstep - 6, s, { color: ui.build.cat === cat ? '#8a5a1c' : '#5c4330', fs: fit(c, s, 63, 14, 700), r: 9, tag: 'cat_' + cat }, () => A.cat(cat)); });
+  CAT_ORDER.forEach((cat, i) => { if (cat === ui.build.cat || !BUILD_CATS[cat].some(ty => world.isNewBuild(ty))) return; const dx = tall ? x + 12 + i * (ctw + 6) + ctw - 5 : x + 12 + (i % 2) * 77 + 73 - 5, dy = tall ? y + 13 : y + 13 + (i >> 1) * cstep; c.beginPath(); c.arc(dx, dy, 6, 0, TAU); c.fillStyle = '#e0452f'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.stroke(); });
   const x0 = tall ? x + 12 : x + 12 + 150 + 14;
   const cw = tall ? (w - 24 - gap * (cols - 1)) / cols : Math.min(122, Math.floor((w - (x0 - x) - 62) / list.length) - gap), small = cw < 112;       // con tante carte si stringono
   list.forEach((ty, i) => {
@@ -814,6 +819,7 @@ function selPanel(S) {
     if (b.type === 'mulino') parts.push(t('millInfo'));
     if (D.beauty) parts.push(`${t('morale')} +${D.beauty}`);
     if (b.type === 'fucina') parts.push(t('k_fucina'));
+    if (b.type === 'faro') parts.push(t('k_faro'));
     if (b.type === 'scalo' || b.type === 'porto') parts.push(t('sea_berths', b.type === 'scalo' ? 2 + lv : lv >= 2 ? 2 : 1));
     txt(c, parts.length ? parts.join(' · ') : t('d_' + b.type), x + 82, y + 54, 17, DIM);
     if (hasLv) {
@@ -962,8 +968,7 @@ function newsPanel(S) {
   scroll(c, x, y, w, h, 18);
   ribbon(c, vw / 2, y - 19, Math.min(w - 60, 320), 44, t('news'), '#8a2f24', 24);
   txt(c, t('newsSub'), vw / 2, y + 52, 15, PEN2, 'center', 700);
-  const icon = [(ix, iy) => { c.beginPath(); c.moveTo(ix - 16, iy + 8); c.bezierCurveTo(ix - 6, iy - 12, ix + 4, iy + 14, ix + 16, iy - 8); c.strokeStyle = '#d8c79a'; c.lineWidth = 13; c.lineCap = 'round'; c.stroke(); c.strokeStyle = '#4fb4de'; c.lineWidth = 8; c.stroke(); },
-    (ix, iy) => buildIcon(c, 'scalo', ix, iy, 15, 0), (ix, iy) => V.shipIcon(c, 'guerra', ix, iy - 2, 16, 2), (ix, iy) => rotIcon(c, ix, iy, 13, '#7a2c1e'), (ix, iy) => Z.globeIcon(c, ix, iy, 14)];
+  const icon = [(ix, iy) => buildIcon(c, 'scalo', ix, iy, 15, 0), (ix, iy) => buildIcon(c, 'faro', ix, iy + 3, 15, 0), (ix, iy) => buildIcon(c, 'giardino', ix, iy, 15, 0), (ix, iy) => buildIcon(c, 'campo', ix, iy, 15, 0), (ix, iy) => V.anchorIcon(c, ix, iy, 15, '#7a2c1e')];
   for (let i = 0; i < 5; i++) {
     const ry = y + 84 + i * rowH;
     c.beginPath(); c.arc(x + 44, ry + rowH / 2 - 6, 24, 0, TAU); c.fillStyle = 'rgba(122,84,40,0.14)'; c.fill(); c.strokeStyle = 'rgba(122,84,40,0.45)'; c.lineWidth = 1.4; c.stroke();

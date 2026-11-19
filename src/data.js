@@ -305,6 +305,8 @@ export const BUILD = {
   fontana:   { w: 2, h: 2, hp: 100, cost: { pietra: 60, monete: 40 }, cat: 'bel', min: 1, cap: (L) => L, beauty: 8 },
   taverna:   { w: 2, h: 2, hp: 140, cost: { legna: 80, monete: 60 }, cat: 'bel', min: 2, cap: (L) => L - 1, beauty: 10 },
   statua:    { w: 1, h: 1, hp: 120, cost: { pietra: 80, monete: 60 }, cat: 'bel', min: 3, cap: (L) => L - 2, beauty: 12 },
+  giardino:  { w: 2, h: 2, hp: 60, cost: { monete: 60, legna: 30 }, cat: 'bel', min: 2, cap: (L) => L - 1, beauty: 9 },
+  pozzo:     { w: 1, h: 1, hp: 90, cost: { pietra: 40, monete: 20 }, cat: 'bel', min: 1, cap: (L) => L, beauty: 4 },
   lampione:  { w: 1, h: 1, hp: 40, cost: { legna: 10, monete: 10 }, cat: 'bel', min: 1, beauty: 1.5, deco: true },
   aiuola:    { w: 1, h: 1, hp: 20, cost: { monete: 8 }, cat: 'bel', min: 1, beauty: 2, flat: true, line: true, deco: true },
   albero:    { w: 1, h: 1, hp: 40, cost: { legna: 6 }, cat: 'bel', min: 1, beauty: 1.5, deco: true },
@@ -319,17 +321,20 @@ export const BUILD = {
   mura:      { w: 1, h: 1, hp: 260, cost: { pietra: 8 }, cat: 'mura', min: 2, line: true },
   cancello:  { w: 1, h: 1, hp: 180, cost: { legna: 20, pietra: 10 }, cat: 'mura', min: 2, gate: true },
   // acqua: il ponte si posa solo sull'acqua e la rende percorribile; il porto sta sulla riva e pesca
-  ponte:     { w: 1, h: 1, hp: 80, cost: { legna: 8 }, cat: 'mura', min: 2, flat: true, line: true, deco: true, water: true },
-  porto:     { w: 2, h: 2, hp: 140, cost: { legna: 100, pietra: 40 }, cat: 'eco', min: 2, prod: { cibo: 8, monete: 3 }, cap: (L) => L - 1, shore: true },
+  ponte:     { w: 1, h: 1, hp: 80, cost: { legna: 8 }, cat: 'acqua', min: 2, flat: true, line: true, deco: true, water: true },
+  porto:     { w: 2, h: 2, hp: 140, cost: { legna: 100, pietra: 40 }, cat: 'acqua', min: 2, prod: { cibo: 8, monete: 3 }, cap: (L) => L - 1, shore: true },
   // il Porto vero (nei testi «Porto»; quello sopra è il «Porticciolo»): la casa della flotta, cinque livelli
-  scalo:     { w: 3, h: 2, hp: 260, cost: { legna: 220, pietra: 140 }, cat: 'eco', min: 3, prod: { monete: 4 }, cap: (L) => L - 2, shore: true },
+  scalo:     { w: 3, h: 2, hp: 260, cost: { legna: 220, pietra: 140 }, cat: 'acqua', min: 3, prod: { monete: 4 }, cap: (L) => L - 2, shore: true },
+  // il Faro: sulla riva, uno solo. Le navi tornano prima (SEA.faroFast) e i pirati colpiscono meno (SEA.faroRisk)
+  faro:      { w: 2, h: 2, hp: 200, cost: { pietra: 160, legna: 80, monete: 100 }, cat: 'acqua', min: 3, cap: () => 1, shore: true, beauty: 5 },
 };
 export const BUILD_CATS = {
-  eco: ['casa', 'campo', 'mulino', 'porto', 'scalo', 'segheria', 'cava', 'mercato'], off: ['bottega', 'miniera', 'cristalliera', 'fucina'],
-  dif: ['arcieri', 'radici', 'caserma', 'mago', 'catapulta', 'braciere'], mura: ['recinto', 'mura', 'cancello', 'strada', 'ponte'],
-  bel: ['fontana', 'taverna', 'statua', 'lampione', 'aiuola', 'albero'],
+  eco: ['casa', 'campo', 'mulino', 'segheria', 'cava', 'mercato'], off: ['bottega', 'miniera', 'cristalliera', 'fucina'],
+  dif: ['arcieri', 'radici', 'caserma', 'mago', 'catapulta', 'braciere'], mura: ['recinto', 'mura', 'cancello', 'strada'],
+  acqua: ['porto', 'scalo', 'faro', 'ponte'],          // tutto quello che vuole una riva o l'acqua, in una scheda sola
+  bel: ['fontana', 'taverna', 'statua', 'giardino', 'pozzo', 'lampione', 'aiuola', 'albero'],
 };
-export const CAT_ORDER = ['eco', 'off', 'dif', 'mura', 'bel'];
+export const CAT_ORDER = ['eco', 'off', 'dif', 'mura', 'acqua', 'bel'];
 // Morale del villaggio (0-100): parte da 50, sale con la bellezza e con le vittorie, scende con le case affollate e le sconfitte.
 // Sotto 30 il villaggio produce il 20% in meno; da 60 il 15% in più; da 80 il 30% in più.
 export const MORALE = { base: 50, perHouse: 3, roadCap: 8 };
@@ -512,7 +517,7 @@ export const NATURE = (function () {
 export const CHOP = { tree: { res: 'legna', gain: 7 }, rock: { res: 'pietra', gain: 6 }, iron: { res: 'ferro', gain: 8, tech: 'ferro' }, crystal: { res: 'cristallo', gain: 6, tech: 'cristallo' } };
 
 // ---------- cantieri: secondi per costruire (i pezzi in fila e la bellezza piccola compaiono subito) ----------
-const TIMES = { casa: 6, campo: 3, segheria: 6, cava: 7, mercato: 7, bottega: 8, miniera: 8, cristalliera: 9, mulino: 8, fucina: 9, arcieri: 6, radici: 6, caserma: 9, mago: 7, catapulta: 8, braciere: 7, fontana: 5, taverna: 8, statua: 6, porto: 8, scalo: 11 };
+const TIMES = { casa: 6, campo: 3, segheria: 6, cava: 7, mercato: 7, bottega: 8, miniera: 8, cristalliera: 9, mulino: 8, fucina: 9, arcieri: 6, radici: 6, caserma: 9, mago: 7, catapulta: 8, braciere: 7, fontana: 5, taverna: 8, statua: 6, porto: 8, scalo: 11, faro: 10, giardino: 5, pozzo: 4 };
 for (const k in TIMES) BUILD[k].time = TIMES[k];
 
 // ---------- mestieri: gli abitanti con un mestiere lavorano da soli (gli altri aspettano i tuoi tocchi) ----------
@@ -601,6 +606,7 @@ export const SEA = {
   trade: [{ mins: 20, sell: 1.2, buy: 0.9, risk: 0 }, { mins: 60, sell: 1.4, buy: 0.8, risk: 0.2 }, { mins: 180, sell: 1.6, buy: 0.7, risk: 0.35 }],
   explore: [{ mins: 60, loot: 120 }, { mins: 180, loot: 320 }, { mins: 360, loot: 700 }],
   fightMins: 45, raidMins: 90, fast: 0.07, repair: 0.6, pirate: 34, pirateExp: 1.35, raid: 45, steal: 0.3,
+  faroFast: 0.15, faroRisk: 0.5,          // col Faro: viaggi il 15% più corti, e i pirati colpiscono la metà delle volte
 };
 export const levelK = (lvl) => 1 + 0.5 * (lvl || 0);
 

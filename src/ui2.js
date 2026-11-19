@@ -55,11 +55,12 @@ export function incoming(S, K) {
   if (maxW < 200) return;
   if (!from.length) { const s = t('quietInfo'), pw = Math.min(maxW, K.width(c, s, 16, 700) + 56); K.panel(c, x, y + 10, pw, 46); K.moon(c, x + 24, y + 33, 9); K.txt(c, s, x + 42, y + 34, 16, '#cfd8ff', 'left', 700); return; }
   const sum = world.waveSum(n), types = Object.keys(sum), T0 = TRIBES[from[0]];
-  const iw = K.width(c, t('incoming'), 14, 700), pw = Math.min(maxW, Math.max(26 + iw + types.length * 62, 60 + from.length * 22 + K.width(c, t('from'), 13, 600)));
+  const step = (ty) => Math.max(62, 17 + K.width(c, '×' + sum[ty], 15, 800) + 27);      // un numero di tre cifre finiva sotto l'icona dopo
+  const iw = K.width(c, t('incoming'), 14, 700), pw = Math.min(maxW, Math.max(26 + iw + types.reduce((a, ty) => a + step(ty), 0), 60 + from.length * 22 + K.width(c, t('from'), 13, 600)));
   K.panel(c, x, y, pw, 66, 12, 0.86);
   K.txt(c, t('incoming'), x + 12, y + 19, 14, K.DIM, 'left', 700);
   let xx = x + 12 + iw + 22;
-  for (const ty of types) { if (xx + 50 > x + pw) break; K.enemyIcon(c, ty, xx, y + 21, 0.72, T0.color, T0.eyes); K.txt(c, '×' + sum[ty], xx + 17, y + 21, 15, K.CREAM, 'left', 800); xx += 62; }
+  for (const ty of types) { if (xx + step(ty) - 12 > x + pw) break; K.enemyIcon(c, ty, xx, y + 21, 0.72, T0.color, T0.eyes); K.txt(c, '×' + sum[ty], xx + 17, y + 21, 15, K.CREAM, 'left', 800); xx += step(ty); }
   K.txt(c, t('from'), x + 12, y + 48, 13, K.DIM, 'left', 600); xx = x + 12 + K.width(c, t('from'), 13, 600) + 14;
   for (const i of from) { const T = TRIBES[i]; K.tuzu2d(c, xx, y + 47, 8, T.color, T.eyes); xx += 21; }
   if (from.length <= 2 && xx + 90 < x + pw) K.txt(c, from.map(i => t('tr_' + TRIBES[i].id)).join(', '), xx, y + 48, 13, K.CREAM, 'left', 700);

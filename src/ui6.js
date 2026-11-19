@@ -118,7 +118,7 @@ function tradeTab(S, K, x, y, w, h) {
   K.txt(c, String(q ? q.n : 0), x + 98, yy + 21, 20, K.CREAM, 'center', 800);
   K.txt(c, t('sea_hold', hold), x + 208, yy + 21, 13.5, K.DIM, 'left', 700);
   // il conto, e via
-  const qy = two ? y + (idle.length > 1 ? 44 : 0) : yy + 54, qw = two ? w - lw - 16 : w, qh = two ? Math.min(h - (qy - y), 236) : 186;
+  const qy = two ? y + (idle.length > 1 ? 44 : 0) : yy + 54, qw = two ? w - lw - 16 : w, qh = two ? Math.min(h - (qy - y), 236) : 236;      // in verticale era 186: il bottone «Salpa» copriva l'avviso dei pirati
   K.scroll(c, rx, qy, qw, qh, 12);
   shipIcon(c, 'mercantile', rx + 38, qy + 34, 19, s.lvl);
   K.head(c, shipName(s), rx + 76, qy + 24, 17, K.PENRED, 'left', false);
@@ -128,7 +128,7 @@ function tradeTab(S, K, x, y, w, h) {
     K.txt(c, line, rx + 18, qy + 80, K.fit(c, line, qw - 36, 17, 800), K.PEN, 'left', 800);
     K.txt(c, t('sea_back', fmtH(q.ms)) + ' · ' + clock(S.now + q.ms), rx + 18, qy + 104, 13.5, K.PEN2, 'left', 800);
   } else K.txt(c, t(U.buy ? 'why_cost' : 'sea_nothing'), rx + 18, qy + 88, 14.5, K.PENBAD, 'left', 800);
-  if (R.risk > 0) { const esc = world.hasEscort(); K.wrap(c, t(esc ? 'sea_escort' : 'sea_pirateRisk'), rx + 18, qy + 128, qw - 36, 12.5, esc ? K.PENOK : K.PENBAD, 16, 'left'); }
+  if (R.risk > 0) { const esc = world.hasEscort(), far = !esc && world.hasFaro(); K.wrap(c, t(esc ? 'sea_escort' : far ? 'sea_faro' : 'sea_pirateRisk'), rx + 18, qy + 128, qw - 36, 12.5, esc ? K.PENOK : far ? K.PEN2 : K.PENBAD, 16, 'left'); }
   K.button(c, ui, rx + 16, qy + qh - 60, qw - 32, 46, t('sea_go'), { color: '#2f7d3a', disabled: !q || q.n <= 0, fs: 19, tag: 'trGo' }, A.fleetSail);
 }
 

@@ -16,7 +16,7 @@ const uiCanvas = document.getElementById('ui');
 const ctx = uiCanvas.getContext('2d');
 const scene = new Scene3D(glCanvas);
 
-const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 6;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
+const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 7;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
 const KEY = 'tuzu_difesa_v3';       // la chiave resta questa: i salvataggi vecchi li converte World
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
@@ -318,7 +318,7 @@ function hitButton(clientX, clientY, pad = 0) {
 }
 const DUMMY = 0; void DUMMY;
 void HERO;
-const TALL = { scalo: 70, fontana: 46, taverna: 66, statua: 50, mulino: 76, fucina: 66, lampione: 40, albero: 40, castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26, bottega: 60, mercato: 50, miniera: 46, cristalliera: 46, porto: 40 };
+const TALL = { faro: 104, giardino: 28, pozzo: 40, scalo: 70, fontana: 46, taverna: 66, statua: 50, mulino: 76, fucina: 66, lampione: 40, albero: 40, castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26, bottega: 60, mercato: 50, miniera: 46, cristalliera: 46, porto: 40 };
 /** Il villaggio sotto il dito: la piazza attorno alla casa del capo, oppure la casa stessa (che sullo schermo sta più in su). */
 function villageUnder(clientX, clientY, g) {
   for (let i = 0; i < TRIBES.length; i++) {
@@ -517,7 +517,7 @@ function handleEvents() {
       case 'meal': if (ev.fed < 0.5) { banner(t('hungry'), '#ff8a80', 2.8); audio.play('sad'); } break;
       case 'gift': audio.play('coin'); parts(ui.fxTop, ev.x, ev.y, 60, 14, '#ff8fb0', 120, 0.9, 4.5, 160); break;
       case 'order': ring(ui.fx, ev.x, ev.y, 8, 54, 0.4, '#fff6a0', 4); break;
-      case 'trophy': banner(t('trophy') + ': ' + t('tro_' + ev.kind) + ' ' + ev.need, '#ffe27a', 2.8); audio.play('won'); buzz(20); save(); break;
+      case 'trophy': banner(t('trophy') + ': ' + (['castle', 'hero', 'morale'].includes(ev.kind) ? t('tro_' + ev.kind) + ' ' + ev.need : ev.need + ' ' + t('tro_' + ev.kind)), '#ffe27a', 2.8); audio.play('won'); buzz(20); save(); break;
       case 'goal': { audio.play('cleared'); buzz(20); const g = scene.pick(210 * view.us, 120 * view.us) || { x: world.castle.x, y: world.castle.y }; let k = 0; for (const r in ev.reward) text(ui.fxTop, g.x + k++ * 70, g.y, 20, '+' + ev.reward[r], RES_FX[r], 26, 1.5); break; }
       case 'tech': banner(t('discovered', t('t_' + ev.id)), '#9fe9ff', 2.6); audio.play('won'); buzz(20); save(); break;
       case 'bought': audio.play('coin'); break;
@@ -652,6 +652,10 @@ function ambientFx() {
 /** Un fotogramma: aggiorna e disegna. (Le prove lo chiamano a mano quando la scheda è in secondo piano.) */
 function tick(real) {
   ui.time += real;
+  // La misura dello schermo si ricontrolla a ogni fotogramma: se la pagina nasce larga zero (scheda in secondo piano, guscio Android appena
+  // aperto) o un pieghevole si apre senza mandare «resize», l'interfaccia restava alla misura sbagliata e il disegno si fermava con un errore.
+  if (window.innerWidth !== view.cw || window.innerHeight !== view.ch) resize();
+  if (!view.cw || !view.ch) return;
   if (view.portrait) { drawRotate(); return; }
   audio.musicTick(ui.screen !== 'play' ? 'day' : world.status);
   if (ui.moved) world.note('move');

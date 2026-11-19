@@ -531,7 +531,9 @@ export function extend(World) {
       return true;
     },
     /** Quanto dura un viaggio per questa nave: ogni livello la fa più svelta. */
-    shipMs(s, mins) { return Math.round(mins * 60000 * (1 - SEA.fast * s.lvl)); },
+    shipMs(s, mins) { return Math.round(mins * 60000 * (1 - SEA.fast * s.lvl) * (this.hasFaro() ? 1 - SEA.faroFast : 1)); },
+    /** Un Faro finito sulla riva: guida le navi (viaggi più corti, meno pirati). */
+    hasFaro() { return this.d.buildings.some(b => b.type === 'faro' && !(b.build > 0)); },
     /** Una nave da guerra in porto fa da scorta ai mercantili che partono: i pirati non li toccano. */
     hasEscort() { return this.d.fleet.some(s => s.type === 'guerra' && this.shipFit(s)); },
     /** Il prezzo al Mercato di una unità: comprando (TRADE) o vendendo (SELL). 0 = non si tratta. */
@@ -554,7 +556,7 @@ export function extend(World) {
       const q = this.tradeQuote(s, tier, res, n, buy);
       if (!q || q.n <= 0) return false;
       if (buy) this.d.res.monete -= q.coins; else this.d.res[res] -= q.n;
-      s.job = { kind: 'trade', at: now, ms: q.ms, tier, res, n: q.n, coins: q.coins, buy: buy ? 1 : 0, escort: this.hasEscort() ? 1 : 0 };
+      s.job = { kind: 'trade', at: now, ms: q.ms, tier, res, n: q.n, coins: q.coins, buy: buy ? 1 : 0, escort: this.hasEscort() ? 1 : 0, faro: this.hasFaro() ? 1 : 0 };
       this.track('sail'); this.events.push({ k: 'shipOut', kind: 'trade', type: s.type, lvl: s.lvl }); this.rev++;
       return true;
     },
@@ -595,7 +597,7 @@ export function extend(World) {
         const j = s.job;
         if (!j) continue;            // una nave da guerra già rientrata con le compagne dello stesso gruppo
         if (j.kind === 'trade') {
-          const robbed = !j.escort && roll(s, 1) < SEA.trade[j.tier].risk, keep = robbed ? 1 - SEA.steal : 1;
+          const robbed = !j.escort && roll(s, 1) < SEA.trade[j.tier].risk * (j.faro ? SEA.faroRisk : 1), keep = robbed ? 1 - SEA.steal : 1;
           const got = j.buy ? { [j.res]: Math.floor(j.n * keep) } : { monete: Math.floor(j.coins * keep) };
           this.gain(got); reps.push({ kind: 'trade', ship: s.type, lvl: s.lvl, res: j.res, n: j.n, buy: j.buy, got, robbed: robbed ? 1 : 0 });
           s.job = null;

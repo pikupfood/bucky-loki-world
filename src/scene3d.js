@@ -828,6 +828,47 @@ function makeStatue() {
   for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + 0.4; ball(g, 2.4, i % 2 ? '#ff8fb0' : '#fff0a0', Math.cos(a) * 17, 2.4, Math.sin(a) * 17, { ns: true }); }
   return g;
 }
+/** Il Faro: scoglio, torre a fasce, ballatoio, lanterna con la luce che gira, e la casetta del guardiano. */
+function makeLighthouse() {
+  const g = grp(null), u = {}, fx = -8, fz = -2, fh = 62;
+  cyl(g, 33, 36, 7, STONE_D, -2, 3.5, 2, { seg: 12 }); cyl(g, 28, 31, 5, STONE, -2, 9, 2, { seg: 12 });
+  cyl(g, 12.5, 14.5, 9, '#8f909c', fx, 15.5, fz, { seg: 12 });
+  for (let k = 0; k < 5; k++) cyl(g, 10.4 - k * 0.9, 11.3 - k * 0.9, fh / 5, k % 2 ? '#f4f1ea' : '#c0392b', fx, 20 + fh / 10 + k * fh / 5, fz, { seg: 12 });
+  cyl(g, 10.5, 10.5, 2.4, '#55565e', fx, 21.2 + fh, fz, { seg: 12, ns: true });
+  for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; cyl(g, 0.7, 0.7, 6, '#3d3e46', fx + Math.cos(a) * 9.6, 25 + fh, fz + Math.sin(a) * 9.6, { seg: 5, ns: true }); }
+  cyl(g, 5.2, 5.2, 9, '#ffe27a', fx, 27 + fh, fz, { seg: 8, ns: true, mat: { e: 0xffc040, ei: 1 } });
+  cone(g, 8.6, 10, '#c0392b', fx, 36.5 + fh, fz, { seg: 12, ns: true }); ball(g, 1.8, GOLDC, fx, 42.5 + fh, fz, { ns: true });
+  const beam = u.beam = grp(g, fx, 27 + fh, fz); const bm = put(beam, geom('beam2', () => new THREE.ConeGeometry(12, 96, 10, 1, true)), M('#fff3c4', { basic: true, a: 0.16, double: true }), 0, 0, 52, false); bm.rotation.x = -Math.PI / 2;
+  box(g, 6, 10, 1.6, '#5c3a1e', fx, 16.5, fz + 13.8, { ns: true });
+  box(g, 26, 16, 22, '#efe4c8', 21, 19.5, 10); roof(g, 30, 10, 26, '#b5482f', 21, 27.5, 10);
+  box(g, 6, 10, 1.4, '#6b4226', 17, 16.5, 21.4, { ns: true }); box(g, 6, 6, 1.4, '#ffd97a', 27, 20.5, 21.3, { ns: true, e: 0xffb040, ei: 0.8 });
+  g.userData = u;
+  return g;
+}
+/** Il Giardino: prato con la siepe attorno, un vialetto, un alberello al centro, cespugli in fiore e due panchine. */
+function makeGarden() {
+  const g = grp(null);
+  box(g, 74, 2, 74, '#6fae52', 0, 1, 0, { ns: true });
+  for (const [x, z, w, d] of [[-22, -34, 30, 6], [22, -34, 30, 6], [-22, 34, 30, 6], [22, 34, 30, 6], [-34, 0, 6, 62], [34, 0, 6, 62]]) box(g, w, 9, d, '#3f8f4a', x, 5.5, z);
+  box(g, 12, 0.8, 74, '#d9c39a', 0, 2.3, 0, { ns: true }); cyl(g, 14, 14, 0.8, '#d9c39a', 0, 2.4, 0, { seg: 12, ns: true });
+  cyl(g, 9, 9.6, 3, '#9a9ba4', 0, 3.6, 0, { seg: 12 }); cyl(g, 7.6, 7.6, 1, '#7a5634', 0, 5.3, 0, { seg: 12, ns: true });
+  cyl(g, 1.6, 2, 14, '#6a4528', 0, 12, 0, { seg: 6 }); ball(g, 10, '#57a857', 0, 24, 0); ball(g, 7, '#6bb35a', 5, 29, 2); ball(g, 6.5, '#4c9c50', -5, 27, -3);
+  for (let i = 0; i < 6; i++) { const a = i * 1.047; ball(g, 1.6, i % 2 ? '#ff8fb0' : '#fff0a0', Math.cos(a) * 6, 6.4, Math.sin(a) * 6, { ns: true }); }
+  const FL = ['#ff8fb0', '#fff0a0', '#ff6f6f', '#c9b6ff', '#ffffff'];
+  for (const [x, z] of [[-21, -20], [21, -20], [-21, 20], [21, 20]]) { ball(g, 6.4, '#4c9c50', x, 5.4, z); for (let i = 0; i < 5; i++) { const a = i * 1.257 + x; ball(g, 1.8, FL[i], x + Math.cos(a) * 4.6, 9.6, z + Math.sin(a) * 4.6, { ns: true }); } }
+  for (const sx of [-1, 1]) { box(g, 5, 1.6, 16, WOOD_L, sx * 15, 6.4, 0, { ns: true }); box(g, 1.4, 6.4, 16, WOOD_L, sx * 17.6, 9.4, 0, { ns: true }); for (const z of [-6.5, 6.5]) box(g, 4.4, 4, 1.6, WOOD_D, sx * 15, 3.8, z, { ns: true }); }
+  return g;
+}
+/** Il Pozzo: vera di pietra, acqua, due pali, il tettuccio e il secchio appeso. */
+function makeWell() {
+  const g = grp(null);
+  cyl(g, 13, 14.4, 12, STONE, 0, 6, 0, { seg: 12 }); cyl(g, 10.2, 10.2, 0.8, '#3d8fc0', 0, 12.2, 0, { seg: 12, ns: true, mat: { e: 0x1f7fb0, ei: 0.4 } });
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; box(g, 5.4, 2.6, 4.4, i % 2 ? '#c4c5d0' : '#b2b3be', Math.cos(a) * 12, 12.6, Math.sin(a) * 12, { ns: true }).rotation.y = -a + Math.PI / 2; }
+  for (const sx of [-1, 1]) box(g, 2.6, 22, 2.6, WOOD_D, sx * 12.2, 23, 0, { ns: true });
+  box(g, 28, 1.8, 1.8, WOOD, 0, 30, 0, { ns: true }); box(g, 0.7, 9, 0.7, '#d9c39a', 0, 25.5, 0, { ns: true }); cyl(g, 3, 2.4, 4.4, WOOD_L, 0, 19, 0, { seg: 8, ns: true });
+  roof(g, 30, 8, 19, '#b5482f', 0, 32.5, 0);
+  return g;
+}
 function makeMill() {
   const g = grp(null), u = {};
   cyl(g, 30, 32, 5, '#8f8f98', 0, 2.5, 0, { seg: 10 });
@@ -890,6 +931,9 @@ function makeModel(type, o = {}) {
   else if (type === 'fontana') g = makeFountain();
   else if (type === 'taverna') g = makeTavern();
   else if (type === 'statua') g = makeStatue();
+  else if (type === 'faro') g = makeLighthouse();
+  else if (type === 'giardino') g = makeGarden();
+  else if (type === 'pozzo') g = makeWell();
   else if (type === 'mulino') g = makeMill();
   else if (type === 'fucina') g = makeForge();
   else if (type === 'miniera') g = makeMine('#c0683c', 0);
