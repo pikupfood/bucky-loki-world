@@ -7,7 +7,7 @@ export const BUILT_IN = ['it', 'fr', 'en'];
 
 const S = {
   it: {
-    title: 'I Regni di Tuzu', subtitle: 'Il tuo villaggio fra i popoli Tuzu',
+    title: 'Tuzuland', subtitle: 'Il tuo villaggio fra i popoli Tuzu',
     lore: 'Ogni popolo Tuzu ha il suo villaggio e il suo colore. Fai crescere il tuo, difendilo di notte e conquista gli altri.',
     play: 'Gioca', day: 'Giorno', night: 'Notte',
     startNight: 'Inizia notte', nightIn: 'Notte fra {v}', nightEarly: 'anticipi: {v}', nightNoEarly: 'Anticipi di oggi finiti', nightComing: 'Arriva la notte!', incoming: 'In arrivo', enemies: 'Nemici', from: 'Da',
@@ -201,7 +201,7 @@ const S = {
     on_e_soon: 'Il mondo online arriva presto.', on_e_net: 'Non riesco a collegarmi. Riprova.',
   },
   fr: {
-    title: 'Les Royaumes de Tuzu', subtitle: 'Ton village parmi les peuples Tuzu',
+    title: 'Tuzuland', subtitle: 'Ton village parmi les peuples Tuzu',
     lore: 'Chaque peuple Tuzu a son village et sa couleur. Fais grandir le tien, défends-le la nuit et conquiers les autres.',
     play: 'Jouer', day: 'Jour', night: 'Nuit',
     startNight: 'Lancer la nuit', nightIn: 'Nuit dans {v}', nightEarly: 'avances : {v}', nightNoEarly: 'Plus d\'avance aujourd\'hui', nightComing: 'La nuit arrive !', incoming: 'En approche', enemies: 'Ennemis', from: 'De',
@@ -398,7 +398,7 @@ const S = {
     on_e_soon: 'Le monde en ligne arrive bientôt.', on_e_net: 'Connexion impossible. Réessaie.',
   },
   en: {
-    title: 'The Realms of Tuzu', subtitle: 'Your village among the Tuzu peoples',
+    title: 'Tuzuland', subtitle: 'Your village among the Tuzu peoples',
     lore: 'Every Tuzu people has its own village and color. Grow yours, defend it at night and conquer the others.',
     play: 'Play', day: 'Day', night: 'Night',
     startNight: 'Start night', nightIn: 'Night in {v}', nightEarly: 'early starts: {v}', nightNoEarly: 'No early starts left today', nightComing: 'Night is coming!', incoming: 'Incoming', enemies: 'Enemies', from: 'From',

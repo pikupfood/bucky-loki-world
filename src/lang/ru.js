@@ -1,6 +1,6 @@
 // Testi in «ru». Fatto da tools/lang/build.mjs; da qui in poi si corregge a mano in questo file.
 export default {
-  title: "Королевства Tuzu",
+  title: "Tuzuland",
   subtitle: "Твоя деревня среди народов Tuzu",
   lore: "У каждого народа Tuzu своя деревня и свой цвет. Развивай свою, защищай её ночью и покоряй другие.",
   play: "Играть",

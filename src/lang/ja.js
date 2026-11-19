@@ -1,6 +1,6 @@
 // Testi in «ja». Fatto da tools/lang/build.mjs; da qui in poi si corregge a mano in questo file.
 export default {
-  title: "Tuzuの王国",
+  title: "Tuzuland",
   subtitle: "Tuzuの部族にかこまれた、きみの村",
   lore: "Tuzuの部族には、それぞれ村と色があります。自分の村を育て、夜は守り、ほかの村を征服しよう。",
   play: "あそぶ",

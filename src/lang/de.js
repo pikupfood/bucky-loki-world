@@ -1,6 +1,6 @@
 // Testi in «de». Fatto da tools/lang/build.mjs; da qui in poi si corregge a mano in questo file.
 export default {
-  title: "Die Reiche von Tuzu",
+  title: "Tuzuland",
   subtitle: "Dein Dorf unter den Tuzu-Völkern",
   lore: "Jedes Tuzu-Volk hat sein Dorf und seine Farbe. Lass deins wachsen, verteidige es nachts und erobere die anderen.",
   play: "Spielen",

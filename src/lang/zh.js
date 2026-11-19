@@ -1,6 +1,6 @@
 // Testi in «zh». Fatto da tools/lang/build.mjs; da qui in poi si corregge a mano in questo file.
 export default {
-  title: "Tuzu王国",
+  title: "Tuzuland",
   subtitle: "你在Tuzu各族间的村庄",
   lore: "每个Tuzu族群都有自己的村庄和颜色。发展你的村庄，夜里守住它，再去征服别的村庄。",
   play: "开始游戏",

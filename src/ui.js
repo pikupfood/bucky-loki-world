@@ -1111,10 +1111,13 @@ function awayPanel(S) {
   button(c, ui, vw / 2 - 120, y0 + 212, 240, 64, t('ok'), { color: '#2f7d3a', fs: 26, tag: 'awayOk' }, A.awayOk);
 }
 
+// il logo del gioco (lo stesso dell'icona): sulla schermata del titolo, sopra il nome, dove c'è posto
+const LOGO = typeof Image !== 'undefined' ? new Image() : null; if (LOGO) LOGO.src = 'icon-512.png';
 function titleScreen(S) {
   const { c, ui, vw, vh, A } = S;
   dim(S, 0.55);
   const y0 = vh / 2 - 230;
+  if (LOGO && LOGO.complete && LOGO.naturalWidth && y0 > 170) c.drawImage(LOGO, vw / 2 - 75, y0 - 150, 150, 150);
   title2(c, t('title'), vw / 2, y0 + 60, Math.min(78, vw / 9.4), '#f2cf73');
   rule(c, vw / 2 - Math.min(260, vw * 0.3), y0 + 104, Math.min(520, vw * 0.6));
   head(c, t('subtitle'), vw / 2, y0 + 132, Math.min(28, vw / 26), '#f5ecd7', 'center');

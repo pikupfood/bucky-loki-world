@@ -1,6 +1,6 @@
 // Testi in «hi». Fatto da tools/lang/build.mjs; da qui in poi si corregge a mano in questo file.
 export default {
-  title: "Tuzu के राज्य",
+  title: "Tuzuland",
   subtitle: "Tuzu कबीलों के बीच तुम्हारा गाँव",
   lore: "हर Tuzu कबीले का अपना गाँव और अपना रंग है। अपना गाँव बढ़ाओ, रात में उसे बचाओ और बाकी को जीत लो।",
   play: "खेलो",

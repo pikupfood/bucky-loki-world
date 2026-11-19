@@ -1,6 +1,6 @@
 // Testi in «ar». Fatto da tools/lang/build.mjs; da qui in poi si corregge a mano in questo file.
 export default {
-  title: "ممالك Tuzu",
+  title: "Tuzuland",
   subtitle: "قريتك بين شعوب Tuzu",
   lore: "لكل شعب من Tuzu قريته ولونه. طور قريتك، دافع عنها ليلا وسيطر على القرى الأخرى.",
   play: "العب",

@@ -1,6 +1,6 @@
 // Testi in «pt». Fatto da tools/lang/build.mjs; da qui in poi si corregge a mano in questo file.
 export default {
-  title: "Os Reinos de Tuzu",
+  title: "Tuzuland",
   subtitle: "Sua vila entre os povos Tuzu",
   lore: "Cada povo Tuzu tem sua vila e sua cor. Faça a sua crescer, defenda-a à noite e conquiste as outras.",
   play: "Jogar",

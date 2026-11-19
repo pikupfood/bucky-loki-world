@@ -1,6 +1,6 @@
 // Testi in «ko». Fatto da tools/lang/build.mjs; da qui in poi si corregge a mano in questo file.
 export default {
-  title: "Tuzu의 왕국들",
+  title: "Tuzuland",
   subtitle: "Tuzu 부족들 사이의 내 마을",
   lore: "Tuzu 부족은 저마다 마을과 색이 있어요. 내 마을을 키우고, 밤에는 지키고, 다른 마을을 정복하세요.",
   play: "게임 시작",

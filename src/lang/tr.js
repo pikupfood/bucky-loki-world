@@ -1,6 +1,6 @@
 // Testi in «tr». Fatto da tools/lang/build.mjs; da qui in poi si corregge a mano in questo file.
 export default {
-  title: "Tuzu Diyarları",
+  title: "Tuzuland",
   subtitle: "Tuzu halkları arasındaki köyün",
   lore: "Her Tuzu halkının kendi köyü ve rengi var. Kendi köyünü büyüt, gece savun ve diğerlerini fethet.",
   play: "Oyna",

@@ -614,7 +614,9 @@ function blank() {
   } catch (e) { return false; }
 }
 
+let booted = false;
 function frame(now) {
+  if (!booted && frames > 2) { booted = true; const el = document.getElementById('boot'); if (el) el.remove(); }      // il gioco disegna: via il logo di caricamento
   if (quality === 0 && (skip++ & 1)) { requestAnimationFrame(frame); return; }      // a qualità bassa, un fotogramma sì e uno no: il telefono scalda meno
   const raw = (now - last) / 1000, real = Math.max(0, Math.min(0.1, raw)); last = now;
   // se per un paio di secondi i fotogrammi sono lenti, abbasso la qualità (una tacca alla volta)
