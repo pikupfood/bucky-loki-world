@@ -1344,5 +1344,5 @@ export class World {
 }
 /** Le novità che si possono spegnere (lo fanno le prove vecchie, per restare semplici): cantieri, difficoltà dei mondi nuovi,
  *  nebbia, eroe, eventi a sorpresa, villaggi che vivono. */
-World.RULES = { clock: true, buildTime: true, diff: 'normale', fog: true, hero: true, events: true, life: true, food: true, levels: true, tribes: true, siege: true, dipl: true, roads: true, sea: true };
+World.RULES = { ease: true, clock: true, buildTime: true, diff: 'normale', fog: true, hero: true, events: true, life: true, food: true, levels: true, tribes: true, siege: true, dipl: true, roads: true, sea: true };
 extend(World);

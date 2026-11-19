@@ -103,11 +103,33 @@ const register = (email, secret) => run(async () => {
   state.user = data.user; state.msg = ''; await sync();
 });
 /** Con Google: si esce dalla pagina e si torna già dentro. La partita resta sul telefono nel frattempo. */
+// Dentro l'app (Capacitor) la pagina sta su https://localhost, che non è un indirizzo di ritorno ammesso: Supabase rimandava al sito tuzu.my
+// (il titolare, 19/11/2026). Dall'app Google si apre nel browser del telefono e torna su game.tuzu.my/app-login, che riapre l'app con
+// l'indirizzo com.nexlygo.tuzudifesa://auth?access_token=…: lo riceve main.js (appUrlOpen) e lo passa a fromUrl.
+const NATIVE = (() => { try { const C = window.Capacitor; return !!(C && C.isNativePlatform && C.isNativePlatform()); } catch (e) { return false; } })();
+const APP_BACK = 'https://game.tuzu.my/app-login';
 const google = () => run(async () => {
   if (cfg.beforeLeave) cfg.beforeLeave();
-  const s = await client(), { error } = await s.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + '/' } });
+  const s = await client();
+  if (NATIVE) {
+    const { data, error } = await s.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: APP_BACK, skipBrowserRedirect: true } });
+    if (error || !data || !data.url) { say(t('cloudErr'), true); return; }
+    window.location.href = data.url; return;      // un indirizzo di fuori: Capacitor lo apre nel browser del telefono
+  }
+  const { error } = await s.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + '/' } });
   if (error) say(t('cloudErr'), true);
 });
+/** L'app è stata riaperta dal ritorno di Google: nell'indirizzo ci sono i due gettoni. Vero se si è entrati. */
+export async function fromUrl(url) {
+  const fail = () => { state.open = true; state.msg = t('cloudErr'); state.bad = true; render(); return false; };
+  try {
+    const q = new URLSearchParams(String(url).split(/[?#]/).slice(1).join('&')), at = q.get('access_token'), rt = q.get('refresh_token');
+    if (!at || !rt) return fail();
+    const s = await client(), { data, error } = await s.auth.setSession({ access_token: at, refresh_token: rt });
+    if (error || !data || !data.session) return fail();
+    state.user = data.session.user; state.msg = ''; state.bad = false; state.open = true; await sync(); render(); return true;
+  } catch (e) { return fail(); }
+}
 const leave = () => run(async () => { const s = await client(); await s.auth.signOut(); state.user = null; state.savedAt = 0; state.msg = ''; try { localStorage.removeItem(MARK); } catch (e) { /* niente */ } });
 
 // ---------- il pannello (HTML vero sopra il gioco: così la tastiera del telefono funziona) ----------

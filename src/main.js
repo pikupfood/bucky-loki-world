@@ -56,7 +56,7 @@ function setQuality(q) { quality = q; scene.setShadows(q >= 1); scene.setPost(q 
 function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* non tutti i telefoni vibrano */ } }
 /** L'approdo da cui partono e a cui tornano le navi: il primo Porto, altrimenti il primo Porticciolo. */
 const harbour = () => world.d.buildings.find(b => b.type === 'scalo' && !(b.build > 0)) || world.d.buildings.find(b => b.type === 'porto' && !(b.build > 0)) || null;
-function toast(str) { ui.toast = { str, t: 0, T: 2 }; audio.play('no'); }
+function toast(str) { ui.toast = { str, t: 0, T: str.length > 44 ? 4 : 2 }; audio.play('no'); }
 /** Una scritta grande al centro; se ce n'è già una, aspetta il suo turno. */
 function banner(str, color, T = 2.4) { ui.bannerQ.push({ str, color, t: 0, T }); }
 
@@ -301,7 +301,12 @@ const A = {
   trade(i) { if (world.trade(i)) save(); else { const w = world.tradeCheck(i); toast(t(w === 'done' ? 'tradeDone' : w === 'tech' ? 'why_tech' : w === 'cost' ? 'why_cost' : 'notNow')); } },
   attack(i) { if (world.startRaid(i)) { closeAll(); save(); } else { const w = world.raidCheck(i); toast(t(w === 'noarmy' ? 'needArmy' : w === 'ally' ? 'isAlly' : 'notNow')); } },
   retreat() { if (world.retreat()) save(); },
-  start() { if (world.startNight(Date.now())) { ui.nightWarn = null; closeAll(); save(); } else if (world.status === 'day') toast(t('nightNoEarly')); },
+  start() {
+    // nelle prime notti, con meno di due torri, il gioco avvisa: si parte lo stesso solo con un secondo tocco
+    if (world.status === 'day' && world.towers() < world.towersWanted() && !(ui.nightAsk > 0)) { ui.nightAsk = 4; toast(t('nightWeak')); return; }
+    ui.nightAsk = 0;
+    if (world.startNight(Date.now())) { ui.nightWarn = null; closeAll(); save(); } else if (world.status === 'day') toast(t('nightNoEarly'));
+  },
   speed() { ui.speed = ui.speed === 1 ? 2 : 1; audio.play('tap'); },
   aim() { if (world.spellCd <= 0) { ui.aiming = !ui.aiming; ui.sel = null; audio.play('tap'); } else audio.play('no'); },
   home() { scene.setView((CASTLE.c + CASTLE.w / 2) * G, (CASTLE.r + CASTLE.h / 2) * G + 20, view.tall ? 1900 : 1150); audio.play('tap'); },
@@ -491,7 +496,19 @@ function back() {
   else if (CapApp) { save(); CapApp.exitApp(); }
 }
 let CapApp = null;
-try { const C = window.Capacitor; if (C && C.isNativePlatform && C.isNativePlatform()) { CapApp = C.registerPlugin('App'); CapApp.addListener('backButton', back); } } catch (e) { CapApp = null; }
+// Dentro l'app (Capacitor) senza impacchettatore non esiste `Capacitor.registerPlugin`: i plugin stanno in `Capacitor.Plugins`.
+// (Fino al 19/11/2026 qui si chiamava registerPlugin, che dava errore: il tasto indietro del telefono non era mai collegato.)
+try {
+  const C = window.Capacitor;
+  if (C && C.isNativePlatform && C.isNativePlatform()) {
+    CapApp = C.registerPlugin ? C.registerPlugin('App') : (C.Plugins && C.Plugins.App) || null;
+    if (CapApp) {
+      CapApp.addListener('backButton', back);
+      CapApp.addListener('appUrlOpen', (e) => { if (e && e.url) cloud.fromUrl(e.url); });      // il ritorno da Google ad app aperta
+      if (CapApp.getLaunchUrl) CapApp.getLaunchUrl().then((r) => { if (r && r.url) cloud.fromUrl(r.url); }).catch(() => {});      // …e ad app chiusa
+    }
+  }
+} catch (e) { CapApp = null; }
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { save(); return; }
@@ -731,6 +748,8 @@ function tick(real) {
   scene.sync(world, ui.time, now);
   scene.setNight(ui.night);
 
+  if (ui.nightAsk > 0) ui.nightAsk -= real;
+  ui.signedIn = !!cloud.state.user;
   if (ui.demoAsk != null) { ui.demoT -= real; if (ui.demoT <= 0 || !ui.sel || ui.sel.b.id !== ui.demoAsk) ui.demoAsk = null; }
   if (ui.shake > 0) ui.shake = Math.max(0, ui.shake - real);
   if (ui.flash > 0) ui.flash = Math.max(0, ui.flash - real);

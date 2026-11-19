@@ -147,7 +147,8 @@ export function extend(World) {
       if (!from.length) return q;
       const DF = DIFFS[this.d.diff];
       let k = 0;
-      for (const g of genWave(n, this.waveK(n) * DF.wave * (1 + DF.grow * (n - 1)) * this.endlessK(n))) for (let i = 0; i < g.n; i++) q.push({ t: (g.at || 0) + i * g.gap, type: g.t, tribe: from[(k++) % from.length] });
+      const ease = R.ease ? (NIGHT.ramp[n - 1] || 1) : 1;      // le prime notti: ondate più piccole
+      for (const g of genWave(n, this.waveK(n) * DF.wave * (1 + DF.grow * (n - 1)) * this.endlessK(n) * ease)) for (let i = 0; i < g.n; i++) q.push({ t: (g.at || 0) + i * g.gap, type: g.t, tribe: from[(k++) % from.length] });
       if (R.tribes) for (const i of from) { const T = TRIBES[i], m = specials(T, n); for (let j = 0; j < m; j++) q.push({ t: 6 + j * 4 + (i % 4), type: 'sp_' + T.id, tribe: i }); }
       if (R.dipl) for (const i of from) if (V[i].rage === n) for (let j = 0; j < 4 + 2 * V[i].level; j++) q.push({ t: 2 + j * 0.8, type: j % 3 === 2 ? 'predone' : 'orco', tribe: i });
       if (R.siege) for (let j = 0, m = siegeCount(n); j < m; j++) q.push({ t: 14 + j * 6, type: 'ordigno', tribe: from[j % from.length] });
@@ -483,6 +484,8 @@ export function extend(World) {
 
     // ---------- navi: approdi, flotta, commercio, esplorazioni, battaglie ----------
     // ---------- l'orologio della notte ----------
+    /** Quante torri consiglia la guida per la prossima notte: due la prima, una in più a ogni notte, mai più di quante il castello ne permette. Dopo le prime notti: nessun consiglio (0). */
+    towersWanted(n = this.nextNight) { return n > NIGHT.guideNights || !this.attackers(n).length ? 0 : Math.min(this.cap('arcieri').max, NIGHT.needTowers + n - 1 + (n > 2 ? 1 : 0)); },
     clockOn() { return !!RULES().clock; },
     /** Quanto manca alla notte che arriva da sola (0 = è l'ora). */
     nightLeft(now) { return RULES().clock ? Math.max(0, (this.d.nightAt || 0) - now) : 0; },

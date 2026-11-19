@@ -1,6 +1,6 @@
 // Interfaccia del secondo giro di tappe: la mappa intera (da lì si mandano gli esploratori), il rapporto di una spedizione,
 // il dito del Tuzu guida, il gruppo di soldati scelto, i trofei. Come ui2.js: ogni funzione riceve S (il fotogramma) e K (gli attrezzi).
-import { G, COLS, ROWS, WORLD_W, WORLD_H, TRIBES, MY_COLOR, RUINS, FOG, FW, FH, PEAKS, HILLS, NATURE, TRAITS, TROPHIES, BUILD } from './data.js';
+import { G, COLS, ROWS, WORLD_W, WORLD_H, TRIBES, MY_COLOR, RUINS, FOG, FW, FH, PEAKS, HILLS, NATURE, TRAITS, TROPHIES, BUILD, CROPS, TECH_ORDER, CASTLE_UP, UNITS } from './data.js';
 import { t } from './i18n.js';
 
 const TAU = Math.PI * 2;
@@ -256,33 +256,137 @@ function hand(c, x, y, ang, s) {
   c.fillStyle = MY_COLOR; c.beginPath(); c.roundRect(-12 * s, 41 * s, 26 * s, 10 * s, 3 * s); c.fill(); c.stroke();
   c.restore();
 }
-const BUILD_STEP = { porto: ['acqua', 'porto'], ponte: ['acqua', 'ponte'], towers: ['dif', 'arcieri'], casa: ['eco', 'casa'], walls: ['mura', 'recinto'], campo: ['eco', 'campo'], strada: ['mura', 'strada'], aiuola: ['bel', 'aiuola'], segheria: ['eco', 'segheria'], cava: ['eco', 'cava'], caserma: ['dif', 'caserma'] };
+const BUILD_STEP = { morale: ['bel', 'fontana'], porto: ['acqua', 'porto'], ponte: ['acqua', 'ponte'], towers: ['dif', 'arcieri'], casa: ['eco', 'casa'], walls: ['mura', 'recinto'], campo: ['eco', 'campo'], strada: ['mura', 'strada'], aiuola: ['bel', 'aiuola'], segheria: ['eco', 'segheria'], cava: ['eco', 'cava'], caserma: ['dif', 'caserma'] };
 /** Cosa indicare adesso: { tag } (un bottone) oppure { x, y, h } (un punto del mondo), o null. */
+// I consigli di posto, tenuti da parte finché il villaggio non cambia (cercarli a ogni fotogramma costerebbe).
+const MEMO = new Map();
+const memo = (world, key, fn) => { const k = world.rev + '|' + world.d.buildings.length + '|' + key, m = MEMO.get(key); if (m && m.k === k) return m.v; const v = fn(); MEMO.set(key, { k, v }); return v; };
+/** Un posto libero per un edificio, il più vicino al castello (le torri: dalla parte da cui arrivano i primi nemici). */
+function spot(world, type) {
+  return memo(world, 'spot_' + type, () => {
+    const D = BUILD[type], c0 = Math.floor(world.castle.x / G), r0 = Math.floor(world.castle.y / G), T = TRIBES[world.attackers(world.nextNight)[0] ?? 0];
+    const dx = T.c - c0, dy = T.r - r0, L = Math.hypot(dx, dy) || 1, px = c0 + (D.tower ? dx / L * 4 : 0), py = r0 + (D.tower ? dy / L * 4 : 3);
+    let best = null, bd = 1e9;
+    for (let r = r0 - 9; r <= r0 + 9; r++) for (let c = c0 - 9; c <= c0 + 9; c++) { if (world.canPlace(type, c, r) !== 'ok') continue; const d = (c + D.w / 2 - px) ** 2 + (r + D.h / 2 - py) ** 2; if (d < bd) { bd = d; best = { c, r }; } }
+    return best;
+  });
+}
+/** Una fila libera lunga n per un pezzo che si tira in fila, vicino al castello: [inizio, fine]. */
+function lineSpot(world, type, n) {
+  return memo(world, 'line_' + type + n, () => {
+    const c0 = Math.floor(world.castle.x / G), r0 = Math.floor(world.castle.y / G);
+    for (let d = 3; d < 12; d++) for (const r of [r0 + d, r0 - d]) for (let c = c0 - 6; c <= c0 + 2; c++) { let ok = true; for (let k = 0; k < n && ok; k++) if (world.canPlace(type, c + k, r) !== 'ok') ok = false; if (ok) return [{ c, r }, { c: c + n - 1, r }]; }
+    return null;
+  });
+}
+/** Dato l'inizio scelto dal giocatore, dove finire una fila di n pezzi. */
+function lineEnd(world, type, a, n) {
+  for (const [dc, dr] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) { let k = 1; while (k < n && world.canPlace(type, a.c + dc * k, a.r + dr * k) === 'ok') k++; if (k >= Math.min(n, 3)) return { c: a.c + dc * (k - 1), r: a.r + dr * (k - 1) }; }
+  return null;
+}
+/** Un punto ancora coperto dalle nuvole, il più vicino al castello (sulla mappa intera: lì si manda il primo esploratore). */
+function fogSpot(world) {
+  return memo(world, 'fog' + world.fogRev, () => {
+    for (let R = 500; R < 4200; R += 220) for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8 + 0.4, x = world.castle.x + Math.cos(a) * R, y = world.castle.y + Math.sin(a) * R * 0.8, c = Math.floor(x / G), r = Math.floor(y / G); if (c > 3 && r > 3 && c < COLS - 4 && r < ROWS - 4 && !world.seen(c, r)) return { x, y }; }
+    return null;
+  });
+}
+const at = (b, dy = 20) => (b ? { x: b.x, y: b.y + dy, h: 0 } : null);
+/** L'albero o la roccia più vicina al castello fra quelli in vista e non ancora in lista. */
+function nat(world, kind) {
+  let best = null, bd = 1e12;
+  for (const n of NATURE) { if (n.kind !== kind || world.cutSet.has(n.id) || world.jobs.includes(n.id) || !world.seen(n.c, n.r)) continue; const dd = ((n.c + 0.5) * G - world.castle.x) ** 2 + ((n.r + 0.5) * G - world.castle.y) ** 2; if (dd < bd) { bd = dd; best = n; } }
+  return best ? { x: (best.c + 0.5) * G, y: (best.r + 0.5) * G + 10, h: 0 } : null;
+}
+/** Mancano i materiali per `cost`? undefined = no, si può pagare. Altrimenti che cosa indicare per procurarseli: un albero, una roccia, o niente (le monete arrivano da sole). */
+function lack(world, cost) {
+  if (!cost || world.afford(cost)) return undefined;
+  const R = world.d.res;
+  if ((cost.legna || 0) > (R.legna || 0)) return nat(world, 'tree');
+  if ((cost.pietra || 0) > (R.pietra || 0)) return nat(world, 'rock');
+  return null;
+}
+/**
+ * Che cosa indicare adesso: un bottone (tag), un punto del mondo (x, y), un punto dell'interfaccia (ux, uy) o il gesto di trascinare (swipe).
+ * Regola del titolare (19/11/2026): «all'inizio dobbiamo assistere il giocatore in tutto». Per i primi obiettivi OGNI passo ha il suo dito:
+ * anche dentro la mappa, mentre si posa un edificio, mentre si tira una fila. Un obiettivo nuovo fra i primi va aggiunto qui.
+ */
 export function hintFor(S) {
   const { world, ui } = S, g = world.goal();
-  if (ui.resInfo) return null;
-  if (!g || (g.i > 22 && !['sell', 'porto', 'ponte'].includes(g.kind)) || world.status !== 'day') return null;
-  if (ui.map) return g.kind === 'explore' && !g.done && ui.map.sel && (ui.map.sel.kind === 'fog' || ui.map.sel.kind === 'ruin') ? { tag: 'scout' } : null;      // a mappa aperta si indica solo dentro la mappa
-  if (g.done) return { tag: 'goalClaim' };
-  const B = BUILD_STEP[g.kind];
+  if (ui.resInfo || !g || world.status !== 'day') return null;
+  let B = BUILD_STEP[g.kind] || (BUILD[g.kind] ? [BUILD[g.kind].cat, g.kind] : null);
+  if (g.i > 28 && !B && !['sell', 'tech', 'ship', 'sail'].includes(g.kind)) return null;
+  if (ui.map) {      // dentro la mappa: tocca le nuvole, poi «Manda un esploratore», poi chiudi
+    if (g.kind !== 'explore') return null;
+    if (g.done) return { tag: 'mapClose' };
+    if (ui.map.sel && (ui.map.sel.kind === 'fog' || ui.map.sel.kind === 'ruin')) return { tag: 'scout' };
+    const f = fogSpot(world), M = ui.mapGeo; return f && M ? { ux: M.mx + f.x * M.k, uy: M.my + f.y * M.k } : null;
+  }
+  // obiettivo fatto: si ritira il premio. Se c'è un pannello grande aperto sopra (le scoperte, la flotta…), prima lo si chiude: il bottone del premio sta sotto.
+  if (g.done) return ui.tech || ui.settings || ui.quests || ui.roles ? { tag: 'close' } : ui.fleet ? { tag: 'fleetClose' } : { tag: 'goalClaim' };
+  if (g.kind === 'move') return { swipe: true };
+  // prima della notte: se mancano torri (e ci sono i materiali) la guida ne fa costruire un'altra; se manca la legna, manda a un albero
+  if (g.kind === 'night' && world.towers() < world.towersWanted()) {
+    B = ['dif', 'arcieri'];
+  }
+  if (B && !ui.place) { const L = lack(world, BUILD[B[1]].cost); if (L !== undefined) return ui.build ? { tag: 'buildClose' } : L; }
   if (B) {
-    if (ui.place) return ui.place.state && ui.place.state.ok ? { tag: 'placeOk' } : null;
+    if (ui.place) {
+      const st = ui.place.state, D = BUILD[B[1]];
+      if (ui.place.type !== B[1]) return { tag: 'placeCancel' };      // sta posando un'altra cosa: prima si esce
+      if (g.kind === 'night' && world.towers() >= world.towersWanted()) return { tag: 'placeCancel' };
+      if (st && st.ok && st.why === 'ok') return { tag: 'placeOk' };
+      if (D.line) { const n = Math.max(2, Math.min(8, g.need - g.have)), q = ui.place.a ? lineEnd(world, B[1], ui.place.a, n) : (lineSpot(world, B[1], n) || [null])[0]; return q ? { x: (q.c + 0.5) * G, y: (q.r + 0.5) * G, h: 0 } : null; }
+      const q = spot(world, B[1]); return q ? { x: (q.c + D.w / 2) * G, y: (q.r + D.h / 2) * G, h: 0 } : null;
+    }
     if (ui.build) return ui.build.cat !== B[0] ? { tag: 'cat_' + B[0] } : { tag: 'card_' + B[1] };
     return { tag: 'build' };
   }
-  if (ui.build || ui.place) return null;
-  if (g.kind === 'night') return { tag: 'night' };
-  if (g.kind === 'level') { if (ui.sel) return { tag: 'levelUp' }; const b = world.d.buildings.find(o => world.levelCheck(o) === 'ok') || world.d.buildings.find(o => o.type === 'casa'); return b ? { x: b.x, y: b.y + 20, h: 0 } : null; }
-  if (g.kind === 'sell') { if (ui.sel && ui.sel.b.type === 'mercato') return { tag: ui.sell ? 'sell_legna' : 'marketMode' }; const b = world.d.buildings.find(o => o.type === 'mercato'); return b ? { x: b.x, y: b.y + 20, h: 0 } : null; }
-  if (g.kind === 'order') { if (ui.squad != null) return null; const sd = world.soldiers.find(o => !o.dead && o.ally == null); return sd ? { x: sd.x, y: sd.y, h: 30 } : null; }
-  if (g.kind === 'explore') return { tag: 'map' };
-  if (g.kind === 'castle') return ui.sel && ui.sel.b.type === 'castello' ? { tag: 'castleUp' } : { x: world.castle.x, y: world.castle.y + 30, h: 0 };
-  if (g.kind === 'send' || g.kind === 'sendRock') {
-    const want = g.kind === 'send' ? 'tree' : 'rock'; let best = null, bd = 1e12;
-    for (const n of NATURE) { if (n.kind !== want || world.cutSet.has(n.id) || world.jobs.includes(n.id) || !world.seen(n.c, n.r)) continue; const dd = ((n.c + 0.5) * G - world.castle.x) ** 2 + ((n.r + 0.5) * G - world.castle.y) ** 2; if (dd < bd) { bd = dd; best = n; } }
-    return best ? { x: (best.c + 0.5) * G, y: (best.r + 0.5) * G + 10, h: 0 } : null;
+  // il catalogo o la posa sono ancora aperti ma l'obiettivo è un altro: il dito indica la ✕ per uscire (un giocatore nuovo restava lì)
+  if (ui.place) return { tag: 'placeCancel' };
+  if (ui.build) return { tag: 'buildClose' };
+  if (g.kind === 'night') {
+    if (world.clockOn() && !world.nightDue(S.now) && world.earlyLeft(S.now) <= 0) return null;      // anticipi finiti: sul bottone c'è il tempo che manca, non c'è niente da premere
+    // torri al completo: se una si può potenziare, la guida lo fa fare (una per notte, dalla quarta)
+    if (world.nextNight >= 4 && world.nextNight <= 8) { const up = world.d.buildings.filter(o => o.type === 'arcieri' && !(o.build > 0)), lv = up.reduce((a, o) => a + (o.lvl || 0), 0), b = up.find(o => world.upgradeCost(o) != null && world.d.res.monete >= world.upgradeCost(o)); if (b && lv < world.nextNight - 3) return ui.sel ? (ui.sel.b === b ? { tag: 'upgrade' } : { tag: 'selClose' }) : at(b, 10); }
+    return { tag: 'night' };
   }
-  if (g.kind === 'harvest') { const b = world.d.buildings.find(o => o.type === 'campo' && !(o.build > 0) && (!o.crop || world.crop(o, S.now).ripe)); return b ? { x: b.x, y: b.y + 14, h: 0 } : null; }
+  if (g.kind === 'level') {
+    const b = world.d.buildings.find(o => world.levelCheck(o) === 'ok') || world.d.buildings.find(o => o.type === 'casa' && !(o.build > 0));
+    if (b && world.levelCheck(b) !== 'ok') { const L = lack(world, world.levelCost(b)); if (L !== undefined) return ui.sel ? { tag: 'selClose' } : L; return null; }
+    if (ui.sel) return ui.sel.b === b ? { tag: 'levelUp' } : { tag: 'selClose' };
+    return at(b);
+  }
+  if (g.kind === 'sell') { if (ui.sel && ui.sel.b.type === 'mercato') return { tag: ui.sell ? 'sell_legna' : 'marketMode' }; return at(world.d.buildings.find(o => o.type === 'mercato')); }
+  if (g.kind === 'order') { if (ui.squad != null) return { x: world.castle.x + 170, y: world.castle.y + 190, h: 0 }; const sd = world.soldiers.find(o => !o.dead && o.ally == null); return sd ? { x: sd.x, y: sd.y, h: 30 } : null; }
+  if (g.kind === 'explore') return { tag: 'map' };
+  if (g.kind === 'castle') {
+    const chk = world.castleCheck();
+    if (chk === 'cost') { const L = lack(world, (CASTLE_UP[world.d.castle] || {}).cost); if (L !== undefined) return ui.sel ? { tag: 'selClose' } : L; }
+    if (chk !== 'ok') return null;      // servono altre notti: lo dice la guida, qui non c'è niente da toccare
+    return ui.sel && ui.sel.b.type === 'castello' ? { tag: 'castleUp' } : { x: world.castle.x, y: world.castle.y + 30, h: 0 };
+  }
+  if (g.kind === 'send' || g.kind === 'sendRock') return ui.sel ? { tag: 'selClose' } : nat(world, g.kind === 'send' ? 'tree' : 'rock');
+  if (g.kind === 'harvest') {
+    if (ui.sel && ui.sel.b.type === 'campo' && !ui.sel.b.crop) return { tag: 'crop_' + Object.keys(CROPS)[0] };
+    return at(world.d.buildings.find(o => o.type === 'campo' && !(o.build > 0) && (!o.crop || world.crop(o, S.now).ripe)), 14);
+  }
+  if (g.kind === 'army') {
+    { const L = lack(world, UNITS.lancia.cost); if (L !== undefined) return ui.sel ? { tag: 'selClose' } : L; }
+    if (ui.sel && ui.sel.b.type === 'caserma') return { tag: 'train_lancia' };
+    return at(world.d.buildings.find(o => o.type === 'caserma' && !(o.build > 0) && (o.units || []).length < world.slots(o)));
+  }
+  if (g.kind === 'tech') {
+    if (ui.tech) { const id = TECH_ORDER.find(k => !world.d.tech[k]); return id ? { tag: 'tech_' + id } : null; }
+    if (ui.sel && ui.sel.b.type === 'bottega') return { tag: 'techOpen' };
+    return at(world.d.buildings.find(o => o.type === 'bottega' && !(o.build > 0)));
+  }
+  if (['village', 'gift', 'ally', 'trade'].includes(g.kind)) {
+    if (ui.vsel != null && g.kind !== 'village') return { tag: g.kind };
+    let best = null, bd = 1e12;
+    world.d.villages.forEach((v, i) => { if (!world.known(i)) return; if (g.kind === 'trade' && v.state !== 'ally' && v.state !== 'colony') return; const T = TRIBES[i], x = (T.c + 0.5) * G, y = (T.r + 0.5) * G, d = (x - world.castle.x) ** 2 + (y - world.castle.y) ** 2; if (d < bd) { bd = d; best = { x, y, h: 40 }; } });
+    return best;
+  }
   return null;
 }
 /** Disegna la mano che indica (dopo i bottoni: deve sapere dove sono). */
@@ -291,8 +395,10 @@ export function finger(S, K) {
   if (!hint) return;
   const bob = Math.sin(ui.time * 6) * 7;
   let x, y, up;
+  if (hint.swipe) { hand(c, vw / 2 + Math.sin(ui.time * 2.4) * 120, vh * 0.56, Math.PI, 1.05); return; }      // il gesto: trascina
+  if (hint.ux != null) { const r = 26 + Math.sin(ui.time * 6) * 5; c.beginPath(); c.arc(hint.ux, hint.uy, r, 0, TAU); c.strokeStyle = 'rgba(255,246,200,0.9)'; c.lineWidth = 3.5; c.stroke(); hand(c, hint.ux, hint.uy - 18 - bob, Math.PI, 0.95); return; }
   if (hint.tag) {
-    const b = ui.buttons.find(o => o.tag === hint.tag);
+    const b = ui.buttons.find(o => o.tag === hint.tag) || (hint.tag.startsWith('card_') ? ui.buttons.find(o => o.tag === 'buildPage') : null);      // la carta è nell'altra pagina
     if (!b) return;
     up = b.y + b.h / 2 < vh * 0.5; x = b.x + b.w / 2; y = up ? b.y + b.h + 4 : b.y - 4;
     c.beginPath(); c.roundRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8, 14); c.strokeStyle = 'rgba(255,246,200,' + (0.5 + Math.sin(ui.time * 6) * 0.4) + ')'; c.lineWidth = 3.5; c.stroke();

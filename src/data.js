@@ -397,7 +397,7 @@ export const TECH_ORDER = ['ferro', 'aratro', 'carri', 'festa', 'asce', 'frecce'
 
 // ---------- gli obiettivi del Tuzu guida: uno alla volta, in ordine. [tipo, quanto, premio] ----------
 export const GOALS = [
-  ['move', 1, { monete: 20 }], ['towers', 1, { legna: 40 }], ['night', 1, { monete: 60 }], ['explore', 1, { monete: 60 }], ['send', 3, { legna: 30 }], ['casa', 1, { monete: 50 }],
+  ['move', 1, { monete: 20 }], ['towers', 2, { legna: 40 }], ['night', 1, { monete: 60 }], ['explore', 1, { monete: 60 }], ['send', 3, { legna: 30 }], ['casa', 1, { monete: 50 }],
   ['walls', 8, { legna: 40 }], ['night', 2, { monete: 80, legna: 40 }], ['castle', 2, { pietra: 60 }], ['sendRock', 3, { pietra: 30 }], ['campo', 1, { monete: 40 }],
   ['harvest', 2, { monete: 60 }], ['strada', 6, { monete: 40 }], ['aiuola', 3, { monete: 40 }], ['morale', 60, { monete: 100 }], ['segheria', 1, { legna: 60 }],
   ['cava', 1, { pietra: 60 }], ['level', 1, { legna: 60 }], ['caserma', 1, { monete: 100 }], ['army', 4, { monete: 100 }], ['order', 1, { monete: 60 }], ['village', 1, { monete: 60 }], ['gift', 1, { monete: 80 }], ['ally', 1, { legna: 80, pietra: 60 }],
@@ -620,7 +620,9 @@ export const levelK = (lvl) => 1 + 0.5 * (lvl || 0);
 // `early` volte al giorno; le prime `free` notti (il tutorial) si anticipano sempre; quando è l'ora, `warn` secondi di preavviso.
 // Dove va un abitante che non ha niente da fare: si ferma un po' davanti a questi, poi torna verso casa.
 export const LEISURE = { giardino: 1, pozzo: 1, panchina: 1, fontana: 1, taverna: 1, statua: 1, stendardo: 1 };
-export const NIGHT = { everyMs: 6 * 3600000, early: 2, free: 3, warn: 45 };
+// `ramp`: le prime notti sono più leggere per tutti (quanta parte dell'ondata arriva alla notte 1, 2, 3), qualunque sia la difficoltà:
+// un giocatore nuovo con due torri deve passare la prima notte. `needTowers`: sotto questo numero, nelle prime notti, il gioco avvisa prima di partire.
+export const NIGHT = { everyMs: 6 * 3600000, early: 2, free: 3, warn: 45, ramp: [0.4, 0.4, 0.55, 0.65, 0.8, 0.9], needTowers: 2, guideNights: 6 };      // guideNights: fino a questa notte la guida dice quante torri servono
 
 // ---------- cibo: i campi danno grano, il mulino lo macina (un grano = due di cibo), il porto pesca ----------
 // All'alba ogni abitante e ogni soldato mangia una porzione: prima il cibo, poi il grano crudo.

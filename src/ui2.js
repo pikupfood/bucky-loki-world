@@ -25,8 +25,9 @@ export function guideFace(S, K, x, y, r, color = MY_COLOR, hat = true) {
 export function guide(S, K) {
   const { c, world, ui, A } = S;
   if (ui.screen !== 'play') return;
-  const g = world.goal(), open = ui.guideOpen == null ? !!g && g.i < 12 : ui.guideOpen, tip = !!g && !g.done && open && has('gt_' + g.kind);
-  const x = 14, y = S.tall ? 120 : 66, w = 366, h = tip ? 98 : 68, fx = x + 36, fy = y + 36;
+  const g = world.goal(), open = ui.guideOpen == null ? !!g && g.i < 29 : ui.guideOpen, tip = !!g && !g.done && open && has('gt_' + g.kind);      // il consiglio resta aperto per tutti i primi obiettivi
+  // il pannello si allunga quanto serve: un consiglio di tre o quattro righe (o in una lingua più lunga) finiva sopra la barra
+  const x = 14, y = S.tall ? 120 : 66, w = 366, nl = tip ? Math.max(2, Math.ceil(K.width(c, t('gt_' + g.kind), 12.5, 600) / (w - 104))) : 0, h = tip ? 68 + nl * 15 : 68, fx = x + 36, fy = y + 36;
   K.scroll(c, x, y, w, h, 14); K.block(ui, x, y, w, h); ui.guideH = h;
   guideFace(S, K, fx, fy + 2, 26);
   ui.buttons.push({ x, y, w: 72, h, tag: 'guideToggle', fn: A.guideToggle });
@@ -44,7 +45,7 @@ export function guide(S, K) {
     return;
   }
   let yy = y + 38;
-  if (tip) { K.wrap(c, t('gt_' + g.kind), x + 76, yy, w - 90, 12.5, K.PEN, 15, 'left'); yy = y + 78; } else yy = y + 46;
+  if (tip) { K.wrap(c, t('gt_' + g.kind), x + 76, yy, w - 90, 12.5, K.PEN, 15, 'left'); yy = y + 48 + nl * 15; } else yy = y + 46;
   if (g.need > 1) { K.bar(c, x + 76, yy - 5, 110, 8, g.have / g.need, '#e9a820'); K.txt(c, g.have + '/' + g.need, x + 194, yy, 12.5, K.PEN, 'left', 800); }
   K.costRowPlain(c, g.reward, x + (g.need > 1 ? 246 : 76), yy, 13, K.PEN);
 }

@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tuzuland</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: #2a1c12; font-family: system-ui, sans-serif; color: #f5ecd7; text-align: center; padding: 24px; box-sizing: border-box; }
+    img { width: 132px; height: 132px; border-radius: 30px; }
+    p { max-width: 340px; line-height: 1.4; margin: 0; font-size: 18px; }
+    a { display: inline-block; background: #2f7d3a; color: #fff; font-weight: 800; font-size: 22px; padding: 18px 34px; border-radius: 14px; text-decoration: none; border: 2px solid #ffeeaa; }
+  </style>
+</head>
+<body>
+  <!-- Chi entra con Google DALL'APP finisce qui (nel browser del telefono), col gettone nell'indirizzo: questa pagina lo riporta dentro l'app.
+       Si arriva qui solo dall'app (cloud.js, NATIVE): dal sito si torna direttamente al gioco. -->
+  <img src="icon-512.png" alt="">
+  <p id="m"></p>
+  <a id="go" href="#"></a>
+  <script>
+    var L = {
+      it: ['Accesso fatto. Torna al gioco per continuare.', 'Torna al gioco'], en: ['Signed in. Go back to the game to continue.', 'Back to the game'],
+      fr: ['Connexion faite. Retourne au jeu pour continuer.', 'Retour au jeu'], es: ['Sesión iniciada. Vuelve al juego para continuar.', 'Volver al juego'],
+      pt: ['Login feito. Volte ao jogo para continuar.', 'Voltar ao jogo'], de: ['Angemeldet. Geh zurück zum Spiel.', 'Zurück zum Spiel'],
+      ru: ['Вход выполнен. Вернись в игру.', 'Вернуться в игру'], tr: ['Giriş yapıldı. Devam etmek için oyuna dön.', 'Oyuna dön'],
+      ar: ['تم الدخول. عد إلى اللعبة للمتابعة.', 'العودة إلى اللعبة'], hi: ['लॉगिन हो गया। खेल में वापस जाओ।', 'खेल में वापस'],
+      zh: ['登录成功。请返回游戏继续。', '返回游戏'], ja: ['ログインしました。ゲームに戻ってください。', 'ゲームに戻る'], ko: ['로그인됐어요. 게임으로 돌아가세요.', '게임으로 돌아가기']
+    };
+    var langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en']), l = 'en';
+    for (var i = 0; i < langs.length; i++) { var k = String(langs[i]).slice(0, 2).toLowerCase(); if (L[k]) { l = k; break; } }
+    var data = location.hash.replace(/^#/, '') || location.search.replace(/^\?/, '');
+    var url = 'com.nexlygo.tuzudifesa://auth?' + data;
+    document.getElementById('m').textContent = L[l][0];
+    var a = document.getElementById('go'); a.textContent = L[l][1]; a.href = url;
+    // si prova a tornare da soli; se il browser non lo permette senza un tocco, resta il bottone
+    setTimeout(function () { location.href = url; }, 400);
+  </script>
+</body>
+</html>

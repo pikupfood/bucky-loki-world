@@ -1123,8 +1123,21 @@ function titleScreen(S) {
   head(c, t('subtitle'), vw / 2, y0 + 132, Math.min(28, vw / 26), '#f5ecd7', 'center');
   wrap(c, t('lore'), vw / 2, y0 + (S.tall ? 180 : 200), Math.min(780, vw - 50), 22, CREAM, 32);
   if (ui.newGame) X.titleDiff(S, K, vw / 2, y0 + 258);
-  button(c, ui, vw / 2 - 150, y0 + (ui.newGame ? 312 : 290), 300, ui.newGame ? 72 : 84, t('play'), { color: '#2f7d3a', fs: 36, tag: 'play' }, A.play);
-  langRow(S, vw / 2, y0 + 414);
+  // La prima volta, senza account: si sceglie subito fra salvare la partita con un account e giocare da ospite (con l'avviso che da ospite si può perdere tutto).
+  const guest = ui.newGame && !ui.signedIn, by = y0 + (ui.newGame ? 312 : 290);
+  if (!guest) button(c, ui, vw / 2 - 150, by, 300, ui.newGame ? 72 : 84, t('play'), { color: '#2f7d3a', fs: 36, tag: 'play' }, A.play);
+  else if (S.tall) {
+    button(c, ui, vw / 2 - 210, by, 420, 70, t('accCreate'), { color: '#2f7d3a', fs: 28, tag: 'titleCreate' }, A.account);
+    txt(c, t('accWhy'), vw / 2, by + 88, fit(c, t('accWhy'), vw - 40, 16, 700), '#d9f2c8', 'center', 700);
+    button(c, ui, vw / 2 - 210, by + 112, 420, 62, t('guestPlay'), { color: '#5c4330', fs: 24, tag: 'play' }, A.play);
+    wrap(c, t('guestWarn'), vw / 2, by + 194, Math.min(520, vw - 50), 15.5, '#ffd0a8', 21);
+  } else {
+    button(c, ui, vw / 2 - 330, by, 320, 66, t('accCreate'), { color: '#2f7d3a', fs: 25, tag: 'titleCreate' }, A.account);
+    button(c, ui, vw / 2 + 10, by, 320, 66, t('guestPlay'), { color: '#5c4330', fs: 23, tag: 'play' }, A.play);
+    txt(c, t('accWhy'), vw / 2 - 170, by + 84, fit(c, t('accWhy'), 320, 14.5, 700), '#d9f2c8', 'center', 700);
+    txt(c, t('guestWarn'), vw / 2 + 170, by + 84, fit(c, t('guestWarn'), 330, 14.5, 700), '#ffd0a8', 'center', 700);
+  }
+  langRow(S, vw / 2, y0 + (guest ? (S.tall ? 566 : 426) : 414));
   button(c, ui, vw - 14 - 190, 14, 190, 46, t('account'), { color: '#2f5d7a', fs: 18, tag: 'titleAccount' }, A.account);
 }
 
