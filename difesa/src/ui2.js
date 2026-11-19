@@ -1,7 +1,8 @@
 // Pannelli e pezzi d'interfaccia delle tappe più recenti: guida compatta, «In arrivo» in basso, abitanti e mestieri,
 // caserma con sei unità, poteri dell'eroe, eventi, racconto, esplorazione, cantieri, tempo.
 // Ogni funzione riceve S (lo stato del fotogramma) e K (gli attrezzi da disegno di ui.js).
-import { G, BUILD, UNITS, UNIT_ORDER, CASERMA_SLOTS, TRIBES, MY_COLOR, ROLES, RUINS, FOG, HERO, DIFF_ORDER, GOALS, waveSummary, DIFFS } from './data.js';
+import { G, BUILD, UNITS, UNIT_ORDER, TRIBES, MY_COLOR, ROLES, RUINS, FOG, HERO, HERO_POWERS, HERO_ITEMS, DIFF_ORDER, GOALS, FOOD } from './data.js';
+import { itemIcon } from './ui3.js';
 import { t, has } from './i18n.js';
 
 const TAU = Math.PI * 2, INK = '#2b2a33';
@@ -48,7 +49,7 @@ export function incoming(S, K) {
   const { c, world, vw, vh } = S, n = world.nextNight, from = world.attackers(n), x = 234, y = vh - 14 - 66, maxW = vw - x - 256;
   if (maxW < 200) return;
   if (!from.length) { const s = t('quietInfo'), pw = Math.min(maxW, K.width(c, s, 16, 700) + 56); K.panel(c, x, y + 10, pw, 46); K.moon(c, x + 24, y + 33, 9); K.txt(c, s, x + 42, y + 34, 16, '#cfd8ff', 'left', 700); return; }
-  const sum = waveSummary(n, world.waveK(n) * DIFFS[world.d.diff].wave * (1 + DIFFS[world.d.diff].grow * (n - 1))), types = Object.keys(sum), T0 = TRIBES[from[0]];
+  const sum = world.waveSum(n), types = Object.keys(sum), T0 = TRIBES[from[0]];
   const iw = K.width(c, t('incoming'), 14, 700), pw = Math.min(maxW, Math.max(26 + iw + types.length * 62, 60 + from.length * 22 + K.width(c, t('from'), 13, 600)));
   K.panel(c, x, y, pw, 66, 12, 0.86);
   K.txt(c, t('incoming'), x + 12, y + 19, 14, K.DIM, 'left', 700);
@@ -60,7 +61,7 @@ export function incoming(S, K) {
   // nemico mai visto: una riga sopra che dice come affrontarlo
   const fresh = types.find(ty => ty !== 'orco' && !world.d.seen[ty]);
   if (fresh) {
-    const tip = t('tip_' + fresh), head = t('newEnemy') + ': ' + t('e_' + fresh), tw = Math.min(maxW, Math.max(K.width(c, tip, 13.5, 600), K.width(c, head, 15, 800)) + 66);
+    const tip = t('tip_' + fresh), head = t('newEnemy') + ': ' + t('e_' + fresh), tw = Math.min(maxW + 220, Math.max(K.width(c, tip, 13.5, 600), K.width(c, head, 15, 800)) + 66);
     K.panel(c, x, y - 58, tw, 50, 12, 0.9);
     K.enemyIcon(c, fresh, x + 26, y - 32, 0.9, T0.color, T0.eyes);
     K.txt(c, head, x + 52, y - 42, 15, '#ffe9a8', 'left', 800); K.txt(c, tip, x + 52, y - 22, 13.5, K.CREAM, 'left', 600);
@@ -72,14 +73,17 @@ export function heroButtons(S, K, right, cy) {
   const { c, world, ui, A } = S;
   if (!world.heroUnit()) return right;
   const r = 30; let cx = right - r;
-  for (const k of ['slam', 'shout']) {
+  const HB = world.heroBonus();
+  for (const k of HERO_POWERS) {
+    if (k === 'heal' && world.d.hero.lvl < HERO.heal.lvl) continue;
     const cd = world.heroCd[k], ready = cd <= 0, on = k === 'shout' && world.shoutT > 0;
-    c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.fillStyle = on ? '#c2452d' : ready ? (k === 'shout' ? '#a8552d' : '#6b3fa0') : '#33303a'; c.fill();
+    c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.fillStyle = on ? '#c2452d' : ready ? (k === 'shout' ? '#a8552d' : k === 'heal' ? '#2f8f5b' : '#6b3fa0') : '#33303a'; c.fill();
     c.strokeStyle = ready ? 'rgba(255,236,170,0.85)' : 'rgba(255,255,255,0.2)'; c.lineWidth = 2.5; c.stroke();
     c.strokeStyle = ready ? '#ffe9a8' : '#8a8478'; c.fillStyle = c.strokeStyle; c.lineWidth = 3; c.lineCap = 'round';
     if (k === 'slam') { for (let i = 0; i < 8; i++) { const a = i * TAU / 8; c.beginPath(); c.moveTo(cx + Math.cos(a) * 9, cy + Math.sin(a) * 9); c.lineTo(cx + Math.cos(a) * 17, cy + Math.sin(a) * 17); c.stroke(); } c.beginPath(); c.arc(cx, cy, 5, 0, TAU); c.fill(); }
+    else if (k === 'heal') { c.lineWidth = 7; c.beginPath(); c.moveTo(cx - 12, cy); c.lineTo(cx + 12, cy); c.moveTo(cx, cy - 12); c.lineTo(cx, cy + 12); c.stroke(); }
     else { c.beginPath(); c.moveTo(cx - 13, cy - 4); c.lineTo(cx - 3, cy - 9); c.lineTo(cx - 3, cy + 9); c.lineTo(cx - 13, cy + 4); c.closePath(); c.fill(); for (const rr of [8, 14]) { c.beginPath(); c.arc(cx - 2, cy, rr, -0.7, 0.7); c.stroke(); } }
-    if (!ready) { c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + TAU * (cd / HERO[k].cd)); c.closePath(); c.fillStyle = 'rgba(0,0,0,0.55)'; c.fill(); }
+    if (!ready) { c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, cd / (HERO[k].cd * HB.cd))); c.closePath(); c.fillStyle = 'rgba(0,0,0,0.55)'; c.fill(); }
     ui.buttons.push({ x: cx - r, y: cy - r, w: r * 2, h: r * 2, tag: 'hero_' + k, fn: () => A.heroPower(k) });
     cx -= r * 2 + 8;
   }
@@ -89,10 +93,11 @@ export function heroButtons(S, K, right, cy) {
 /** Il corpo del pannello della caserma: sei tipi di soldato, la guardia, il punto di raccolta. (x, y, w, h = il pannello) */
 export function barracks(S, K, b, x, y, w, h) {
   const { c, world, ui, A } = S;
-  const units = b.units || [], room = units.length < CASERMA_SLOTS, noPop = room && world.popUsed() >= world.popMax();
-  const head = t('soldiers') + ' ' + units.length + '/' + CASERMA_SLOTS + (b.build > 0 ? ' · ' + t('building') : noPop ? ' · ' + t('needHouses') : '');
+  const units = b.units || [], SL = world.slots(b), room = units.length < SL, noPop = room && world.popUsed() >= world.popMax();
+  const head = t('soldiers') + ' ' + units.length + '/' + SL + (b.build > 0 ? ' · ' + t('building') : noPop ? ' · ' + t('needHouses') : '');
   K.txt(c, head, x + 82, y + 54, 16, noPop ? K.BAD : K.DIM);
-  units.forEach((u, k) => K.tuzuIcon(c, u, x + 104 + K.width(c, head, 16) + k * 32, y + 50, 11, MY_COLOR));
+  units.forEach((u, k) => K.tuzuIcon(c, u, x + 104 + K.width(c, head, 16) + k * 30, y + 50, 11, MY_COLOR));
+  { const lc = world.levelCheck(b); if (lc !== 'none' && lc !== 'max') { K.button(c, ui, x + w - 330, y + 47, 104, 26, t('improve'), { color: '#2f7d3a', disabled: lc !== 'ok', fs: 13, r: 8, tag: 'levelUp' }, () => A.levelUp(b)); K.costRow(c, world, world.levelCost(b), x + w - 218, y + 60, 13, 1, true); } }
   // guardia e raccolta, in alto a destra
   K.button(c, ui, x + w - 382, y + 9, 150, 36, t('stay') + ': ' + (b.stay ? t('on') : t('off')), { color: b.stay ? '#8a5a1c' : '#3b3229', fs: 14.5, r: 10, tag: 'stay' }, () => A.stay(b));
   K.button(c, ui, x + w - 226, y + 9, 166, 36, world.d.rally ? t('rallyOff') : t('rally'), { color: '#3b3229', fs: 14.5, r: 10, tag: 'rally' }, world.d.rally ? A.rallyClear : A.rallyPick);
@@ -117,7 +122,7 @@ export function barracks(S, K, b, x, y, w, h) {
 export function rolesPanel(S, K) {
   const { c, world, ui, vw, vh, A } = S;
   K.dim(S, 0.6);
-  const w = 640, h = 468, x = vw / 2 - w / 2, y = vh / 2 - h / 2, max = world.workersMax();
+  const w = 640, h = 500, x = vw / 2 - w / 2, y = vh / 2 - h / 2, max = world.workersMax();
   let used = 0; for (const r of ROLES) used += world.d.roles[r] || 0;
   K.panel(c, x, y, w, h, 18, 0.96);
   K.title2(c, t('rolesTitle'), vw / 2, y + 38, 32, '#f2cf73');
@@ -125,14 +130,17 @@ export function rolesPanel(S, K) {
   ROLES.forEach((r, k) => {
     const ry = y + 92 + k * 66, n = world.d.roles[r] || 0;
     c.beginPath(); c.roundRect(x + 20, ry, w - 40, 58, 12); c.fillStyle = n ? 'rgba(74,92,58,0.9)' : 'rgba(255,255,255,0.06)'; c.fill();
-    K.tuzuIcon(c, 'attrezzo', x + 48, ry + 32, 15, MY_COLOR);
+    K.tuzuIcon(c, { bosco: 'ascia', pietra: 'piccone', campi: 'falce', cantiere: 'martello' }[r], x + 44, ry + 34, 14, MY_COLOR);
     K.txt(c, t('ro_' + r), x + 80, ry + 20, 17, K.CREAM, 'left', 800);
     K.txt(c, t('rod_' + r), x + 80, ry + 41, 12.5, K.DIM, 'left', 600);
     K.button(c, ui, x + w - 172, ry + 9, 44, 40, '−', { color: '#3b3229', disabled: n <= 0, fs: 24, r: 10, tag: 'role_' + r + '_m' }, () => A.role(r, -1));
     K.txt(c, String(n), x + w - 104, ry + 30, 22, K.CREAM, 'center', 800);
     K.button(c, ui, x + w - 80, ry + 9, 44, 40, '+', { color: '#2f7d3a', disabled: used >= max, fs: 24, r: 10, tag: 'role_' + r + '_p' }, () => A.role(r, 1));
   });
-  K.wrap(c, t('moraleTip'), vw / 2, y + 372, w - 60, 13, K.DIM, 17);
+  { const st = world.fedState(), need = world.mouths(), have = world.foodStock();      // da mangiare
+    K.RES_ICON.cibo(c, x + 36, y + 372, 10);
+    K.txt(c, t('foodLine', have, need) + ' · ' + t('food_' + st), x + 54, y + 373, 14.5, st === 'hungry' || (st !== 'off' && have < need) ? K.BAD : st === 'full' ? '#9ff0b4' : K.CREAM, 'left', 700); }
+  K.wrap(c, t('moraleTip'), vw / 2, y + 400, w - 60, 13, K.DIM, 17);
   K.button(c, ui, vw / 2 - 100, y + h - 54, 200, 42, t('close'), { color: '#3b3229', fs: 19, tag: 'close' }, A.roles);
 }
 
@@ -148,8 +156,15 @@ function effects(S, K, o, x, y, ev) {
   if (o.extra) parts.push(t('ev_plusWorker'));
   if (o.ally != null) parts.push(t('ally'));
   if (o.more) parts.push(t(o.more > 0 ? 'ev_allyMore' : 'ev_allyLess', Math.abs(o.more)));
+  if (o.needArmy) parts.push(t('ev_needArmy', o.needArmy));
+  if (o.rel) parts.push(t('rel') + ' ' + (o.rel > 0 ? '+' : '−') + Math.abs(o.rel));
+  if (o.calm) parts.push(t('ev_calm'));
+  if (o.rage) parts.push(t('ev_rage'));
+  if (o.pact != null) parts.push(t('ev_pact', t('tr_' + TRIBES[o.pact].id)));
+  if (o.betray) parts.push(t('ev_betray'));
+  if (o.weaken != null) parts.push(t('ev_weaken', t('tr_' + TRIBES[o.weaken].id)));
   if (!parts.length && !o.cost && !o.gain) parts.push(t('ev_nothing'));
-  if (parts.length) K.txt(c, parts.join(' · '), x, yy, 14, o.mood < 0 || o.lose || o.more < 0 ? K.BAD : '#9ff0b4', 'left', 700);
+  if (parts.length) K.wrap(c, parts.join(' · '), x, yy, 270, 14, o.mood < 0 || o.lose || o.more < 0 || o.rage || o.betray || o.rel < 0 ? K.BAD : '#9ff0b4', 19, 'left');
   void ev;
 }
 /** Un evento a sorpresa: chi parla, cosa succede, due scelte. */
@@ -163,9 +178,9 @@ export function eventPanel(S, K) {
   guideFace(S, K, x + 62, y + 70, 40, T ? T.color : MY_COLOR, !T);
   K.txt(c, t('ev_' + ev.id), x + 122, y + 42, 25, '#f2cf73', 'left', 800);
   if (T) K.txt(c, t('tr_' + T.id), x + 122, y + 68, 14, K.DIM, 'left', 700);
-  K.wrap(c, t('evt_' + ev.id), x + 122, y + (T ? 96 : 82), w - 150, 16.5, K.CREAM, 22, 'left');
+  K.wrap(c, t('evt_' + ev.id, T ? t('tr_' + T.id) : '', ev.j != null ? t('tr_' + TRIBES[ev.j].id) : ''), x + 122, y + (T ? 96 : 82), w - 150, 16.5, K.CREAM, 22, 'left');
   [0, 1].forEach((k) => {
-    const bx = x + 20 + k * (bw + 20), by = y + 168, can = !o[k].cost || world.afford(o[k].cost);
+    const bx = x + 20 + k * (bw + 20), by = y + 168, can = (!o[k].cost || world.afford(o[k].cost)) && !(o[k].needArmy && world.popUsed() < o[k].needArmy);
     c.beginPath(); c.roundRect(bx, by, bw, 184, 14); c.fillStyle = 'rgba(255,255,255,0.06)'; c.fill();
     K.button(c, ui, bx + 14, by + 14, bw - 28, 52, t('ev' + (k ? 'b' : 'a') + '_' + ev.id), { color: k ? '#3b3229' : '#2f7d3a', disabled: !can, fs: 19, tag: 'event' + k }, () => A.eventChoose(k));
     effects(S, K, o[k], bx + 20, by + 92, ev);
@@ -238,10 +253,19 @@ export function marks(S, K) {
   }
 }
 
-/** Nelle impostazioni: musica e difficoltà. (cx = centro, y = riga) */
+/** Gli oggetti che l'eroe ha trovato: una fila di icone (quelli che mancano, in ombra). */
+export function heroItems(S, K, x, y) {
+  const { c, world } = S, it = world.d.hero.items || {};
+  HERO_ITEMS.forEach((k, i) => { c.globalAlpha = it[k] ? 1 : 0.22; c.beginPath(); c.arc(x + i * 34, y, 14, 0, TAU); c.fillStyle = 'rgba(255,255,255,0.1)'; c.fill(); itemIcon(c, k, x + i * 34, y, 9); c.globalAlpha = 1; });
+}
+
+/** Nelle impostazioni: musica e account, difficoltà, qualità. (cx = centro, y = riga) */
 export function settingsExtra(S, K, cx, y) {
   const { c, world, ui, A } = S;
-  K.button(c, ui, cx - 110, y, 220, 42, t('music') + ': ' + (ui.music ? t('on') : t('off')), { color: '#3b3229', fs: 17, tag: 'music' }, A.music);
+  K.button(c, ui, cx - 228, y, 222, 42, t('music') + ': ' + (ui.music ? t('on') : t('off')), { color: '#3b3229', fs: 17, tag: 'music' }, A.music);
+  K.button(c, ui, cx + 6, y, 222, 42, t('account') + (ui.cloud && ui.cloud.user ? ' ✓' : ''), { color: '#2f5d7a', fs: 17, tag: 'account' }, A.account);
+  K.txt(c, t('quality'), cx, y + 146, 15, K.DIM, 'center', 700);
+  ['auto', 2, 1, 0].forEach((q, k) => K.button(c, ui, cx - 228 + k * 115, y + 160, 110, 42, t('q_lv' + q), { color: ui.q === q ? '#8a5a1c' : '#3b3229', fs: 15.5, tag: 'q_' + q }, () => A.quality(q)));
   K.txt(c, t('difficulty'), cx, y + 68, 15, K.DIM, 'center', 700);
   DIFF_ORDER.forEach((d, k) => K.button(c, ui, cx - 228 + k * 154, y + 82, 148, 42, t('diff_' + d), { color: world.d.diff === d ? '#8a5a1c' : '#3b3229', fs: 16.5, tag: 'diff_' + d }, () => A.diff(d)));
 }
@@ -250,4 +274,4 @@ export function titleDiff(S, K, cx, y) {
   const { c, ui, A } = S;
   DIFF_ORDER.forEach((d, k) => K.button(c, ui, cx - 228 + k * 154, y, 148, 40, t('diff_' + d), { color: ui.diffPick === d ? '#8a5a1c' : '#3b3229', fs: 16.5, tag: 'pick_' + d }, () => A.diffPick(d)));
 }
-void INK;
+void INK; void FOOD; void BUILD;

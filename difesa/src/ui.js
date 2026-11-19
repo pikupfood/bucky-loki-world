@@ -1,11 +1,12 @@
 // Interfaccia 2D sopra il mondo 3D. Stile "immediato": a ogni frame si disegna e si registrano
 // le aree toccabili in ui.buttons. S = { c, world, ui, vw, vh, P, A, now }.
-import { G, BUILD, BUILD_CATS, TOWERS, CROPS, CROP_ORDER, CASTLE_UP, UNITS, UNIT_ORDER, CASERMA_SLOTS, TRIBES, MY_COLOR, TECHS, TECH_ORDER, TRADE, TRADE_ORDER, CAT_ORDER, NATURE, moraleK, waveSummary } from './data.js';
+import { G, BUILD, BUILD_CATS, TOWERS, CROPS, CROP_ORDER, CASTLE_UP, UNITS, UNIT_ORDER, CASERMA_SLOTS, TRIBES, MY_COLOR, TECHS, TECH_ORDER, TRADE, TRADE_ORDER, CAT_ORDER, NATURE, moraleK, waveSummary, ENEMIES, LEVELS, LEVEL_MIN, levelK, TRAITS, REL, giftCost } from './data.js';
 import { VEIL } from './ground.js';
 import { drawTower } from './icons.js';
 import { drawFx, tracePoly } from './fx.js';
 import { t, has, LANGS, getLang } from './i18n.js';
 import * as X from './ui2.js';
+import * as Y from './ui3.js';
 
 const F = '"Trebuchet MS","Segoe UI",Roboto,sans-serif';
 const GOLD = '#e9c46a', CREAM = '#f5ecd7', DIM = '#cbbf9f', BAD = '#e8897e', TAU = Math.PI * 2;
@@ -75,7 +76,12 @@ function tuzu2d(c, x, y, s, color, eyes = INK, alpha = 1) {
 }
 /** Un Tuzu con quello che porta addosso: è il segno che distingue un tipo dall'altro. */
 function tuzuIcon(c, kind, x, y, s, color, eyes = INK) {
-  tuzu2d(c, x, y, s, color, eyes, kind === 'spettro' ? 0.55 : 1);
+  if (kind.startsWith('sp_')) {      // lo speciale di un popolo: l'attrezzatura di base e lo stendardo
+    tuzuIcon(c, ENEMIES[kind].gear, x, y, s, color, eyes);
+    c.save(); c.translate(x, y); c.scale(s / 62, s / 62); c.strokeStyle = '#6f4526'; c.lineWidth = 6; c.beginPath(); c.moveTo(-58, 30); c.lineTo(-58, -92); c.stroke(); c.fillStyle = '#f2c230'; c.strokeStyle = 'rgba(30,20,10,0.7)'; c.lineWidth = 3; c.beginPath(); c.moveTo(-56, -92); c.lineTo(-18, -80); c.lineTo(-56, -60); c.closePath(); c.fill(); c.stroke(); c.restore();
+    return;
+  }
+  tuzu2d(c, x, y, s, color, eyes, kind === 'spettro' || ENEMIES[kind] && ENEMIES[kind].ghost ? 0.55 : 1);
   c.save(); c.translate(x, y); c.scale(s / 62, s / 62); c.lineJoin = 'round'; c.lineCap = 'round';
   const crown = () => { c.beginPath(); c.moveTo(-26, -52); c.lineTo(-30, -84); c.lineTo(-13, -68); c.lineTo(0, -90); c.lineTo(13, -68); c.lineTo(30, -84); c.lineTo(26, -52); c.closePath(); c.fillStyle = '#f2c230'; c.fill(); c.strokeStyle = '#8a6410'; c.lineWidth = 4; c.stroke(); };
   const helm = (col) => { c.beginPath(); c.arc(0, -22, 48, Math.PI * 1.08, Math.PI * 1.92); c.closePath(); c.fillStyle = col; c.fill(); c.strokeStyle = 'rgba(30,34,44,0.8)'; c.lineWidth = 4; c.stroke(); };
@@ -85,6 +91,17 @@ function tuzuIcon(c, kind, x, y, s, color, eyes = INK) {
   else if (kind === 'bruto') { helm('#6f7684'); club('#55565e'); }
   else if (kind === 'capo') { crown(); club('#7b5230'); }
   else if (kind === 'campione') { crown(); club('#f2c230'); }
+  else if (kind === 'ascia' || kind === 'piccone' || kind === 'falce' || kind === 'martello') {
+    c.beginPath(); c.ellipse(0, -50, 52, 13, 0, 0, TAU); c.fillStyle = '#e8cf7a'; c.fill(); c.strokeStyle = '#8a6a20'; c.lineWidth = 4; c.stroke(); c.beginPath(); c.arc(0, -52, 26, Math.PI, 0); c.closePath(); c.fillStyle = '#d9bd62'; c.fill(); c.stroke();
+    c.fillStyle = { ascia: '#3f8f4a', piccone: '#8d8f96', falce: '#e8c64a', martello: '#c2452d' }[kind]; c.fillRect(-26, -56, 52, 7);
+    c.strokeStyle = '#6f4526'; c.lineWidth = 7; c.beginPath(); c.moveTo(60, 52); c.lineTo(66, -30); c.stroke(); c.strokeStyle = 'rgba(30,34,44,0.8)'; c.lineWidth = 3;
+    if (kind === 'ascia') { c.beginPath(); c.moveTo(66, -44); c.lineTo(98, -52); c.quadraticCurveTo(106, -30, 98, -10); c.lineTo(66, -18); c.closePath(); c.fillStyle = '#cfd3dc'; c.fill(); c.stroke(); }
+    else if (kind === 'piccone') { c.strokeStyle = '#aeb4c2'; c.lineWidth = 9; c.beginPath(); c.arc(66, 2, 44, -2.2, -0.9); c.stroke(); }
+    else if (kind === 'falce') { c.strokeStyle = '#e9edf5'; c.lineWidth = 8; c.beginPath(); c.arc(84, -34, 26, Math.PI * 0.9, Math.PI * 2.1); c.stroke(); }
+    else { c.beginPath(); c.roundRect(46, -52, 42, 26, 5); c.fillStyle = '#6f7684'; c.fill(); c.stroke(); }
+  }
+  else if (kind === 'eroina') { c.beginPath(); c.moveTo(-36, -44); c.lineTo(0, -98); c.lineTo(36, -44); c.closePath(); c.fillStyle = '#19a08c'; c.fill(); c.strokeStyle = '#0c5a4e'; c.lineWidth = 4; c.stroke(); c.fillStyle = '#f2c230'; c.fillRect(-22, -56, 44, 9); c.strokeStyle = '#f2c230'; c.lineWidth = 8; c.beginPath(); c.arc(52, 4, 42, -1.2, 1.2); c.stroke(); }
+  else if (kind === 'ordigno') { helm('#6f7684'); c.fillStyle = '#9b6b3d'; c.strokeStyle = 'rgba(30,20,10,0.7)'; c.lineWidth = 4; c.beginPath(); c.roundRect(44, 24, 76, 16, 4); c.fill(); c.stroke(); for (const wx of [58, 106]) { c.beginPath(); c.arc(wx, 48, 14, 0, TAU); c.fillStyle = '#6f4526'; c.fill(); c.stroke(); } c.strokeStyle = '#c08e58'; c.lineWidth = 8; c.beginPath(); c.moveTo(96, 24); c.lineTo(54, -46); c.stroke(); c.beginPath(); c.arc(50, -52, 13, 0, TAU); c.fillStyle = '#8d8f96'; c.fill(); c.strokeStyle = 'rgba(30,20,10,0.7)'; c.lineWidth = 3; c.stroke(); }
   else if (kind === 'attrezzo') { c.beginPath(); c.ellipse(0, -50, 52, 13, 0, 0, TAU); c.fillStyle = '#e8cf7a'; c.fill(); c.strokeStyle = '#8a6a20'; c.lineWidth = 4; c.stroke(); c.beginPath(); c.arc(0, -52, 26, Math.PI, 0); c.closePath(); c.fillStyle = '#d9bd62'; c.fill(); c.stroke(); c.strokeStyle = '#6f4526'; c.lineWidth = 7; c.beginPath(); c.moveTo(60, 50); c.lineTo(66, -24); c.stroke(); c.fillStyle = '#aeb4c2'; c.fillRect(54, -40, 30, 18); }
   else if (kind === 'cavallo') { helm('#aeb4c2'); c.fillStyle = '#3f9cf2'; c.beginPath(); c.moveTo(-4, -70); c.lineTo(-30, -96); c.lineTo(-22, -66); c.closePath(); c.fill(); c.strokeStyle = '#c08e58'; c.lineWidth = 7; c.beginPath(); c.moveTo(40, 40); c.lineTo(96, -50); c.stroke(); c.beginPath(); c.moveTo(104, -64); c.lineTo(86, -50); c.lineTo(100, -40); c.closePath(); c.fillStyle = '#e1e5ee'; c.fill(); }
   else if (kind === 'cura') { helm('#f4f1ea'); c.fillStyle = '#e0452f'; c.fillRect(-5, -66, 10, 26); c.fillRect(-13, -58, 26, 10); c.strokeStyle = '#6f4526'; c.lineWidth = 6; c.beginPath(); c.moveTo(64, 56); c.lineTo(64, -50); c.stroke(); c.beginPath(); c.arc(64, -62, 13, 0, TAU); c.fillStyle = '#8ff0b0'; c.fill(); }
@@ -105,8 +122,17 @@ function lock(c, x, y, s) {
   c.strokeStyle = '#cbbf9f'; c.lineWidth = s * 0.28; c.beginPath(); c.arc(x, y - s * 0.3, s * 0.5, Math.PI, 0); c.stroke();
   c.fillStyle = '#cbbf9f'; c.beginPath(); c.roundRect(x - s * 0.8, y - s * 0.3, s * 1.6, s * 1.25, s * 0.2); c.fill();
 }
-const RES_ICON = { monete: coin, legna: wood, pietra: stone, ferro: iron, cristallo: crystal };
-const RES_COL = { monete: GOLD, legna: '#e0b98a', pietra: '#cfd1da', ferro: '#c5ccdb', cristallo: '#9fe9ff' };
+function bread(c, x, y, r) {
+  c.beginPath(); c.ellipse(x, y + r * 0.1, r * 1.15, r * 0.8, 0, 0, TAU); c.fillStyle = '#d9a25a'; c.fill(); c.strokeStyle = '#7a4a1c'; c.lineWidth = 1.6; c.stroke();
+  c.strokeStyle = 'rgba(122,74,28,0.8)'; c.lineWidth = 1.4; c.lineCap = 'round'; for (const k of [-0.5, 0, 0.5]) { c.beginPath(); c.moveTo(x + k * r - r * 0.15, y - r * 0.3); c.lineTo(x + k * r + r * 0.15, y + r * 0.3); c.stroke(); }
+}
+function wheat(c, x, y, r) {
+  c.strokeStyle = '#b98a1c'; c.lineWidth = 1.6; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, y + r); c.lineTo(x, y - r * 0.5); c.stroke();
+  c.fillStyle = '#e8c64a'; for (let i = 0; i < 3; i++) for (const k of [-1, 1]) { c.beginPath(); c.ellipse(x + k * r * 0.36, y + r * 0.25 - i * r * 0.4, r * 0.32, r * 0.2, k * 0.7, 0, TAU); c.fill(); }
+  c.beginPath(); c.ellipse(x, y - r * 0.85, r * 0.2, r * 0.32, 0, 0, TAU); c.fill();
+}
+const RES_ICON = { monete: coin, legna: wood, pietra: stone, ferro: iron, cristallo: crystal, grano: wheat, cibo: bread };
+const RES_COL = { monete: GOLD, legna: '#e0b98a', pietra: '#cfd1da', ferro: '#c5ccdb', cristallo: '#9fe9ff', grano: '#e8c64a', cibo: '#f0c890' };
 function moon(c, x, y, r) {
   c.save(); c.beginPath(); c.arc(x, y, r, 0, TAU); c.clip();
   c.fillStyle = '#dfe6ff'; c.fillRect(x - r, y - r, r * 2, r * 2);
@@ -164,6 +190,8 @@ function buildIcon(c, type, x, y, s, time) {
   else if (type === 'recinto') { for (const px of [-22, 0, 22]) { c.beginPath(); c.roundRect(px - 3.5, -16, 7, 38, 3); c.fillStyle = '#6f4526'; c.fill(); } R(-26, -8, 52, 5, '#c08e58', '#5c3a1e'); R(-26, 6, 52, 5, '#c08e58', '#5c3a1e'); }
   else if (type === 'mura') { R(-26, -8, 52, 30, '#9a9ba4', '#44454d'); for (let i = 0; i < 4; i++) R(-26 + i * 14.6, -18, 8.4, 10, '#b2b3be', '#44454d'); c.strokeStyle = 'rgba(60,60,70,0.55)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-26, 6); c.lineTo(26, 6); c.moveTo(-8, -8); c.lineTo(-8, 6); c.moveTo(10, 6); c.lineTo(10, 22); c.stroke(); }
   else if (type === 'cancello') { R(-26, -18, 12, 40, '#9a9ba4', '#44454d'); R(14, -18, 12, 40, '#9a9ba4', '#44454d'); Pg([-28, -18, -20, -27, -12, -18], '#b5482f'); Pg([12, -18, 20, -27, 28, -18], '#b5482f'); R(-14, -8, 28, 30, '#8a5a33', '#4a2f17'); c.strokeStyle = '#4a2f17'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(0, -8); c.lineTo(0, 22); c.stroke(); R(-14, 2, 28, 4, '#55565e', null); }
+  else if (type === 'ponte') { c.beginPath(); c.ellipse(0, 12, 28, 9, 0, 0, TAU); c.fillStyle = '#5ec3ea'; c.fill(); R(-28, -4, 56, 9, '#c08e58', '#5c3a1e'); for (const px of [-22, 0, 22]) R(px - 2.5, -14, 5, 26, '#6f4526', null); R(-28, -14, 56, 4, '#9b6b3d', '#5c3a1e'); }
+  else if (type === 'porto') { c.beginPath(); c.ellipse(0, 14, 30, 10, 0, 0, TAU); c.fillStyle = '#5ec3ea'; c.fill(); R(-26, -6, 30, 18, '#e9dcc0'); Pg([-30, -6, -11, -22, 8, -6], '#3f7fb5'); R(-2, 8, 30, 6, '#9b6b3d', '#5c3a1e'); Pg([6, 16, 30, 16, 26, 24, 10, 24], '#b5482f'); R(17, -2, 2, 18, '#6f4526', null); Pg([19, -2, 30, 6, 19, 10], '#f4f1ea'); }
   else if (type === 'castello') { R(-22, -8, 44, 30, '#a3a4b0', '#44454d'); R(-30, -18, 12, 40, '#b2b3be', '#44454d'); R(18, -18, 12, 40, '#b2b3be', '#44454d'); Pg([-32, -18, -24, -30, -16, -18], '#2f8f5b'); Pg([16, -18, 24, -30, 32, -18], '#2f8f5b'); R(-5, 6, 10, 16, '#4a3020'); }
   c.restore();
 }
@@ -220,8 +248,8 @@ function langRow(S, cx, y) {
 // =====================================================================
 //  SOPRA IL MONDO: evidenziazioni, barre della vita, fumetti, notte
 // =====================================================================
-const B_H = { fontana: 50, taverna: 70, statua: 54, mulino: 80, fucina: 70, lampione: 44, albero: 46, aiuola: 16, strada: 6, castello: 120, arcieri: 84, mago: 90, catapulta: 60, braciere: 70, radici: 50, casa: 62, caserma: 70, segheria: 54, cava: 54, campo: 26, recinto: 34, mura: 48, cancello: 56, bottega: 66, mercato: 56, miniera: 54, cristalliera: 54 };
-const LIGHT = { lampione: 120, taverna: 140, fucina: 120, mulino: 90, fontana: 70, statua: 60, castello: 240, casa: 120, caserma: 120, segheria: 80, cava: 80, cancello: 70, bottega: 120, mercato: 110, miniera: 80, cristalliera: 90 };
+const B_H = { fontana: 50, taverna: 70, statua: 54, mulino: 80, fucina: 70, lampione: 44, albero: 46, aiuola: 16, strada: 6, castello: 120, arcieri: 84, mago: 90, catapulta: 60, braciere: 70, radici: 50, casa: 62, caserma: 70, segheria: 54, cava: 54, campo: 26, recinto: 34, mura: 48, cancello: 56, bottega: 66, mercato: 56, miniera: 54, cristalliera: 54, porto: 46, ponte: 10 };
+const LIGHT = { porto: 100, lampione: 120, taverna: 140, fucina: 120, mulino: 90, fontana: 70, statua: 60, castello: 240, casa: 120, caserma: 120, segheria: 80, cava: 80, cancello: 70, bottega: 120, mercato: 110, miniera: 80, cristalliera: 90 };
 const cellPoly = (P, c0, r0, w, h) => [P.pt(c0 * G, r0 * G), P.pt((c0 + w) * G, r0 * G), P.pt((c0 + w) * G, (r0 + h) * G), P.pt(c0 * G, (r0 + h) * G)];
 const onScreen = (S, p, m) => p.x > -m && p.x < S.vw + m && p.y > -m && p.y < S.vh + m;
 
@@ -357,13 +385,15 @@ function hud(S) {
   const keys = ['monete', 'legna', 'pietra'];
   if (world.d.tech.ferro || res.ferro >= 1) keys.push('ferro');
   if (world.d.tech.cristallo || res.cristallo >= 1) keys.push('cristallo');
-  const many = keys.length > 3, fs = many ? 19 : 22, gap = many ? 13 : 20, ir = many ? 9 : 10.5;
-  const items = keys.map(k => [k, String(Math.floor(res[k]))]);
+  const food = world.fedState() !== 'off' || world.foodStock() > 0;
+  const many = keys.length + (food ? 1 : 0) > 3, fs = many ? 19 : 22, gap = many ? 13 : 20, ir = many ? 9 : 10.5;
+  const items = keys.map(k => [k, String(Math.floor(res[k])), RES_COL[k]]);
+  if (food) items.push(['cibo', String(world.foodStock()), world.fedState() !== 'off' && world.foodStock() < world.mouths() ? BAD : RES_COL.cibo]);
   const pop = `${world.popUsed()}/${world.popMax()}`;
   let w = 18; for (const it of items) w += ir * 2 + 7 + width(c, it[1], fs) + gap; w += 26 + width(c, pop, fs) + 12;
   panel(c, 14, 10, w, 48);
   let x = 28;
-  for (const [k, s] of items) { RES_ICON[k](c, x + ir, 34, ir); txt(c, s, x + ir * 2 + 7, 35, fs, RES_COL[k]); x += ir * 2 + 7 + width(c, s, fs) + gap; }
+  for (const [k, s, col] of items) { RES_ICON[k](c, x + ir, 34, ir); txt(c, s, x + ir * 2 + 7, 35, fs, col); x += ir * 2 + 7 + width(c, s, fs) + gap; }
   tuzu2d(c, x + 9, 34, 11, MY_COLOR); txt(c, pop, x + 26, 35, fs, CREAM);
 
   if (raid) {         // assalto in corso: contro chi, e quanto regge la casa del capo
@@ -375,10 +405,10 @@ function hud(S) {
     panel(c, vw / 2 - bw / 2 - 12, 64, bw + 24, 30, 10);
     bar(c, vw / 2 - bw / 2, 73, bw, 12, raid.hp / raid.maxHp, '#e0452f');
   } else {            // giorno / notte
-    const label = `${isNight ? t('night') : t('day')} ${world.nextNight} · ${t('s_' + world.season)}`, lw = width(c, label, 21, 800) + 64;
-    panel(c, vw / 2 - lw / 2, 10, lw, 48);
-    if (isNight) moon(c, vw / 2 - lw / 2 + 28, 34, 12); else sun(c, vw / 2 - lw / 2 + 28, 34, 8);
-    txt(c, label, vw / 2 - lw / 2 + 50, 35, 21, isNight ? '#cfd8ff' : '#ffe9a8', 'left', 800);
+    const label = `${isNight ? t('night') : t('day')} ${world.nextNight}${world.endless() ? ' ∞' : ''} · ${t('s_' + world.season)}`, lw = width(c, label, 21, 800) + 64, lx = Math.max(vw / 2 - lw / 2, 14 + w + 10);      // mai sopra le risorse
+    panel(c, lx, 10, lw, 48);
+    if (isNight) moon(c, lx + 28, 34, 12); else sun(c, lx + 28, 34, 8);
+    txt(c, label, lx + 50, 35, 21, isNight ? '#cfd8ff' : '#ffe9a8', 'left', 800);
     if (isNight) {      // la vita del castello, sempre in vista durante l'attacco
       const f = world.castle.hp / world.maxHp(world.castle), bw = 250;
       panel(c, vw / 2 - bw / 2 - 12, 64, bw + 24, 30, 10);
@@ -399,6 +429,10 @@ function hud(S) {
   bx -= 64;
   button(c, ui, bx, 10, 54, 48, '', { color: '#3b3229', tag: 'home' }, A.home);
   buildIcon(c, 'castello', bx + 27, 35, 13, 0);
+  bx -= 64;
+  button(c, ui, bx, 10, 54, 48, '', { color: '#2f5d7a', tag: 'map' }, A.mapOpen);
+  Y.mapIcon(c, bx + 27, 34, 12);
+  if (world.d.trips.length) { c.beginPath(); c.arc(bx + 50, 14, 11, 0, TAU); c.fillStyle = '#2f7d5a'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, String(world.d.trips.length), bx + 50, 15, 14, '#fff', 'center', 800); }
   if (isNight || raid) { bx -= 76; button(c, ui, bx, 10, 66, 48, 'x' + ui.speed, { color: ui.speed > 1 ? '#8a5a1c' : '#3b3229', fs: 22, tag: 'speed' }, A.speed); }
 
   {
@@ -422,13 +456,12 @@ function hud(S) {
   if (ui.build) { buildBar(S); return; }
   if (ui.vsel != null) villagePanel(S);
   else if (ui.sel) selPanel(S);
-  else if (ui.fogSel) X.fogPanel(S, K);
 
   // in basso a sinistra: costruire; in basso a destra: la notte
   button(c, ui, 14, vh - 14 - 66, 208, 66, t('buildBtn'), { color: '#8a5a1c', fs: 24, dx: 16, tag: 'build' }, A.buildOpen);
   hammer(c, 44, vh - 14 - 31, 17);
   if (!isNight) {
-    if (!ui.sel && ui.vsel == null && !ui.fogSel) X.incoming(S, K);
+    if (!ui.sel && ui.vsel == null) X.incoming(S, K);
     const pulse = world.towers() ? 0.5 + Math.sin(ui.time * 4) * 0.5 : 0;
     button(c, ui, vw - 14 - 230, vh - 14 - 66, 230, 66, t('startNight'), { color: '#2f7d3a', fs: 25, stroke: `rgba(255,236,170,${0.7 + pulse * 0.3})`, tag: 'night' }, A.start);
   } else {
@@ -519,11 +552,11 @@ function card(c, x, y, w, h, ok) {
 }
 function selPanel(S) {
   const { c, world, ui, vw, vh, A, now } = S, b = ui.sel.b, D = BUILD[b.type], L = world.d.castle;
-  const crops = b.type === 'campo' && !b.crop, cards = crops || b.type === 'caserma' || b.type === 'mercato';
-  const w = b.type === 'caserma' ? 800 : cards ? 680 : 640, h = b.type === 'castello' ? 214 : cards ? 196 : 138, x = vw / 2 - w / 2, y = vh - h - 12;
+  const crops = b.type === 'campo' && !b.crop, cards = crops || b.type === 'caserma' || b.type === 'mercato', lc = world.levelCheck(b), hasLv = lc !== 'none', lv = b.lvl || 0;
+  const w = b.type === 'caserma' ? 800 : cards ? 680 : 640, h = b.type === 'castello' ? 214 : cards ? 196 : hasLv ? 192 : 138, x = vw / 2 - w / 2, y = vh - h - 12;
   panel(c, x, y, w, h, 14, 0.95); block(ui, x, y, w, h);
   buildIcon(c, b.type, x + 42, y + 36, 22, ui.time);
-  const lvl = TOWERS[b.type] ? ` · ${t('level')} ${(b.lvl || 0) + 1}` : b.type === 'castello' ? ` · ${t('level')} ${L}` : '';
+  const lvl = TOWERS[b.type] || hasLv ? ` · ${t('level')} ${(b.lvl || 0) + 1}` : b.type === 'castello' ? ` · ${t('level')} ${L}` : '';
   txt(c, t('b_' + b.type) + lvl, x + 82, y + 26, 22, '#ffe9a8', 'left', 800);
   button(c, ui, x + w - 52, y + 8, 42, 42, '', { color: '#3b3229', r: 21, tag: 'selClose' }, A.selClose);
   cross(c, x + w - 31, y + 29, 9);
@@ -542,7 +575,7 @@ function selPanel(S) {
     demol(x + w - 170, by);
   } else if (b.type === 'castello') {
     txt(c, t('castleInfo', 2 + 2 * L), x + 82, y + 54, 16, DIM, 'left', 600);
-    if (world.hasHero()) { const H = world.d.hero; tuzuIcon(c, 'eroe', x + w - 190, y + 30, 13, MY_COLOR); txt(c, `${t('u_eroe')} · ${t('level')} ${H.lvl}`, x + w - 168, y + 30, 15, world.heroUnit() ? '#ffe9a8' : BAD, 'left', 800); }
+    if (world.hasHero()) { const H = world.d.hero; tuzuIcon(c, 'eroe', x + w - 190, y + 30, 13, MY_COLOR); txt(c, `${t('u_eroe')} · ${t('level')} ${H.lvl}`, x + w - 168, y + 30, 15, world.heroUnit() ? '#ffe9a8' : BAD, 'left', 800); X.heroItems(S, K, x + w - 186, y + 64); }
     const chk = world.castleCheck();
     if (chk === 'max') txt(c, t('maxed'), x + 22, y + 130, 19, DIM);
     else {
@@ -597,12 +630,21 @@ function selPanel(S) {
     button(c, ui, x + 20, by, 250, 50, t('techs'), { color: '#5b4a8a', fs: 20, tag: 'techOpen' }, A.tech);
     demol(x + w - 170, by);
   } else {
-    const p = D.prod, parts = [];
-    if (p) for (const k in p) parts.push(`+${p[k]} ${t('r_' + k)} ${t('perMin')}`);
-    if (D.pop) parts.push(`+${D.pop} ${t('people')}`);
+    const p = D.prod, parts = [], lk = LEVELS[b.type] ? levelK(lv) : 1;
+    if (p) for (const k in p) parts.push(`+${Math.round(p[k] * lk)} ${t('r_' + k)} ${t('perMin')}`);
+    if (D.pop) parts.push(`+${D.pop + 2 * lv} ${t('people')}`);
+    if (b.type === 'mulino') parts.push(t('millInfo'));
     if (D.beauty) parts.push(`${t('morale')} +${D.beauty}`);
     if (b.type === 'fucina') parts.push(t('k_fucina'));
     txt(c, parts.length ? parts.join(' · ') : t('d_' + b.type), x + 82, y + 54, 17, DIM);
+    if (hasLv) {
+      if (lc === 'max') txt(c, t('maxed'), x + 22, y + 100, 15, DIM, 'left', 700);
+      else {
+        button(c, ui, x + 20, y + 76, 170, 44, t('improve'), { color: '#2f7d3a', disabled: lc !== 'ok', fs: 18, tag: 'levelUp' }, () => A.levelUp(b));
+        costRow(c, world, world.levelCost(b), x + 204, y + 99, 16, 1, true);
+        txt(c, lc === 'castle' ? t('needCastle', LEVEL_MIN[lv]) : t(b.type === 'casa' ? 'lvl_casa' : 'lvl_prod'), x + w - 22, y + 99, 13.5, lc === 'castle' ? BAD : '#9ff0b4', 'right', 700);
+      }
+    }
     const back = demol(x + 20, by, 190), keys = Object.keys(back).filter(k => back[k] > 0);
     if (keys.length) { txt(c, t('back'), x + 230, by + 26, 16, DIM); const o = {}; keys.forEach(k => { o[k] = back[k]; }); costRowPlain(c, o, x + 230 + width(c, t('back'), 16) + 12, by + 26, 17); }
   }
@@ -620,10 +662,21 @@ function tradeRow(c, world, tr, x, y, size) {
 /** Il villaggio toccato. Nemico: attaccalo o proponi un'alleanza. Alleato o colonia: scambia risorse. */
 function villagePanel(S) {
   const { c, world, ui, vw, vh, A } = S, i = ui.vsel, T = TRIBES[i], v = world.village(i);
-  const w = 720, h = 196, x = vw / 2 - w / 2, y = vh - h - 12, col = v.state === 'colony', ally = v.state === 'ally', by = y + h - 60;
+  const gc = world.giftCheck(i), col = v.state === 'colony', ally = v.state === 'ally';
+  const w = 720, h = gc === 'no' ? 196 : 238, x = vw / 2 - w / 2, y = vh - h - 12, by = y + h - 60;
   panel(c, x, y, w, h, 14, 0.95); block(ui, x, y, w, h);
   tuzu2d(c, x + 44, y + 38, 22, T.color, T.eyes);
-  txt(c, `${t('tr_' + T.id)} · ${col ? t('colony') : ally ? t('allyTag') : t('level') + ' ' + v.level}`, x + 82, y + 26, 22, '#ffe9a8', 'left', 800);
+  const head = `${t('tr_' + T.id)} · ${col ? t('colony') : ally ? t('allyTag') : t('level') + ' ' + v.level}`;
+  txt(c, head, x + 82, y + 26, 22, '#ffe9a8', 'left', 800);
+  txt(c, `${t('chief')} ${TRAITS[T.id].chief} · ${t('e_sp_' + T.id)}`, x + 96 + width(c, head, 22, 800), y + 28, 13.5, DIM, 'left', 600);
+  if (gc !== 'no') {      // la simpatia di questo popolo, e il dono del giorno
+    const ry = y + 132, rl = t('rel'), rx = x + 22 + width(c, rl, 15, 600) + 10, r = v.rel;
+    txt(c, rl, x + 22, ry + 1, 15, DIM, 'left', 600);
+    heart(c, rx + 8, ry, 7, r >= 60 ? '#ff4f7a' : r >= 30 ? '#ff8fa8' : '#8a8fa0'); bar(c, rx + 24, ry - 5, 130, 10, r / 100, r >= REL.peace ? '#7fe6a0' : '#ff8fa8'); txt(c, String(r), rx + 164, ry + 1, 15, CREAM, 'left', 800);
+    txt(c, ally ? '' : r >= REL.peace ? t('relPeace') : r >= REL.cheap ? t('relCheap') : '', rx + 200, ry + 1, 13, '#9ff0b4', 'left', 700);
+    button(c, ui, x + w - 262, ry - 20, 110, 40, t('gift'), { color: '#8a5a1c', disabled: gc !== 'ok', fs: 16, tag: 'gift' }, () => A.gift(i));
+    if (gc === 'done') txt(c, t('giftDone'), x + w - 142, ry + 1, 13, DIM, 'left', 600); else costRow(c, world, giftCost(v.level), x + w - 142, ry + 1, 15, 1, true);
+  }
   button(c, ui, x + w - 52, y + 8, 42, 42, '', { color: '#3b3229', r: 21, tag: 'vClose' }, A.vClose);
   cross(c, x + w - 31, y + 29, 9);
 
@@ -721,7 +774,7 @@ function hints(S) {
 function settingsPanel(S) {
   const { c, ui, vw, vh, A } = S;
   dim(S, 0.6);
-  const h = 372, y0 = vh / 2 - h / 2;
+  const h = 446, y0 = vh / 2 - h / 2;
   panel(c, vw / 2 - 260, y0, 520, h, 18, 0.96);
   title2(c, t('settings'), vw / 2, y0 + 46, 36, '#f2cf73');
   langRow(S, vw / 2, y0 + 86);
@@ -730,23 +783,31 @@ function settingsPanel(S) {
 }
 
 function questsPanel(S) {
-  const { c, world, ui, vw, vh, A } = S;
+  const { c, world, ui, vw, vh, A, now } = S;
   dim(S, 0.6);
-  const w = 660, h = 452, x = vw / 2 - w / 2, y = vh / 2 - h / 2;
+  const tro = ui.qtab === 1, w = tro ? Math.min(1060, vw - 40) : 660, h = 516, x = vw / 2 - w / 2, y = vh / 2 - h / 2;
   panel(c, x, y, w, h, 18, 0.96);
-  title2(c, t('quests'), vw / 2, y + 48, 40, '#f2cf73');
-  for (let i = 0; i < 3; i++) {
-    const q = world.quest(i), ry = y + 92 + i * 92;
-    c.beginPath(); c.roundRect(x + 20, ry, w - 40, 80, 12); c.fillStyle = q.ready ? 'rgba(74,92,58,0.9)' : 'rgba(255,255,255,0.06)'; c.fill();
-    txt(c, t('q_' + q.type, q.goal), x + 38, ry + 26, 20, CREAM, 'left', 800);
-    c.beginPath(); c.roundRect(x + 38, ry + 48, 320, 14, 7); c.fillStyle = 'rgba(0,0,0,0.4)'; c.fill();
-    c.beginPath(); c.roundRect(x + 38, ry + 48, Math.max(6, 320 * q.progress / q.goal), 14, 7); c.fillStyle = q.ready ? '#ffd24a' : '#6fd45a'; c.fill();
-    txt(c, q.progress + '/' + q.goal, x + 370, ry + 56, 16, DIM);
-    const bx = x + w - 196, bw = 160;
-    if (q.ready) button(c, ui, bx, ry + 12, bw, 56, t('claim') + ' +' + q.reward, { color: '#2f7d3a', fs: 19, tag: 'claim' + i }, () => A.claimQuest(i));
-    else { coin(c, bx + bw / 2 - 26, ry + 40, 11); txt(c, '+' + q.reward, bx + bw / 2 + 10, ry + 41, 22, GOLD, 'center', 800); }
+  [t('quests'), t('trophies')].forEach((s, k) => button(c, ui, vw / 2 - 206 + k * 212, y + 14, 200, 44, s, { color: (ui.qtab || 0) === k ? '#8a5a1c' : '#3b3229', fs: 20, tag: 'qtab' + k }, () => A.qtab(k)));
+  if (tro) {
+    const yy = Y.trophyGrid(S, K, x + 20, y + 76, w - 40), got = world.trophies().filter(o => o.done).length;
+    txt(c, t('trophyCount', got, world.trophies().length) + (world.endless() ? '   ·   ' + t('crowns', world.d.crowns || 0) : ''), vw / 2, Math.min(yy + 18, y + h - 78), 16, '#ffe27a', 'center', 800);
+  } else {
+    const row = (ry, title, have, goal, ready, reward, tag, fn, blue) => {
+      c.beginPath(); c.roundRect(x + 20, ry, w - 40, 76, 12); c.fillStyle = ready ? 'rgba(74,92,58,0.9)' : blue ? 'rgba(58,74,110,0.6)' : 'rgba(255,255,255,0.06)'; c.fill();
+      txt(c, title, x + 38, ry + 24, 19, CREAM, 'left', 800);
+      c.beginPath(); c.roundRect(x + 38, ry + 46, 320, 14, 7); c.fillStyle = 'rgba(0,0,0,0.4)'; c.fill();
+      c.beginPath(); c.roundRect(x + 38, ry + 46, Math.max(6, 320 * have / goal), 14, 7); c.fillStyle = ready ? '#ffd24a' : '#6fd45a'; c.fill();
+      txt(c, have + '/' + goal, x + 370, ry + 54, 16, DIM);
+      const bx = x + w - 196, bw = 160;
+      if (ready) button(c, ui, bx, ry + 10, bw, 56, t('claim') + ' +' + reward, { color: '#2f7d3a', fs: 19, tag }, fn);
+      else if (reward) { coin(c, bx + bw / 2 - 26, ry + 38, 11); txt(c, '+' + reward, bx + bw / 2 + 10, ry + 39, 22, GOLD, 'center', 800); }
+      else { check(c, bx + bw / 2, ry + 38, 12, '#9ff0b4'); }
+    };
+    for (let i = 0; i < 3; i++) { const q = world.quest(i); row(y + 72 + i * 84, t('q_' + q.type, q.goal), q.progress, q.goal, q.ready, q.reward, 'claim' + i, () => A.claimQuest(i)); }
+    const ch = world.challenge(now);
+    row(y + 72 + 3 * 84, t('chalTitle') + ': ' + t('q_' + ch.k, ch.need), ch.have, ch.need, ch.done && !ch.claimed, ch.claimed ? 0 : ch.reward, 'claimChal', A.claimChallenge, true);
   }
-  button(c, ui, vw / 2 - 110, y + h - 76, 220, 58, t('close'), { color: '#3b3229', fs: 24, tag: 'close' }, A.quests);
+  button(c, ui, vw / 2 - 110, y + h - 62, 220, 48, t('close'), { color: '#3b3229', fs: 22, tag: 'close' }, A.quests);
 }
 
 function dailyPanel(S) {
@@ -800,7 +861,7 @@ function titleScreen(S) {
   langRow(S, vw / 2, y0 + 414);
 }
 
-const K = { txt, width, panel, title2, wrap, button, block, dim, bar, bubble, moon, cross, card, heart, lock, coin, costRow, costRowPlain, tuzu2d, tuzuIcon, enemyIcon, tracePoly, CREAM, DIM, BAD, GOLD };
+const K = { txt, width, panel, title2, wrap, button, block, dim, bar, bubble, moon, cross, card, heart, lock, coin, costRow, costRowPlain, tuzu2d, tuzuIcon, enemyIcon, tracePoly, buildIcon, check, hammer, swap, fmtTime, RES_ICON, RES_COL, CREAM, DIM, BAD, GOLD };
 let vig = null;
 /** Disegna tutta l'interfaccia in coordinate logiche (0..vw, 0..vh). */
 export function drawUi(S) {
@@ -816,6 +877,7 @@ export function drawUi(S) {
   hud(S);
   X.guide(S, K);
   hints(S);
+  Y.squadBar(S, K);
   if (ui.banner && ui.banner.t < ui.banner.T) {
     const u = ui.banner.t / ui.banner.T, a = u < 0.15 ? u / 0.15 : u > 0.8 ? (1 - u) / 0.2 : 1;
     c.globalAlpha = a; title2(c, ui.banner.str, vw / 2, 180, 46, ui.banner.color); c.globalAlpha = 1;
@@ -829,8 +891,11 @@ export function drawUi(S) {
   else if (ui.daily) dailyPanel(S);
   else if (ui.story != null) X.storyPanel(S, K);
   else if (ui.eventOpen) X.eventPanel(S, K);
+  else if (ui.reportOpen) Y.reportPanel(S, K);
+  else if (ui.map) Y.mapPanel(S, K);
   else if (ui.roles) X.rolesPanel(S, K);
   else if (ui.quests) questsPanel(S);
   else if (ui.tech) techPanel(S);
   else if (ui.settings) settingsPanel(S);
+  if (!(ui.lost || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.reportOpen || ui.roles || ui.quests || ui.tech || ui.settings)) Y.finger(S, K);
 }

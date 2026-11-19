@@ -1,6 +1,6 @@
 // Pittore del terreno: una texture 2D stesa sul piano 3D della mappa.
 // Prato a chiazze, sottobosco, ghiaioni sotto le montagne, laghi con la riva, strade a curve, piazze dei villaggi.
-import { WORLD_W, WORLD_H, G, CASTLE, TRIBES, NATURE, ROADS, LAKES, HILLS, PEAKS, lakeEdge, mulberry32 } from './data.js';
+import { WORLD_W, WORLD_H, G, CASTLE, TRIBES, NATURE, ROADS, LAKES, HILLS, PEAKS, lakeEdge, mulberry32, ISLAND } from './data.js';
 
 const TAU = Math.PI * 2;
 export const GRASS = '#5f9f47';
@@ -50,6 +50,9 @@ export function paintWorld(canvas, k) {
     for (let i = 0; i < 9; i++) { const a = rnd() * TAU, d = rnd() * 0.6, x = L.x + Math.cos(a) * L.rx * d, y = L.y + Math.sin(a) * L.ry * d, w = 12 + rnd() * 16; c.beginPath(); c.moveTo(x - w, y); c.quadraticCurveTo(x, y - 3, x + w, y); c.stroke(); }
     for (let i = 0; i < 26; i++) { const a = rnd() * TAU, e = lakeEdge(L, a) * (1.08 + rnd() * 0.06); ell(c, L.x + Math.cos(a) * L.rx * e, L.y + Math.sin(a) * L.ry * e, 2 + rnd() * 3, 1.6 + rnd() * 2, rnd() < 0.5 ? 'rgba(120,110,96,0.7)' : 'rgba(240,232,210,0.8)'); }
   }
+
+  { const ix = (ISLAND.c + 0.5) * G, iy = (ISLAND.r + 0.5) * G, R = (ISLAND.rad + 0.7) * G;      // l'isola nel lago grande
+    ell(c, ix, iy, R * 1.12, R * 1.04, 'rgba(143,214,232,0.9)'); ell(c, ix, iy, R, R * 0.94, '#d8c79a'); ell(c, ix, iy, R * 0.82, R * 0.76, GRASS); glow(c, ix, iy, R * 0.8, '255,255,190', 0.18); }
 
   // strade: prima le secondarie (da villaggio a villaggio), poi quelle che portano al castello
   c.lineCap = 'round'; c.lineJoin = 'round';

@@ -1,9 +1,11 @@
 // Avvio: scena 3D + interfaccia 2D, camera (trascina, pizzica, rotella), costruzione a quadretti, salvataggio.
 import { World } from './world.js';
-import { G, COLS, ROWS, BUILD, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, TERRAIN, RUINS, HERO, UNITS as UNIT_DEFS } from './data.js';
+import { G, COLS, ROWS, BUILD, TOWERS, CASTLE, NATURE, TRIBES, MY_COLOR, TERRAIN, RUINS, HERO, LEVEL_MIN, UNITS as UNIT_DEFS } from './data.js';
 import { Scene3D } from './scene3d.js';
 import { drawUi } from './ui.js';
-import { stepFx, parts, ring, text } from './fx.js';
+import { stepFx, parts, ring, text, smoke, chips, arc } from './fx.js';
+import { mapPick } from './ui3.js';
+import * as cloud from './cloud.js';
 import { t, setLang, getLang, LANGS } from './i18n.js';
 import * as audio from './audio.js';
 
@@ -21,19 +23,21 @@ const ui = {
   screen: 'title', speed: 1, sound: saved.sound !== false, moved: !!saved.moved, seenVillage: !!saved.seenVillage,
   build: null, place: null, sel: null, vsel: null, aiming: false,
   quests: false, settings: false, tech: false, daily: false, lost: null, away: world.away,
+  map: null, squad: null, qtab: 0, reportOpen: false, q: saved.q === 0 || saved.q === 1 || saved.q === 2 ? saved.q : 'auto', cloud: cloud.state,
   roles: false, story: null, rallyPick: false, fogSel: null, guideOpen: null, music: saved.music !== false, newGame: !saved.world, diffPick: 'normale',
   buttons: [], fx: [], fxTop: [], night: 0, shake: 0, flash: 0, time: 0, banner: null, bannerQ: [], toast: null,
 };
 world.away = null;
 let frozen = false;      // dopo reset() non si salva più: altrimenti la pagina che si chiude riscrive il salvataggio
-function save() { if (frozen) return; try { localStorage.setItem(KEY, JSON.stringify({ world, lang: getLang(), sound: ui.sound, music: ui.music, moved: ui.moved, seenVillage: ui.seenVillage, cam: scene.view })); } catch (e) { /* senza memoria si gioca lo stesso */ } }
+function save() { if (frozen) return; try { localStorage.setItem(KEY, JSON.stringify({ world, lang: getLang(), sound: ui.sound, music: ui.music, moved: ui.moved, seenVillage: ui.seenVillage, cam: scene.view, q: ui.q, qa: quality })); } catch (e) { /* senza memoria si gioca lo stesso */ } cloud.touch(); }
 
 const browserLang = (navigator.language || 'it').slice(0, 2);
 setLang(saved.lang || (LANGS.includes(browserLang) ? browserLang : 'it'));
 audio.setSound(ui.sound); audio.setMusic(ui.music);
 
 // qualità grafica: 2 = piena, 1 = meno pixel, 0 = meno pixel e niente ombre (scende da sola se il telefono fatica)
-let quality = 2, slow = 0;
+let quality = ui.q === 'auto' ? (saved.qa === 0 || saved.qa === 1 ? saved.qa : 2) : ui.q, slow = 0, skip = 0;
+function setQuality(q) { quality = q; scene.setShadows(q >= 1); scene.setPost(q === 2); resize(); }
 function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* non tutti i telefoni vibrano */ } }
 function toast(str) { ui.toast = { str, t: 0, T: 2 }; audio.play('no'); }
 /** Una scritta grande al centro; se ce n'è già una, aspetta il suo turno. */
@@ -49,7 +53,8 @@ function resize() {
   view.us = Math.min(ch / (small ? 580 : 720), cw / (small ? 1040 : 1180));
   view.vw = cw / view.us; view.vh = ch / view.us;
   uiCanvas.width = Math.round(cw * view.dpr); uiCanvas.height = Math.round(ch * view.dpr);
-  scene.resize(cw, Math.max(1, ch), view.dpr);
+  view.gl = view.dpr * (quality === 0 ? 0.8 : 1);            // a qualità bassa il 3D si disegna un po' più piccolo; l'interfaccia resta nitida
+  scene.resize(cw, Math.max(1, ch), view.gl);
 }
 window.addEventListener('resize', resize);
 
@@ -106,7 +111,7 @@ function confirmPlace() {
 // ---------- azioni ----------
 const UNITS_MSG = { full: 'full', pop: 'needHouses', busy: 'notNow' };
 const world_unit = (type) => UNIT_DEFS[type] || {};
-const closeAll = () => { ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; };
+const closeAll = () => { ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; };
 const A = {
   play() { if (ui.newGame) { world.setDiff(ui.diffPick); ui.newGame = false; save(); } ui.screen = 'play'; ui.daily = world.daily(Date.now()).available; audio.play('tap'); },
   diffPick(k) { ui.diffPick = k; audio.play('tap'); },
@@ -120,8 +125,22 @@ const A = {
   heroPower(k) { if (world.heroPower(k)) audio.play(k === 'shout' ? 'shout' : 'impact'); else audio.play('no'); },
   eventChoose(k) { if (world.eventChoose(k)) { audio.play('coin'); save(); } else toast(t('why_cost')); },
   storyOk() { world.storySeen(); ui.story = null; audio.play('page'); save(); },
-  fogClose() { ui.fogSel = null; },
-  scout() { const f = ui.fogSel; if (!f) return; if (world.sendScout(f.x, f.y)) { ui.fogSel = null; save(); } else { const w = world.scoutCheck(); toast(t(w === 'cost' ? 'why_cost' : w === 'full' ? 'scoutFull' : 'scoutBusy')); } },
+  // la mappa intera: da lì si mandano gli esploratori (ci mettono ore vere)
+  mapOpen() { closeAll(); ui.squad = null; ui.map = { sel: null, msg: '', msgT: 0 }; audio.play('page'); },
+  mapClose() { ui.map = null; audio.play('tap'); },
+  mapTap(x, y) { if (!ui.map) return; ui.map.sel = mapPick(world, x, y); ui.map.msgT = 0; audio.play('tap'); },
+  mapGo() { const p = ui.map && ui.map.sel; if (!p) return; scene.setView(p.x, p.y + 60, Math.min(scene.view.dist, 1300)); ui.moved = true; ui.map = null; if (p.kind === 'village') { ui.vsel = p.i; ui.seenVillage = true; } audio.play('tap'); save(); },
+  scout() { const M = ui.map, p = M && M.sel; if (!p) return; if (world.sendScout(p.x, p.y, Date.now())) { M.msg = t('scoutGone'); M.msgT = 5; M.sel = null; save(); } else audio.play('no'); },
+  reportOk() { world.reportSeen(); audio.play('tap'); save(); },
+  reportMap() { const R = world.reportSeen(); save(); A.mapOpen(); if (R) ui.map.sel = mapPick(world, R.x, R.y); },
+  levelUp(b) { if (world.levelUp(b)) save(); else { const w = world.levelCheck(b); toast(w === 'castle' ? t('needCastle', LEVEL_MIN[b.lvl || 0]) : w === 'cost' ? t('why_cost') : t('notNow')); } },
+  gift(i) { if (world.gift(i)) save(); else toast(t(world.giftCheck(i) === 'done' ? 'giftDone' : 'why_cost')); },
+  squadClose() { ui.squad = null; audio.play('tap'); },
+  squadAttack() { if (world.orderAttack(ui.squad)) audio.play('horn'); },
+  qtab(k) { ui.qtab = k; audio.play('tap'); },
+  claimChallenge() { const n = world.claimChallenge(Date.now()); if (n) { audio.play('cleared'); buzz(20); save(); } },
+  quality(q) { ui.q = q; slow = 0; setQuality(q === 'auto' ? 2 : q); save(); audio.play('tap'); },
+  account() { ui.settings = false; cloud.open(); audio.play('tap'); },
   guideToggle() { const g = world.goal(); ui.guideOpen = !(ui.guideOpen == null ? !!g && g.i < 12 : ui.guideOpen); audio.play('tap'); },
   buildOpen() { ui.sel = null; ui.vsel = null; ui.aiming = false; ui.build = { cat: ui.lastCat || 'dif' }; audio.play('tap'); },
   buildClose() { ui.build = null; ui.place = null; audio.play('tap'); },
@@ -184,17 +203,22 @@ const A = {
 };
 
 // ---------- tocchi ----------
-function hitButton(clientX, clientY) {
+function hitButton(clientX, clientY, pad = 0) {
   const lx = clientX / view.us, ly = clientY / view.us;
   for (let i = ui.buttons.length - 1; i >= 0; i--) {
     const b = ui.buttons[i];
-    if (lx >= b.x && lx <= b.x + b.w && ly >= b.y && ly <= b.y + b.h) { b.fn(); return true; }
+    if (lx >= b.x && lx <= b.x + b.w && ly >= b.y && ly <= b.y + b.h) { b.fn(lx, ly); return true; }
+  }
+  if (pad) {       // un dito è più largo di un cursore: vale il bottone piccolo più vicino, entro il margine
+    let best = null, bd = pad * pad;
+    for (const b of ui.buttons) { if (!b.tag || (b.w > 130 && b.h > 60)) continue; const dx = Math.max(b.x - lx, 0, lx - b.x - b.w), dy = Math.max(b.y - ly, 0, ly - b.y - b.h), dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = b; } }
+    if (best) { best.fn(lx, ly); return true; }
   }
   return false;
 }
 const DUMMY = 0; void DUMMY;
 void HERO;
-const TALL = { fontana: 46, taverna: 66, statua: 50, mulino: 76, fucina: 66, lampione: 40, albero: 40, castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26, bottega: 60, mercato: 50, miniera: 46, cristalliera: 46 };
+const TALL = { fontana: 46, taverna: 66, statua: 50, mulino: 76, fucina: 66, lampione: 40, albero: 40, castello: 120, arcieri: 84, mago: 90, catapulta: 56, braciere: 66, radici: 44, casa: 60, caserma: 66, segheria: 50, cava: 50, cancello: 52, mura: 40, recinto: 26, bottega: 60, mercato: 50, miniera: 46, cristalliera: 46, porto: 40 };
 /** Il villaggio sotto il dito: la piazza attorno alla casa del capo, oppure la casa stessa (che sullo schermo sta più in su). */
 function villageUnder(clientX, clientY, g) {
   for (let i = 0; i < TRIBES.length; i++) {
@@ -220,9 +244,18 @@ function buildingUnder(clientX, clientY, g) {
 }
 /** Un tocco sul mondo (non su un bottone). kind: 'touch' | 'mouse'. */
 function worldTap(clientX, clientY, kind) {
-  if (ui.screen !== 'play' || world.status === 'raid') return;
+  if (ui.screen !== 'play') return;
   const g = scene.pick(clientX, clientY);
   if (!g) return;
+  if (!ui.place && !ui.aiming && !ui.rallyPick) {      // i soldati: un tocco sceglie il gruppo, il tocco dopo dice dove andare
+    const reach = Math.max(30, 26 / Math.max(0.05, scene.scaleAt(g.x, g.y))), near = world.squadNear(g.x, g.y, reach);
+    if (ui.squad != null) {
+      if (near >= 0 && near !== ui.squad) { ui.squad = near; audio.play('tap'); return; }
+      if (world.raid && Math.hypot(g.x - world.raid.x, g.y - world.raid.y) < 110) { A.squadAttack(); return; }
+      if (near < 0) { if (world.order(ui.squad, g.x, g.y)) audio.play('tap'); else toast(t('orderBad')); return; }
+    } else if (near >= 0 && !world.buildingAt(Math.floor(g.x / G), Math.floor(g.y / G))) { ui.squad = near; ui.sel = null; ui.vsel = null; ui.build = null; audio.play('hey'); return; }
+  }
+  if (world.status === 'raid') return;
   if (ui.place) {
     const pl = ui.place, line = BUILD[pl.type].line;
     if (kind === 'mouse') { const second = !line || !!pl.a; moveGhost(g); if (second) confirmPlace(); return; }
@@ -232,9 +265,9 @@ function worldTap(clientX, clientY, kind) {
   }
   if (ui.aiming) { if (world.castSpell(g.x, g.y)) ui.aiming = false; else audio.play('no'); return; }
   if (ui.rallyPick) { if (world.setRally(g.x, g.y) === 'ok') { ui.rallyPick = false; save(); audio.play('build'); } else toast(t('rallyBad')); return; }
-  if (!world.seen(Math.floor(g.x / G), Math.floor(g.y / G))) { ui.fogSel = { x: g.x, y: g.y, ruin: false }; ui.sel = null; ui.vsel = null; ui.build = null; audio.play('tap'); return; }
-  { const R = RUINS.find(o => !world.d.ruins[o.id] && Math.hypot((o.c + 0.5) * G - g.x, (o.r + 0.5) * G - g.y) < 70); if (R) { ui.fogSel = { x: (R.c + 0.5) * G, y: (R.r + 0.5) * G, ruin: true }; ui.sel = null; ui.vsel = null; audio.play('tap'); return; } }
-  ui.fogSel = null;
+  // le nuvole e le rovine: si apre la mappa su quel punto, e da lì parte l'esploratore
+  if (!world.seen(Math.floor(g.x / G), Math.floor(g.y / G))) { A.mapOpen(); ui.map.sel = mapPick(world, g.x, g.y); return; }
+  { const R = RUINS.find(o => !world.d.ruins[o.id] && Math.hypot((o.c + 0.5) * G - g.x, (o.r + 0.5) * G - g.y) < 70); if (R) { A.mapOpen(); ui.map.sel = mapPick(world, (R.c + 0.5) * G, (R.r + 0.5) * G); return; } }
   const vi = villageUnder(clientX, clientY, g);
   if (vi >= 0) { ui.vsel = vi; ui.seenVillage = true; ui.sel = null; ui.build = null; audio.play('tap'); save(); return; }
   const b = buildingUnder(clientX, clientY, g), now = Date.now();
@@ -265,7 +298,7 @@ uiCanvas.addEventListener('pointerdown', (e) => {
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (ptrs.size === 2) { if (gest && gest.mode === 'ui') return; const p = pinchInfo(); gest = { mode: 'pinch', d: p.d, g0: scene.pick(p.mx, p.my) }; return; }
   if (ptrs.size > 2) return;
-  if (hitButton(e.clientX, e.clientY)) { gest = { mode: 'ui' }; return; }
+  if (hitButton(e.clientX, e.clientY, e.pointerType === 'mouse' ? 0 : 10)) { gest = { mode: 'ui' }; return; }
   const g0 = scene.pick(e.clientX, e.clientY);
   gest = { mode: 'pending', x0: e.clientX, y0: e.clientY, g0, kind: e.pointerType === 'mouse' ? 'mouse' : 'touch', onGhost: e.pointerType !== 'mouse' && inGhost(g0) };
 });
@@ -299,11 +332,13 @@ uiCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 const keys = {};
 window.addEventListener('keydown', (e) => {
+  if (cloud.state.open) { if (e.key === 'Escape') cloud.close(); return; }      // si sta scrivendo l'email: i tasti non sono comandi
   keys[e.key] = true;
   if (e.key === 'Escape') back();
   else if (e.key === ' ' && ui.screen === 'play' && world.status === 'day' && !ui.place && !ui.tech) A.start();
   else if (e.key === 'f') A.speed();
   else if (e.key === 'b' && ui.screen === 'play') { if (ui.build) A.buildClose(); else A.buildOpen(); }
+  else if (e.key === 'm' && ui.screen === 'play' && !cloud.state.open) { if (ui.map) A.mapClose(); else A.mapOpen(); }
   else if (e.key === 'Enter' && ui.place) confirmPlace();
 });
 window.addEventListener('keyup', (e) => { keys[e.key] = false; });
@@ -311,7 +346,11 @@ window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 function back() {
   if (ui.lost) ui.lost = null;
   else if (ui.away) ui.away = null;
+  else if (cloud.state.open) cloud.close();
   else if (ui.story != null) A.storyOk();
+  else if (ui.reportOpen) A.reportOk();
+  else if (ui.map) ui.map = null;
+  else if (ui.squad != null) ui.squad = null;
   else if (ui.quests || ui.settings || ui.tech || ui.roles) { ui.quests = ui.settings = ui.tech = ui.roles = false; }
   else if (ui.fogSel || ui.rallyPick) { ui.fogSel = null; ui.rallyPick = false; }
   else if (ui.place) ui.place = null;
@@ -351,8 +390,13 @@ function handleEvents() {
       case 'event': audio.play('event'); break;
       case 'shard': banner(t('shardGot', ev.n), '#ffe27a', 3); audio.play('won'); break;
       case 'found': banner(`${t('found')}: ${t('tr_' + TRIBES[ev.i].id)}`, '#9fe9ff', 2.8); audio.play('hey'); ring(ui.fxTop, ev.x, ev.y, 20, 220, 0.9, '#ffffff', 5); break;
-      case 'ruin': { banner(t('ruinGot'), '#ffe27a', 2.6); audio.play('cleared'); let k = 0; for (const r in ev.loot) text(ui.fxTop, ev.x + k++ * 64, ev.y, 60, '+' + ev.loot[r], RES_FX[r], 24, 1.6); save(); break; }
+      case 'ruin': { banner(t('ruinGot'), '#ffe27a', 2.6); if (ev.item) banner(t('itemGot', t('it_' + ev.item)), '#ffe9a8', 2.8); audio.play('cleared'); let k = 0; for (const r in ev.loot) text(ui.fxTop, ev.x + k++ * 64, ev.y, 60, '+' + ev.loot[r], RES_FX[r], 24, 1.6); save(); break; }
       case 'scout': audio.play('hey'); break;
+      case 'tripDone': audio.play('hey'); buzz(20); break;
+      case 'meal': if (ev.fed < 0.5) { banner(t('hungry'), '#ff8a80', 2.8); audio.play('sad'); } break;
+      case 'gift': audio.play('coin'); parts(ui.fxTop, ev.x, ev.y, 60, 14, '#ff8fb0', 120, 0.9, 4.5, 160); break;
+      case 'order': ring(ui.fx, ev.x, ev.y, 8, 54, 0.4, '#fff6a0', 4); break;
+      case 'trophy': banner(t('trophy') + ': ' + t('tro_' + ev.kind) + ' ' + ev.need, '#ffe27a', 2.8); audio.play('won'); buzz(20); save(); break;
       case 'goal': { audio.play('cleared'); buzz(20); const g = scene.pick(210 * view.us, 120 * view.us) || { x: world.castle.x, y: world.castle.y }; let k = 0; for (const r in ev.reward) text(ui.fxTop, g.x + k++ * 70, g.y, 20, '+' + ev.reward[r], RES_FX[r], 26, 1.5); break; }
       case 'tech': banner(t('discovered', t('t_' + ev.id)), '#9fe9ff', 2.6); audio.play('won'); buzz(20); save(); break;
       case 'bought': audio.play('coin'); break;
@@ -381,9 +425,9 @@ function handleEvents() {
       case 'shot': audio.play(ev.type, 0.07); break;
       case 'burn': audio.play('burn', 0.45); break;
       case 'hit': parts(ui.fx, ev.x, ev.y, 20, 3, '#fff3c4', 70, 0.22, 2.6); break;
-      case 'slash': parts(ui.fx, ev.x, ev.y, 18, 3, '#ffffff', 70, 0.22, 2.6); audio.play('slash', 0.1); break;
+      case 'slash': parts(ui.fx, ev.x, ev.y, 18, 3, '#ffffff', 70, 0.22, 2.6); arc(ui.fx, ev.x, ev.y, Math.random() * 6.283, '#ffffff', 17, 0.22); audio.play('slash', 0.1); break;
       case 'burst': ring(ui.fx, ev.x, ev.y, 6, ev.r, 0.3, '#c79bff', 4); parts(ui.fx, ev.x, ev.y, 18, 8, '#d9b8ff', 120, 0.35, 3.5); audio.play('burst', 0.08); break;
-      case 'impact': ring(ui.fx, ev.x, ev.y, 10, ev.r, 0.35, '#e8d2a6', 5); parts(ui.fx, ev.x, ev.y, 6, 14, '#b89a6a', 150, 0.55, 4.5, 320); ui.shake = Math.max(ui.shake, 0.18); audio.play('impact', 0.1); break;
+      case 'impact': chips(ui.fx, ev.x, ev.y, 6, 7, ['#8d8f96', '#b89a6a', '#6f6a64'], 150, 1.2); for (let i = 0; i < 3; i++) smoke(ui.fx, ev.x, ev.y, 6, '#b8a88a', 11, 0.9, 0.45); ring(ui.fx, ev.x, ev.y, 10, ev.r, 0.35, '#e8d2a6', 5); parts(ui.fx, ev.x, ev.y, 6, 14, '#b89a6a', 150, 0.55, 4.5, 320); ui.shake = Math.max(ui.shake, 0.18); audio.play('impact', 0.1); break;
       case 'pulse': ring(ui.fx, ev.x, ev.y, 14, ev.r, 0.55, '#7fe6a0', 3.5); audio.play('pulse', 0.25); break;
       case 'spell':
         ui.fxTop.push({ k: 'bolt', x: ev.x, y: ev.y, seed: Math.floor(Math.random() * 100), t: 0, T: 0.3 });
@@ -395,8 +439,8 @@ function handleEvents() {
         text(ui.fxTop, ev.x, ev.y, 34, '+' + ev.reward, '#ffd24a', ev.boss ? 26 : 17, 0.8);
         audio.play(ev.boss ? 'impact' : 'kill', 0.05); if (ev.boss) ui.shake = 0.4;
         break;
-      case 'struck': parts(ui.fx, ev.x, ev.y, 16, 3, '#d9c7a0', 80, 0.3, 3, 220); audio.play('wall', 0.18); break;
-      case 'destroyed': ring(ui.fx, ev.x, ev.y, 8, 60, 0.4, '#ff8a6a', 4); parts(ui.fx, ev.x, ev.y, 12, 16, '#b9a98a', 150, 0.6, 4.5, 300); ui.shake = Math.max(ui.shake, 0.15); audio.play('impact', 0.1); buzz(25); break;
+      case 'struck': parts(ui.fx, ev.x, ev.y, 16, 3, '#d9c7a0', 80, 0.3, 3, 220); chips(ui.fx, ev.x, ev.y, 18, 2, ['#b9a98a', '#8f8a80'], 90, 1); audio.play('wall', 0.18); break;
+      case 'destroyed': chips(ui.fx, ev.x, ev.y, 22, 18, ['#b9a98a', '#8f8a80', '#6f4526', '#d9c7a0'], 170, 2.4); for (let i = 0; i < 6; i++) smoke(ui.fx, ev.x, ev.y, 10 + i * 5, '#4a4440', 15, 1.8, 0.6); ring(ui.fx, ev.x, ev.y, 8, 60, 0.4, '#ff8a6a', 4); parts(ui.fx, ev.x, ev.y, 12, 16, '#b9a98a', 150, 0.6, 4.5, 300); ui.shake = Math.max(ui.shake, 0.15); audio.play('impact', 0.1); buzz(25); break;
       case 'soldierDown': parts(ui.fx, ev.x, ev.y, 16, 10, MY_COLOR, 110, 0.5, 4, 260); buzz(15); break;
       case 'castleHit': if (ui.flash < 0.12) { ui.flash = 0.4; buzz(30); } ui.shake = Math.max(ui.shake, 0.12); parts(ui.fx, ev.x, ev.y, 40, 3, '#d9c7a0', 110, 0.4, 3.5, 260); audio.play('leak', 0.5); break;
       case 'nightWon': scene.cheer(5);
@@ -418,8 +462,8 @@ let frames = 0, kicks = 0;
 const probe = document.createElement('canvas'); probe.width = probe.height = 8;
 function kick() {
   kicks++;
-  scene.r.setPixelRatio(view.dpr * 0.96);
-  requestAnimationFrame(() => scene.r.setPixelRatio(view.dpr));
+  scene.r.setPixelRatio(view.gl * 0.96);
+  requestAnimationFrame(() => scene.r.setPixelRatio(view.gl));
 }
 /** Vero se la tela 3D appena disegnata è completamente vuota. Va chiamata subito dopo scene.render(). */
 function blank() {
@@ -433,17 +477,35 @@ function blank() {
 }
 
 function frame(now) {
+  if (quality === 0 && (skip++ & 1)) { requestAnimationFrame(frame); return; }      // a qualità bassa, un fotogramma sì e uno no: il telefono scalda meno
   const raw = (now - last) / 1000, real = Math.max(0, Math.min(0.1, raw)); last = now;
   // se per un paio di secondi i fotogrammi sono lenti, abbasso la qualità (una tacca alla volta)
-  if (!document.hidden && raw < 0.25) {
+  if (ui.q === 'auto' && !document.hidden && raw < 0.25) {
     slow = raw > 1 / 27 ? slow + 1 : Math.max(0, slow - 2);
-    if (slow > 90 && quality > 0) { quality--; slow = 0; scene.setShadows(quality >= 1); scene.setPost(quality === 2); resize(); console.log('[tuzu] qualita -> ' + quality); }
+    if (slow > 90 && quality > 0) { slow = 0; setQuality(quality - 1); save(); console.log('[tuzu] qualita -> ' + quality); }
   }
   tick(real);
   frames++;
   if (frames === 2) kick();                                           // sempre, una volta, appena partiti
   else if ((frames === 20 || frames === 60 || frames === 150 || frames % 600 === 0) && kicks < 8 && !view.portrait && blank()) { console.log('[tuzu] tela 3D vuota: la rialloco'); kick(); }
   requestAnimationFrame(frame);
+}
+
+/** Fumo dagli edifici malconci e polvere sotto chi corre: piccole cose che fanno sembrare vera una battaglia. */
+let fxT = 0;
+function ambientFx() {
+  if (world.status === 'day' || ui.fx.length > 260) return;
+  let n = 0;
+  for (const b of world.d.buildings) {
+    if (n > 12 || BUILD[b.type].deco) continue;
+    const f = b.hp / world.maxHp(b); if (f >= 0.6) continue;
+    n++; smoke(ui.fx, b.x, b.y, (TALL[b.type] || 30) * 0.8, f < 0.3 ? '#3a3532' : '#6a6460', 10, 1.7, 0.5);
+    if (f < 0.3) parts(ui.fx, b.x + (Math.random() - 0.5) * 22, b.y, (TALL[b.type] || 30) * 0.5, 1, '#ff9d2a', 26, 0.5, 4.5);
+  }
+  if (world.raid && world.raid.hp < world.raid.maxHp * 0.6) { smoke(ui.fx, world.raid.x, world.raid.y, 90, '#4a4440', 14, 1.8, 0.55); if (world.raid.hp < world.raid.maxHp * 0.3) parts(ui.fx, world.raid.x + (Math.random() - 0.5) * 50, world.raid.y, 60, 2, '#ff9d2a', 30, 0.6, 5); }
+  let k = 0;
+  for (const e of world.enemies) { if (k > 9) break; if ((e.id + frames) % 4 === 0 && !e.foe && !e.guard && !e.ghost && !e.tb) { k++; smoke(ui.fx, e.x, e.y, 2, '#cdb892', 4.5, 0.6, 0.34); } }
+  for (const sd of world.soldiers) if (sd.raid && !sd.target && (sd.id + frames) % 5 === 0) smoke(ui.fx, sd.x, sd.y, 2, '#cdb892', 4.5, 0.6, 0.3);
 }
 
 /** Un fotogramma: aggiorna e disegna. (Le prove lo chiamano a mano quando la scheda è in secondo piano.) */
@@ -455,7 +517,10 @@ function tick(real) {
   if (ui.seenVillage) world.note('village');
   ui.eventOpen = ui.screen === 'play' && !!world.d.event && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && ui.story == null;
   if (ui.screen === 'play' && ui.story == null && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && world.storyDue() >= 0) { ui.story = world.storyDue(); audio.play('page'); closeAll(); }
-  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away || ui.roles || ui.story != null || ui.eventOpen;
+  ui.reportOpen = ui.screen === 'play' && world.d.reports.length > 0 && world.status === 'day' && !ui.lost && !ui.away && !ui.daily && ui.story == null && !ui.eventOpen;
+  if (ui.map && ui.map.msgT > 0) ui.map.msgT -= real;
+  if (ui.screen === 'play' && (ui.map || ui.reportOpen || ui.settings || ui.quests)) world.stepTrips(Date.now());      // a pannello aperto il mondo è fermo, ma le spedizioni no
+  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away || ui.roles || ui.story != null || ui.eventOpen || ui.map || ui.reportOpen || cloud.state.open;
 
   if (!modal) {
     const fight = world.status !== 'day', steps = fight ? ui.speed * 2 : 1, dt = fight ? real / 2 : real;      // passi piccoli: stabile anche a x2
@@ -471,6 +536,7 @@ function tick(real) {
       scene.setView(v.x + (tx - v.x) * k, v.y + (ty - v.y) * k, v.dist + (Math.min(v.dist, 1150) - v.dist) * k);
     }
     saveT += real; if (saveT > 12) { saveT = 0; save(); }
+    fxT += real; if (fxT > 0.2) { fxT = 0; ambientFx(); }
   }
   stepFx(ui.fx, real * (world.status !== 'day' ? ui.speed : 1)); stepFx(ui.fxTop, real);
   ui.night += ((world.status === 'night' ? 1 : 0) - ui.night) * Math.min(1, real * 1.6);
@@ -495,7 +561,7 @@ function tick(real) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
   ctx.setTransform(k, 0, 0, k, 0, 0);
-  drawUi({ c: ctx, world, ui, vw: view.vw, vh: view.vh, P, A, now });
+  drawUi({ c: ctx, world, ui, vw: view.vw, vh: view.vh, P, A, now, mapCv: scene.mapCv, fogCv: scene.fogCv, cam: scene.view });
 }
 
 function drawRotate() {
@@ -526,8 +592,10 @@ window.addEventListener('error', (e) => console.log('[tuzu] errore: ' + e.messag
 window.addEventListener('pagehide', save);
 
 scene.build();
+if (quality < 2) { scene.setShadows(quality >= 1); scene.setPost(false); }
 resize();
+cloud.init({ key: KEY, getSave: () => JSON.parse(JSON.stringify(world)), t, onLoad: (data) => { frozen = true; try { const cur = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; cur.world = data; localStorage.setItem(KEY, JSON.stringify(cur)); } catch (e) { /* niente */ } window.removeEventListener('pagehide', save); location.reload(); } });
 if (saved.cam && isFinite(saved.cam.x) && saved.world && saved.world.map === 3) scene.setView(saved.cam.x, saved.cam.y, saved.cam.dist);      // la mappa vecchia era più piccola
 console.log('[tuzu] avvio ' + view.cw + 'x' + view.ch + ' dpr ' + view.dpr + ' gl ' + (scene.r.getContext().isContextLost() ? 'PERSO' : 'ok') + ' ' + scene.r.capabilities.maxTextureSize);
-window.__tuzu = { world, ui, view, scene, A, tap, P, save, shot, tick, back, kick, blank, reset, NATURE, TOWERS, TRIBES, get quality() { return quality; }, get kicks() { return kicks; } };   // per le prove automatiche
+window.__tuzu = { world, ui, view, scene, A, tap, P, save, shot, tick, back, kick, blank, reset, NATURE, TOWERS, TRIBES, cloud, get quality() { return quality; }, get kicks() { return kicks; } };   // per le prove automatiche
 requestAnimationFrame(frame);

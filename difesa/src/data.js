@@ -4,7 +4,7 @@ export const G = 40;                 // lato di un quadretto, in unità di mondo
 export const COLS = 168, ROWS = 116;
 export const WORLD_W = COLS * G, WORLD_H = ROWS * G;
 export const CASTLE = { c: 83, r: 57, w: 3, h: 3 };
-export const START = { monete: 150, legna: 130, pietra: 0, ferro: 0, cristallo: 0 };
+export const START = { monete: 150, legna: 130, pietra: 0, ferro: 0, cristallo: 0, grano: 0, cibo: 20 };
 export const SELL_REFUND = 0.5;
 
 export function mulberry32(a) {
@@ -188,10 +188,13 @@ export const BUILD = {
   recinto:   { w: 1, h: 1, hp: 60, cost: { legna: 4 }, cat: 'mura', min: 1, line: true },
   mura:      { w: 1, h: 1, hp: 260, cost: { pietra: 8 }, cat: 'mura', min: 2, line: true },
   cancello:  { w: 1, h: 1, hp: 180, cost: { legna: 20, pietra: 10 }, cat: 'mura', min: 2, gate: true },
+  // acqua: il ponte si posa solo sull'acqua e la rende percorribile; il porto sta sulla riva e pesca
+  ponte:     { w: 1, h: 1, hp: 80, cost: { legna: 8 }, cat: 'mura', min: 2, flat: true, line: true, deco: true, water: true },
+  porto:     { w: 2, h: 2, hp: 140, cost: { legna: 100, pietra: 40 }, cat: 'eco', min: 2, prod: { cibo: 8, monete: 3 }, cap: (L) => L - 1, shore: true },
 };
 export const BUILD_CATS = {
-  eco: ['casa', 'campo', 'mulino', 'segheria', 'cava', 'mercato'], off: ['bottega', 'miniera', 'cristalliera', 'fucina'],
-  dif: ['arcieri', 'radici', 'caserma', 'mago', 'catapulta', 'braciere'], mura: ['recinto', 'mura', 'cancello', 'strada'],
+  eco: ['casa', 'campo', 'mulino', 'porto', 'segheria', 'cava', 'mercato'], off: ['bottega', 'miniera', 'cristalliera', 'fucina'],
+  dif: ['arcieri', 'radici', 'caserma', 'mago', 'catapulta', 'braciere'], mura: ['recinto', 'mura', 'cancello', 'strada', 'ponte'],
   bel: ['fontana', 'taverna', 'statua', 'lampione', 'aiuola', 'albero'],
 };
 export const CAT_ORDER = ['eco', 'off', 'dif', 'mura', 'bel'];
@@ -221,9 +224,13 @@ export const UNITS = {
   ariete:  { hp: 260, dmg: 6,  rate: 1.4, speed: 56, range: 0,   siege: 9, cost: { legna: 120, ferro: 20 }, min: 4, tech: 'ferro' },
   // l'eroe non si addestra: arriva col castello al livello 2 e cresce con le battaglie
   eroe:    { hp: 260, dmg: 18, rate: 0.6, speed: 100, range: 0,  hero: true, cost: {} },
+  eroina:  { hp: 180, dmg: 16, rate: 0.7, speed: 96,  range: 190, hero: true, cost: {} },      // Brina, l'arciera: arriva col castello al livello 4
 };
 export const UNIT_ORDER = ['lancia', 'arco', 'corazza', 'cavallo', 'cura', 'ariete'];
-export const HERO = { name: 'Lumi', perLvl: { hp: 60, dmg: 4 }, xp: (L) => 20 + 15 * L, max: 10, shout: { cd: 40, secs: 8, k: 1.5 }, slam: { cd: 25, r: 115, dmg: 60 } };
+export const HERO = { name: 'Lumi', perLvl: { hp: 60, dmg: 4 }, xp: (L) => 20 + 15 * L, max: 10, shout: { cd: 40, secs: 8, k: 1.5 }, slam: { cd: 25, r: 115, dmg: 60 }, heal: { cd: 45, r: 230, k: 0.5, lvl: 3 }, second: { name: 'Brina', min: 4 } };
+// Gli oggetti dell'eroe, trovati nelle rovine: spada +8 danno · scudo +80 vita · stivali più svelto · amuleto poteri più spesso · corno grido più lungo
+export const HERO_ITEMS = ['spada', 'scudo', 'stivali', 'amuleto', 'corno'];
+export const HERO_POWERS = ['slam', 'shout', 'heal'];
 export const CASERMA_SLOTS = 4;
 export const GUARD_REACH = 320;        // di notte i soldati escono contro chi passa entro questa distanza dal loro posto
 
@@ -247,7 +254,7 @@ export const TECH_ORDER = ['ferro', 'aratro', 'carri', 'festa', 'asce', 'frecce'
 
 // ---------- gli obiettivi del Tuzu guida: uno alla volta, in ordine. [tipo, quanto, premio] ----------
 export const GOALS = [
-  ['move', 1, { monete: 20 }], ['towers', 1, { legna: 40 }], ['night', 1, { monete: 60 }], ['send', 3, { legna: 30 }], ['casa', 1, { monete: 50 }],
+  ['move', 1, { monete: 20 }], ['towers', 1, { legna: 40 }], ['night', 1, { monete: 60 }], ['explore', 1, { monete: 60 }], ['send', 3, { legna: 30 }], ['casa', 1, { monete: 50 }],
   ['walls', 8, { legna: 40 }], ['night', 2, { monete: 80, legna: 40 }], ['castle', 2, { pietra: 60 }], ['sendRock', 3, { pietra: 30 }], ['campo', 1, { monete: 40 }],
   ['harvest', 2, { monete: 60 }], ['strada', 6, { monete: 40 }], ['aiuola', 3, { monete: 40 }], ['morale', 60, { monete: 100 }], ['segheria', 1, { legna: 60 }],
   ['cava', 1, { pietra: 60 }], ['caserma', 1, { monete: 100 }], ['army', 4, { monete: 100 }], ['village', 1, { monete: 60 }], ['ally', 1, { legna: 80, pietra: 60 }],
@@ -287,13 +294,25 @@ export const ENEMIES = {
   spettro:  { hp: 85,   speed: 62, reward: 9,   hit: 4,  armor: -0.25, mres: 0.5, slowRes: 0.5, r: 14, cost: 1.6, ghost: true },
   capo:     { hp: 900,  speed: 30, reward: 70,  hit: 26, armor: 0.2,   mres: 0.1, slowRes: 0.5, r: 26, boss: true },
   campione: { hp: 2600, speed: 26, reward: 200, hit: 45, armor: 0.25,  mres: 0.2, slowRes: 0.6, r: 32, boss: true },
+  // la catapulta nemica: lenta, tira sugli edifici da lontano (arriva col grande capo, ogni dieci notti)
+  ordigno:  { hp: 280,  speed: 24, reward: 40,  hit: 0,  armor: 0.3,   mres: 0,   slowRes: 0.6, r: 22, gear: 'ordigno', siege: { range: 235, dmg: 42, rate: 3.8 } },
+  // il soldato speciale di ogni popolo. bash: quante volte il danno agli edifici · heal: cura i compagni vicini (vita al secondo)
+  sp_rossi:     { hp: 110, speed: 78,  reward: 12, hit: 12, armor: 0,    mres: 0,    slowRes: 0.2, r: 17, gear: 'orco',    sp: true },
+  sp_blu:       { hp: 200, speed: 44,  reward: 14, hit: 8,  armor: 0.55, mres: 0,    slowRes: 0,   r: 18, gear: 'bruto',   sp: true },
+  sp_gialli:    { hp: 150, speed: 50,  reward: 14, hit: 8,  armor: 0.1,  mres: 0,    slowRes: 0,   r: 17, gear: 'orco',    sp: true, bash: 3 },
+  sp_neri:      { hp: 130, speed: 70,  reward: 16, hit: 6,  armor: -0.2, mres: 0.6,  slowRes: 0.5, r: 15, gear: 'predone', sp: true, ghost: true },
+  sp_turchesi:  { hp: 60,  speed: 130, reward: 10, hit: 5,  armor: 0,    mres: 0,    slowRes: 0.3, r: 12, gear: 'predone', sp: true },
+  sp_bianchi:   { hp: 120, speed: 50,  reward: 16, hit: 3,  armor: 0,    mres: 0.3,  slowRes: 0,   r: 15, gear: 'cura',    sp: true, heal: 10 },
+  sp_arancioni: { hp: 320, speed: 36,  reward: 20, hit: 14, armor: 0.3,  mres: 0,    slowRes: 0.3, r: 21, gear: 'bruto',   sp: true, bash: 2.5 },
+  sp_rosa:      { hp: 140, speed: 84,  reward: 16, hit: 9,  armor: 0,    mres: 0.3,  slowRes: 1,   r: 15, gear: 'predone', sp: true },
+  sp_argento:   { hp: 380, speed: 40,  reward: 26, hit: 18, armor: 0.45, mres: 0.45, slowRes: 0.4, r: 21, gear: 'bruto',   sp: true },
 };
 
 export const CROPS = {
-  grano:  { secs: 60,    cost: 4,  gain: 12 },
-  carote: { secs: 300,   cost: 10, gain: 45 },
-  zucche: { secs: 1800,  cost: 25, gain: 160 },
-  uva:    { secs: 14400, cost: 60, gain: 720 },
+  grano:  { secs: 60,    cost: 4,  gain: 12,  food: 3 },
+  carote: { secs: 300,   cost: 10, gain: 45,  food: 10 },
+  zucche: { secs: 1800,  cost: 25, gain: 160, food: 34 },
+  uva:    { secs: 14400, cost: 60, gain: 720, food: 130 },
 };
 export const CROP_ORDER = ['grano', 'carote', 'zucche', 'uva'];
 
@@ -360,7 +379,7 @@ export const NATURE = (function () {
 export const CHOP = { tree: { res: 'legna', gain: 7 }, rock: { res: 'pietra', gain: 6 }, iron: { res: 'ferro', gain: 8, tech: 'ferro' }, crystal: { res: 'cristallo', gain: 6, tech: 'cristallo' } };
 
 // ---------- cantieri: secondi per costruire (i pezzi in fila e la bellezza piccola compaiono subito) ----------
-const TIMES = { casa: 6, campo: 3, segheria: 6, cava: 7, mercato: 7, bottega: 8, miniera: 8, cristalliera: 9, mulino: 8, fucina: 9, arcieri: 6, radici: 6, caserma: 9, mago: 7, catapulta: 8, braciere: 7, fontana: 5, taverna: 8, statua: 6 };
+const TIMES = { casa: 6, campo: 3, segheria: 6, cava: 7, mercato: 7, bottega: 8, miniera: 8, cristalliera: 9, mulino: 8, fucina: 9, arcieri: 6, radici: 6, caserma: 9, mago: 7, catapulta: 8, braciere: 7, fontana: 5, taverna: 8, statua: 6, porto: 8 };
 for (const k in TIMES) BUILD[k].time = TIMES[k];
 
 // ---------- mestieri: gli abitanti con un mestiere lavorano da soli (gli altri aspettano i tuoi tocchi) ----------
@@ -381,7 +400,8 @@ export const SEASON_NIGHTS = 3;
 export const seasonOf = (night) => SEASONS[Math.floor(night / SEASON_NIGHTS) % 4];
 
 // ---------- nebbia: la mappa lontana è coperta dalle nuvole finché non la esplori ----------
-export const FOG = { cell: 6, start: 25, scout: 9, cost: 30, speed: 130 };
+// Una spedizione dura da hMin a hMax ORE VERE secondo la distanza (lo ha chiesto il titolare: «dalle 6 alle 10 ore reali»); pick = quanto vicino deve passare a una rovina per prenderne il tesoro
+export const FOG = { cell: 6, start: 25, scout: 9, cost: 30, speed: 130, hMin: 6, hMax: 10, pick: 6, boatH: 2 };
 export const FW = Math.ceil(COLS / FOG.cell), FH = Math.ceil(ROWS / FOG.cell);
 
 // ---------- rovine: sparse lontano, con un piccolo tesoro per chi le raggiunge ----------
@@ -398,8 +418,68 @@ export const RUINS = (function () {
 })();
 
 // ---------- eventi a sorpresa: capitano all'alba, e chiedono una scelta ----------
-export const EVENTS = ['mercante', 'festa', 'carestia', 'tesoro', 'drago', 'profughi', 'ambasciatore', 'aiuto'];
+export const EVENTS = ['mercante', 'festa', 'carestia', 'tesoro', 'drago', 'profughi', 'ambasciatore', 'aiuto', 'tributo', 'soccorso', 'patto', 'tradimento'];
 
 // ---------- il racconto: la Lanterna dei Tuzu si è rotta in nove frammenti, uno per popolo ----------
 // capitolo → quanti frammenti servono per sbloccarlo (0 = inizio, 1 = dopo la prima notte)
 export const CHAPTERS = [{ id: 0 }, { id: 1, night: 1 }, { id: 2, shards: 1 }, { id: 3, shards: 3 }, { id: 4, shards: 6 }, { id: 5, shards: TRIBES.length }];
+
+// =====================================================================
+//  Secondo giro (tappe 1-16)
+// =====================================================================
+
+// ---------- un'isola nel lago grande: ci si arriva con un ponte, o in barca dal porto ----------
+// (dopo natura e rovine: così alberi, rocce e rovine di prima restano identici, e i salvataggi non si spostano)
+export const ISLAND = { c: 56, r: 90, rad: 1 };
+for (let r = ISLAND.r - ISLAND.rad; r <= ISLAND.r + ISLAND.rad; r++) for (let c = ISLAND.c - ISLAND.rad; c <= ISLAND.c + ISLAND.rad; c++) TERRAIN[r * COLS + c] = 0;
+RUINS.push({ id: RUINS.length, c: ISLAND.c, r: ISLAND.r, loot: { monete: 400, cristallo: 60 }, island: true });
+
+// ---------- edifici a livelli: costo per salire al livello 2 e al 3 ----------
+// resa ×1,5 e ×2 · una casa ospita 2 abitanti in più a livello · una caserma un soldato in più a livello · vita +25% a livello
+export const LEVELS = {
+  casa:         [{ legna: 80, pietra: 30 },   { legna: 160, pietra: 100, ferro: 20 }],
+  segheria:     [{ monete: 120, legna: 60 },  { monete: 260, pietra: 120 }],
+  cava:         [{ monete: 140, legna: 80 },  { monete: 280, legna: 160, ferro: 30 }],
+  miniera:      [{ monete: 180, pietra: 100 }, { monete: 340, pietra: 200, ferro: 60 }],
+  cristalliera: [{ monete: 220, ferro: 60 },  { monete: 400, ferro: 140, cristallo: 30 }],
+  mulino:       [{ monete: 140, legna: 100 }, { monete: 280, pietra: 140 }],
+  porto:        [{ monete: 140, legna: 120 }, { monete: 280, legna: 200, ferro: 30 }],
+  caserma:      [{ legna: 120, pietra: 80 },  { pietra: 200, ferro: 80 }],
+};
+export const LEVEL_MIN = [2, 3];          // il castello che serve per il livello 2 e per il 3
+export const levelK = (lvl) => 1 + 0.5 * (lvl || 0);
+
+// ---------- cibo: i campi danno grano, il mulino lo macina (un grano = due di cibo), il porto pesca ----------
+// All'alba ogni abitante e ogni soldato mangia una porzione: prima il cibo, poi il grano crudo.
+export const FOOD = { mill: 6, from: 3, full: 6, hungry: -12, work: 1.15, slow: 0.8 };
+
+// ---------- popoli con carattere: il capo, il tetto delle case, il soldato speciale (sp_<id> in ENEMIES) ----------
+export const TRAITS = {
+  rossi:     { chief: 'Brace',   roof: 'cono' },
+  blu:       { chief: 'Onda',    roof: 'cupola' },
+  gialli:    { chief: 'Pirite',  roof: 'piatto' },
+  neri:      { chief: 'Nottola', roof: 'guglia' },
+  turchesi:  { chief: 'Brezza',  roof: 'pagoda' },
+  bianchi:   { chief: 'Neve',    roof: 'cupola' },
+  arancioni: { chief: 'Tizzone', roof: 'piatto' },
+  rosa:      { chief: 'Petalo',  roof: 'pagoda' },
+  argento:   { chief: 'Lama',    roof: 'guglia' },
+};
+/** Quanti soldati speciali manda un popolo nella notte n. */
+export const specials = (T, n) => (n >= T.from + 2 ? 1 + Math.floor((n - T.from - 2) / 5) : 0);
+/** Quante catapulte nemiche arrivano nella notte n (ogni dieci notti, col grande capo). */
+export const siegeCount = (n) => (n % 10 === 0 ? 1 + Math.floor(n / 20) : 0);
+
+// ---------- diplomazia: la simpatia di ogni popolo (0-100) ----------
+export const REL = { start: 30, gift: 10, ally: 15, trade: 2, raid: -40, breakAlly: -30, peace: 80, cheap: 70, decay: 3 };
+export const giftCost = (L) => ({ monete: 40 + 20 * L });
+
+// ---------- dopo il finale: trofei e sfida del giorno ----------
+// [cosa, quanto]: i numeri vengono dalle statistiche del regno
+export const TROPHIES = [
+  ['nights', 5], ['nights', 20], ['nights', 50], ['kills', 100], ['kills', 1000], ['conquer', 1], ['conquer', 5], ['conquer', 9],
+  ['ally', 3], ['tech', 12], ['castle', 5], ['shards', 9], ['ruins', 5], ['ruins', 11], ['hero', 10], ['build', 100],
+  ['explore', 5], ['morale', 90], ['boss', 1], ['boss', 5], ['items', 5], ['crowns', 10],
+];
+export const CHALLENGES = [['kills', 40], ['chop', 15], ['harvest', 6], ['build', 8], ['nights', 2], ['train', 4], ['explore', 1], ['trade', 3]];
+export const CHALLENGE_REWARD = 150;
