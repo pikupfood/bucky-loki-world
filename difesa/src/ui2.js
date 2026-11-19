@@ -101,7 +101,7 @@ export function barracks(S, K, b, x, y, w, h) {
   // guardia e raccolta, in alto a destra
   K.button(c, ui, x + w - 382, y + 9, 150, 36, t('stay') + ': ' + (b.stay ? t('on') : t('off')), { color: b.stay ? '#8a5a1c' : '#3b3229', fs: 14.5, r: 10, tag: 'stay' }, () => A.stay(b));
   K.button(c, ui, x + w - 226, y + 9, 166, 36, world.d.rally ? t('rallyOff') : t('rally'), { color: '#3b3229', fs: 14.5, r: 10, tag: 'rally' }, world.d.rally ? A.rallyClear : A.rallyPick);
-  const cw = 120, ch = 106, gap = 6;
+  const cw = 134, ch = 106, gap = 6;
   UNIT_ORDER.forEach((u, k) => {
     const U = UNITS[u], bx = x + 16 + k * (cw + gap), cy = y + 76, chk = world.trainCheck(b, u), ok = chk === 'ok', shut = chk === 'castle' || chk === 'tech';
     K.card(c, bx, cy, cw, ch, ok);

@@ -2,7 +2,7 @@
 // assedi, eroe più ricco, acqua, trofei e sfida del giorno. Logica pura, come world.js: extend(World) le aggiunge alla classe.
 import {
   G, COLS, ROWS, BUILD, TRIBES, TERRAIN, RUINS, FOG, UNITS, HERO, HERO_ITEMS, ISLAND, LEVELS, LEVEL_MIN, FOOD, specials, siegeCount,
-  REL, giftCost, TROPHIES, CHALLENGES, CHALLENGE_REWARD, CHAPTERS, CASERMA_SLOTS, genWave, DIFFS, allyCost, ALLY_NIGHTS, levelK,
+  REL, giftCost, ROAD_AT, ROAD_SPEED, SELL, TROPHIES, CHALLENGES, CHALLENGE_REWARD, CHAPTERS, CASERMA_SLOTS, genWave, DIFFS, allyCost, ALLY_NIGHTS, levelK,
 } from './data.js';
 
 const HOUR = 3600000, DAY = 86400000;
@@ -292,6 +292,48 @@ export function extend(World) {
       return false;
     },
     islandCheck() { if (ISLE && !this.d.ruins[ISLE.id] && this.islandLinked()) this.lootRuin(ISLE, null); },
+
+    // ---------- strade, mercato, traslochi ----------
+    /** Vero se quel punto sta su una strada (della mappa o costruita). */
+    roadAt(x, y) {
+      const c = Math.floor(x / G), r = Math.floor(y / G);
+      if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return false;
+      const i = r * COLS + c, id = this.occ[i];
+      return !!ROAD_AT[i] || (id > 0 && this.byId.get(id).type === 'strada');
+    },
+    roadK(s) { return RULES().roads && this.roadAt(s.x, s.y) ? ROAD_SPEED : 1; },
+    /** Vendere al mercato: 'ok' | 'mercato' | 'none' (non ne hai abbastanza) */
+    sellCheck(res) { const S = SELL[res]; if (!S || !this.ready('mercato')) return 'mercato'; return (this.d.res[res] || 0) >= S.give ? 'ok' : 'none'; },
+    sell(res) {
+      if (this.sellCheck(res) !== 'ok') return false;
+      this.d.res[res] -= SELL[res].give; this.d.res.monete += SELL[res].get;
+      this.events.push({ k: 'sold', res, n: SELL[res].get });
+      return true;
+    },
+    /** Spostare un edificio già costruito (gratis): 'ok' oppure il motivo, come canPlace; 'no' se quello non si sposta. */
+    moveCheck(b, c, r) {
+      if (!b || !this.byId.has(b.id) || b.type === 'castello' || BUILD[b.type].line || b.build > 0 || this.status !== 'day') return 'no';
+      if (c == null) return 'ok';
+      const D = BUILD[b.type], mine = [];
+      for (let rr = b.r; rr < b.r + D.h; rr++) for (let cc = b.c; cc < b.c + D.w; cc++) { mine.push(rr * COLS + cc); this.occ[rr * COLS + cc] = 0; }
+      const why = this.canPlace(b.type, c, r, true, -1);
+      for (const i of mine) this.occ[i] = b.id;
+      return why;
+    },
+    moveBuilding(b, c, r) {
+      if (this.moveCheck(b, c, r) !== 'ok') return false;
+      b.c = c; b.r = r; this.rebuild(); this.rehome();
+      for (const s of this.soldiers) if (s.home === b.id && this.status === 'day') { s.x = s.hx; s.y = s.hy; }
+      this.events.push({ k: 'placed', x: b.x, y: b.y, type: b.type });
+      return true;
+    },
+    /** Richiama una spedizione: l'esploratore torna subito, con metà delle monete. Quello che ha già visto resta. */
+    recallTrip(id) {
+      const k = this.d.trips.findIndex(tr => tr.id === id);
+      if (k < 0) return false;
+      this.d.trips.splice(k, 1); this.d.res.monete += Math.floor(FOG.cost / 2); this.syncScouts(); this.rev++;
+      return true;
+    },
 
     // ---------- trofei e sfida del giorno ----------
     trophyHave(k) {

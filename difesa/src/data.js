@@ -483,3 +483,9 @@ export const TROPHIES = [
 ];
 export const CHALLENGES = [['kills', 40], ['chop', 15], ['harvest', 6], ['build', 8], ['nights', 2], ['train', 4], ['explore', 1], ['trade', 3]];
 export const CHALLENGE_REWARD = 150;
+
+// ---------- strade costruite: chi ci cammina (abitanti e soldati) va più svelto ----------
+export const ROAD_SPEED = 1.3;
+// ---------- al mercato si vende anche: { give: quanto dai, get: monete } ----------
+export const SELL = { legna: { give: 40, get: 20 }, pietra: { give: 30, get: 24 }, cibo: { give: 20, get: 16 }, ferro: { give: 15, get: 36 }, cristallo: { give: 8, get: 48 } };
+export const SELL_ORDER = ['legna', 'pietra', 'cibo', 'ferro', 'cristallo'];

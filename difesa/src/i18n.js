@@ -59,7 +59,7 @@ const S = {
     away: 'Bentornato', awayText: 'Mentre eri via il regno ha prodotto:',
     cat_off: 'Officine', cat_bel: 'Bellezza',
     b_mulino: 'Mulino', b_fucina: 'Fucina', b_fontana: 'Fontana', b_taverna: 'Taverna', b_statua: 'Statua', b_lampione: 'Lampione', b_aiuola: 'Aiuola', b_albero: 'Albero', b_strada: 'Strada',
-    k_mulino: 'Produce monete', k_fucina: 'Soldati +20% vita', k_fontana: 'Morale +8', k_taverna: 'Morale +10', k_statua: 'Morale +12', k_lampione: 'Morale e luce', k_aiuola: 'Fiori: morale +2', k_albero: 'Pianta un albero', k_strada: 'Stradine del villaggio',
+    k_mulino: 'Produce monete', k_fucina: 'Soldati +20% vita', k_fontana: 'Morale +8', k_taverna: 'Morale +10', k_statua: 'Morale +12', k_lampione: 'Morale e luce', k_aiuola: 'Fiori: morale +2', k_albero: 'Pianta un albero', k_strada: 'Ci si cammina più svelti',
     t_asce: 'Asce di ferro', t_carri: 'Carri', t_festa: 'Feste di paese', t_archi: 'Archi lunghi', t_commercio: 'Rotte commerciali',
     td_asce: 'Gli abitanti lavorano il doppio più svelti', td_carri: 'Ogni raccolta rende il 50% in più', td_festa: 'Morale +10', td_archi: 'Arcieri dell\'esercito: gittata +25%', td_commercio: 'Due scambi in più al giorno',
     tr_arancioni: 'Tuzu Arancioni', tr_rosa: 'Tuzu Rosa', tr_argento: 'Tuzu Argento',
@@ -140,6 +140,8 @@ const S = {
     e_sp_bianchi: 'Sciamano', e_sp_arancioni: 'Sfondamura', e_sp_rosa: 'Danzatore', e_sp_argento: 'Paladino', tip_sp_rossi: 'Corre e picchia forte. Fermalo coi soldati.',
     tip_sp_blu: 'Scudo spesso: le frecce fanno poco. Usa la magia.', tip_sp_gialli: 'Sfonda recinti e mura in fretta.', tip_sp_neri: 'Attraversa le mura come uno spirito.', tip_sp_turchesi: 'Il più veloce di tutti. Rallentalo.',
     tip_sp_bianchi: 'Cura i compagni vicini: colpiscilo per primo.', tip_sp_arancioni: 'Grosso, e abbatte le mura.', tip_sp_rosa: 'Non si lascia rallentare.', tip_sp_argento: 'Corazzato contro tutto. Servono tante torri.',
+    move: 'Sposta', moving: 'Lo sposti: è gratis', why_no: 'Adesso non si può', sellMode: 'Vendi', buyMode: 'Compra', sellHint: 'Qui vendi quello che hai in più.',
+    recallAsk: 'Richiama: +15', tripAt: 'alle {v}',
   },
   fr: {
     title: 'Les Royaumes de Tuzu', subtitle: 'Ton village parmi les peuples Tuzu',
@@ -198,7 +200,7 @@ const S = {
     away: 'Bon retour', awayText: 'Pendant ton absence le royaume a produit :',
     cat_off: 'Ateliers', cat_bel: 'Beauté',
     b_mulino: 'Moulin', b_fucina: 'Forge', b_fontana: 'Fontaine', b_taverna: 'Taverne', b_statua: 'Statue', b_lampione: 'Lampadaire', b_aiuola: 'Parterre', b_albero: 'Arbre', b_strada: 'Chemin',
-    k_mulino: 'Produit des pièces', k_fucina: 'Soldats +20 % de vie', k_fontana: 'Moral +8', k_taverna: 'Moral +10', k_statua: 'Moral +12', k_lampione: 'Moral et lumière', k_aiuola: 'Fleurs : moral +2', k_albero: 'Plante un arbre', k_strada: 'Chemins du village',
+    k_mulino: 'Produit des pièces', k_fucina: 'Soldats +20 % de vie', k_fontana: 'Moral +8', k_taverna: 'Moral +10', k_statua: 'Moral +12', k_lampione: 'Moral et lumière', k_aiuola: 'Fleurs : moral +2', k_albero: 'Plante un arbre', k_strada: 'On y marche plus vite',
     t_asce: 'Haches de fer', t_carri: 'Chariots', t_festa: 'Fêtes de village', t_archi: 'Arcs longs', t_commercio: 'Routes marchandes',
     td_asce: 'Les habitants travaillent deux fois plus vite', td_carri: 'Chaque récolte rapporte 50 % de plus', td_festa: 'Moral +10', td_archi: 'Archers de l\'armée : portée +25 %', td_commercio: 'Deux échanges de plus par jour',
     tr_arancioni: 'Tuzu Orange', tr_rosa: 'Tuzu Roses', tr_argento: 'Tuzu Argent',
@@ -281,6 +283,8 @@ const S = {
     tip_sp_rossi: 'Il court et frappe fort. Arrête-le avec les soldats.', tip_sp_blu: 'Bouclier épais : les flèches font peu. Utilise la magie.', tip_sp_gialli: 'Il défonce vite clôtures et murs.',
     tip_sp_neri: 'Il traverse les murs comme un esprit.', tip_sp_turchesi: 'Le plus rapide de tous. Ralentis-le.', tip_sp_bianchi: 'Il soigne ses voisins : vise-le en premier.', tip_sp_arancioni: 'Costaud, et il abat les murs.',
     tip_sp_rosa: 'Il ne se laisse pas ralentir.', tip_sp_argento: 'Cuirassé contre tout. Il faut beaucoup de tours.',
+    move: 'Déplacer', moving: 'Tu le déplaces : c\'est gratuit', why_no: 'Pas maintenant', sellMode: 'Vendre', buyMode: 'Acheter', sellHint: 'Ici tu vends ce que tu as en trop.',
+    recallAsk: 'Rappeler : +15', tripAt: 'à {v}',
   },
   en: {
     title: 'The Realms of Tuzu', subtitle: 'Your village among the Tuzu peoples',
@@ -339,7 +343,7 @@ const S = {
     away: 'Welcome back', awayText: 'While you were away the realm produced:',
     cat_off: 'Workshops', cat_bel: 'Beauty',
     b_mulino: 'Windmill', b_fucina: 'Forge', b_fontana: 'Fountain', b_taverna: 'Tavern', b_statua: 'Statue', b_lampione: 'Lamp post', b_aiuola: 'Flower bed', b_albero: 'Tree', b_strada: 'Path',
-    k_mulino: 'Makes coins', k_fucina: 'Soldiers +20% health', k_fontana: 'Morale +8', k_taverna: 'Morale +10', k_statua: 'Morale +12', k_lampione: 'Morale and light', k_aiuola: 'Flowers: morale +2', k_albero: 'Plant a tree', k_strada: 'Village paths',
+    k_mulino: 'Makes coins', k_fucina: 'Soldiers +20% health', k_fontana: 'Morale +8', k_taverna: 'Morale +10', k_statua: 'Morale +12', k_lampione: 'Morale and light', k_aiuola: 'Flowers: morale +2', k_albero: 'Plant a tree', k_strada: 'Walking on it is faster',
     t_asce: 'Iron axes', t_carri: 'Carts', t_festa: 'Village feasts', t_archi: 'Longbows', t_commercio: 'Trade routes',
     td_asce: 'Villagers work twice as fast', td_carri: 'Every gathering yields 50% more', td_festa: 'Morale +10', td_archi: 'Army archers: range +25%', td_commercio: 'Two more trades per day',
     tr_arancioni: 'Orange Tuzu', tr_rosa: 'Pink Tuzu', tr_argento: 'Silver Tuzu',
@@ -420,6 +424,8 @@ const S = {
     tip_sp_rossi: 'Runs and hits hard. Stop it with soldiers.', tip_sp_blu: 'Thick shield: arrows do little. Use magic.', tip_sp_gialli: 'Breaks fences and walls fast.', tip_sp_neri: 'Walks through walls like a spirit.',
     tip_sp_turchesi: 'The fastest of all. Slow it down.', tip_sp_bianchi: 'Heals those nearby: hit it first.', tip_sp_arancioni: 'Big, and it knocks walls down.', tip_sp_rosa: 'Cannot be slowed.',
     tip_sp_argento: 'Armoured against everything. You need many towers.',
+    move: 'Move', moving: 'Moving it is free', why_no: 'Not now', sellMode: 'Sell', buyMode: 'Buy', sellHint: 'Sell what you have too much of.',
+    recallAsk: 'Call back: +15', tripAt: 'at {v}',
   },
 };
 

@@ -1,6 +1,6 @@
 // Interfaccia 2D sopra il mondo 3D. Stile "immediato": a ogni frame si disegna e si registrano
 // le aree toccabili in ui.buttons. S = { c, world, ui, vw, vh, P, A, now }.
-import { G, BUILD, BUILD_CATS, TOWERS, CROPS, CROP_ORDER, CASTLE_UP, UNITS, UNIT_ORDER, CASERMA_SLOTS, TRIBES, MY_COLOR, TECHS, TECH_ORDER, TRADE, TRADE_ORDER, CAT_ORDER, NATURE, moraleK, waveSummary, ENEMIES, LEVELS, LEVEL_MIN, levelK, TRAITS, REL, giftCost } from './data.js';
+import { G, BUILD, BUILD_CATS, TOWERS, CROPS, CROP_ORDER, CASTLE_UP, UNITS, UNIT_ORDER, CASERMA_SLOTS, TRIBES, MY_COLOR, TECHS, TECH_ORDER, TRADE, TRADE_ORDER, CAT_ORDER, NATURE, moraleK, waveSummary, ENEMIES, LEVELS, LEVEL_MIN, levelK, TRAITS, REL, giftCost, SELL, SELL_ORDER } from './data.js';
 import { VEIL } from './ground.js';
 import { drawTower } from './icons.js';
 import { drawFx, tracePoly } from './fx.js';
@@ -393,8 +393,10 @@ function hud(S) {
   let w = 18; for (const it of items) w += ir * 2 + 7 + width(c, it[1], fs) + gap; w += 26 + width(c, pop, fs) + 12;
   panel(c, 14, 10, w, 48);
   let x = 28;
-  for (const [k, s, col] of items) { RES_ICON[k](c, x + ir, 34, ir); txt(c, s, x + ir * 2 + 7, 35, fs, col); x += ir * 2 + 7 + width(c, s, fs) + gap; }
-  tuzu2d(c, x + 9, 34, 11, MY_COLOR); txt(c, pop, x + 26, 35, fs, CREAM);
+  // prima tutti i numeri, poi tutte le icone: su un telefono (Samsung, 19/11/2026) i numeri scritti subito dopo il pane e dopo il Tuzu non comparivano
+  { let tx = x; for (const [, s, col] of items) { txt(c, s, tx + ir * 2 + 7, 35, fs, col); tx += ir * 2 + 7 + width(c, s, fs) + gap; } txt(c, pop, tx + 26, 35, fs, CREAM); }
+  for (const [k, s] of items) { c.beginPath(); RES_ICON[k](c, x + ir, 34, ir); x += ir * 2 + 7 + width(c, s, fs) + gap; }
+  tuzu2d(c, x + 9, 34, 11, MY_COLOR); c.beginPath();
 
   if (raid) {         // assalto in corso: contro chi, e quanto regge la casa del capo
     const T = TRIBES[raid.i], label = `${t('raidOn')} · ${t('tr_' + T.id)}`, lw = width(c, label, 22, 800) + 70, bw = 250;
@@ -440,7 +442,7 @@ function hud(S) {
     const pw = 96 + width(c, ms, 17, 800) + width(c, ws, 17, 800), px = vw - 14 - pw;
     panel(c, px, 64, pw, 36, 12, 0.82);
     heart(c, px + 20, 82, 8, m < 30 ? '#8a8fa0' : m < 60 ? '#ff8fa8' : '#ff4f7a'); txt(c, ms, px + 36, 83, 17, m < 30 ? BAD : k > 1 ? '#9ff0b4' : CREAM, 'left', 800);
-    const wx = px + 48 + width(c, ms, 17, 800); tuzuIcon(c, 'attrezzo', wx + 10, 84, 9, MY_COLOR); txt(c, ws, wx + 28, 83, 17, CREAM, 'left', 800);
+    const wx = px + 48 + width(c, ms, 17, 800); txt(c, ws, wx + 28, 83, 17, CREAM, 'left', 800); tuzuIcon(c, 'attrezzo', wx + 10, 84, 9, MY_COLOR); c.beginPath();
     ui.buttons.push({ x: px, y: 64, w: pw, h: 36, tag: 'moraleInfo', fn: A.moraleInfo });
   }
   if (raid) {
@@ -539,7 +541,7 @@ function placeBar(S) {
   const n = st.n || 1;
   if (D.line && st.n > 1) txt(c, '×' + st.n, x + 92 + width(c, t('b_' + pl.type), 21, 800) + 10, y + 28, 18, CREAM, 'left', 800);
   txt(c, t('why_' + st.why), x + 92, y + 57, 16, st.ok || st.why.startsWith('pick') ? '#bfe9a8' : BAD, 'left', 700);
-  costRow(c, world, D.cost, x + w - 236, y + 41, 19, n);
+  if (pl.move) txt(c, t('moving'), x + w - 170, y + 42, 16, DIM, 'right', 700); else costRow(c, world, D.cost, x + w - 236, y + 41, 19, n);
   button(c, ui, x + w - 150, y + 11, 64, 60, '', { color: '#2f7d3a', disabled: !st.ok, tag: 'placeOk' }, A.placeConfirm);
   check(c, x + w - 118, y + 41, 15, st.ok ? '#fff' : '#9a948a');
   button(c, ui, x + w - 76, y + 11, 64, 60, '', { color: '#7a3a2c', tag: 'placeCancel' }, A.placeCancel);
@@ -553,13 +555,14 @@ function card(c, x, y, w, h, ok) {
 function selPanel(S) {
   const { c, world, ui, vw, vh, A, now } = S, b = ui.sel.b, D = BUILD[b.type], L = world.d.castle;
   const crops = b.type === 'campo' && !b.crop, cards = crops || b.type === 'caserma' || b.type === 'mercato', lc = world.levelCheck(b), hasLv = lc !== 'none', lv = b.lvl || 0;
-  const w = b.type === 'caserma' ? 800 : cards ? 680 : 640, h = b.type === 'castello' ? 214 : cards ? 196 : hasLv ? 192 : 138, x = vw / 2 - w / 2, y = vh - h - 12;
+  const w = b.type === 'caserma' ? 880 : cards ? 680 : 640, h = b.type === 'castello' ? 214 : cards ? 196 : hasLv ? 192 : 138, x = vw / 2 - w / 2, y = vh - h - 12;
   panel(c, x, y, w, h, 14, 0.95); block(ui, x, y, w, h);
   buildIcon(c, b.type, x + 42, y + 36, 22, ui.time);
   const lvl = TOWERS[b.type] || hasLv ? ` · ${t('level')} ${(b.lvl || 0) + 1}` : b.type === 'castello' ? ` · ${t('level')} ${L}` : '';
   txt(c, t('b_' + b.type) + lvl, x + 82, y + 26, 22, '#ffe9a8', 'left', 800);
   button(c, ui, x + w - 52, y + 8, 42, 42, '', { color: '#3b3229', r: 21, tag: 'selClose' }, A.selClose);
   cross(c, x + w - 31, y + 29, 9);
+  if (world.moveCheck(b) === 'ok') button(c, ui, b.type === 'caserma' ? x + w - 596 : x + w - 172, y + 9, 104, 36, t('move'), { color: '#3b3229', fs: 15, r: 10, tag: 'move' }, () => A.move(b));
   const demol = (bx, by, bw = 150) => { const back = world.refund(b); button(c, ui, bx, by, bw, 50, t('demolish'), { color: '#7a3a2c', fs: 17, tag: 'demolish' }, () => A.demolish(b)); return back; };
   const by = y + h - 62;
 
@@ -612,9 +615,19 @@ function selPanel(S) {
   } else if (b.type === 'caserma') {
     X.barracks(S, K, b, x, y, w, h);
   } else if (b.type === 'mercato') {
-    txt(c, t('marketHint'), x + 82, y + 54, 16, DIM, 'left', 600);
+    txt(c, t(ui.sell ? 'sellHint' : 'marketHint'), x + 82, y + 54, 16, DIM, 'left', 600);
+    button(c, ui, x + w - 296, y + 9, 116, 36, t(ui.sell ? 'buyMode' : 'sellMode'), { color: '#8a5a1c', fs: 15, r: 10, tag: 'marketMode' }, A.marketMode);
     const cw = 118, ch = 106, gap = 8;
-    TRADE_ORDER.forEach((r, k) => {
+    if (ui.sell) SELL_ORDER.forEach((r, k) => {
+      const T = SELL[r], bx = x + 20 + k * (cw + gap), cy = y + 74, ok = world.sellCheck(r) === 'ok';
+      card(c, bx, cy, cw, ch, ok);
+      c.globalAlpha = ok ? 1 : 0.4; RES_ICON[r](c, bx + 26, cy + 30, 13); c.globalAlpha = 1;
+      txt(c, '−' + T.give, bx + 48, cy + 31, 21, ok ? RES_COL[r] : '#9a948a', 'left', 800);
+      txt(c, t('r_' + r), bx + 14, cy + 58, 13.5, DIM, 'left', 600);
+      coin(c, bx + 23, cy + 85, 8); txt(c, '+' + T.get, bx + 38, cy + 86, 17, ok ? '#9ff0b4' : '#9a948a', 'left', 800);
+      ui.buttons.push({ x: bx, y: cy, w: cw, h: ch, tag: 'sell_' + r, fn: () => A.sell(r) });
+    });
+    else TRADE_ORDER.forEach((r, k) => {
       const T = TRADE[r], bx = x + 20 + k * (cw + gap), cy = y + 74, chk = world.buyCheck(r), ok = chk === 'ok';
       card(c, bx, cy, cw, ch, ok);
       c.globalAlpha = chk === 'tech' ? 0.4 : 1; RES_ICON[r](c, bx + 26, cy + 30, 13); c.globalAlpha = 1;
@@ -624,7 +637,7 @@ function selPanel(S) {
       else { coin(c, bx + 23, cy + 85, 8); txt(c, String(T.cost), bx + 38, cy + 86, 17, ok ? GOLD : BAD, 'left', 800); }
       ui.buttons.push({ x: bx, y: cy, w: cw, h: ch, tag: 'buy_' + r, fn: () => A.buy(r) });
     });
-    demol(x + w - 156, y + h - 62, 140);
+    if (!ui.sell) demol(x + w - 156, y + h - 62, 140);
   } else if (b.type === 'bottega') {
     txt(c, t('techHint'), x + 82, y + 54, 16, DIM, 'left', 600);
     button(c, ui, x + 20, by, 250, 50, t('techs'), { color: '#5b4a8a', fs: 20, tag: 'techOpen' }, A.tech);

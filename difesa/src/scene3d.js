@@ -5,7 +5,7 @@
 // Le coordinate di gioco (x, y) diventano (x, altezza, z = y). L'interfaccia resta in 2D sopra e usa project()/pick().
 import * as THREE from '../vendor/three.module.min.js';
 import { G, COLS, ROWS, WORLD_W, WORLD_H, CASTLE, TRIBES, MY_COLOR, ENEMIES, NATURE, PEAKS, HILLS, LAKES, BUILD, RUINS, FOG, FW, FH, lakeEdge, mulberry32, ISLAND, TRAITS, TERRAIN, LEVELS } from './data.js';
-import { GRASS, paintWorld } from './ground.js';
+import { GRASS, paintWorld, paintBuiltRoads } from './ground.js';
 
 // ---------- mattoncini: geometrie e materiali condivisi ----------
 const geos = new Map(), mats = new Map();
@@ -944,7 +944,7 @@ export class Scene3D {
     s.add(sun, sun.target); this.sun = sun;
     const big = new THREE.Mesh(new THREE.PlaneGeometry(22000, 20000), M(GRASS, { smooth: true }));
     big.rotation.x = -Math.PI / 2; big.position.set(WORLD_W / 2, -0.6, WORLD_H / 2); big.receiveShadow = true; s.add(big);
-    const cv = document.createElement('canvas'); paintWorld(cv, 0.5); this.mapCv = cv;
+    const cv = document.createElement('canvas'); paintWorld(cv, 0.5); this.mapCv = cv; this.baseCv = null; this.roadSig = ''; this.roadBox = null; this.roadRev = 0;
     this.tex = new THREE.CanvasTexture(cv); this.tex.colorSpace = THREE.SRGBColorSpace; this.tex.anisotropy = 8;
     const map = new THREE.Mesh(new THREE.PlaneGeometry(WORLD_W, WORLD_H), new THREE.MeshLambertMaterial({ map: this.tex }));
     map.rotation.x = -Math.PI / 2; map.position.set(WORLD_W / 2, 0, WORLD_H / 2); map.receiveShadow = true; s.add(map);
@@ -1227,8 +1227,8 @@ export class Scene3D {
         if (nBr < 400) this.bridgeIM.setMatrixAt(nBr++, m4.compose(P3.set(b.x, 0, b.y), alongX ? q : qy, S3.set(1, 1, 1)));
         continue;
       }
-      if (b.type === 'strada' && nR < DECO_CAP) this.roadIM.setMatrixAt(nR++, m4.compose(P3.set(b.x, 0.5, b.y), q, S3.set(1, 1, 1)));
-      else if (b.type === 'aiuola' && nB < DECO_CAP) {
+      if (b.type === 'strada') continue;        // le strade sono dipinte sulla mappa (più sotto)
+      if (b.type === 'aiuola' && nB < DECO_CAP) {
         this.bedIM.setMatrixAt(nB, m4.compose(P3.set(b.x, 3, b.y), q, S3.set(1, 1, 1)));
         this.bedLeaf.setMatrixAt(nB++, m4.compose(P3.set(b.x, 6.4, b.y), q, S3.set(13, 4.6, 13)));
         for (let k = 0; k < 4; k++) { const a = b.id * 1.3 + k * 1.571; this.bedFlower.setMatrixAt(nF, m4.compose(P3.set(b.x + Math.cos(a) * 7.5, 10.5, b.y + Math.sin(a) * 7.5), q, S3.set(3.3, 3.3, 3.3))); this.bedFlower.setColorAt(nF++, col.set(FLOWERS[(b.id + k) % FLOWERS.length])); }
@@ -1237,6 +1237,12 @@ export class Scene3D {
         this.lampHead.setMatrixAt(nL++, m4.compose(P3.set(b.x, 37, b.y), q, S3.set(1, 1, 1)));
       } else if (b.type === 'albero' && nT < PLANT_CAP) { this._tree(this.plantT, nT, b.x, b.y, 15 + (b.id % 5), nT % 4, b.id * 1.7); nT++; }
     }
+    // le strade costruite: dipinte sulla mappa, come quelle che c'erano già (si ridipinge solo quando cambiano)
+    { const cells = []; let sig = ''; for (const b of world.d.buildings) if (b.type === 'strada') { cells.push({ c: b.c, r: b.r }); sig += b.c + ',' + b.r + ';'; }
+      if (sig !== this.roadSig) {
+        if (!this.baseCv) { this.baseCv = document.createElement('canvas'); this.baseCv.width = this.mapCv.width; this.baseCv.height = this.mapCv.height; this.baseCv.getContext('2d').drawImage(this.mapCv, 0, 0); }
+        this.roadBox = paintBuiltRoads(this.mapCv, this.baseCv, 0.5, cells, this.roadBox); this.roadSig = sig; this.roadRev++; this.tex.needsUpdate = true;
+      } }
     for (let i = nT; i < (this._plantN || 0); i++) this._tree(this.plantT, i, 0, 0, 0, i % 4, 0);
     this._plantN = nT; this._flush(this.plantT);
     this.bridgeIM.count = nBr; this.bridgeIM.instanceMatrix.needsUpdate = true;

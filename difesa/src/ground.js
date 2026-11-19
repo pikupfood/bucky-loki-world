@@ -1,6 +1,6 @@
 // Pittore del terreno: una texture 2D stesa sul piano 3D della mappa.
 // Prato a chiazze, sottobosco, ghiaioni sotto le montagne, laghi con la riva, strade a curve, piazze dei villaggi.
-import { WORLD_W, WORLD_H, G, CASTLE, TRIBES, NATURE, ROADS, LAKES, HILLS, PEAKS, lakeEdge, mulberry32, ISLAND } from './data.js';
+import { WORLD_W, WORLD_H, G, CASTLE, TRIBES, NATURE, ROADS, LAKES, HILLS, PEAKS, lakeEdge, mulberry32, ISLAND, ROAD_AT, COLS, ROWS } from './data.js';
 
 const TAU = Math.PI * 2;
 export const GRASS = '#5f9f47';
@@ -98,4 +98,43 @@ export function paintWorld(canvas, k) {
     const x = rnd() * WORLD_W, y = rnd() * WORLD_H, col = petals[Math.floor(rnd() * petals.length)], n = 4 + Math.floor(rnd() * 8);
     for (let j = 0; j < n; j++) ell(c, x + (rnd() - 0.5) * 70, y + (rnd() - 0.5) * 50, 2.4, 2.4, col);
   }
+}
+
+/** Le strade costruite dal giocatore, dipinte sulla mappa con lo stesso disegno di quelle che c'erano già: bordo d'erba pestata,
+ *  ciglio scuro, terra battuta, centro chiaro; si uniscono fra loro e alle strade della mappa, e alle svolte curvano.
+ *  canvas = la mappa in uso · base = la stessa mappa senza strade costruite · cells = [{ c, r }] · prev = il riquadro dipinto l'ultima volta.
+ *  Rende il riquadro dipinto adesso (in pixel), da ripassare come prev la prossima volta. */
+export function paintBuiltRoads(canvas, base, k, cells, prev) {
+  const c = canvas.getContext('2d'), set = new Set(cells.map(q => q.r * COLS + q.c));
+  let box = null;
+  if (cells.length) {
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const q of cells) { x0 = Math.min(x0, q.c); y0 = Math.min(y0, q.r); x1 = Math.max(x1, q.c + 1); y1 = Math.max(y1, q.r + 1); }
+    box = [Math.max(0, Math.floor((x0 * G - 60) * k)), Math.max(0, Math.floor((y0 * G - 60) * k)), Math.min(canvas.width, Math.ceil((x1 * G + 60) * k)), Math.min(canvas.height, Math.ceil((y1 * G + 60) * k))];
+  }
+  const all = prev && box ? [Math.min(prev[0], box[0]), Math.min(prev[1], box[1]), Math.max(prev[2], box[2]), Math.max(prev[3], box[3])] : prev || box;
+  if (!all) return null;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.drawImage(base, all[0], all[1], all[2] - all[0], all[3] - all[1], all[0], all[1], all[2] - all[0], all[3] - all[1]);      // via le strade di prima
+  if (!cells.length) return null;
+  const on = (cc, rr) => cc >= 0 && rr >= 0 && cc < COLS && rr < ROWS && (set.has(rr * COLS + cc) || !!ROAD_AT[rr * COLS + cc]), H = G / 2;
+  const trace = () => {
+    c.beginPath();
+    for (const q of cells) {
+      const x = (q.c + 0.5) * G, y = (q.r + 0.5) * G, m = [[x + H, y], [x - H, y], [x, y + H], [x, y - H]];
+      const n = [on(q.c + 1, q.r), on(q.c - 1, q.r), on(q.c, q.r + 1), on(q.c, q.r - 1)], idx = [0, 1, 2, 3].filter(i => n[i]);
+      if (idx.length === 2 && !(n[0] && n[1]) && !(n[2] && n[3])) { c.moveTo(m[idx[0]][0], m[idx[0]][1]); c.quadraticCurveTo(x, y, m[idx[1]][0], m[idx[1]][1]); }       // una svolta: curva
+      else if (!idx.length) { c.moveTo(x - 0.5, y); c.lineTo(x + 0.5, y); }                                                                                                  // un pezzo solo: uno spiazzo tondo
+      else for (const i of idx) { c.moveTo(x, y); c.lineTo(m[i][0], m[i][1]); }
+    }
+  };
+  c.setTransform(k, 0, 0, k, 0, 0); c.lineCap = 'round'; c.lineJoin = 'round';
+  const W = 30;
+  for (const [col, w] of [['rgba(70,104,48,0.5)', W + 18], ['rgba(122,92,58,0.85)', W + 7], ['#c9a674', W], ['rgba(226,198,146,0.75)', W * 0.5]]) { trace(); c.strokeStyle = col; c.lineWidth = w; c.stroke(); }
+  for (const q of cells) {        // qualche sassolino, sempre gli stessi
+    const rnd = mulberry32(q.r * 977 + q.c * 131 + 5);
+    for (let i = 0; i < 2; i++) ell(c, (q.c + 0.5) * G + (rnd() - 0.5) * 20, (q.r + 0.5) * G + (rnd() - 0.5) * 20, 1.6 + rnd() * 2, 1.2 + rnd() * 1.6, rnd() < 0.5 ? 'rgba(90,70,50,0.45)' : 'rgba(240,226,196,0.6)');
+  }
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  return box;
 }

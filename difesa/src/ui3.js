@@ -4,6 +4,8 @@ import { G, COLS, ROWS, WORLD_W, WORLD_H, TRIBES, MY_COLOR, RUINS, FOG, FW, FH, 
 import { t } from './i18n.js';
 
 const TAU = Math.PI * 2;
+/** L'ora di un momento, come su un orologio: 17:40. */
+export function clock(ms) { const d = new Date(ms); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
 /** Ore e minuti che mancano, in parole corte. */
 export function fmtH(ms) {
   const m = Math.max(1, Math.ceil(ms / 60000));
@@ -11,10 +13,11 @@ export function fmtH(ms) {
 }
 
 // ---------- la mappa intera ----------
-let mini = null;
-/** La mappa dipinta, rimpicciolita una volta sola, con sopra montagne, colline e boschi (che nel gioco sono in 3D). */
-function miniMap(src) {
-  if (mini || !src) return mini;
+let mini = null, miniRev = -1;
+/** La mappa dipinta, rimpicciolita (si rifà solo quando cambiano le strade), con sopra montagne, colline e boschi (che nel gioco sono in 3D). */
+function miniMap(src, rev = 0) {
+  if ((mini && miniRev === rev) || !src) return mini;
+  miniRev = rev;
   const k = 0.2, c0 = document.createElement('canvas'); c0.width = Math.round(WORLD_W * k); c0.height = Math.round(WORLD_H * k);
   const c = c0.getContext('2d');
   c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; c.drawImage(src, 0, 0, c0.width, c0.height);
@@ -58,7 +61,7 @@ export function mapPanel(S, K) {
   const X = (x) => mx + x * k, Y = (y) => my + y * k, pulse = 0.5 + Math.sin(ui.time * 5) * 0.5;
   // il foglio
   c.save(); c.beginPath(); c.roundRect(mx, my, mw, mh, 10); c.clip();
-  const img = miniMap(S.mapCv);
+  const img = miniMap(S.mapCv, S.roadRev);
   if (img) c.drawImage(img, mx, my, mw, mh); else { c.fillStyle = '#5f9f47'; c.fillRect(mx, my, mw, mh); }
   // il tuo villaggio: gli edifici come quadratini
   for (const b of world.d.buildings) {
@@ -139,7 +142,7 @@ export function mapPanel(S, K) {
     yy = K.wrap(c, t(sel.kind === 'ruin' ? (boat ? 'isleInfo' : 'ruinInfo') : sel.rumor != null ? 'rumorInfo' : 'fogInfo'), x + 18, yy + 40, tw, 14, K.DIM, 19, 'left') + 30;
     // quanto ci mette, e quanto costa
     c.beginPath(); c.arc(x + 30, yy, 10, 0, TAU); c.strokeStyle = '#ffe9a8'; c.lineWidth = 2.2; c.stroke(); c.beginPath(); c.moveTo(x + 30, yy - 6); c.lineTo(x + 30, yy); c.lineTo(x + 35, yy + 3); c.stroke();
-    K.txt(c, t(boat ? 'tripBoat' : 'tripTakes', fmtH(ms)), x + 48, yy + 1, 15.5, '#ffe9a8', 'left', 800);
+    K.txt(c, t(boat ? 'tripBoat' : 'tripTakes', fmtH(ms)) + ' · ' + t('tripAt', clock(now + ms)), x + 48, yy + 1, 15, '#ffe9a8', 'left', 800);
     yy += 30; K.costRow(c, world, { monete: FOG.cost }, x + 20, yy, 17, 1, true);
     yy += 22; K.button(c, ui, x + 18, yy, tw, 52, t('sendScout'), { color: '#2f7d5a', disabled: chk !== 'ok', fs: 18, tag: 'scout' }, A.scout);
     yy += 66;
@@ -151,14 +154,14 @@ export function mapPanel(S, K) {
   c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(x + 18, yy, tw, 1.5); yy += 22;
   K.txt(c, t('tripsOut') + ' ' + world.d.trips.length + '/' + world.tripsMax(), x + 18, yy, 15, K.CREAM, 'left', 800); yy += 18;
   for (const tr of world.d.trips) {
-    if (yy + 44 > y + h - 66) break;
-    const a = world.tripAt(tr, now);
-    c.beginPath(); c.roundRect(x + 18, yy, tw, 40, 10); c.fillStyle = 'rgba(255,255,255,0.07)'; c.fill();
-    K.tuzuIcon(c, 'esplora', x + 38, yy + 23, 9, MY_COLOR);
-    K.bar(c, x + 60, yy + 23, tw - 150, 8, a.p, '#ffd24a');
-    K.txt(c, fmtH(a.left), x + side - 26, yy + 21, 14, '#ffe9a8', 'right', 800);
-    ui.buttons.push({ x: x + 18, y: yy, w: tw, h: 40, tag: 'tripRow', fn: () => { ui.map.sel = null; } });
-    yy += 46;
+    if (yy + 50 > y + h - 66) break;
+    const a = world.tripAt(tr, now), ask = M.recall === tr.id;
+    c.beginPath(); c.roundRect(x + 18, yy, tw, 46, 10); c.fillStyle = 'rgba(255,255,255,0.07)'; c.fill();
+    K.tuzuIcon(c, 'esplora', x + 38, yy + 26, 9, MY_COLOR);
+    if (ask) K.button(c, ui, x + 58, yy + 6, tw - 92, 34, t('recallAsk'), { color: '#7a3a2c', fs: 14, r: 9, tag: 'recallYes' }, () => A.recall(tr.id));
+    else { K.bar(c, x + 60, yy + 28, tw - 96, 7, a.p, '#ffd24a'); K.txt(c, fmtH(a.left) + ' · ' + t('tripAt', clock(tr.at + tr.ms)), x + 60, yy + 15, 13, '#ffe9a8', 'left', 800); }
+    K.button(c, ui, x + 18 + tw - 36, yy + 8, 30, 30, '', { color: ask ? '#3b3229' : '#4a3a34', r: 15, tag: 'recall' }, () => { M.recall = ask ? null : tr.id; }); K.cross(c, x + 18 + tw - 21, yy + 23, 6);
+    yy += 52;
   }
   if (!world.d.trips.length) K.txt(c, t('tripsNone'), x + 18, yy + 6, 13, K.DIM, 'left', 600);
   K.button(c, ui, x + 18, y + h - 58, tw, 46, t('close'), { color: '#3b3229', fs: 19, tag: 'close' }, A.mapClose);

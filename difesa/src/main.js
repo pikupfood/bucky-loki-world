@@ -66,7 +66,7 @@ const P = {
 };
 
 // ---------- costruzione a quadretti ----------
-const cellFree = (c, r) => c >= 2 && r >= 2 && c < COLS - 2 && r < ROWS - 2 && world.occ[r * COLS + c] === 0 && !world.natAt(c, r) && world.villageAt(c, r) < 0 && !TERRAIN[r * COLS + c];
+const cellFree = (c, r, self = 0) => c >= 2 && r >= 2 && c < COLS - 2 && r < ROWS - 2 && (world.occ[r * COLS + c] === 0 || world.occ[r * COLS + c] === self) && !world.natAt(c, r) && world.villageAt(c, r) < 0 && !TERRAIN[r * COLS + c];
 /** Il quadretto in alto a sinistra di un edificio centrato sul punto del terreno g. */
 function cellFor(type, g) { const D = BUILD[type]; return { c: Math.floor(g.x / G - D.w / 2 + 0.5), r: Math.floor(g.y / G - D.h / 2 + 0.5) }; }
 /** Stato dell'anteprima: quadretti verdi/rossi, se si può confermare e perché no. */
@@ -79,9 +79,9 @@ function placeState() {
     return { line: true, cells: cells.map(q => ({ c: q.c, r: q.r, ok: good.has(q.c + ',' + q.r) })), ok: chk.ok, why: chk.ok ? (pl.b ? 'ok' : 'pickEnd') : chk.why, n: Math.max(1, chk.good.length) };
   }
   if (pl.c == null) return { cells: [], ok: false, why: 'pick', n: 1 };
-  const why = world.canPlace(pl.type, pl.c, pl.r), cells = [];
-  for (let r = pl.r; r < pl.r + D.h; r++) for (let c = pl.c; c < pl.c + D.w; c++) cells.push({ c, r, ok: cellFree(c, r) && why !== 'occupied' });
-  if (why === 'occupied' && cells.every(k => cellFree(k.c, k.r))) cells.forEach(k => { k.ok = false; });     // c'è un nemico sopra
+  const why = pl.move ? world.moveCheck(world.byId.get(pl.move), pl.c, pl.r) : world.canPlace(pl.type, pl.c, pl.r), cells = [];
+  for (let r = pl.r; r < pl.r + D.h; r++) for (let c = pl.c; c < pl.c + D.w; c++) cells.push({ c, r, ok: cellFree(c, r, pl.move || 0) && why !== 'occupied' });
+  if (why === 'occupied' && cells.every(k => cellFree(k.c, k.r, pl.move || 0))) cells.forEach(k => { k.ok = false; });     // c'è un nemico sopra
   return { cells, ok: why === 'ok', why, n: 1, at: { x: (pl.c + D.w / 2) * G, y: (pl.r + D.h / 2) * G } };
 }
 function inGhost(g) {
@@ -98,7 +98,8 @@ function moveGhost(g) {
 function confirmPlace() {
   const pl = ui.place; if (!pl) return;
   const st = placeState();
-  if (!st.ok) { toast(t('why_' + (st.why.startsWith('pick') ? 'pick' : st.why))); return; }
+  if (!st.ok) { toast(t(st.why === 'no' ? 'notNow' : 'why_' + (st.why.startsWith('pick') ? 'pick' : st.why))); return; }
+  if (pl.move) { world.moveBuilding(world.byId.get(pl.move), pl.c, pl.r); ui.place = null; save(); return; }
   if (BUILD[pl.type].line) { world.placeLine(pl.type, st.cells); pl.a = null; pl.b = null; }
   else {
     world.place(pl.type, pl.c, pl.r); pl.c = null;
@@ -168,6 +169,10 @@ const A = {
   placeConfirm() { confirmPlace(); },
   placeCancel() { ui.place = null; audio.play('tap'); },
   selClose() { ui.sel = null; },
+  move(b) { if (world.moveCheck(b) !== 'ok') { toast(t('notNow')); return; } ui.place = { type: b.type, move: b.id, c: b.c, r: b.r, a: null, b: null }; ui.sel = null; ui.build = null; audio.play('tap'); },
+  marketMode() { ui.sell = !ui.sell; audio.play('tap'); },
+  sell(r) { if (world.sell(r)) save(); else audio.play('no'); },
+  recall(id) { if (world.recallTrip(id)) { ui.map.recall = null; audio.play('coin'); save(); } },
   demolish(b) { if (world.demolish(b)) { ui.sel = null; save(); } },
   upgrade(b) { if (!world.upgrade(b)) toast(t('why_cost')); else save(); },
   castleUp() { if (!world.upgradeCastle()) toast(t('why_cost')); else save(); },
@@ -400,6 +405,7 @@ function handleEvents() {
       case 'goal': { audio.play('cleared'); buzz(20); const g = scene.pick(210 * view.us, 120 * view.us) || { x: world.castle.x, y: world.castle.y }; let k = 0; for (const r in ev.reward) text(ui.fxTop, g.x + k++ * 70, g.y, 20, '+' + ev.reward[r], RES_FX[r], 26, 1.5); break; }
       case 'tech': banner(t('discovered', t('t_' + ev.id)), '#9fe9ff', 2.6); audio.play('won'); buzz(20); save(); break;
       case 'bought': audio.play('coin'); break;
+      case 'sold': audio.play('coin'); text(ui.fxTop, world.castle.x, world.castle.y, 120, '+' + ev.n, '#ffd24a', 22, 0.9); break;
       case 'train': ring(ui.fx, ev.x, ev.y, 10, 60, 0.45, '#6fb7ff', 4); audio.play('up'); break;
       case 'nightStart': audio.play('horn'); banner(`${t('night')} ${ev.night}`, '#cfd8ff', 2.2); break;
       case 'spawn': ring(ui.fx, ev.x, ev.y, 14, ev.boss ? 110 : 56, 0.5, tribeCol(ev.tribe), ev.boss ? 5 : 3); break;
@@ -561,7 +567,7 @@ function tick(real) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
   ctx.setTransform(k, 0, 0, k, 0, 0);
-  drawUi({ c: ctx, world, ui, vw: view.vw, vh: view.vh, P, A, now, mapCv: scene.mapCv, fogCv: scene.fogCv, cam: scene.view });
+  drawUi({ c: ctx, world, ui, vw: view.vw, vh: view.vh, P, A, now, mapCv: scene.mapCv, fogCv: scene.fogCv, cam: scene.view, roadRev: scene.roadRev });
 }
 
 function drawRotate() {

@@ -622,7 +622,7 @@ export class World {
   moveFree(s, tx, ty, dt, speed = UNITS[s.type].speed * (s.fast || 1)) {
     const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy);
     if (d < 2) return;
-    const st = Math.min(d, speed * dt);
+    const st = Math.min(d, speed * this.roadK(s) * dt);
     s.x += dx / d * st; s.y += dy / d * st;
     s.ang = Math.atan2(dy, dx); s.anim += dt * 6;
   }
@@ -631,7 +631,7 @@ export class World {
     if (!this.walkable(s.x, s.y)) { this.moveFree(s, tx, ty, dt); return; }      // finito dentro un edificio: esce
     const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy);
     if (d < 2) return;
-    const st = Math.min(d, UNITS[s.type].speed * (s.fast || 1) * dt), nx = s.x + dx / d * st, ny = s.y + dy / d * st;
+    const st = Math.min(d, UNITS[s.type].speed * (s.fast || 1) * this.roadK(s) * dt), nx = s.x + dx / d * st, ny = s.y + dy / d * st;
     if (this.walkable(nx, ny)) { s.x = nx; s.y = ny; }
     else if (this.walkable(nx, s.y)) s.x = nx;
     else if (this.walkable(s.x, ny)) s.y = ny;
@@ -1315,5 +1315,5 @@ export class World {
 }
 /** Le novità che si possono spegnere (lo fanno le prove vecchie, per restare semplici): cantieri, difficoltà dei mondi nuovi,
  *  nebbia, eroe, eventi a sorpresa, villaggi che vivono. */
-World.RULES = { buildTime: true, diff: 'normale', fog: true, hero: true, events: true, life: true, food: true, levels: true, tribes: true, siege: true, dipl: true };
+World.RULES = { buildTime: true, diff: 'normale', fog: true, hero: true, events: true, life: true, food: true, levels: true, tribes: true, siege: true, dipl: true, roads: true };
 extend(World);
