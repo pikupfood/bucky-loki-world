@@ -1,6 +1,6 @@
 // Il negozio (20/11/2026): il bottone con la gemma, il pannello a due schede (Materiali, Gemme), il foglio «Ti manca».
 // Ogni funzione riceve (S, K): K è la cassetta degli attrezzi di ui.js. Regola Samsung: prima le scritte, poi le icone.
-import { SHOP } from './data.js';
+import { SHOP, GIFT7 } from './data.js';
 import { t } from './i18n.js';
 import * as pay from './pay.js';
 
@@ -94,8 +94,8 @@ export function shopPanel(S, K) {
       const label = busy ? t('shopBusy') : pay.price(p.id);
       K.button(c, ui, x + w - 26 - 196, cy + 14, 180, 58, label, { color: can ? '#2f7d3a' : '#4a4640', fs: 22, tag: 'shopBuy' + i }, () => A.shopBuy(p.id));
     });
-    const note = sh.msg || (can ? '' : pay.native() ? t('shopSoon') : t('shopWeb'));
-    if (note) K.wrap(c, note, vw / 2, top + 4 * (rh + 8) + 20, w - 70, 15.5, sh.good ? '#9ff0b4' : '#f0d9b0', 20, 'center');
+    const first = !sh.msg && can && world.firstBuy(), note = sh.msg || (can ? (first ? t('shopFirst') : '') : pay.native() ? t('shopSoon') : t('shopWeb'));
+    if (note) K.wrap(c, note, vw / 2, top + 4 * (rh + 8) + 20, w - 70, first ? 17 : 15.5, sh.good ? '#9ff0b4' : first ? '#ffd24a' : '#f0d9b0', 20, 'center');
   }
 }
 
@@ -119,4 +119,35 @@ export function needPanel(S, K) {
   if (ok) { const lab = t('needBuy') + '  ' + price; K.button(c, ui, vw / 2 - bw / 2, y + 176, bw, 58, lab, { color: '#7a2f8a', fs: 23, dx: -10, tag: 'needBuy' }, A.needBuy); gem(c, vw / 2 + K.width(c, lab, 23, 800) / 2 + 8, y + 204, 11); }
   else { K.button(c, ui, vw / 2 - bw / 2, y + 176, bw, 58, t('needGems'), { color: '#2f7d3a', fs: 22, tag: 'needGems' }, A.needGems); }
   K.button(c, ui, vw / 2 - 110, y + h - 70, 220, 48, t('close'), { color: '#5c4330', fs: 21, tag: 'needClose' }, A.needClose);
+}
+
+/** Il regalo del giorno: sette caselle, quella di oggi accesa, le passate con la spunta. */
+export function giftPanel(S, K) {
+  const { c, world, ui, vw, vh, A, now } = S, d = world.daily(now);
+  if (!d.available) { ui.daily = false; return; }
+  K.dim(S, 0.6);
+  const w = Math.min(680, vw - 16), h = 372, x = vw / 2 - w / 2, y = Math.max(6, vh / 2 - h / 2), n = GIFT7.length, gap = 6, cw = (w - 36 - gap * (n - 1)) / n, ch = 128, cy = y + 112;
+  K.panel(c, x, y, w, h, 18, 0.96);
+  K.title2(c, t('daily'), vw / 2, y + 50, 34, '#f2cf73');
+  K.txt(c, t('giftHint'), vw / 2, y + 88, K.fit(c, t('giftHint'), w - 40, 16, 600), '#cfd8ff', 'center', 600);
+  const extra = (g) => { for (const k in g) if (k !== 'monete') return [k, g[k]]; return null; };
+  for (let i = 0; i < n; i++) K.card(c, x + 18 + i * (cw + gap), cy, cw, ch, i + 1 === d.streak);
+  for (let i = 0; i < n; i++) {      // prima tutte le scritte
+    const bx = x + 18 + i * (cw + gap), g = GIFT7[i], past = i + 1 < d.streak, e = extra(g);
+    c.globalAlpha = past ? 0.45 : 1;
+    K.txt(c, String(i + 1), bx + cw / 2, cy + 18, 15, i + 1 === d.streak ? '#ffe9a8' : K.DIM, 'center', 800);
+    K.txt(c, '+' + g.monete, bx + cw / 2, cy + 68, K.fit(c, '+' + g.monete, cw - 8, 17, 800), K.GOLD, 'center', 800);
+    if (e) K.txt(c, '+' + e[1], bx + cw / 2 + 9, cy + 106, K.fit(c, '+' + e[1], cw - 30, 15, 800), e[0] === 'gems' ? '#ffb3f3' : K.RES_COL[e[0]], 'center', 800);
+    c.globalAlpha = 1;
+  }
+  for (let i = 0; i < n; i++) {      // poi le icone
+    const bx = x + 18 + i * (cw + gap), g = GIFT7[i], past = i + 1 < d.streak, e = extra(g);
+    c.globalAlpha = past ? 0.45 : 1;
+    c.beginPath(); K.coin(c, bx + cw / 2, cy + 44, 10); c.beginPath();
+    if (e) { const ew = K.width(c, '+' + e[1], 15, 800); if (e[0] === 'gems') gem(c, bx + cw / 2 - ew / 2 - 3, cy + 105, 7); else { c.beginPath(); K.RES_ICON[e[0]](c, bx + cw / 2 - ew / 2 - 3, cy + 105, 7); } }
+    c.globalAlpha = 1;
+    if (past) K.check(c, bx + cw - 14, cy + 16, 7, '#9ff0b4');
+  }
+  K.flushIcons(c); c.beginPath();
+  K.button(c, ui, vw / 2 - 140, y + h - 104, 280, 72, t('claim'), { color: '#2f7d3a', fs: 28, tag: 'claimDaily' }, A.claimDaily);
 }

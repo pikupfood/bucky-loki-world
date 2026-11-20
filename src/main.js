@@ -11,6 +11,7 @@ import { reportLine, threats } from './ui4.js';
 import { t, setLang, getLang, LANGS } from './i18n.js';
 import * as audio from './audio.js';
 import * as pay from './pay.js';
+import * as notify from './notify.js';
 import { CASTLE_UP, TECHS } from './data.js';
 
 const glCanvas = document.getElementById('gl');
@@ -18,7 +19,7 @@ const uiCanvas = document.getElementById('ui');
 const ctx = uiCanvas.getContext('2d');
 const scene = new Scene3D(glCanvas);
 
-const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 12;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
+const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 13;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
 const KEY = 'tuzu_difesa_v3';       // la chiave resta questa: i salvataggi vecchi li converte World
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
@@ -27,7 +28,7 @@ const world = new World(saved.world, Date.now(), (Date.now() & 0xffff) + 1);
 const ui = {
   screen: 'title', speed: 1, sound: saved.sound !== false, moved: !!saved.moved, seenVillage: !!saved.seenVillage,
   build: null, place: null, sel: null, vsel: null, aiming: false,
-  quests: false, settings: false, tech: false, daily: false, lost: null, away: world.away, todo: false, drillEnd: null, multi: null, vBanner: false, shop: null, need: null,
+  quests: false, settings: false, tech: false, daily: false, lost: null, away: world.away, todo: false, drillEnd: null, multi: null, vBanner: false, shop: null, need: null, notif: saved.notif !== false, hasNotif: notify.native(),
   online: null, onlineNew: 0, fleet: null, seaOpen: false, news: false, newsDue: false,
   map: null, squad: null, qtab: 0, reportOpen: false, q: saved.q === 0 || saved.q === 1 || saved.q === 2 ? saved.q : 'auto', cloud: cloud.state,
   roles: false, story: null, rallyPick: false, fogSel: null, guideOpen: null, music: saved.music !== false, newGame: !saved.world, diffPick: 'normale',
@@ -35,7 +36,7 @@ const ui = {
 };
 world.away = null;
 let frozen = false;      // dopo reset() non si salva più: altrimenti la pagina che si chiude riscrive il salvataggio
-function save() { if (frozen) return; try { localStorage.setItem(KEY, JSON.stringify({ world, lang: getLang(), langSet: !!ui.langSet, sound: ui.sound, music: ui.music, moved: ui.moved, seenVillage: ui.seenVillage, cam: scene.view, q: ui.q, qa: quality })); } catch (e) { /* senza memoria si gioca lo stesso */ } cloud.touch(); }
+function save() { if (frozen) return; try { localStorage.setItem(KEY, JSON.stringify({ world, lang: getLang(), langSet: !!ui.langSet, sound: ui.sound, music: ui.music, notif: ui.notif, moved: ui.moved, seenVillage: ui.seenVillage, cam: scene.view, q: ui.q, qa: quality })); } catch (e) { /* senza memoria si gioca lo stesso */ } cloud.touch(); }
 
 /** La lingua del telefono o del browser: la prima, fra quelle che l'utente preferisce, che il gioco ha. Nessuna: inglese. */
 function deviceLang() {
@@ -208,6 +209,7 @@ const A = {
   multiOk() { const M = ui.multi; if (!M || !M.to) return; if (world.moveGroup(M.ids, M.to.dc, M.to.dr)) { ui.multi = null; audio.play('build'); save(); } else toast(t('why_occupied')); },
   multiClose() { ui.multi = null; audio.play('tap'); },
   // nome e stemma del villaggio
+  notif() { ui.notif = !ui.notif; audio.play('tap'); save(); if (ui.notif) notify.ask(); else notify.clear(); },
   // ---------- il negozio ----------
   shopOpen(tab) { closeAll(); ui.settings = false; ui.quests = false; ui.need = null; ui.shop = { tab: tab === 1 ? 1 : 0 }; audio.play('tap'); },
   shopClose() { ui.shop = null; audio.play('tap'); },
@@ -600,14 +602,23 @@ try {
     CapApp = C.registerPlugin ? C.registerPlugin('App') : (C.Plugins && C.Plugins.App) || null;
     if (CapApp) {
       CapApp.addListener('backButton', back);
+      // l'app va dietro o torna davanti: su alcuni telefoni `visibilitychange` non arriva, questo sì
+      CapApp.addListener('appStateChange', (s) => { if (s && s.isActive === false) { save(); planNotifs(); } else if (s && s.isActive) notify.clear(); });
       CapApp.addListener('appUrlOpen', (e) => { if (e && e.url) cloud.fromUrl(e.url); });      // il ritorno da Google ad app aperta
       if (CapApp.getLaunchUrl) CapApp.getLaunchUrl().then((r) => { if (r && r.url) cloud.fromUrl(r.url); }).catch(() => {});      // …e ad app chiusa
     }
   }
 } catch (e) { CapApp = null; }
 
+/** Gli avvisi da lasciare al telefono mentre il gioco è chiuso (notify.js). */
+function planNotifs() {
+  if (!ui.hasNotif) return;
+  if (!ui.notif || ui.screen !== 'play') { notify.clear(); return; }
+  notify.plan(world.notifyPlan(Date.now()).map(n => { const k = n.k === 'back2' ? 'back' : n.k; return { at: n.at, title: t('nt_' + k + '_t'), body: t('nt_' + k) }; }));
+}
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { save(); return; }
+  if (document.hidden) { save(); planNotifs(); return; }
+  notify.clear();
   setTimeout(kick, 250);      // al rientro dall'app in secondo piano
   if (world.status === 'day') { world.offline(Date.now()); if (world.away) { ui.away = world.away; world.away = null; } }
 });
@@ -694,7 +705,8 @@ function handleEvents() {
       case 'destroyed': chips(ui.fx, ev.x, ev.y, 22, 18, ['#b9a98a', '#8f8a80', '#6f4526', '#d9c7a0'], 170, 2.4); for (let i = 0; i < 6; i++) smoke(ui.fx, ev.x, ev.y, 10 + i * 5, '#4a4440', 15, 1.8, 0.6); ring(ui.fx, ev.x, ev.y, 8, 60, 0.4, '#ff8a6a', 4); parts(ui.fx, ev.x, ev.y, 12, 16, '#b9a98a', 150, 0.6, 4.5, 300); ui.shake = Math.max(ui.shake, 0.15); audio.play('impact', 0.1); buzz(25); break;
       case 'soldierDown': parts(ui.fx, ev.x, ev.y, 16, 10, MY_COLOR, 110, 0.5, 4, 260); buzz(15); break;
       case 'castleHit': if (ui.flash < 0.12) { ui.flash = 0.4; buzz(30); } ui.shake = Math.max(ui.shake, 0.12); parts(ui.fx, ev.x, ev.y, 40, 3, '#d9c7a0', 110, 0.4, 3.5, 260); audio.play('leak', 0.5); break;
-      case 'nightWon': scene.cheer(5);
+      case 'nightWon': if (ui.notif && ui.hasNotif && world.d.night <= 2) notify.ask();      // dopo la prima notte vinta: il momento giusto per chiedere gli avvisi
+        scene.cheer(5);
         banner(`${t('cleared')}  +${ev.reward}`, '#ffe9a8', 2.6);
         audio.play(ev.night % 5 === 0 ? 'won' : 'cleared'); buzz([30, 60, 30]); ui.aiming = false; ui.speed = 1; save();
         if (world.daily(Date.now()).available) ui.daily = true;

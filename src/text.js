@@ -42,8 +42,14 @@ function direct(c, s, x, y, o) {
  * Disegna la scritta `s` in (x, y) col carattere, il colore e l'allineamento già messi sulla tela `c` (linea di base: a metà altezza).
  * `o.stroke` + `o.lw`: un contorno sotto la scritta. `o.grad`: tre colori dall'alto in basso invece del colore pieno.
  */
+/** Solo per le prove (tools/audit.js): se `globalThis.__ulog` è una lista, ogni scritta e ogni riquadro ci lasciano le loro misure in punti dello schermo. */
+export function logBox(c, x, y, w, h, kind) {
+  const L = globalThis.__ulog; if (!L) return;
+  const m = c.getTransform(); L.push({ k: kind, x0: m.a * x + m.e, y0: m.d * y + m.f, x1: m.a * (x + w) + m.e, y1: m.d * (y + h) + m.f });
+}
 export function drawText(c, s, x, y, o) {
   s = String(s == null ? '' : s); if (!s) return;
+  if (globalThis.__ulog) { const m = c.getTransform(), w = c.measureText(s).width, a = c.textAlign, l = a === 'center' ? x - w / 2 : a === 'right' || a === 'end' ? x - w : x; globalThis.__ulog.push({ k: 't', s, x0: m.a * l + m.e, x1: m.a * (l + w) + m.e, y: m.d * y + m.f, a: c.globalAlpha }); }
   const m = c.getTransform(), fill = o && o.grad ? 'g:' + o.grad.join(',') : c.fillStyle;
   if (m.b || m.c || Math.abs(m.a - m.d) > 1e-6 || !(m.a > 0) || typeof fill !== 'string' || c.textBaseline !== 'middle') { direct(c, s, x, y, o); return; }
   const sc = Math.round(m.a * 1000) / 1000, font = c.font, key = font + '|' + fill + '|' + (o && o.stroke ? o.stroke + (o.lw || 4) : '') + '|' + sc + '|' + s;

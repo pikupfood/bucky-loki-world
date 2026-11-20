@@ -127,7 +127,7 @@ function drawMap(S, K, ax, ay, aw, ah) {
     { const tx = ax + aw - 31, ty = ay + 175; c.strokeStyle = '#fff3d6'; c.lineWidth = 2; c.beginPath(); c.arc(tx, ty, 9, 0, TAU); c.stroke(); c.beginPath(); c.arc(tx, ty, 4, 0, TAU); c.stroke(); c.beginPath(); c.moveTo(tx - 13, ty); c.lineTo(tx - 6, ty); c.moveTo(tx + 6, ty); c.lineTo(tx + 13, ty); c.moveTo(tx, ty - 13); c.lineTo(tx, ty - 6); c.moveTo(tx, ty + 6); c.lineTo(tx, ty + 13); c.stroke(); }
   }
   // la legenda: la differenza fra persone e computer
-  const lw = 62 + K.width(c, t('on_legPlayer'), 12.5, 800) + K.width(c, t('on_legNpc'), 12.5, 800), ly = ay + ah - 36;
+  const lw = 76 + K.width(c, t('on_legPlayer'), 12.5, 800) + K.width(c, t('on_legNpc'), 12.5, 800), ly = ay + ah - 36;
   K.scroll(c, ax + 10, ly, lw, 26, 8);
   c.beginPath(); c.arc(ax + 25, ly + 13, 6.5, 0, TAU); c.fillStyle = '#2a1d12'; c.fill(); c.strokeStyle = '#8a2f24'; c.lineWidth = 2.2; c.stroke(); K.txt(c, t('on_legPlayer'), ax + 37, ly + 14, 12.5, K.PEN, 'left', 800);
   const lx2 = ax + 53 + K.width(c, t('on_legPlayer'), 12.5, 800); c.beginPath(); c.arc(lx2, ly + 13, 6.5, 0, TAU); c.fillStyle = '#3d404b'; c.fill(); c.strokeStyle = '#8d93a6'; c.lineWidth = 2; c.setLineDash([3, 2.5]); c.stroke(); c.setLineDash([]); K.txt(c, t('on_legNpc'), lx2 + 12, ly + 14, 12.5, K.PEN2, 'left', 800);

@@ -717,7 +717,12 @@ export const ECON = {
 // premio della settimana). Con le gemme: casse di materiali (packs: [materiale, quanto, gemme, scoperta]; la quantità cresce col castello),
 // «compra ciò che manca» (perGem = quanto materiale vale una gemma, già col rincaro della comodità), un anticipo della notte, una
 // spedizione che torna subito (hurry gemme all'ora, almeno hurryMin).
+// Il regalo del giorno: sette giorni di fila, poi si ricomincia. Le monete sono quelle di sempre; al terzo, quinto e settimo giorno ci sono gemme.
+export const GIFT7 = [{ monete: 50 }, { monete: 75, legna: 40 }, { monete: 100, gems: 5 }, { monete: 125, pietra: 40 }, { monete: 150, gems: 10 }, { monete: 200, cibo: 60 }, { monete: 300, gems: 25 }];
+// Chi torna dopo `days` giorni di assenza trova un regalo di bentornato.
+export const BACK = { days: 3, gems: 10 };
 export const SHOP = {
+  first: 2,                                    // il primo acquisto vale doppio
   start: 30,
   chest: { gems: 2, res: { monete: 60, legna: 40 } },
   packs: [['monete', 500, 30], ['legna', 400, 30], ['pietra', 300, 30], ['cibo', 200, 20], ['ferro', 150, 40, 'ferro'], ['cristallo', 80, 50, 'cristallo']],

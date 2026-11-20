@@ -5,7 +5,7 @@ import { VEIL } from './ground.js';
 import { drawTower } from './icons.js';
 import { drawFx, tracePoly } from './fx.js';
 import { t, has, LANGS, LANG_NAMES, getLang } from './i18n.js';
-import { drawText } from './text.js';
+import { drawText, logBox } from './text.js';
 import * as X from './ui2.js';
 import * as Y from './ui3.js';
 import * as Z from './ui4.js';
@@ -49,6 +49,7 @@ function skins(c) {
 }
 /** Una tavola di legno scuro con il filo d'oro: il fondo di ogni pannello coi comandi. */
 function panel(c, x, y, w, h, r = 12, alpha = 0.86) {
+  logBox(c, x, y, w, h, 'panel');
   flushIcons(c); skins(c);
   const a = Math.max(alpha, 0.9);
   c.beginPath(); c.roundRect(x, y + 3, w, h, r); c.fillStyle = 'rgba(0,0,0,0.3)'; c.fill();
@@ -65,6 +66,7 @@ function panel(c, x, y, w, h, r = 12, alpha = 0.86) {
 }
 /** Un foglio di pergamena: il fondo dei messaggi (la guida, gli eventi, il racconto, i rapporti). Sopra si scrive con PEN. */
 function scroll(c, x, y, w, h, r = 12) {
+  logBox(c, x, y, w, h, 'panel');
   flushIcons(c); skins(c);
   c.beginPath(); c.roundRect(x, y + 3, w, h, r); c.fillStyle = 'rgba(0,0,0,0.32)'; c.fill();
   const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, '#f8ecd2'); g.addColorStop(1, '#e2cd9f');
@@ -318,6 +320,7 @@ function costRow(c, world, cost, cx, y, size, k = 1, left = false) {
 }
 
 function button(c, ui, x, y, w, h, label, o, fn) {
+  logBox(c, x, y, w, h, 'btn');
   flushIcons(c);
   o = o || {};
   const col = o.disabled ? '#4a4640' : (o.color || '#3a6b35'), r = o.r ?? 12;
@@ -337,7 +340,7 @@ function button(c, ui, x, y, w, h, label, o, fn) {
   ui.buttons.push({ x, y, w, h, tag: o.tag, fn: fn || (() => {}) });
 }
 function block(ui, x, y, w, h) { ui.buttons.push({ x, y, w, h, fn: () => {} }); }
-function dim(S, a) { flushIcons(S.c); S.c.fillStyle = `rgba(8,8,18,${a})`; S.c.fillRect(0, 0, S.vw, S.vh); block(S.ui, 0, 0, S.vw, S.vh); }
+function dim(S, a) { logBox(S.c, 0, 0, 0, 0, 'dim'); flushIcons(S.c); S.c.fillStyle = `rgba(8,8,18,${a})`; S.c.fillRect(0, 0, S.vw, S.vh); block(S.ui, 0, 0, S.vw, S.vh); }
 function fmtTime(ms) {
   const s = Math.ceil(ms / 1000);
   if (s < 60) return s + ' s';
@@ -753,6 +756,7 @@ function placeBar(S) {
 }
 
 function card(c, x, y, w, h, ok) {
+  logBox(c, x, y, w, h, 'card');
   flushIcons(c);
   const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, ok ? '#62814a' : '#54453a'); g.addColorStop(1, ok ? '#3c5630' : '#382d23');
   c.beginPath(); c.roundRect(x, y + 2.5, w, h, 10); c.fillStyle = 'rgba(0,0,0,0.3)'; c.fill();
@@ -810,7 +814,7 @@ function selPanel(S) {
         card(c, bx, cy, cw, ch, ok);
         c.globalAlpha = ok ? 1 : 0.45; c.beginPath(); c.arc(bx + 24, cy + 26, 13, 0, TAU); c.fillStyle = COL[cr]; c.fill(); c.strokeStyle = 'rgba(20,14,8,0.6)'; c.stroke();
         c.fillStyle = '#4f9a4b'; c.beginPath(); c.ellipse(bx + 30, cy + 12, 7, 3.5, -0.6, 0, TAU); c.fill(); c.globalAlpha = 1;
-        txt(c, t('c_' + cr), bx + 44, cy + 20, 16, ok ? CREAM : '#9a948a', 'left', 800);
+        txt(c, t('c_' + cr), bx + 44, cy + 20, fit(c, t('c_' + cr), cw - 54, 16, 800), ok ? CREAM : '#9a948a', 'left', 800);
         txt(c, fmtDur(d.secs), bx + 44, cy + 40, 14, DIM, 'left');
         coin(c, bx + 24, cy + 68, 7); txt(c, '+' + world.cropGain(cr), bx + 36, cy + 69, 17, '#9ff0b4', 'left', 800);
         txt(c, t('costs') + ' ' + d.cost, bx + 14, cy + 94, 14, ok ? GOLD : BAD, 'left', 700);
@@ -935,11 +939,11 @@ function villagePanel(S) {
   txt(c, t('allyGift'), x + 400, y + 96, 15, DIM, 'left', 600); costRow(c, world, v.allyCost, x + 400 + width(c, t('allyGift'), 15, 600) + 10, y + 96, 16, 1, true);
   const chk = world.raidCheck(i), st = world.armyStrength();
   button(c, ui, x + 20, by, 190, 50, t('attack'), { color: '#a8322a', disabled: chk !== 'ok', fs: 21, tag: 'attack' }, () => A.attack(i));
-  if (chk !== 'ok') txt(c, chk === 'noarmy' ? t('needArmy') : t('notNow'), x + 222, by + 26, 15, BAD, 'left', 700);
+  if (chk !== 'ok') { const s = chk === 'noarmy' ? t('needArmy') : t('notNow'); txt(c, s, x + 222, by + 26, fit(c, s, 168, 15, 700), BAD, 'left', 700); }
   else { const odds = world.raidOdds(i); txt(c, `${t('army')}: ${st.n}`, x + 222, by + 15, 15, CREAM, 'left', 700); txt(c, t('odds_' + odds), x + 222, by + 36, 15, odds === 'low' ? BAD : odds === 'even' ? '#ffd24a' : '#9ff0b4', 'left', 800); }
   const ac = world.allyCheck(i);
   button(c, ui, x + 400, by, 190, 50, t('ally'), { color: '#5b4a8a', disabled: ac !== 'ok', fs: 21, tag: 'ally' }, () => A.ally(i));
-  if (ac !== 'ok' && ac !== 'cost') txt(c, ac === 'castle' ? t('needCastle', Math.min(5, v.level)) : ac === 'max' ? t('maxAllies') : t('notNow'), x + 602, by + 26, 14, BAD, 'left', 700);
+  if (ac !== 'ok' && ac !== 'cost') { const s = ac === 'castle' ? t('needCastle', Math.min(5, v.level)) : ac === 'max' ? t('maxAllies') : t('notNow'); txt(c, s, x + 602, by + 26, fit(c, s, w - 614, 14, 700), BAD, 'left', 700); }
 }
 
 /** Una riga di premi o guadagni (icona + «+numero»), che parte da x. */
@@ -1042,8 +1046,9 @@ function newsPanel(S) {
 function settingsPanel(S) {
   const { c, ui, vw, vh, A } = S;
   dim(S, 0.6);
-  const h = 500, y0 = vh / 2 - h / 2;
+  const h = ui.hasNotif ? 548 : 500, y0 = vh / 2 - h / 2;
   panel(c, vw / 2 - 260, y0, 520, h, 18, 0.96);
+  if (ui.hasNotif) button(c, ui, vw / 2 - 228, y0 + 150 + 264, 456, 42, t(ui.notif ? 'notifOn' : 'notifOff'), { color: ui.notif ? '#2f6b3a' : '#5c4330', fs: 17, tag: 'notif' }, A.notif);
   title2(c, t('settings'), vw / 2, y0 + 46, 36, '#f2cf73');
   button(c, ui, vw / 2 + 260 - 150, y0 + 14, 136, 38, t('news'), { color: '#8a2f24', fs: 15.5, r: 10, tag: 'newsOpen' }, A.newsOpen);
   langRow(S, vw / 2, y0 + 86);
@@ -1098,14 +1103,21 @@ function awayPanel(S) {
   const { c, ui, vw, vh, A } = S, got = ui.away.got;
   dim(S, 0.6);
   const y0 = vh / 2 - 150;
-  panel(c, vw / 2 - 250, y0, 500, 300, 18, 0.96);
+  const keys = Object.keys(got), rows = keys.length > 3 ? [keys.slice(0, Math.ceil(keys.length / 2)), keys.slice(Math.ceil(keys.length / 2))] : [keys];
+  const pw = Math.min(500, vw - 16), extra = (rows.length - 1) * 50 + (ui.away.back ? 40 : 0);
+  panel(c, vw / 2 - pw / 2, y0, pw, 300 + extra, 18, 0.96);
   title2(c, t('away'), vw / 2, y0 + 56, 38, '#f2cf73');
-  txt(c, t('awayText'), vw / 2, y0 + 106, 19, '#cfd8ff', 'center', 600);
-  const keys = Object.keys(got);
-  let total = 0; const ws = keys.map(k => { const w = 34 + width(c, '+' + got[k], 30, 800); total += w; return w; }); total += 26 * (keys.length - 1);
-  let x = vw / 2 - total / 2;
-  keys.forEach((k, i) => { RES_ICON[k](c, x + 13, y0 + 162, 13); txt(c, '+' + got[k], x + 34, y0 + 164, 30, RES_COL[k], 'left', 800); x += ws[i] + 26; });
-  button(c, ui, vw / 2 - 120, y0 + 212, 240, 64, t('ok'), { color: '#2f7d3a', fs: 26, tag: 'awayOk' }, A.awayOk);
+  txt(c, t('awayText'), vw / 2, y0 + 106, fit(c, t('awayText'), pw - 36, 19, 600), '#cfd8ff', 'center', 600);
+  rows.forEach((row, r) => {
+    let fs = 30, ws, total;
+    for (;;) { total = 0; ws = row.map(k => { const w = fs * 1.13 + width(c, '+' + got[k], fs, 800); total += w; return w; }); total += fs * 0.87 * (row.length - 1); if (total <= pw - 44 || fs <= 14) break; fs -= 1; }
+    const ry = y0 + 162 + r * 50; let x = vw / 2 - total / 2;
+    row.forEach((k, i) => { txt(c, '+' + got[k], x + fs * 1.13, ry + 2, fs, RES_COL[k], 'left', 800); x += ws[i] + fs * 0.87; });      // prima le scritte, poi le icone (regola Samsung)
+    x = vw / 2 - total / 2; row.forEach((k, i) => { c.beginPath(); RES_ICON[k](c, x + fs * 0.43, ry, fs * 0.43); x += ws[i] + fs * 0.87; });
+    flushIcons(c); c.beginPath();
+  });
+  if (ui.away.back) { const s = t('backGift', ui.away.back.gems); txt(c, s, vw / 2, y0 + 200 + (rows.length - 1) * 50, fit(c, s, pw - 40, 20, 800), '#ffb3f3', 'center', 800); }
+  button(c, ui, vw / 2 - 120, y0 + 212 + extra, 240, 64, t('ok'), { color: '#2f7d3a', fs: 26, tag: 'awayOk' }, A.awayOk);
 }
 
 // il logo del gioco (lo stesso dell'icona): sulla schermata del titolo, sopra il nome, dove c'è posto
@@ -1138,7 +1150,7 @@ function titleScreen(S) {
   button(c, ui, vw - 14 - 190, 14, 190, 46, t('account'), { color: '#2f5d7a', fs: 18, tag: 'titleAccount' }, A.account);
 }
 
-const K = { txt, width, panel, scroll, ribbon, head, fit, rule, shade, PEN, PEN2, PENBAD, PENOK, PENRED, SERIF, title2, wrap, button, block, dim, bar, bubble, moon, cross, card, heart, lock, coin, costRow, costRowPlain, tuzu2d, tuzu2dNow, tuzuIcon, flushIcons, enemyIcon, tracePoly, buildIcon, check, hammer, swap, fmtTime, RES_ICON, RES_COL, CREAM, DIM, BAD, GOLD };
+const K = { title2, GOLD2: '#ffd24a', txt, width, panel, scroll, ribbon, head, fit, rule, shade, PEN, PEN2, PENBAD, PENOK, PENRED, SERIF, title2, wrap, button, block, dim, bar, bubble, moon, cross, card, heart, lock, coin, costRow, costRowPlain, tuzu2d, tuzu2dNow, tuzuIcon, flushIcons, enemyIcon, tracePoly, buildIcon, check, hammer, swap, fmtTime, RES_ICON, RES_COL, CREAM, DIM, BAD, GOLD };
 let vig = null;
 /** Disegna tutta l'interfaccia in coordinate logiche (0..vw, 0..vh). */
 export function drawUi(S) { drawAll(S); flushIcons(S.c); }
@@ -1173,7 +1185,7 @@ function drawAll(S) {
   if (ui.lost) W.lostPanel(S, K);
   else if (ui.drillEnd) W.drillPanel(S, K);
   else if (ui.away) awayPanel(S);
-  else if (ui.daily) dailyPanel(S);
+  else if (ui.daily) Q.giftPanel(S, K);
   else if (ui.story != null) X.storyPanel(S, K);
   else if (ui.eventOpen) X.eventPanel(S, K);
   else if (ui.news) newsPanel(S);

@@ -72,7 +72,7 @@ export function incoming(S, K) {
   // nemico mai visto: una riga sopra che dice come affrontarlo
   const fresh = types.find(ty => ty !== 'orco' && !world.d.seen[ty]);
   if (fresh) {
-    const tip = t('tip_' + fresh), head = t('newEnemy') + ': ' + t('e_' + fresh), tw = Math.min(maxW + 220, Math.max(K.width(c, tip, 13.5, 600), K.width(c, head, 15, 800)) + 66);
+    const tip = t('tip_' + fresh), head = t('newEnemy') + ': ' + t('e_' + fresh), tw = Math.min(maxW + 220, Math.max(K.width(c, tip, 13.5, 700), K.width(c, head, 15, 700, true)) + 74);      // l'intestazione è scritta col carattere a grazie: va misurata con quello
     K.scroll(c, x, y - 58, tw, 50, 12);
     K.enemyIcon(c, fresh, x + 26, y - 32, 0.9, T0.color, T0.eyes);
     K.head(c, head, x + 52, y - 43, 15, K.PENRED, 'left', false); K.txt(c, tip, x + 52, y - 23, 13.5, K.PEN, 'left', 700);

@@ -3,16 +3,18 @@
 // Le gemme stanno nel salvataggio (d.gems). Si comprano con soldi veri (pay.js chiama grantPack quando il negozio del telefono dice
 // che l'acquisto è andato) e un poco si trovano giocando: lo scrigno del giorno e il premio della settimana.
 // Con le gemme: casse di materiali, «compra ciò che manca», un anticipo della notte in più, una spedizione che torna subito.
-import { SHOP, NIGHT } from './data.js';
+import { SHOP, NIGHT, GIFT7, BACK, CROPS } from './data.js';
+
+const DAY = 86400000, HOUR = 3600000;
 
 export function extend4(World) {
   const RULES = () => World.RULES;
-  const P = World.prototype, claimWeek0 = P.claimWeek, earlyMax0 = P.earlyMax;
+  const P = World.prototype, claimWeek0 = P.claimWeek, earlyMax0 = P.earlyMax, offline0 = P.offline;
   Object.assign(P, {
     gems() { return Math.max(0, Math.floor(this.d.gems || 0)); },
     addGems(n, why) {
       n = Math.max(0, Math.floor(n)); if (!n) return this.gems();
-      this.d.gems = this.gems() + n; this.events.push({ k: 'gems', n, why }); return this.d.gems;
+      this.d.gems = this.gems() + n; (this.events || (this.events = [])).push({ k: 'gems', n, why }); return this.d.gems;
     },
     spendGems(n) {
       n = Math.ceil(n); if (!(n > 0) || this.gems() < n) return false;
@@ -89,7 +91,53 @@ export function extend4(World) {
       const p = SHOP.gemPacks.find(x => x.id === id); if (!p) return 0;
       const seen = this.d.txs || (this.d.txs = []);
       if (tx) { const key = String(tx).slice(-40); if (seen.includes(key)) return 0; seen.push(key); if (seen.length > 80) seen.shift(); }
-      this.d.paid = (this.d.paid || 0) + 1; this.addGems(p.gems, 'buy'); return p.gems;
+      const n = p.gems * (this.firstBuy() ? SHOP.first : 1);
+      this.d.paid = (this.d.paid || 0) + 1; this.addGems(n, 'buy'); return n;
+    },
+    /** Il primo acquisto vale doppio. */
+    firstBuy() { return !this.d.paid; },
+
+    // ---------- il regalo del giorno: sette giorni di fila, sempre più ricco, poi si ricomincia ----------
+    daily(now) {
+      const day = Math.floor(now / DAY);
+      if (day <= this.d.dailyDay) return { available: false, streak: this.d.streak || 0 };
+      const streak = day === this.d.dailyDay + 1 ? ((this.d.streak || 0) % GIFT7.length) + 1 : 1, gift = GIFT7[streak - 1];
+      return { available: true, amount: gift.monete, streak, gift };
+    },
+    claimDaily(now) {
+      const dly = this.daily(now); if (!dly.available) return 0;
+      this.d.dailyDay = Math.floor(now / DAY); this.d.streak = dly.streak;
+      const g = { ...dly.gift }, gems = g.gems || 0; delete g.gems;
+      this.gain(g); if (gems) this.addGems(gems, 'gift');
+      return dly.amount;
+    },
+
+    // ---------- bentornato: chi manca da giorni trova qualche gemma ----------
+    offline(now) {
+      const gap = now - (this.d.lastSeen || now);
+      offline0.call(this, now);
+      if (gap >= BACK.days * DAY && this.d.night >= 1) {
+        this.addGems(BACK.gems, 'back');
+        this.away = this.away || { got: {}, mins: Math.round(gap / 60000) };
+        this.away.back = { gems: BACK.gems, days: Math.floor(gap / DAY) };
+      }
+    },
+
+    // ---------- gli avvisi da programmare quando il gioco si chiude: [{ k, at }] ----------
+    // night: è l'ora della notte · scout: il primo esploratore torna · crop: tutti i campi sono maturi · gift: il regalo di domani ·
+    // back, back2: due richiami se non si torna (dopo due e dopo cinque giorni)
+    notifyPlan(now = this.now) {
+      const out = [], later = (k, at) => { if (at > now + 5 * 60000) out.push({ k, at: Math.round(at) }); };
+      if (RULES().clock && this.status === 'day' && this.d.nightAt) later('night', this.d.nightAt);
+      let trip = 0; for (const tr of this.d.trips) { const e = tr.at + tr.ms; if (e > now && (!trip || e < trip)) trip = e; }
+      if (trip) later('scout', trip);
+      let crop = 0; const ck = this.cropK() || 1;
+      for (const b of this.d.buildings) if (b.type === 'campo' && b.crop && CROPS[b.crop.crop]) { const e = b.crop.at + CROPS[b.crop.crop].secs * 1000 / ck; if (e > crop) crop = e; }
+      if (crop) later('crop', crop);
+      const d = new Date(now), midLocal = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime(), midUtc = (Math.floor(now / DAY) + 1) * DAY;
+      later('gift', Math.max(midLocal, midUtc) + 9 * HOUR);
+      later('back', now + 48 * HOUR); later('back2', now + 120 * HOUR);
+      return out;
     },
 
     claimWeek(now) { const r = claimWeek0.call(this, now); if (r) this.addGems(SHOP.week, 'week'); return r; },

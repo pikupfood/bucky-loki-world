@@ -85,7 +85,7 @@ function shipsTab(S, K, x, y, w, h) {
     const bx = x + (i % cols) * (cw + 10), by = ny + 26 + fixRow + Math.floor(i / cols) * (ch + 6), chk = world.shipCheck(ty), ok = chk === 'ok';
     K.card(c, bx, by, cw, ch, ok);
     shipIcon(c, ty, bx + 36, by + ch / 2 - 6, 18, 0);
-    { const nm = t('ship_' + ty), sk = t('sk_' + ty); K.head(c, nm, bx + 74, by + 20, K.fit(c, nm, cw - 82, 16, 700, true), ok ? '#ffe9a8' : '#b9b2a4'); K.txt(c, sk, bx + 74, by + 40, K.fit(c, sk, cw - 82, 12, 600), K.DIM, 'left', 600); }
+    { const nm = t('ship_' + ty), sk = t('sk_' + ty); K.head(c, nm, bx + 74, by + 20, K.fit(c, nm, cw - 82, 16, 700, true), ok ? '#ffe9a8' : '#b9b2a4'); if (K.width(c, sk, 12, 600) <= cw - 84) K.txt(c, sk, bx + 74, by + 40, 12, K.DIM, 'left', 600); else K.wrap(c, sk, bx + 74, by + 35, cw - 86, 11, K.DIM, 12, 'left'); }      // una descrizione lunga va su due righe, non fuori dalla scheda
     if (chk === 'ok' || chk === 'cost') K.costRow(c, world, SHIPS[ty].cost, bx + 74, by + ch - 16, 13.5, 1, true);
     else { const es = t('sea_e_' + chk); K.txt(c, es, bx + 74, by + ch - 16, K.fit(c, es, cw - 82, 12.5, 700), K.BAD, 'left', 700); }
     ui.buttons.push({ x: bx, y: by, w: cw, h: ch, tag: 'shNew_' + ty, fn: () => A.fleetBuild(ty) });
