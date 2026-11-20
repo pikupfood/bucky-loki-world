@@ -11,6 +11,7 @@ import * as Y from './ui3.js';
 import * as Z from './ui4.js';
 import * as V from './ui6.js';
 import * as W from './ui7.js';
+import * as Q from './ui8.js';
 
 const F = '"Trebuchet MS","Segoe UI",Roboto,sans-serif';
 const SERIF = 'Georgia,"Palatino Linotype","Book Antiqua","Noto Serif",serif';      // i titoli: un carattere da libro di fiabe
@@ -606,7 +607,7 @@ function hud(S) {
     if (tall) { flushIcons(c); c.restore(); }
     ui.buttons.push({ x: px, y: tall ? 122 : 64, w: pw, h: 36, tag: 'moraleInfo', fn: A.moraleInfo });
   }
-  if (!raid && !isNight && !ui.place && !ui.build && !ui.multi) W.todoButton(S, K, vw - 14 - 54, (tall ? 166 : 108) + (world.fleetSlots() > 0 ? 56 : 0));
+  if (!raid && !isNight && !ui.place && !ui.build && !ui.multi) { const sy = (tall ? 166 : 108) + (world.fleetSlots() > 0 ? 56 : 0); W.todoButton(S, K, vw - 14 - 54, sy); Q.shopButton(S, K, vw - 14 - 54, sy + 56); }
   if (!raid && !isNight && !ui.place && !ui.build && world.fleetSlots() > 0) {
     const fx = vw - 14 - 54, fy = tall ? 166 : 108, out = world.d.fleet.filter(q => q.job).length;
     button(c, ui, fx, fy, 54, 48, '', { color: '#2f5d7a', tag: 'fleetHud' }, A.fleetOpen); V.anchorIcon(c, fx + 27, fy + 24, 13);
@@ -1025,7 +1026,7 @@ function newsPanel(S) {
   scroll(c, x, y, w, h, 18);
   ribbon(c, vw / 2, y - 19, Math.min(w - 60, 320), 44, t('news'), '#8a2f24', 24);
   txt(c, t('newsSub'), vw / 2, y + 52, 15, PEN2, 'center', 700);
-  const icon = [(ix, iy) => W.todoIcon(c, ix, iy, 13), (ix, iy) => W.tribeMark(c, 0, ix, iy, 14), (ix, iy) => buildIcon(c, 'trappola', ix, iy - 3, 15, 0), (ix, iy) => check(c, ix, iy, 13, '#2f7d3a'), (ix, iy) => W.bannerIcon(c, 0, 0, ix, iy - 2, 13)];
+  const icon = [(ix, iy) => Q.gem(c, ix, iy, 13), (ix, iy) => { c.beginPath(); coin(c, ix, iy, 12); c.beginPath(); }, (ix, iy) => hammer(c, ix, iy, 13), (ix, iy) => { c.beginPath(); wood(c, ix, iy, 12); c.beginPath(); }, (ix, iy) => moon(c, ix, iy, 12)];
   for (let i = 0; i < 5; i++) {
     const ry = y + 84 + i * rowH;
     c.beginPath(); c.arc(x + 44, ry + rowH / 2 - 6, 24, 0, TAU); c.fillStyle = 'rgba(122,84,40,0.14)'; c.fill(); c.strokeStyle = 'rgba(122,84,40,0.45)'; c.lineWidth = 1.4; c.stroke();
@@ -1187,7 +1188,9 @@ function drawAll(S) {
   else if (ui.settings) settingsPanel(S);
   else if (ui.todo) W.todoPanel(S, K);
   else if (ui.vBanner) W.bannerPanel(S, K);
+  else if (ui.shop) Q.shopPanel(S, K);
+  if (ui.need) Q.needPanel(S, K);
   if (ui.langPick) langPanel(S);
   // il dito: mai sopra un foglio che aspetta una risposta; dentro un pannello grande (scoperte, flotta…) indica solo bottoni
-  if (!(ui.lost || ui.drillEnd || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.reportOpen || ui.online || ui.seaOpen || ui.news || ui.langPick || ui.todo || ui.vBanner || ui.multi)) Y.finger(S, K, !!(ui.roles || ui.quests || ui.tech || ui.settings || ui.fleet));
+  if (!(ui.lost || ui.drillEnd || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.reportOpen || ui.online || ui.seaOpen || ui.news || ui.langPick || ui.todo || ui.vBanner || ui.multi || ui.shop || ui.need)) Y.finger(S, K, !!(ui.roles || ui.quests || ui.tech || ui.settings || ui.fleet));
 }

@@ -9,6 +9,8 @@ import {
 } from './data.js';
 import { extend } from './world2.js';
 import { extend3 } from './world3.js';
+import { extend4 } from './world4.js';
+import { SHOP } from './data.js';
 
 const N = COLS * ROWS, DAY = 86400000, AWAY_CAP = 2 * 3600 * 1000, RAID_MAX = 240;
 const DAILY = [50, 75, 100, 125, 150, 200, 300];
@@ -38,7 +40,7 @@ function fresh(now) {
     v: 4, map: 4, res: { ...START }, castle: 1, night: 0, nextId: 2, goal: 0, mood: 0, stats: {},
     diff: World.RULES.diff, roles: { bosco: 0, pietra: 0, campi: 0, cantiere: 0 }, rally: null, hero: { lvl: 1, xp: 0, items: {} }, weather: 'sole',
     trips: [], reports: [], fed: 1, trophy: {}, crowns: 0, chal: null, endAt: 0, rebuild: [], pvpSeen: [], pvpName: '', seenB: null, fleet: [], shipId: 0, sea: { pirates: 1 }, seaReports: [],
-    event: null, evNight: 0, fog: null, ruins: {}, met: {}, shards: [], story: -1, extra: 0,
+    event: null, evNight: 0, fog: null, ruins: {}, met: {}, shards: [], story: -1, extra: 0, gems: SHOP.start,
     buildings: [{ id: 1, type: 'castello', c: CASTLE.c, r: CASTLE.r, hp: castleHp(1) }],
     cut: [], tech: {}, villages: TRIBES.map(t => ({ level: t.level, state: 'free', since: 0, until: 0, trades: 0, rel: REL.start })),
     quests: QUEST_SLOTS.map(() => ({ n: 0, p: 0 })), seen: {}, dailyDay: 0, streak: 0, lastSeen: now,
@@ -73,7 +75,7 @@ export class World {
       if (d.stats.conquer == null) d.stats.conquer = d.villages.filter(v => v.state === 'colony').length;
       d.dailyDay = data.dailyDay || 0; d.streak = data.streak || 0; d.lastSeen = data.lastSeen || now;
       d.diff = DIFFS[data.diff] ? data.diff : 'facile';                  // i salvataggi di prima restano com'erano
-      for (const k of ['rally', 'weather', 'event', 'evNight', 'ruins', 'met', 'shards', 'story', 'extra', 'fed', 'trophy', 'crowns', 'chal', 'endAt', 'pvpName', 'week', 'bonusDay', 'vname', 'banner']) if (data[k] != null) d[k] = data[k];
+      for (const k of ['rally', 'weather', 'event', 'evNight', 'ruins', 'met', 'shards', 'story', 'extra', 'fed', 'trophy', 'crowns', 'chal', 'endAt', 'pvpName', 'week', 'bonusDay', 'vname', 'banner', 'gems', 'shop', 'txs', 'earlyBuy', 'gemsSpent', 'paid']) if (data[k] != null) d[k] = data[k];
       if (Array.isArray(data.pvpSeen)) d.pvpSeen = data.pvpSeen.slice(-80);
       if (data.seenB && typeof data.seenB === 'object') d.seenB = { ...data.seenB };
       if (Array.isArray(data.fleet)) d.fleet = data.fleet.filter(s => s && SHIPS[s.type] && isFinite(s.id)).map(s => ({ id: s.id, type: s.type, lvl: Math.max(0, Math.min(SHIP_MAX - 1, s.lvl | 0)), hp: Math.max(1, +s.hp || 1), job: s.job && isFinite(s.job.at) && s.job.ms > 0 ? { ...s.job } : null }));
@@ -1353,3 +1355,4 @@ export class World {
 World.RULES = { ease: true, clock: true, buildTime: true, diff: 'normale', fog: true, hero: true, events: true, life: true, food: true, levels: true, tribes: true, siege: true, dipl: true, roads: true, sea: true };
 extend(World);
 extend3(World);
+extend4(World);

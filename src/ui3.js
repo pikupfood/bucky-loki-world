@@ -2,6 +2,7 @@
 // il dito del Tuzu guida, il gruppo di soldati scelto, i trofei. Come ui2.js: ogni funzione riceve S (il fotogramma) e K (gli attrezzi).
 import { SHIPS, TECHS, TERRAIN, G, COLS, ROWS, WORLD_W, WORLD_H, TRIBES, MY_COLOR, RUINS, FOG, FW, FH, PEAKS, HILLS, NATURE, TRAITS, TROPHIES, BUILD, CROPS, TECH_ORDER, CASTLE_UP, UNITS, SHIP_ORDER } from './data.js';
 import { t } from './i18n.js';
+import { gem } from './ui8.js';
 
 const TAU = Math.PI * 2;
 /** L'ora di un momento, come su un orologio: 17:40. */
@@ -206,7 +207,8 @@ export function mapPanel(S, K) {
     K.card(c, x + 18, yy, tw, 46, false);
     K.tuzuIcon(c, 'esplora', x + 38, yy + 26, 9, MY_COLOR);
     if (ask) K.button(c, ui, x + 58, yy + 6, tw - 92, 34, t('recallAsk'), { color: '#7a3a2c', fs: 14, r: 9, tag: 'recallYes' }, () => A.recall(tr.id));
-    else { K.bar(c, x + 60, yy + 28, tw - 96, 7, a.p, '#ffd24a'); K.txt(c, fmtH(a.left) + ' · ' + t('tripAt', clock(tr.at + tr.ms)), x + 60, yy + 15, 13, '#ffe9a8', 'left', 800); }
+    else { const hg = world.hurryCost(tr, now), hw = hg ? 72 : 0; K.bar(c, x + 60, yy + 28, tw - 96 - hw, 7, a.p, '#ffd24a'); K.txt(c, fmtH(a.left) + ' · ' + t('tripAt', clock(tr.at + tr.ms)), x + 60, yy + 15, K.fit(c, fmtH(a.left) + ' · ' + t('tripAt', clock(tr.at + tr.ms)), tw - 96 - hw, 13, 800), '#ffe9a8', 'left', 800);
+      if (hg) { const hx = x + 18 + tw - 36 - 70; K.button(c, ui, hx, yy + 8, 64, 30, '', { color: '#7a2f8a', r: 9, tag: 'hurry' }, () => A.hurry(tr.id)); K.txt(c, String(hg), hx + 40, yy + 24, 14, '#ffe3fb', 'center', 800); gem(c, hx + 16, yy + 23, 7); } }
     K.button(c, ui, x + 18 + tw - 36, yy + 8, 30, 30, '', { color: ask ? '#5c4330' : '#6b4a2c', r: 15, tag: 'recall' }, () => { M.recall = ask ? null : tr.id; }); K.cross(c, x + 18 + tw - 21, yy + 23, 6);
     yy += 52;
   }

@@ -47,9 +47,9 @@ export const villageHp = (L) => 500 + 400 * (L - 1);
 export function villageGuards(L) { const o = { orco: 3 + 2 * L }; if (L >= 2) o.bruto = L - 1; if (L >= 4) o.capo = 1; return o; }
 const GOOD_RATE = { monete: 6, legna: 8, pietra: 6, ferro: 3, cristallo: 2 };
 /** Il bottino di una conquista. */
-export function villageLoot(t, L) { const o = { monete: 120 + 80 * L, legna: 60 * L, pietra: 40 * L }; o[t.good] = (o[t.good] || 0) + GOOD_RATE[t.good] * 10 * L; return o; }
+export function villageLoot(t, L) { const o = { monete: 120 + 80 * L, legna: 60 * L, pietra: 40 * L }; o[t.good] = (o[t.good] || 0) + GOOD_RATE[t.good] * 10 * L; for (const k in o) o[k] = Math.round(o[k] * ECON.loot); return o; }
 /** Quello che una colonia paga al minuto. */
-export function villageTribute(t, L) { const o = { monete: 4 + 2 * L }; o[t.good] = (o[t.good] || 0) + GOOD_RATE[t.good]; return o; }
+export function villageTribute(t, L) { const o = { monete: 4 + 2 * L }; o[t.good] = (o[t.good] || 0) + GOOD_RATE[t.good]; for (const k in o) o[k] = Math.max(1, Math.round(o[k] * ECON.tribute)); return o; }
 /** Il dono che un villaggio chiede per allearsi (o per rinnovare l'alleanza). */
 export function allyCost(t, L) { const o = { monete: 80 + 60 * L }; o[t.wants] = (o[t.wants] || 0) + 30 * L; return o; }
 /** Quanti guerrieri manda un alleato a difenderti di notte. */
@@ -679,3 +679,50 @@ export const SELL_ORDER = ['legna', 'pietra', 'cibo', 'ferro', 'cristallo'];
 // ---------- il mondo online: quanto vale ogni cosa nella forza di un villaggio (le stesse cifre stanno nel server: tools/dw_online.sql) ----------
 export const PVP_UNIT = { lancia: 10, arco: 11, corazza: 26, cavallo: 18, cura: 9, ariete: 22 };
 export const PVP_TOWER = { arcieri: [20, 34, 56], mago: [26, 44, 72], catapulta: [30, 50, 80], braciere: [24, 40, 66], radici: [14, 22, 34] };
+
+// =====================================================================
+//  Economia più dura e negozio (20/11/2026, richiesta del titolare: «rendi un po' più difficile il recupero di materiali che poi ti
+//  servono per costruire, per aumentare di livello, per scoprire, per avanzare», perché il solo guadagno è il negozio).
+//  Le tabelle qui sopra restano quelle di prima: questo blocco le ritocca in un punto solo. L'inizio (castello 1, edifici del primo
+//  livello, salita al castello 2, premi della guida) NON cambia: «all'inizio dobbiamo assistere il giocatore in tutto».
+// =====================================================================
+export const ECON = {
+  prod: 0.85,                                  // quello che gli edifici rendono al minuto
+  chop: { tree: 6, rock: 5, iron: 7, crystal: 5 },      // erano 7, 6, 8, 6
+  crop: 0.85,                                  // le monete di un raccolto (il cibo resta com'era)
+  market: 1.3,                                 // al Mercato i materiali costano di più
+  castle: [1, 1, 1.3, 1.5, 1.7],               // salire dal livello L al successivo (il primo passo non cambia)
+  tech: 1.4, techEasy: 1.2,                    // le scoperte (ferro e aratro, le prime, salgono meno)
+  level: [1.3, 1.5, 1.5, 1.5],                 // i livelli degli edifici
+  build: [1, 1, 1.15, 1.3, 1.3, 1.3],          // costruire, secondo il castello che serve
+  ship: 1.2,                                   // le navi. Torri, mura e soldati NON rincarano: la difesa della notte resta alla portata
+  tribute: 0.8, loot: 0.9,                     // colonie e bottino
+};
+(function () {
+  const r5 = (v) => (v < 20 ? Math.max(1, Math.round(v)) : Math.round(v / 5) * 5);
+  const mul = (o, k) => { if (o && k !== 1) for (const key in o) o[key] = r5(o[key] * k); };
+  for (const k in BUILD) { const B = BUILD[k]; mul(B.prod, ECON.prod); if (B.cost && B.cat !== 'dif' && B.cat !== 'mura') mul(B.cost, ECON.build[B.min || 1] || 1); }
+  for (const k in CHOP) CHOP[k].gain = ECON.chop[k];
+  for (const k in CROPS) CROPS[k].gain = r5(CROPS[k].gain * ECON.crop);
+  for (const k in TRADE) TRADE[k].cost = r5(TRADE[k].cost * ECON.market);
+  CASTLE_UP.forEach((u, L) => { if (u) mul(u.cost, ECON.castle[L] || 1); });
+  for (const k in TECHS) mul(TECHS[k].cost, k === 'ferro' || k === 'aratro' ? ECON.techEasy : ECON.tech);
+  for (const k in LEVELS) LEVELS[k].forEach((c, i) => mul(c, ECON.level[i] || 1.6));
+  for (const k in SHIPS) mul(SHIPS[k].cost, ECON.ship);
+})();
+
+// ---------- il negozio: le gemme ----------
+// Le gemme si comprano con soldi veri (gemPacks: l'id è quello del prodotto su Google Play e App Store; il prezzo che si vede è quello
+// che dice il negozio del telefono, `eur` serve solo dove il negozio non risponde) e un poco si trovano giocando (scrigno del giorno,
+// premio della settimana). Con le gemme: casse di materiali (packs: [materiale, quanto, gemme, scoperta]; la quantità cresce col castello),
+// «compra ciò che manca» (perGem = quanto materiale vale una gemma, già col rincaro della comodità), un anticipo della notte, una
+// spedizione che torna subito (hurry gemme all'ora, almeno hurryMin).
+export const SHOP = {
+  start: 30,
+  chest: { gems: 2, res: { monete: 60, legna: 40 } },
+  packs: [['monete', 500, 30], ['legna', 400, 30], ['pietra', 300, 30], ['cibo', 200, 20], ['ferro', 150, 40, 'ferro'], ['cristallo', 80, 50, 'cristallo']],
+  big: { k: 5, price: 4 },                     // la cassa grande: cinque volte tanto al prezzo di quattro
+  perGem: { monete: 13, legna: 10, pietra: 8, cibo: 8, grano: 8, ferro: 3, cristallo: 1.3 },
+  early: 20, hurry: 8, hurryMin: 5, week: 10,
+  gemPacks: [{ id: 'gems_80', gems: 80, eur: '0,99 €' }, { id: 'gems_500', gems: 500, eur: '4,99 €' }, { id: 'gems_1200', gems: 1200, eur: '9,99 €' }, { id: 'gems_3000', gems: 3000, eur: '19,99 €' }],
+};
