@@ -221,6 +221,9 @@ const S = {
     cloudDel: 'Cancella account',
     cloudDelText: 'Cancelli per sempre il tuo account Tuzu: il villaggio nel cloud, il mondo online e i tuoi dati negli altri servizi Tuzu. Non si può annullare.',
     cloudDelYes: 'Cancella per sempre', cloudDelNo: 'Annulla', cloudDeleted: 'Account cancellato. Il villaggio resta su questo telefono.',
+    on_visit: 'Visita il villaggio', on_visitEmpty: 'Questo villaggio non ha ancora mandato la sua pianta.', on_week: 'Settimana', on_total: 'Sempre',
+    on_msgWait: 'Aspetta un momento prima di un altro messaggio.', on_msg0: 'Attacchiamo!', on_msg1: 'Aiuto!', on_msg2: 'Raduno pronto', on_msg3: 'Grazie', on_msg4: 'Ben fatto',
+    on_msg5: 'Ci sono',
   },
   fr: {
     title: 'Tuzuland', subtitle: 'Ton village parmi les peuples Tuzu',
@@ -441,6 +444,9 @@ const S = {
     cloudDel: 'Supprimer le compte',
     cloudDelText: 'Tu supprimes pour toujours ton compte Tuzu : le village dans le cloud, le monde en ligne et tes données des autres services Tuzu. C\'est définitif.',
     cloudDelYes: 'Supprimer pour toujours', cloudDelNo: 'Annuler', cloudDeleted: 'Compte supprimé. Le village reste sur ce téléphone.',
+    on_visit: 'Visiter le village', on_visitEmpty: 'Ce village n\'a pas encore envoyé son plan.', on_week: 'Semaine', on_total: 'Toujours',
+    on_msgWait: 'Attends un instant avant un autre message.', on_msg0: 'On attaque !', on_msg1: 'À l\'aide !', on_msg2: 'Ralliement prêt', on_msg3: 'Merci', on_msg4: 'Bien joué',
+    on_msg5: 'J\'en suis',
   },
   en: {
     title: 'Tuzuland', subtitle: 'Your village among the Tuzu peoples',
@@ -653,6 +659,8 @@ const S = {
     moveManyOk: 'Move here',
     cloudDel: 'Delete account', cloudDelText: 'This deletes your Tuzu account for good: the village in the cloud, the online world and your data in other Tuzu services. It cannot be undone.',
     cloudDelYes: 'Delete forever', cloudDelNo: 'Cancel', cloudDeleted: 'Account deleted. The village stays on this phone.',
+    on_visit: 'Visit the village', on_visitEmpty: 'This village has not sent its layout yet.', on_week: 'This week', on_total: 'All time', on_msgWait: 'Wait a moment before another message.',
+    on_msg0: 'Let\'s attack!', on_msg1: 'Help!', on_msg2: 'Rally ready', on_msg3: 'Thanks', on_msg4: 'Well done', on_msg5: 'I\'m in',
   },
 };
 

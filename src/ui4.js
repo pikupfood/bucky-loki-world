@@ -1,6 +1,8 @@
 // Lo schermo del MONDO online: la mappa di tutti i villaggi (giocatori e computer), gli attacchi e i raduni, la classifica,
 // l'alleanza, i rapporti. Come gli altri file dell'interfaccia: ogni funzione riceve S (il fotogramma) e K (gli attrezzi di ui.js).
 // ui.online = { tab: 'map' | 'rank' | 'ally' | 'reports', sel: id del villaggio scelto, cam: { x, y, z }, pick: scelta dei soldati, msg }
+import { BUILD as BLD } from './data.js';
+import { bannerIcon } from './ui7.js';
 import { MY_COLOR, UNIT_ORDER } from './data.js';
 import { t } from './i18n.js';
 import { drawText } from './text.js';
@@ -165,6 +167,35 @@ function picker(S, K, x, y, w) {
 }
 
 /** Il pannello accanto alla mappa: il villaggio scelto e cosa ci puoi fare, oppure i tuoi eserciti in marcia. */
+const VIS_COL = { eco: '#c98a4a', off: '#8a7ad0', dif: '#b5553f', mura: '#8d8f99', acqua: '#4a8fc0', bel: '#5aa35a' };
+/** In visita: la pianta del villaggio di un altro, vista dall'alto. Solo guardare. */
+function visitPanel(S, K) {
+  const { c, ui, vw, vh, A } = S, V = O.state.visit, v = V && O.byId(V.id);
+  c.fillStyle = 'rgba(8,8,18,0.72)'; c.fillRect(0, 0, vw, vh); K.block(ui, 0, 0, vw, vh);
+  const w = Math.min(760, vw - 20), h = Math.min(720, vh - 20), x = vw / 2 - w / 2, y = vh / 2 - h / 2;
+  K.panel(c, x, y, w, h, 16, 0.97);
+  const name = v ? v.name : '?';
+  K.head(c, name, x + 62, y + 34, K.fit(c, name, w - 150, 24, 700, true), '#ffe9a8');
+  bannerIcon(c, V && V.banner != null ? (V.banner >> 3) & 7 : 0, V && V.banner != null ? V.banner & 7 : 0, x + 34, y + 32, 15);
+  if (v) K.txt(c, t('level') + ' ' + v.castle + ' · ' + t('on_wins') + ' ' + v.wins, x + 62, y + 58, 13.5, K.DIM, 'left', 700);
+  K.button(c, ui, x + w - 56, y + 10, 44, 44, '', { color: '#7a3a2c', r: 22, tag: 'wVisitClose' }, A.onlineVisitClose); K.cross(c, x + w - 34, y + 32, 10);
+  const ax = x + 16, ay = y + 76, aw = w - 32, ah = h - 92;
+  c.beginPath(); c.roundRect(ax, ay, aw, ah, 12); c.fillStyle = '#5f9a4a'; c.fill(); c.strokeStyle = 'rgba(233,196,106,0.5)'; c.lineWidth = 1.5; c.stroke();
+  const L = V && Array.isArray(V.layout) ? V.layout.filter(q => Array.isArray(q) && BLD[q[0]]) : [];
+  if (!V || V.loading) { K.txt(c, t('on_loading'), vw / 2, ay + ah / 2, 16, '#fff6dc', 'center', 700); return; }
+  if (!L.length) { K.wrap(c, t('on_visitEmpty'), vw / 2, ay + ah / 2 - 10, aw - 60, 16, '#fff6dc', 22); return; }
+  let c0 = 0, r0 = 0, c1 = 3, r1 = 3;
+  // l'inquadratura guarda il cuore del villaggio: quello che sta oltre venti quadretti dal castello resta fuori (un edificio lontano rimpiccioliva tutto)
+  for (const [ty, dc, dr] of L) { const D = BLD[ty]; if (Math.abs(dc) > 20 || Math.abs(dr) > 20) continue; c0 = Math.min(c0, dc); r0 = Math.min(r0, dr); c1 = Math.max(c1, dc + D.w); r1 = Math.max(r1, dr + D.h); }
+  const cs = Math.max(4, Math.min(30, (aw - 24) / (c1 - c0), (ah - 24) / (r1 - r0))), ox = ax + (aw - (c1 - c0) * cs) / 2 - c0 * cs, oy = ay + (ah - (r1 - r0) * cs) / 2 - r0 * cs;
+  c.save(); c.beginPath(); c.roundRect(ax, ay, aw, ah, 12); c.clip();
+  const box = (dc, dr, bw, bh, col, flat) => { c.beginPath(); c.roundRect(ox + dc * cs + 1, oy + dr * cs + 1, bw * cs - 2, bh * cs - 2, Math.min(5, cs * 0.25)); c.fillStyle = col; c.globalAlpha = flat ? 0.7 : 1; c.fill(); c.globalAlpha = 1; if (!flat) { c.strokeStyle = 'rgba(30,20,10,0.55)'; c.lineWidth = 1; c.stroke(); } };
+  for (const [ty, dc, dr] of L) { const D = BLD[ty]; if (D.deco || D.flat) box(dc, dr, D.w, D.h, ty === 'strada' || ty === 'piazza' ? '#d9c39a' : ty === 'fossato' ? '#3a7fa6' : ty === 'campo' ? '#8a5f34' : VIS_COL[D.cat] || '#999', true); }
+  for (const [ty, dc, dr] of L) { const D = BLD[ty]; if (D.deco || D.flat) continue; box(dc, dr, D.w, D.h, VIS_COL[D.cat] || '#999', false); }
+  box(0, 0, 3, 3, '#8e5bd6', false);
+  c.restore();
+  if (cs >= 15) { for (const [ty, dc, dr] of L) { const D = BLD[ty]; if (D.deco || D.flat || D.w < 2) continue; K.buildIcon(c, ty, ox + (dc + D.w / 2) * cs, oy + (dr + D.h / 2) * cs, cs * 0.5, 0); } K.buildIcon(c, 'castello', ox + 1.5 * cs, oy + 1.5 * cs, cs * 0.8, 0); }
+}
 function infoPanel(S, K, x, y, w, h) {
   const { c, ui, A } = S, U = ui.online, st = O.state, me = st.me, tw = w - 32;
   K.panel(c, x, y, w, h, 14, 0.96);
@@ -189,6 +220,7 @@ function infoPanel(S, K, x, y, w, h) {
     if (me && k !== 'me') { K.txt(c, t('on_dist', Math.round(Math.hypot(v.x - me.x, v.y - me.y))) + ' · ' + t('on_march', fmtH(O.travelSecs(me, v) * 1000)), x + 16, yy, 13.5, K.DIM, 'left', 700); yy += 22; }
     if (O.shielded(v)) { K.txt(c, t('on_shield', fmtH(secsLeft(v.shield_until) * 1000)), x + 16, yy, 13.5, '#9fe9ff', 'left', 800); yy += 22; }
     yy += 6;
+    if (v.kind === 'player' && k !== 'me') { K.button(c, ui, x + 16, yy, tw, 40, t('on_visit'), { color: '#2f5d7a', fs: 16, tag: 'wVisit' }, () => A.onlineVisit(v.id)); yy += 48; }
     if (k === 'me') { K.button(c, ui, x + 16, yy, tw, 42, t('on_rename'), { color: '#5c4330', fs: 16, tag: 'wRename' }, A.onlineRename); yy += 50; }
     else if (k === 'ally') { K.txt(c, t('on_isAlly'), x + 16, yy + 8, 14, '#9ff0b4', 'left', 800); yy += 30; }
     else if (me) {
@@ -218,7 +250,8 @@ function infoPanel(S, K, x, y, w, h) {
 
 function rankTab(S, K, x, y, w, h) {
   const { c } = S, st = O.state, me = st.me, tall = S.tall, cw = tall ? w : (w - 14) / 2;
-  const players = st.villages.filter(v => v.kind === 'player').sort((a, b) => b.score - a.score);
+  // «Settimana»: gli stessi giocatori, ordinati per i punti di questa settimana (10 a vittoria; premio ai primi dieci al cambio di settimana)
+  const wk = !!S.ui.online.week, players = st.villages.filter(v => v.kind === 'player').map(v => (wk ? { ...v, score: v.week_pts || 0 } : v)).sort((a, b) => b.score - a.score);
   const al = st.alliances.map(a => { const ms = st.villages.filter(v => v.alliance_id === a.id); return { a, n: ms.length, score: ms.reduce((s, v) => s + v.score, 0) }; }).sort((p, q) => q.score - p.score);
   const list = (lx, ly, lh, title, rows) => {
     K.panel(c, lx, ly, cw, lh, 14, 0.96); K.head(c, title, lx + 16, ly + 22, 18);
@@ -231,7 +264,9 @@ function rankTab(S, K, x, y, w, h) {
   const top = rows.slice(0, 50), mi = rows.findIndex(r => r.me);
   const lh = tall ? (h - 12) * 0.6 : h, maxRows = Math.floor((lh - 52) / 30);
   if (mi >= maxRows) top.splice(maxRows - 1, top.length, rows[mi]);       // se sono fuori dalla lista, la mia riga sta in fondo
-  list(x, y, lh, t('on_rankPlayers') + ' · ' + players.length, top);
+  list(x, y, lh, (wk ? t('on_week') : t('on_rankPlayers')) + ' · ' + players.length, top);
+  K.button(c, S.ui, x + cw - 148, y + 6, 136, 32, t(wk ? 'on_total' : 'on_week'), { color: '#34406a', fs: 14, r: 9, tag: 'wWeek' }, S.A.onlineWeek);
+  if (me && me.week_prize > 0) K.button(c, S.ui, x + cw - 148 - 176, y + 6, 168, 32, t('claim') + ' +' + me.week_prize, { color: '#2f7d3a', fs: 14, r: 9, disabled: st.busy, tag: 'wWeekClaim' }, S.A.onlineWeekClaim);
   list(tall ? x : x + cw + 14, tall ? y + lh + 12 : y, tall ? h - lh - 12 : h, t('on_rankAllies'), al.map(o => ({ name: '[' + o.a.tag + '] ' + o.a.name, info: t('on_members', o.n), score: o.score, me: !!me && me.alliance_id === o.a.id })));
 }
 
@@ -261,6 +296,12 @@ function allyTab(S, K, x, y, w, h) {
   K.txt(c, t('on_members', members.length) + '/20 · ' + t('on_score') + ' ' + members.reduce((s, v) => s + v.score, 0), x + 18, yy + 22, 13, K.DIM, 'left', 700);
   K.button(c, ui, x + w - 138, y + 10, 120, 36, t('on_leave'), { color: '#7a3a2c', disabled: st.busy, fs: 14.5, r: 10, tag: 'aLeave' }, A.onlineAllyLeave);
   yy += 44;
+  // messaggi pronti: sei frasi, niente testo libero (il server conserva solo un numero)
+  { const bw = (w - 28 - 5 * 6) / 6;
+    for (let i = 0; i < 6; i++) K.button(c, ui, x + 14 + i * (bw + 6), yy, bw, 34, t('on_msg' + i), { color: '#34406a', fs: K.fit(c, t('on_msg' + i), bw - 10, 13.5, 800), r: 9, disabled: st.busy, tag: 'aMsg' + i }, () => A.onlineMsg(i));
+    yy += 42;
+    for (const m of (st.msgs || []).slice(0, 3)) { const who = O.byId(m.village_id); K.txt(c, (who ? who.name : '?') + ': ' + t('on_msg' + Math.min(5, m.code | 0)), x + 22, yy + 8, 13.5, m.village_id === me.id ? '#ffe9a8' : K.CREAM, 'left', 700); K.txt(c, clock(Date.parse(m.at)), x + w - 22, yy + 8, 12, K.DIM, 'right', 700); yy += 22; }
+    yy += 6; }
   const rallies = st.marches.filter(m => m.kind === 'rally' && m.alliance_id === mine.id);
   if (rallies.length) { K.txt(c, t('on_rallies'), x + 18, yy + 6, 14.5, K.CREAM, 'left', 800); yy += 22; }
   for (const m of rallies) {
@@ -351,6 +392,7 @@ export function worldPanel(S, K) {
   else if (U.tab === 'ally') allyTab(S, K, x, y, w, h);
   else reportsTab(S, K, x, y, w, h);
   if (st.err && st.err !== 'soon') K.txt(c, t('on_net'), vw / 2, vh - 22, 13, K.BAD, 'center', 700);
+  if (U.visit) visitPanel(S, K);
 }
 
 /** L'icona del mondo (un globo). */

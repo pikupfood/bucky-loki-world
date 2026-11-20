@@ -243,6 +243,11 @@ const A = {
   },
   onlineClose() { ui.online = null; audio.play('tap'); },
   onlineTab(k) { ui.online.tab = k; ui.online.pick = null; audio.play('tap'); },
+  onlineVisit(id) { ui.online.visit = id; online.visit(id); audio.play('tap'); },
+  onlineVisitClose() { ui.online.visit = null; audio.play('tap'); },
+  onlineWeek() { ui.online.week = !ui.online.week; audio.play('tap'); },
+  async onlineWeekClaim() { const n = await online.weekClaim(); if (n > 0) { audio.play('won'); save(); } },
+  async onlineMsg(i) { const k = await online.msgSend(i); if (k) onlineSay(t(k === 'busy' ? 'on_msgWait' : 'on_e_' + k), true); else audio.play('tap'); },
   onlineAccount() { ui.online = null; cloud.open(); },
   onlineZoom(f) { const c = ui.online.cam; c.z = Math.max(3.5, Math.min(44, c.z * f)); },
   onlineHome() { const me = online.state.me, U = ui.online; if (me) { U.cam.x = me.x; U.cam.y = me.y; U.sel = me.id; U.pick = null; } audio.play('tap'); },
@@ -550,7 +555,7 @@ function back() {
   else if (ui.reportOpen) A.reportOk();
   else if (ui.seaOpen) A.seaOk();
   else if (ui.fleet) A.fleetClose();
-  else if (ui.online) { if (ui.online.pick) ui.online.pick = null; else ui.online = null; }
+  else if (ui.online) { if (ui.online.visit) ui.online.visit = null; else if (ui.online.pick) ui.online.pick = null; else ui.online = null; }
   else if (ui.map) ui.map = null;
   else if (ui.squad != null) ui.squad = null;
   else if (ui.quests || ui.settings || ui.tech || ui.roles) { ui.quests = ui.settings = ui.tech = ui.roles = false; }
@@ -871,7 +876,7 @@ if (view.tall && !(saved.cam && isFinite(saved.cam.x))) scene.setView((CASTLE.c 
 try { const seenNews = +(localStorage.getItem(NEWS_KEY) || 0); if (seenNews < NEWS_V) { if (world.d.night > 0 || world.d.buildings.length > 3) ui.newsDue = true; else localStorage.setItem(NEWS_KEY, String(NEWS_V)); } } catch (e) { /* niente */ }
 if (world.offRoad) setTimeout(() => { banner(t('roadMoved', world.offRoad), '#ffe9a8', 5); save(); }, world.flooded ? 8200 : 2600);
 if (world.flooded) setTimeout(() => { banner(t('riverMoved', world.flooded), '#9fe9ff', 5); save(); }, 2600);
-online.init({ getSnap: () => world.pvpSnap(), onSent: (army) => { world.pvpSend(army); save(); }, onReports: (list) => { for (const r of list) world.pvpApply(r); save(); return list.map(r => r.id); } });
+online.init({ getLayout: () => world.pvpLayout(), onPrize: (n) => { world.d.res.monete += n; banner('+' + n, '#ffe27a', 2.6); save(); }, getSnap: () => world.pvpSnap(), onSent: (army) => { world.pvpSend(army); save(); }, onReports: (list) => { for (const r of list) world.pvpApply(r); save(); return list.map(r => r.id); } });
 cloud.init({ key: KEY, beforeLeave: () => save(), getSave: () => JSON.parse(JSON.stringify(world)), t, onLoad: (data) => { frozen = true; try { const cur = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; cur.world = data; localStorage.setItem(KEY, JSON.stringify(cur)); } catch (e) { /* niente */ } window.removeEventListener('pagehide', save); location.reload(); } });
 if (saved.cam && isFinite(saved.cam.x) && saved.world && saved.world.map >= 3) scene.setView(saved.cam.x, saved.cam.y, saved.cam.dist);      // la mappa vecchia era più piccola
 console.log('[tuzu] avvio ' + view.cw + 'x' + view.ch + ' dpr ' + view.dpr + ' gl ' + (scene.r.getContext().isContextLost() ? 'PERSO' : 'ok') + ' ' + scene.r.capabilities.maxTextureSize);

@@ -12,7 +12,7 @@ const cell = (v, max) => Math.max(0, Math.min(max - 1, Math.floor(v / G)));
 
 export function extend3(World) {
   const RULES = () => World.RULES;
-  const P = World.prototype, toJSON0 = P.toJSON, checkTrophies0 = P.checkTrophies;
+  const P = World.prototype, toJSON0 = P.toJSON, checkTrophies0 = P.checkTrophies, pvpSnap0 = P.pvpSnap;
   Object.assign(P, {
     // ---------- cibo: basta per la prossima alba? ----------
     /** { on, need, have, short }: all'alba ogni abitante e ogni soldato mangia una porzione. */
@@ -225,6 +225,11 @@ export function extend3(World) {
       this.rev++;
       return chk.list.length;
     },
+
+    // ---------- mondo online: la pianta del villaggio (per chi viene in visita) e lo stemma ----------
+    /** [[tipo, colonna, riga, livello], …] contati dal castello: quello che un altro giocatore vede venendo in visita. */
+    pvpLayout() { const k = this.castle; return this.d.buildings.filter(b => b.type !== 'castello' && !(b.build > 0)).slice(0, 480).map(b => [b.type, b.c - k.c, b.r - k.r, b.lvl || 0]); },
+    pvpSnap() { const s = pvpSnap0.call(this), b = this.banner(); s.banner = b.sym * 8 + b.col; return s; },
 
     // ---------- nome e stemma del villaggio ----------
     villageName() { return String(this.d.vname || this.d.pvpName || '').slice(0, BANNER.nameMax); },

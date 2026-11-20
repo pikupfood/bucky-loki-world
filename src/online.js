@@ -4,7 +4,7 @@
 import * as cloud from './cloud.js';
 
 /** ready: le tabelle ci sono (null = non si sa) · me: il mio villaggio nel mondo · il resto: quello che tutti vedono */
-export const state = { ready: null, me: null, villages: [], alliances: [], marches: [], troops: [], reports: [], incoming: [], busy: false, err: '', at: 0, loadedAt: 0, offset: 0 };
+export const state = { ready: null, me: null, villages: [], alliances: [], marches: [], troops: [], reports: [], incoming: [], msgs: [], visit: null, layKey: '', busy: false, err: '', at: 0, loadedAt: 0, offset: 0 };
 let cfg = null;      // { getSnap(), onReports(list) -> ids, onSent(army) }
 export function init(c) { cfg = c; }
 
@@ -31,7 +31,11 @@ export async function sync(name) {
   if (state.demo) return true;          // solo per le prove: un mondo finto messo a mano in state
   if (!cloud.state.user || state.ready === false) return false;
   try {
-    const r = await rpc('dw_sync', { p_name: name || null, p_snap: cfg.getSnap() });
+    // la pianta del villaggio pesa: parte solo quando è cambiata dall'ultima volta che il server l'ha presa
+    const snap = cfg.getSnap(), lay = cfg.getLayout ? cfg.getLayout() : null, key = lay ? JSON.stringify(lay) : '';
+    if (lay && key !== state.layKey) snap.layout = lay;
+    const r = await rpc('dw_sync', { p_name: name || null, p_snap: snap });
+    state.layKey = key;
     state.ready = true; state.me = r.me; state.err = ''; state.at = Date.now();
     if (r.now) state.offset = Date.parse(r.now) - Date.now();
     if (r.reports && r.reports.length) { const ids = cfg.onReports(r.reports); if (ids && ids.length) await rpc('dw_ack', { p_ids: ids }); }
@@ -57,7 +61,7 @@ export async function load() {
   try {
     const s = await cloud.getClient();
     const [v, a, m, rp] = await Promise.all([
-      s.from('dw_villages').select('id,user_id,kind,name,color,x,y,castle,night,level,born,power,score,wins,losses,alliance_id,shield_until').limit(5000),
+      s.from('dw_villages').select('id,user_id,kind,name,color,x,y,castle,night,level,born,power,score,wins,losses,alliance_id,shield_until,banner,week_pts').limit(5000),
       s.from('dw_alliances').select('*').limit(1000),
       s.from('dw_marches').select('*').neq('status', 'done').limit(500),
       s.from('dw_reports').select('*').order('at', { ascending: false }).limit(30),
@@ -67,6 +71,7 @@ export async function load() {
     const ids = state.marches.map(o => o.id);
     if (ids.length) { const tr = await s.from('dw_troops').select('*').in('march_id', ids); if (tr.error) throw tr.error; state.troops = tr.data || []; } else state.troops = [];
     state.ready = true; state.loadedAt = Date.now(); state.err = '';
+    if (state.me && state.me.alliance_id) await msgs(); else state.msgs = [];
     if (state.me) state.me = byId(state.me.id) ? { ...state.me, ...byId(state.me.id) } : state.me;
     return true;
   } catch (e) { const k = why(e); if (k === 'soon') state.ready = false; state.err = k; return false; }
@@ -82,6 +87,25 @@ async function act(fn, args, sent) {
     await sync(); await load();
     state.busy = false; return '';
   } catch (e) { state.busy = false; return why(e); }
+}
+/** In visita: la pianta di un villaggio (solo guardare). */
+export async function visit(id) {
+  state.visit = { id, loading: true };
+  if (state.demo) { state.visit = { id, layout: cfg.getLayout ? cfg.getLayout() : [], banner: 0 }; return; }
+  try { const s = await cloud.getClient(), q = await s.from('dw_villages').select('id,layout,banner').eq('id', id).limit(1); if (q.error) throw q.error; const r = (q.data || [])[0] || {}; state.visit = { id, layout: Array.isArray(r.layout) ? r.layout : [], banner: r.banner | 0 }; }
+  catch (e) { state.visit = { id, layout: [], err: true }; }
+}
+/** I messaggi pronti della mia alleanza (il server mostra solo quelli). */
+export async function msgs() {
+  if (state.demo) return;
+  try { const s = await cloud.getClient(), q = await s.from('dw_msgs').select('id,village_id,code,at').order('at', { ascending: false }).limit(20); state.msgs = q.error ? [] : q.data || []; } catch (e) { /* al prossimo giro */ }
+}
+export const msgSend = (code) => act('dw_msg_send', { p_code: code });
+/** Ritira il premio della settimana scorsa: il server dice quante monete, il gioco le aggiunge. */
+export async function weekClaim() {
+  if (state.busy || state.demo) return 0;
+  state.busy = true;
+  try { const n = (await rpc('dw_week_claim', {})) | 0; if (n > 0 && cfg.onPrize) cfg.onPrize(n); await sync(); state.busy = false; return n; } catch (e) { state.busy = false; return 0; }
 }
 export const attack = (target, army) => act('dw_attack', { p_target: target, p_army: army }, army);
 export const rallyOpen = (target, minutes, army) => act('dw_rally_open', { p_target: target, p_minutes: minutes, p_army: army }, army);
