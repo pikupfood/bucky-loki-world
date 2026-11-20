@@ -3,16 +3,75 @@
 // Le gemme stanno nel salvataggio (d.gems). Si comprano con soldi veri (pay.js chiama grantPack quando il negozio del telefono dice
 // che l'acquisto è andato) e un poco si trovano giocando: lo scrigno del giorno e il premio della settimana.
 // Con le gemme: casse di materiali, «compra ciò che manca», un anticipo della notte in più, una spedizione che torna subito.
-import { SHOP, NIGHT, GIFT7, BACK, CROPS, WEEKEND } from './data.js';
+import { SHOP, NIGHT, GIFT7, BACK, CROPS, WEEKEND, BUILD, LEVELS, LEVEL_MIN, WALLS, PIRATES, TERRAIN, COLS, ROWS, G, DIFFS, hpMul } from './data.js';
 
 const DAY = 86400000, HOUR = 3600000;
 
 export function extend4(World) {
   const RULES = () => World.RULES;
   const P = World.prototype, claimWeek0 = P.claimWeek, earlyMax0 = P.earlyMax, offline0 = P.offline, cropGain0 = P.cropGain, production0 = P.production, checkTrophies0 = P.checkTrophies;
+  const maxHp0 = P.maxHp, startNight0 = P.startNight, update0 = P.update;
   World.RULES.weekend = true;
   Object.assign(P, {
     gems() { return Math.max(0, Math.floor(this.d.gems || 0)); },
+
+    // ---------- mura a livelli ----------
+    maxHp(b) {
+      if (b.type === 'mura') return Math.round(BUILD.mura.hp * (this.d.tech.bastioni ? 1.5 : 1) * (1 + WALLS.hp * (b.lvl || 0)));
+      return maxHp0.call(this, b);
+    },
+    /** Le mura del livello più basso, tutte insieme: { n, lv, cost, list, castle (il castello che serve, 0 = va bene), max }. null = niente mura. */
+    wallsInfo() {
+      if (!RULES().levels) return null;
+      const W = this.d.buildings.filter(b => b.type === 'mura' && !(b.build > 0)); if (!W.length) return null;
+      const L = LEVELS.mura; let lv = Infinity; for (const b of W) lv = Math.min(lv, b.lvl || 0);
+      if (lv >= L.length) return { n: 0, lv, max: true };
+      const list = W.filter(b => (b.lvl || 0) === lv), cost = {}; for (const k in L[lv]) cost[k] = L[lv][k] * list.length;
+      const need = LEVEL_MIN[lv] || 1;
+      return { n: list.length, lv, cost, list, castle: this.d.castle < need ? need : 0 };
+    },
+    wallsUp() {
+      const I = this.wallsInfo();
+      if (!I || !I.n || I.castle || this.status !== 'day' || !this.afford(I.cost)) return false;
+      this.pay(I.cost); for (const b of I.list) { b.lvl = (b.lvl || 0) + 1; b.hp = this.maxHp(b); }
+      this.rev++; this.track('levels'); this.events.push({ k: 'upgrade', x: I.list[0].x, y: I.list[0].y });
+      return true;
+    },
+
+    // ---------- pirati di notte ----------
+    /** Quanti pirati sbarcano nella notte n (0 = nessuno), e dove: { n, x, y, guarded } o null. */
+    pirateRaid(n = this.nextNight) {
+      if (!RULES().sea || n < PIRATES.from || n % PIRATES.every) return null;
+      const port = this.d.buildings.find(b => (b.type === 'scalo' || b.type === 'porto') && !(b.build > 0)); if (!port) return null;
+      const D = BUILD[port.type]; let spot = null;
+      for (let rad = 1; rad <= 4 && !spot; rad++) for (let r = port.r - rad; r <= port.r + D.h - 1 + rad && !spot; r++) for (let c = port.c - rad; c <= port.c + D.w - 1 + rad; c++) {
+        if (c < 1 || r < 1 || c >= COLS - 1 || r >= ROWS - 1) continue;
+        const i = r * COLS + c; if (TERRAIN[i] || this.buildingAt(c, r)) continue;
+        if (this.dist && !(this.dist[i] < 1e8)) continue;
+        spot = { x: (c + 0.5) * G, y: (r + 0.5) * G }; break;
+      }
+      if (!spot) return null;
+      const guarded = !!(this.hasEscort && this.hasEscort()), all = Math.min(PIRATES.max, PIRATES.base + Math.floor(n / PIRATES.per));
+      return { n: guarded ? Math.ceil(all / 2) : all, x: spot.x, y: spot.y, guarded };
+    },
+    startNight(now, auto) {
+      const ok = startNight0.call(this, now, auto); this.pirateQ = null;
+      if (ok && this.status === 'night') {
+        const R = this.pirateRaid(this.nextNight);
+        if (R) { this.pirateQ = Array.from({ length: R.n }, (_, i) => ({ t: PIRATES.at + i * PIRATES.gap, x: R.x, y: R.y })); this.events.push({ k: 'pirates', n: R.n, x: R.x, y: R.y, guarded: R.guarded }); }
+      }
+      return ok;
+    },
+    update(dt, now) {
+      if (this.status === 'night' && this.pirateQ && this.pirateQ.length) {
+        const T = (this.waveT || 0) + dt;
+        while (this.pirateQ.length && this.pirateQ[0].t <= T) {
+          const q = this.pirateQ.shift(), e = this.mkEnemy('predone', PIRATES.tribe, q.x + (this.rng() - 0.5) * 30, q.y + (this.rng() - 0.5) * 30, hpMul(this.nextNight) * DIFFS[this.d.diff].hp);
+          e.pirate = true; this.events.push({ k: 'spawn', x: e.x, y: e.y, boss: false, tribe: PIRATES.tribe });
+        }
+      }
+      return now === undefined ? update0.call(this, dt) : update0.call(this, dt, now);
+    },
 
     // ---------- l'evento del fine settimana ----------
     /** { id, end, left } se è sabato o domenica (ora del telefono), altrimenti null. `forceEvent` serve alle prove. */

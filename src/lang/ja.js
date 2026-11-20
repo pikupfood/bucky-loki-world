@@ -965,4 +965,7 @@ export default {
   ev_gems: "土日は、今日の宝箱のジェムが3倍、今日のおくり物が2倍になります。",
   nt_event_t: "週末イベント！",
   nt_event: "土日だけ。のぞいてみてね。",
+  wallsAll: "すべて（{v}）",
+  piratesNight: "湖から海賊だ！",
+  piratesGuard: "海賊だ！軍船が半分を食い止めた。",
 };

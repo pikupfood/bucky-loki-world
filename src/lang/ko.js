@@ -965,4 +965,7 @@ export default {
   ev_gems: "토요일과 일요일에는 오늘의 상자가 보석을 세 배, 오늘의 선물이 두 배로 줘요.",
   nt_event_t: "주말 이벤트!",
   nt_event: "토요일과 일요일만: 와서 뭐가 있는지 봐.",
+  wallsAll: "전체 ({v})",
+  piratesNight: "호수에서 해적이다!",
+  piratesGuard: "해적이다! 전함이 절반을 막았어.",
 };

@@ -965,4 +965,7 @@ export default {
   ev_gems: "Samstag und Sonntag gibt die Tageskiste dreimal so viele Edelsteine und das Tagesgeschenk doppelt so viele.",
   nt_event_t: "Wochenend-Event!",
   nt_event: "Nur Samstag und Sonntag: schau vorbei, was los ist.",
+  wallsAll: "Alle ({v})",
+  piratesNight: "Piraten vom See!",
+  piratesGuard: "Piraten! Dein Kriegsschiff hält die Hälfte auf.",
 };

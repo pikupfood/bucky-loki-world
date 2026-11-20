@@ -874,7 +874,9 @@ function selPanel(S) {
       else {
         button(c, ui, x + 20, y + 76, 170, 44, t('improve'), { color: '#2f7d3a', disabled: lc !== 'ok', fs: 18, tag: 'levelUp' }, () => A.levelUp(b));
         costRow(c, world, world.levelCost(b), x + 204, y + 99, 16, 1, true);
-        txt(c, lc === 'castle' ? t('needCastle', world.levelMin(b)) : t(b.type === 'casa' ? 'lvl_casa' : b.type === 'scalo' ? 'lvl_scalo' : 'lvl_prod'), x + w - 22, y + 99, 13.5, lc === 'castle' ? BAD : '#9ff0b4', 'right', 700);
+        const WI = b.type === 'mura' ? world.wallsInfo() : null;
+        if (WI && WI.n > 1 && !WI.castle) button(c, ui, x + w - 22 - 200, y + 76, 200, 44, t('wallsAll', WI.n), { color: '#2f6b3a', fs: 17, tag: 'wallsAll' }, A.wallsAll), costRow(c, world, WI.cost, x + w - 22 - 196, y + 140, 15, 1, true);
+        else if (b.type !== 'mura' || lc === 'castle') txt(c, lc === 'castle' ? t('needCastle', world.levelMin(b)) : t(b.type === 'casa' ? 'lvl_casa' : b.type === 'scalo' ? 'lvl_scalo' : 'lvl_prod'), x + w - 22, y + 99, 13.5, lc === 'castle' ? BAD : '#9ff0b4', 'right', 700);
       }
     }
     if (b.type === 'scalo' || b.type === 'porto') { button(c, ui, x + w - 214, by, 194, 50, t('fleet'), { color: '#2f5d7a', fs: 19, dx: 14, tag: 'fleetOpen' }, A.fleetOpen); V.anchorIcon(c, x + w - 178, by + 25, 12); const out = world.d.fleet.filter(q => q.job).length; if (out) { c.beginPath(); c.arc(x + w - 24, by + 4, 11, 0, TAU); c.fillStyle = '#2f7d5a'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); txt(c, String(out), x + w - 24, by + 5, 13, '#fff', 'center', 800); } }

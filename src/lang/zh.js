@@ -965,4 +965,7 @@ export default {
   ev_gems: "周六和周日，每日宝箱的宝石变三倍，每日礼物变双倍。",
   nt_event_t: "周末活动！",
   nt_event: "仅限周六和周日：快来看看有什么。",
+  wallsAll: "全部（{v}）",
+  piratesNight: "湖上来了海盗！",
+  piratesGuard: "海盗！你的战船拦住了一半。",
 };

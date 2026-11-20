@@ -237,6 +237,7 @@ const S = {
     ev_plenty_t: 'Giorni d\'abbondanza', ev_plenty: 'Sabato e domenica tutti gli edifici rendono la metà in più.', ev_gems_t: 'Pioggia di gemme',
     ev_gems: 'Sabato e domenica lo scrigno del giorno dà il triplo delle gemme, il regalo il doppio.', nt_event_t: 'Evento del fine settimana!',
     nt_event: 'Solo sabato e domenica: entra a vedere che cosa c\'è.',
+    wallsAll: 'Tutte ({v})', piratesNight: 'Pirati dal lago!', piratesGuard: 'Pirati! La nave da guerra ne ferma metà.',
   },
   fr: {
     title: 'Tuzuland', subtitle: 'Ton village parmi les peuples Tuzu',
@@ -474,6 +475,7 @@ const S = {
     ev_plenty_t: 'Jours d\'abondance', ev_plenty: 'Samedi et dimanche, tous les bâtiments produisent moitié plus.', ev_gems_t: 'Pluie de gemmes',
     ev_gems: 'Samedi et dimanche, le coffre du jour donne le triple de gemmes, le cadeau le double.', nt_event_t: 'Événement du week-end !',
     nt_event: 'Samedi et dimanche seulement : viens voir ce qu\'il y a.',
+    wallsAll: 'Toutes ({v})', piratesNight: 'Pirates du lac !', piratesGuard: 'Pirates ! Ton navire de guerre en arrête la moitié.',
   },
   en: {
     title: 'Tuzuland', subtitle: 'Your village among the Tuzu peoples',
@@ -701,6 +703,7 @@ const S = {
     ev_plenty: 'On Saturday and Sunday every building produces half as much again.', ev_gems_t: 'Gem shower',
     ev_gems: 'On Saturday and Sunday the daily chest gives triple gems and the daily gift double.', nt_event_t: 'Weekend event!',
     nt_event: 'Saturday and Sunday only: come and see what\'s on.',
+    wallsAll: 'All ({v})', piratesNight: 'Pirates from the lake!', piratesGuard: 'Pirates! Your warship stops half of them.',
   },
 };
 

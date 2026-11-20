@@ -965,4 +965,7 @@ export default {
   ev_gems: "Cumartesi ve pazar günlük sandık üç kat, günün armağanı iki kat mücevher verir.",
   nt_event_t: "Hafta sonu etkinliği!",
   nt_event: "Sadece cumartesi ve pazar: gel, neler var bak.",
+  wallsAll: "Hepsi ({v})",
+  piratesNight: "Gölden korsanlar!",
+  piratesGuard: "Korsanlar! Savaş gemin yarısını durdurur.",
 };

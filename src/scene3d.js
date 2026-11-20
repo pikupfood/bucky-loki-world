@@ -1454,8 +1454,9 @@ export class Scene3D {
     q.identity(); S3.set(1, 1, 1);
     for (const b of world.d.buildings) {
       if (b.type === 'mura' && nw < WALL_CAP) {
-        this.wallBase.setMatrixAt(nw, m4.compose(P3.set(b.x, 15, b.y), q, S3));
-        this.wallTop.setMatrixAt(nw, m4.compose(P3.set(b.x, 34.5, b.y), q, S3)); nw++;
+        const ky = 1 + 0.22 * (b.lvl || 0);      // le mura potenziate sono più alte
+        this.wallBase.setMatrixAt(nw, m4.compose(P3.set(b.x, 15 * ky, b.y), q, S3.set(1, ky, 1))); S3.set(1, 1, 1);
+        this.wallTop.setMatrixAt(nw, m4.compose(P3.set(b.x, 30 * ky + 4.5, b.y), q, S3)); nw++;
       } else if (b.type === 'recinto' && np < WALL_CAP) {
         this.post.setMatrixAt(np++, m4.compose(P3.set(b.x, 12, b.y), q, S3));
         for (const [dc, dr] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {

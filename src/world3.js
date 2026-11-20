@@ -143,7 +143,7 @@ export function extend3(World) {
       if (n <= NIGHT.guideNights + 2) { const want = Math.min(this.cap('arcieri').max, Math.max(this.towersWanted(n), 2)), miss = want - this.towers(); if (miss > 0 && this.afford(BUILD.arcieri.cost)) add('towers', miss); }
       const tw = B.filter(b => BUILD[b.type].tower && !(b.build > 0) && this.upgradeCost(b) != null && this.d.res.monete >= this.upgradeCost(b)); add('upgrade', tw.length, { b: tw[0] });
       if (this.castleCheck() === 'ok') add('castle');
-      const lv = RULES().levels ? B.filter(b => b.type !== 'castello' && this.levelCheck(b) === 'ok') : []; add('level', lv.length, { b: lv[0] });
+      const lv = RULES().levels ? B.filter(b => b.type !== 'castello' && b.type !== 'mura' && this.levelCheck(b) === 'ok') : []; add('level', lv.length, { b: lv[0] });
       const br = B.filter(b => b.type === 'caserma' && this.trainCheck(b) === 'ok'); add('train', br.reduce((a, b) => a + this.slots(b) - (b.units || []).length, 0), { b: br[0] });
       if (this.ready('bottega')) { const id = TECH_ORDER.find(k => this.techCheck(k) === 'ok'); if (id) add('tech', 1, { id }); }
       if (RULES().fog && this.d.trips.length < this.tripsMax() && this.d.res.monete >= FOG.cost && this.fogLeft()) add('scout', this.tripsMax() - this.d.trips.length);

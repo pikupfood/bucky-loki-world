@@ -711,6 +711,13 @@ export const ECON = {
   for (const k in SHIPS) mul(SHIPS[k].cost, ECON.ship);
 })();
 
+// ---------- mura a livelli (20/11/2026): ogni pezzo sale due volte, e a ogni livello regge la metà in più (e si vede: è più alto) ----------
+LEVELS.mura = [{ pietra: 6 }, { pietra: 10, ferro: 3 }];
+export const WALLS = { hp: 0.5, tall: 0.22 };
+// ---------- pirati di notte (20/11/2026): chi ha un porto, ogni `every` notti dalla `from` in poi, vede sbarcare dei Tuzu Neri accanto al porto.
+// Quanti: base + uno ogni `per` notti, al più `max`; una nave da guerra in porto ne ferma la metà. tribe = l'indice dei Neri in TRIBES.
+export const PIRATES = { from: 6, every: 3, base: 2, per: 6, max: 6, tribe: 3, at: 5, gap: 0.9 };
+
 // ---------- il negozio: le gemme ----------
 // Le gemme si comprano con soldi veri (gemPacks: l'id è quello del prodotto su Google Play e App Store; il prezzo che si vede è quello
 // che dice il negozio del telefono, `eur` serve solo dove il negozio non risponde) e un poco si trovano giocando (scrigno del giorno,

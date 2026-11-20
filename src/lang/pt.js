@@ -965,4 +965,7 @@ export default {
   ev_gems: "No sábado e domingo o baú diário dá o triplo de gemas e o presente do dia o dobro.",
   nt_event_t: "Evento de fim de semana!",
   nt_event: "Só no sábado e domingo: venha ver o que tem.",
+  wallsAll: "Todas ({v})",
+  piratesNight: "Piratas vindos do lago!",
+  piratesGuard: "Piratas! Seu navio de guerra detém metade.",
 };

@@ -965,4 +965,7 @@ export default {
   ev_gems: "Sábado y domingo el cofre diario da el triple de gemas y el regalo diario el doble.",
   nt_event_t: "¡Evento de fin de semana!",
   nt_event: "Solo sábado y domingo: entra a ver qué hay.",
+  wallsAll: "Todas ({v})",
+  piratesNight: "¡Piratas desde el lago!",
+  piratesGuard: "¡Piratas! Tu barco de guerra frena a la mitad.",
 };

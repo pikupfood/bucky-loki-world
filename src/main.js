@@ -209,6 +209,7 @@ const A = {
   multiOk() { const M = ui.multi; if (!M || !M.to) return; if (world.moveGroup(M.ids, M.to.dc, M.to.dr)) { ui.multi = null; audio.play('build'); save(); } else toast(t('why_occupied')); },
   multiClose() { ui.multi = null; audio.play('tap'); },
   // nome e stemma del villaggio
+  wallsAll() { const I = world.wallsInfo(); if (world.wallsUp()) { audio.play('build'); save(); } else if (I && I.castle) toast(t('needCastle', I.castle)); else if (I && I.n) need(I.cost, A.wallsAll); else toast(t('notNow')); },
   evInfo() { const on = !ui.evInfo; closeAll(); ui.evInfo = on; audio.play('tap'); },
   notif() { ui.notif = !ui.notif; audio.play('tap'); save(); if (ui.notif) notify.ask(); else notify.clear(); },
   // ---------- il negozio ----------
@@ -716,6 +717,7 @@ function handleEvents() {
       case 'drill': closeAll(); ui.drillEnd = { won: ev.won, rep: ev.rep }; ui.aiming = false; ui.speed = 1; ui.squad = null; audio.play(ev.won ? 'won' : 'sad'); break;
       case 'drillStart': banner(t('drillOn'), '#bcd0ff', 2.2); break;
       case 'earlyBonus': banner(t('earlyBonus'), '#9ff0b4', 2.8); break;
+      case 'pirates': banner(t(ev.guarded ? 'piratesGuard' : 'piratesNight'), '#ffb3a8', 3.2); break;
       case 'gems': banner(t('shopGot', ev.n), '#ffb3f3', 2.4); break;
       case 'trap': parts(ui.fxTop, ev.x, ev.y, 14, 10, '#e8d9b0', 130, 0.5, 3, 220); audio.play('impact'); break;
       case 'nightLost': ui.lost = { penalty: ev.penalty, night: ev.night, rep: ev.rep }; ui.aiming = false; ui.speed = 1; ui.place = null; audio.play('lost'); buzz(120); save(); break;
