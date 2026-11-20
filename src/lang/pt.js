@@ -901,4 +901,9 @@ export default {
   vNameNone: "Vila sem nome",
   q_night1: "Sobreviva a uma noite",
   moveManyOk: "Mover aqui",
+  cloudDel: "Excluir conta",
+  cloudDelText: "Você apaga para sempre sua conta Tuzu: a vila na nuvem, o mundo online e seus dados de outros serviços Tuzu. Não dá para desfazer.",
+  cloudDelYes: "Apagar para sempre",
+  cloudDelNo: "Cancelar",
+  cloudDeleted: "Conta excluída. A vila continua neste telefone.",
 };

@@ -218,6 +218,9 @@ const S = {
     vNameNone: 'Villaggio senza nome',
     q_night1: 'Supera una notte',
     moveManyOk: 'Sposta qui',
+    cloudDel: 'Cancella account',
+    cloudDelText: 'Cancelli per sempre il tuo account Tuzu: il villaggio nel cloud, il mondo online e i tuoi dati negli altri servizi Tuzu. Non si può annullare.',
+    cloudDelYes: 'Cancella per sempre', cloudDelNo: 'Annulla', cloudDeleted: 'Account cancellato. Il villaggio resta su questo telefono.',
   },
   fr: {
     title: 'Tuzuland', subtitle: 'Ton village parmi les peuples Tuzu',
@@ -435,6 +438,9 @@ const S = {
     vName: 'Nom du village', vNameAsk: 'Comment s\'appelle ton village ?', vNameNone: 'Village sans nom',
     q_night1: 'Tiens une nuit',
     moveManyOk: 'Déplacer ici',
+    cloudDel: 'Supprimer le compte',
+    cloudDelText: 'Tu supprimes pour toujours ton compte Tuzu : le village dans le cloud, le monde en ligne et tes données des autres services Tuzu. C\'est définitif.',
+    cloudDelYes: 'Supprimer pour toujours', cloudDelNo: 'Annuler', cloudDeleted: 'Compte supprimé. Le village reste sur ce téléphone.',
   },
   en: {
     title: 'Tuzuland', subtitle: 'Your village among the Tuzu peoples',
@@ -645,6 +651,8 @@ const S = {
     moveManyNo: 'This one cannot move', vBanner: 'Name and crest', vName: 'Village name', vNameAsk: 'What is your village called?', vNameNone: 'Unnamed village',
     q_night1: 'Survive one night',
     moveManyOk: 'Move here',
+    cloudDel: 'Delete account', cloudDelText: 'This deletes your Tuzu account for good: the village in the cloud, the online world and your data in other Tuzu services. It cannot be undone.',
+    cloudDelYes: 'Delete forever', cloudDelNo: 'Cancel', cloudDeleted: 'Account deleted. The village stays on this phone.',
   },
 };
 

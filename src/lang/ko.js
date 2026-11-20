@@ -901,4 +901,9 @@ export default {
   vNameNone: "이름 없는 마을",
   q_night1: "밤 한 번 넘기기",
   moveManyOk: "여기로 이동",
+  cloudDel: "계정 삭제",
+  cloudDelText: "Tuzu 계정이 영구 삭제됩니다. 클라우드의 마을, 온라인 월드, 다른 Tuzu 서비스의 데이터도 사라집니다. 되돌릴 수 없어요.",
+  cloudDelYes: "영구 삭제",
+  cloudDelNo: "취소",
+  cloudDeleted: "계정이 삭제됐어요. 마을은 이 휴대폰에 남아 있어요.",
 };

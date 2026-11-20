@@ -901,4 +901,9 @@ export default {
   vNameNone: "无名村庄",
   q_night1: "守住一个夜晚",
   moveManyOk: "移到这里",
+  cloudDel: "删除账号",
+  cloudDelText: "将永久删除你的 Tuzu 账号：云端的村庄、在线世界以及其他 Tuzu 服务中的数据。此操作无法撤销。",
+  cloudDelYes: "永久删除",
+  cloudDelNo: "取消",
+  cloudDeleted: "账号已删除。村庄仍保留在这部手机上。",
 };

@@ -901,4 +901,9 @@ export default {
   vNameNone: "قرية بلا اسم",
   q_night1: "اصمد ليلة",
   moveManyOk: "انقل هنا",
+  cloudDel: "حذف الحساب",
+  cloudDelText: "سيُحذف حسابك في Tuzu نهائيًا: القرية في السحابة والعالم المتصل وبياناتك في خدمات Tuzu الأخرى. لا يمكن التراجع.",
+  cloudDelYes: "حذف نهائي",
+  cloudDelNo: "إلغاء",
+  cloudDeleted: "تم حذف الحساب. القرية باقية على هذا الهاتف.",
 };

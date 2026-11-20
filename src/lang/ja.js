@@ -901,4 +901,9 @@ export default {
   vNameNone: "名前のない村",
   q_night1: "夜を1回のりきる",
   moveManyOk: "ここに移動",
+  cloudDel: "アカウントを削除",
+  cloudDelText: "Tuzuアカウントを完全に削除します。クラウドの村、オンラインワールド、他のTuzuサービスのデータも消えます。元に戻せません。",
+  cloudDelYes: "完全に削除",
+  cloudDelNo: "キャンセル",
+  cloudDeleted: "アカウントを削除しました。村はこのスマホに残ります。",
 };

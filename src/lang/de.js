@@ -901,4 +901,9 @@ export default {
   vNameNone: "Dorf ohne Namen",
   q_night1: "Überstehe eine Nacht",
   moveManyOk: "Hier versetzen",
+  cloudDel: "Konto löschen",
+  cloudDelText: "Du löschst dein Tuzu-Konto für immer: das Dorf in der Cloud, die Online-Welt und deine Daten in anderen Tuzu-Diensten. Das geht nicht rückgängig.",
+  cloudDelYes: "Für immer löschen",
+  cloudDelNo: "Abbrechen",
+  cloudDeleted: "Konto gelöscht. Das Dorf bleibt auf diesem Handy.",
 };

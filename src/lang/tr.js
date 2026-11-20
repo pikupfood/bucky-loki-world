@@ -901,4 +901,9 @@ export default {
   vNameNone: "Adsız köy",
   q_night1: "Bir geceyi atlat",
   moveManyOk: "Buraya taşı",
+  cloudDel: "Hesabı sil",
+  cloudDelText: "Tuzu hesabın kalıcı olarak silinir: buluttaki köy, çevrimiçi dünya ve diğer Tuzu hizmetlerindeki verilerin. Geri alınamaz.",
+  cloudDelYes: "Kalıcı olarak sil",
+  cloudDelNo: "Vazgeç",
+  cloudDeleted: "Hesap silindi. Köy bu telefonda kalır.",
 };

@@ -901,4 +901,9 @@ export default {
   vNameNone: "Aldea sin nombre",
   q_night1: "Supera una noche",
   moveManyOk: "Mover aquí",
+  cloudDel: "Eliminar cuenta",
+  cloudDelText: "Borras para siempre tu cuenta Tuzu: la aldea en la nube, el mundo en línea y tus datos de otros servicios Tuzu. No se puede deshacer.",
+  cloudDelYes: "Borrar para siempre",
+  cloudDelNo: "Cancelar",
+  cloudDeleted: "Cuenta eliminada. La aldea sigue en este teléfono.",
 };

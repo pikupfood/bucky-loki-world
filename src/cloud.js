@@ -108,6 +108,8 @@ const register = (email, secret) => run(async () => {
 // l'indirizzo com.nexlygo.tuzudifesa://auth?access_token=…: lo riceve main.js (appUrlOpen) e lo passa a fromUrl.
 const NATIVE = (() => { try { const C = window.Capacitor; return !!(C && C.isNativePlatform && C.isNativePlatform()); } catch (e) { return false; } })();
 const APP_BACK = 'https://game.tuzu.my/app-login';
+// Su iPhone e iPad niente «Entra con Google»: Apple (regola 4.8) lo ammette solo accanto ad «Accedi con Apple». Lì si entra con email e parola d'ordine.
+const IOS = (() => { try { return NATIVE && window.Capacitor.getPlatform() === 'ios'; } catch (e) { return false; } })();
 const google = () => run(async () => {
   if (cfg.beforeLeave) cfg.beforeLeave();
   const s = await client();
@@ -130,12 +132,25 @@ export async function fromUrl(url) {
     state.user = data.session.user; state.msg = ''; state.bad = false; state.open = true; await sync(); render(); return true;
   } catch (e) { return fail(); }
 }
+/** Cancella l'account (Apple e Google lo pretendono dentro l'app). Usa la funzione «account» che il progetto Tuzu ha già: toglie l'utente,
+ *  e con lui la partita nel cloud e il villaggio online (le tabelle del gioco hanno «on delete cascade»). La partita sul telefono resta. */
+const erase = () => run(async () => {
+  const s = await client(), { data } = await s.auth.getSession(), tok = data && data.session && data.session.access_token;
+  if (!tok) { say(t('cloudErr'), true); return; }
+  let ok = false;
+  try { const r = await fetch(SUPA_URL + '/functions/v1/account', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_KEY, Authorization: 'Bearer ' + tok }, body: JSON.stringify({ action: 'delete' }) }); ok = r.ok && !!(await r.json()).deleted; } catch (e) { ok = false; }
+  if (!ok) { state.del = false; say(t('cloudErr'), true); return; }
+  try { await s.auth.signOut({ scope: 'local' }); } catch (e) { /* l'utente non c'è più: va bene */ }
+  state.user = null; state.savedAt = 0; state.del = false; try { localStorage.removeItem(MARK); } catch (e) { /* niente */ }
+  if (cfg.onErased) cfg.onErased();
+  say(t('cloudDeleted'));
+});
 const leave = () => run(async () => { const s = await client(); await s.auth.signOut(); state.user = null; state.savedAt = 0; state.msg = ''; try { localStorage.removeItem(MARK); } catch (e) { /* niente */ } });
 
 // ---------- il pannello (HTML vero sopra il gioco: così la tastiera del telefono funziona) ----------
 const esc = (v) => String(v).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 export function open() { state.open = true; state.msg = ''; render(); if (!state.user) probe().then(render); }
-export function close() { state.open = false; render(); }
+export function close() { state.open = false; state.del = false; render(); }
 function render() {
   if (typeof document === 'undefined') return;
   if (!state.open) { if (box) box.style.display = 'none'; return; }
@@ -153,18 +168,22 @@ function render() {
     body = `<p style="margin:0 0 12px;font-size:15px;line-height:1.4">${esc(t('cloudAskText'))}</p>
       <div style="display:flex;gap:10px">${col(t('cloudHere'), A.local)}${col(t('cloudThere'), A.cloud)}</div>
       <div style="display:flex;gap:10px;margin-top:12px">${btn('acKeep', t('cloudKeepLocal'), '#3b3229')}${btn('acTake', t('cloudKeepCloud'), '#2f7d3a')}</div>`;
+  } else if (state.user && state.del) {      // cancellare l'account: si chiede due volte, e si dice chiaro che cosa sparisce
+    body = `<p style="margin:0 0 14px;font-size:15px;line-height:1.45;color:#ffcfc6">${esc(t('cloudDelText'))}</p>
+      <div style="display:flex;gap:10px">${btn('acDelNo', t('cloudDelNo'), '#3b3229')}${btn('acDelYes', t('cloudDelYes'), '#a8322a')}</div>`;
   } else if (state.user) {
     const at = state.savedAt ? new Date(state.savedAt) : null, hh = at ? String(at.getHours()).padStart(2, '0') + ':' + String(at.getMinutes()).padStart(2, '0') : '';
     body = `<p style="margin:0 0 6px;font-size:15px">${esc(t('cloudAs', state.user.email || ''))}</p>
       <p style="margin:0 0 14px;font-size:14px;color:#9ff0b4">${esc(at ? t('cloudSaved', hh) : t('cloudAuto'))}</p>
-      <div style="display:flex;gap:10px">${btn('acSave', t('cloudSaveNow'), '#2f7d3a')}${btn('acOut', t('cloudOut'), '#7a3a2c')}</div>`;
+      <div style="display:flex;gap:10px">${btn('acSave', t('cloudSaveNow'), '#2f7d3a')}${btn('acOut', t('cloudOut'), '#7a3a2c')}</div>
+      <button id="acDel" style="display:block;margin:14px auto 0;min-height:40px;padding:6px 14px;border:0;background:none;color:#e8897e;font-weight:700;font-size:14.5px;font-family:inherit;text-decoration:underline;cursor:pointer">${esc(t('cloudDel'))}</button>`;
   } else if (state.ready === false) {
     body = `<p style="margin:0 0 6px;font-size:15px;line-height:1.4">${esc(t('cloudSoon'))}</p>`;
   } else {
     const G = '<svg width="20" height="20" viewBox="0 0 48 48" style="flex:none"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.800 7.200l7.600 5.900c4.500-4.100 7-10.200 7-17.600z"/><path fill="#FBBC05" d="M10.500 28.600A14.500 14.500 0 0 1 9.500 24c0-1.600.3-3.200.800-4.600l-7.900-6.200A24 24 0 0 0 0 24c0 3.900.900 7.500 2.600 10.800l7.900-6.200z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.600-5.900c-2.100 1.400-4.900 2.300-8.300 2.300-6.300 0-11.600-4.200-13.500-9.900l-7.900 6.200C6.500 42.600 14.600 48 24 48z"/></svg>';
     body = `<p style="margin:0 0 10px;font-size:14.5px;line-height:1.4;color:#cbbf9f">${esc(t('cloudIntro'))}</p>
-      <button id="acGoogle" style="width:100%;min-height:48px;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:12px;border:0;background:#fff;color:#1f1f1f;font-weight:800;font-size:17px;font-family:inherit;cursor:pointer">${G}${esc(t('cloudGoogle'))}</button>
-      <div style="display:flex;align-items:center;gap:10px;margin:12px 0 4px;color:#9a8f76;font-size:13px"><span style="flex:1;height:1px;background:rgba(233,196,106,.3)"></span>${esc(t('cloudOr'))}<span style="flex:1;height:1px;background:rgba(233,196,106,.3)"></span></div>
+      ${IOS ? '<!--' : ''}<button id="acGoogle" style="width:100%;min-height:48px;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:12px;border:0;background:#fff;color:#1f1f1f;font-weight:800;font-size:17px;font-family:inherit;cursor:pointer">${G}${esc(t('cloudGoogle'))}</button>
+      <div style="display:flex;align-items:center;gap:10px;margin:12px 0 4px;color:#9a8f76;font-size:13px"><span style="flex:1;height:1px;background:rgba(233,196,106,.3)"></span>${esc(t('cloudOr'))}<span style="flex:1;height:1px;background:rgba(233,196,106,.3)"></span></div>${IOS ? '-->' : ''}
       ${inp('acMail', 'email', t('cloudEmail'), 'email')}${inp('acKey', 'password', t('cloudPass'), 'current-password')}
       <div style="display:flex;gap:10px;margin-top:8px">${btn('acIn', t('cloudIn'), '#2f7d3a')}${btn('acUp', t('cloudUp'), '#5b4a8a')}</div>`;
   }
@@ -181,6 +200,9 @@ function render() {
   on('acIn', () => { const c = typed(); if (c) enter(c[0], c[1]); });
   on('acUp', () => { const c = typed(); if (c) register(c[0], c[1]); });
   on('acOut', leave);
+  on('acDel', () => { state.del = true; state.msg = ''; render(); });
+  on('acDelNo', () => { state.del = false; render(); });
+  on('acDelYes', erase);
   on('acGoogle', google);
   on('acSave', () => run(async () => { if (await push(true)) say(t('cloudDone')); }));
   on('acKeep', () => run(async () => { state.ask = null; await push(true); state.open = false; }));
