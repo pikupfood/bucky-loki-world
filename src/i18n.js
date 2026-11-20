@@ -233,6 +233,10 @@ const S = {
     nt_night_t: 'Arriva la notte!', nt_night: 'I nemici sono in marcia: difendi il villaggio.', nt_scout_t: 'Esploratori tornati', nt_scout: 'Guarda che cosa hanno trovato.',
     nt_crop_t: 'Raccolto pronto', nt_crop: 'I campi sono maturi: raccogli e risemina.', nt_gift_t: 'Il regalo di oggi ti aspetta', nt_gift: 'Regalo e scrigno del giorno sono pronti.',
     nt_back_t: 'I Tuzu ti aspettano', nt_back: 'Il villaggio ha bisogno di te. C\'è un regalo di bentornato.',
+    evTitle: 'Evento del fine settimana', evLeft: 'Finisce fra {v}', ev_harvest_t: 'Raccolto doppio', ev_harvest: 'Sabato e domenica ogni raccolto rende il doppio di monete.',
+    ev_plenty_t: 'Giorni d\'abbondanza', ev_plenty: 'Sabato e domenica tutti gli edifici rendono la metà in più.', ev_gems_t: 'Pioggia di gemme',
+    ev_gems: 'Sabato e domenica lo scrigno del giorno dà il triplo delle gemme, il regalo il doppio.', nt_event_t: 'Evento del fine settimana!',
+    nt_event: 'Solo sabato e domenica: entra a vedere che cosa c\'è.',
   },
   fr: {
     title: 'Tuzuland', subtitle: 'Ton village parmi les peuples Tuzu',
@@ -466,6 +470,10 @@ const S = {
     notifOff: 'Alertes : non', nt_night_t: 'La nuit arrive !', nt_night: 'Les ennemis sont en marche : défends ton village.', nt_scout_t: 'Explorateurs de retour',
     nt_scout: 'Regarde ce qu\'ils ont trouvé.', nt_crop_t: 'Récolte prête', nt_crop: 'Les champs sont mûrs : récolte et ressème.', nt_gift_t: 'Le cadeau du jour t\'attend',
     nt_gift: 'Ton cadeau et ton coffre du jour sont prêts.', nt_back_t: 'Les Tuzu t\'attendent', nt_back: 'Ton village a besoin de toi. Un cadeau de retour t\'attend.',
+    evTitle: 'Événement du week-end', evLeft: 'Se termine dans {v}', ev_harvest_t: 'Récolte double', ev_harvest: 'Samedi et dimanche, chaque récolte donne le double de pièces.',
+    ev_plenty_t: 'Jours d\'abondance', ev_plenty: 'Samedi et dimanche, tous les bâtiments produisent moitié plus.', ev_gems_t: 'Pluie de gemmes',
+    ev_gems: 'Samedi et dimanche, le coffre du jour donne le triple de gemmes, le cadeau le double.', nt_event_t: 'Événement du week-end !',
+    nt_event: 'Samedi et dimanche seulement : viens voir ce qu\'il y a.',
   },
   en: {
     title: 'Tuzuland', subtitle: 'Your village among the Tuzu peoples',
@@ -689,6 +697,10 @@ const S = {
     nt_night_t: 'Night is coming!', nt_night: 'The enemies are marching: defend your village.', nt_scout_t: 'Scouts are back', nt_scout: 'See what they found.', nt_crop_t: 'Harvest ready',
     nt_crop: 'The fields are ripe: harvest and sow again.', nt_gift_t: 'Today\'s gift is waiting', nt_gift: 'Your daily gift and chest are ready.', nt_back_t: 'The Tuzu miss you',
     nt_back: 'Your village needs you. A welcome-back gift is waiting.',
+    evTitle: 'Weekend event', evLeft: 'Ends in {v}', ev_harvest_t: 'Double harvest', ev_harvest: 'On Saturday and Sunday every harvest gives double coins.', ev_plenty_t: 'Days of plenty',
+    ev_plenty: 'On Saturday and Sunday every building produces half as much again.', ev_gems_t: 'Gem shower',
+    ev_gems: 'On Saturday and Sunday the daily chest gives triple gems and the daily gift double.', nt_event_t: 'Weekend event!',
+    nt_event: 'Saturday and Sunday only: come and see what\'s on.',
   },
 };
 

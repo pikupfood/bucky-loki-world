@@ -28,7 +28,7 @@ const world = new World(saved.world, Date.now(), (Date.now() & 0xffff) + 1);
 const ui = {
   screen: 'title', speed: 1, sound: saved.sound !== false, moved: !!saved.moved, seenVillage: !!saved.seenVillage,
   build: null, place: null, sel: null, vsel: null, aiming: false,
-  quests: false, settings: false, tech: false, daily: false, lost: null, away: world.away, todo: false, drillEnd: null, multi: null, vBanner: false, shop: null, need: null, notif: saved.notif !== false, hasNotif: notify.native(),
+  quests: false, settings: false, tech: false, daily: false, lost: null, away: world.away, todo: false, drillEnd: null, multi: null, vBanner: false, shop: null, need: null, evInfo: false, notif: saved.notif !== false, hasNotif: notify.native(),
   online: null, onlineNew: 0, fleet: null, seaOpen: false, news: false, newsDue: false,
   map: null, squad: null, qtab: 0, reportOpen: false, q: saved.q === 0 || saved.q === 1 || saved.q === 2 ? saved.q : 'auto', cloud: cloud.state,
   roles: false, story: null, rallyPick: false, fogSel: null, guideOpen: null, music: saved.music !== false, newGame: !saved.world, diffPick: 'normale',
@@ -139,9 +139,9 @@ function confirmPlace() {
 // ---------- azioni ----------
 const UNITS_MSG = { full: 'full', pop: 'needHouses', busy: 'notNow' };
 const world_unit = (type) => UNIT_DEFS[type] || {};
-const closeAll = () => { ui.squad = null; ui.resInfo = false; ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; ui.online = null; ui.fleet = null; ui.langPick = false; ui.multi = null; ui.shop = null; ui.need = null; ui.todo = false; };
+const closeAll = () => { ui.squad = null; ui.resInfo = false; ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; ui.online = null; ui.fleet = null; ui.langPick = false; ui.multi = null; ui.shop = null; ui.need = null; ui.evInfo = false; ui.todo = false; };
 const A = {
-  play() { if (ui.newGame) { world.setDiff(ui.diffPick); ui.newGame = false; save(); } ui.screen = 'play'; ui.daily = world.daily(Date.now()).available; audio.play('tap'); },
+  play() { if (ui.newGame) { world.setDiff(ui.diffPick); ui.newGame = false; save(); } ui.screen = 'play'; ui.daily = world.daily(Date.now()).available; { const e = world.weekend(Date.now()); if (e) banner(t('ev_' + e.id + '_t'), '#ffd24a', 3); } audio.play('tap'); },
   diffPick(k) { ui.diffPick = k; audio.play('tap'); },
   diff(k) { if (world.setDiff(k)) { save(); audio.play('tap'); } },
   music() { ui.music = !ui.music; audio.setMusic(ui.music); save(); audio.play('tap'); },
@@ -209,6 +209,7 @@ const A = {
   multiOk() { const M = ui.multi; if (!M || !M.to) return; if (world.moveGroup(M.ids, M.to.dc, M.to.dr)) { ui.multi = null; audio.play('build'); save(); } else toast(t('why_occupied')); },
   multiClose() { ui.multi = null; audio.play('tap'); },
   // nome e stemma del villaggio
+  evInfo() { const on = !ui.evInfo; closeAll(); ui.evInfo = on; audio.play('tap'); },
   notif() { ui.notif = !ui.notif; audio.play('tap'); save(); if (ui.notif) notify.ask(); else notify.clear(); },
   // ---------- il negozio ----------
   shopOpen(tab) { closeAll(); ui.settings = false; ui.quests = false; ui.need = null; ui.shop = { tab: tab === 1 ? 1 : 0 }; audio.play('tap'); },
@@ -570,6 +571,7 @@ window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 // tasto indietro del telefono: chiude ciò che è aperto, poi esce
 function back() {
   if (ui.need) { ui.need = null; return; }
+  if (ui.evInfo) { ui.evInfo = false; return; }
   if (ui.shop) { ui.shop = null; return; }
   if (ui.lost) ui.lost = null;
   else if (ui.drillEnd) ui.drillEnd = null;

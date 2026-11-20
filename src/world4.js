@@ -3,15 +3,37 @@
 // Le gemme stanno nel salvataggio (d.gems). Si comprano con soldi veri (pay.js chiama grantPack quando il negozio del telefono dice
 // che l'acquisto è andato) e un poco si trovano giocando: lo scrigno del giorno e il premio della settimana.
 // Con le gemme: casse di materiali, «compra ciò che manca», un anticipo della notte in più, una spedizione che torna subito.
-import { SHOP, NIGHT, GIFT7, BACK, CROPS } from './data.js';
+import { SHOP, NIGHT, GIFT7, BACK, CROPS, WEEKEND } from './data.js';
 
 const DAY = 86400000, HOUR = 3600000;
 
 export function extend4(World) {
   const RULES = () => World.RULES;
-  const P = World.prototype, claimWeek0 = P.claimWeek, earlyMax0 = P.earlyMax, offline0 = P.offline;
+  const P = World.prototype, claimWeek0 = P.claimWeek, earlyMax0 = P.earlyMax, offline0 = P.offline, cropGain0 = P.cropGain, production0 = P.production, checkTrophies0 = P.checkTrophies;
+  World.RULES.weekend = true;
   Object.assign(P, {
     gems() { return Math.max(0, Math.floor(this.d.gems || 0)); },
+
+    // ---------- l'evento del fine settimana ----------
+    /** { id, end, left } se è sabato o domenica (ora del telefono), altrimenti null. `forceEvent` serve alle prove. */
+    weekend(now = this.now || Date.now()) {
+      if (!RULES().weekend) return null;
+      const d = new Date(now), wd = d.getDay();
+      if (this.forceEvent) return { id: this.forceEvent, end: now + DAY, left: DAY };
+      if (wd !== 6 && wd !== 0) return null;
+      const end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + (wd === 6 ? 2 : 1)).getTime(), wk = Math.floor(end / (7 * DAY)), n = WEEKEND.order.length;
+      return { id: WEEKEND.order[((wk % n) + n) % n], end, left: end - now };
+    },
+    evOn(id) { const e = this.weekend(); return !!e && e.id === id; },
+    cropGain(crop) { return cropGain0.call(this, crop) * (this.evOn('harvest') ? WEEKEND.harvest : 1); },
+    production() { const p = production0.call(this); if (this.evOn('plenty')) for (const k in p) p[k] *= WEEKEND.plenty; return p; },
+    /** Ogni trofeo nuovo porta qualche gemma (non quelli già presi al primo controllo dopo l'avvio). */
+    checkTrophies() {
+      const n0 = Object.keys(this.d.trophy || {}).length; checkTrophies0.call(this);
+      const n1 = Object.keys(this.d.trophy || {}).length;
+      if (n1 > n0 && this._troReady) this.addGems(WEEKEND.trophy * (n1 - n0), 'trophy');
+      this._troReady = true;
+    },
     addGems(n, why) {
       n = Math.max(0, Math.floor(n)); if (!n) return this.gems();
       this.d.gems = this.gems() + n; (this.events || (this.events = [])).push({ k: 'gems', n, why }); return this.d.gems;
@@ -44,8 +66,9 @@ export function extend4(World) {
     claimChest(now = this.now) {
       if (!this.chestReady(now)) return null;
       const got = this.chestLoot(); this.d.shop = { ...(this.d.shop || {}), day: this.dayKey(now) };
-      this.gain(got); this.addGems(SHOP.chest.gems, 'chest'); this.events.push({ k: 'shopBuy', got });
-      return { got, gems: SHOP.chest.gems };
+      const gems = SHOP.chest.gems * (this.evOn('gems') ? WEEKEND.chest : 1);
+      this.gain(got); this.addGems(gems, 'chest'); this.events.push({ k: 'shopBuy', got });
+      return { got, gems };
     },
 
     // ---------- «compra ciò che manca» ----------
@@ -107,7 +130,7 @@ export function extend4(World) {
     claimDaily(now) {
       const dly = this.daily(now); if (!dly.available) return 0;
       this.d.dailyDay = Math.floor(now / DAY); this.d.streak = dly.streak;
-      const g = { ...dly.gift }, gems = g.gems || 0; delete g.gems;
+      const g = { ...dly.gift }, gems = (g.gems || 0) * (this.evOn('gems') ? WEEKEND.gift : 1); delete g.gems;
       this.gain(g); if (gems) this.addGems(gems, 'gift');
       return dly.amount;
     },
@@ -136,7 +159,8 @@ export function extend4(World) {
       if (crop) later('crop', crop);
       const d = new Date(now), midLocal = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime(), midUtc = (Math.floor(now / DAY) + 1) * DAY;
       later('gift', Math.max(midLocal, midUtc) + 9 * HOUR);
-      later('back', now + 48 * HOUR); later('back2', now + 120 * HOUR);
+      if (RULES().weekend && !this.weekend(now)) { const sat = new Date(d.getFullYear(), d.getMonth(), d.getDate() + ((6 - d.getDay() + 7) % 7 || 7), 10).getTime(); later('event', sat); }
+      later('back', now + 48 * HOUR); if (out.length < 6) later('back2', now + 120 * HOUR);
       return out;
     },
 

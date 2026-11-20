@@ -610,7 +610,7 @@ function hud(S) {
     if (tall) { flushIcons(c); c.restore(); }
     ui.buttons.push({ x: px, y: tall ? 122 : 64, w: pw, h: 36, tag: 'moraleInfo', fn: A.moraleInfo });
   }
-  if (!raid && !isNight && !ui.place && !ui.build && !ui.multi) { const sy = (tall ? 166 : 108) + (world.fleetSlots() > 0 ? 56 : 0); W.todoButton(S, K, vw - 14 - 54, sy); Q.shopButton(S, K, vw - 14 - 54, sy + 56); }
+  if (!raid && !isNight && !ui.place && !ui.build && !ui.multi) { const sy = (tall ? 166 : 108) + (world.fleetSlots() > 0 ? 56 : 0); W.todoButton(S, K, vw - 14 - 54, sy); Q.shopButton(S, K, vw - 14 - 54, sy + 56); Q.eventButton(S, K, vw - 14 - 54, sy + 112); }
   if (!raid && !isNight && !ui.place && !ui.build && world.fleetSlots() > 0) {
     const fx = vw - 14 - 54, fy = tall ? 166 : 108, out = world.d.fleet.filter(q => q.job).length;
     button(c, ui, fx, fy, 54, 48, '', { color: '#2f5d7a', tag: 'fleetHud' }, A.fleetOpen); V.anchorIcon(c, fx + 27, fy + 24, 13);
@@ -1201,8 +1201,9 @@ function drawAll(S) {
   else if (ui.todo) W.todoPanel(S, K);
   else if (ui.vBanner) W.bannerPanel(S, K);
   else if (ui.shop) Q.shopPanel(S, K);
+  else if (ui.evInfo) Q.eventPanel(S, K);
   if (ui.need) Q.needPanel(S, K);
   if (ui.langPick) langPanel(S);
   // il dito: mai sopra un foglio che aspetta una risposta; dentro un pannello grande (scoperte, flotta…) indica solo bottoni
-  if (!(ui.lost || ui.drillEnd || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.reportOpen || ui.online || ui.seaOpen || ui.news || ui.langPick || ui.todo || ui.vBanner || ui.multi || ui.shop || ui.need)) Y.finger(S, K, !!(ui.roles || ui.quests || ui.tech || ui.settings || ui.fleet));
+  if (!(ui.lost || ui.drillEnd || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.reportOpen || ui.online || ui.seaOpen || ui.news || ui.langPick || ui.todo || ui.vBanner || ui.multi || ui.shop || ui.need || ui.evInfo)) Y.finger(S, K, !!(ui.roles || ui.quests || ui.tech || ui.settings || ui.fleet));
 }

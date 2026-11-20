@@ -721,6 +721,9 @@ export const ECON = {
 export const GIFT7 = [{ monete: 50 }, { monete: 75, legna: 40 }, { monete: 100, gems: 5 }, { monete: 125, pietra: 40 }, { monete: 150, gems: 10 }, { monete: 200, cibo: 60 }, { monete: 300, gems: 25 }];
 // Chi torna dopo `days` giorni di assenza trova un regalo di bentornato.
 export const BACK = { days: 3, gems: 10 };
+// L'evento del fine settimana (sabato e domenica, ora del telefono): uno diverso ogni settimana, a giro.
+// harvest: i raccolti rendono il doppio di monete · plenty: gli edifici rendono la metà in più · gems: scrigno ×3 e regalo ×2 di gemme
+export const WEEKEND = { order: ['harvest', 'plenty', 'gems'], harvest: 2, plenty: 1.5, chest: 3, gift: 2, trophy: 3 };      // trophy: gemme per ogni trofeo nuovo
 export const SHOP = {
   first: 2,                                    // il primo acquisto vale doppio
   start: 30,

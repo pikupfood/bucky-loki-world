@@ -151,3 +151,30 @@ export function giftPanel(S, K) {
   K.flushIcons(c); c.beginPath();
   K.button(c, ui, vw / 2 - 140, y + h - 104, 280, 72, t('claim'), { color: '#2f7d3a', fs: 28, tag: 'claimDaily' }, A.claimDaily);
 }
+
+/** Una stella a cinque punte (solo linee dritte). */
+function star(c, x, y, r, col) {
+  c.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r * 0.45 : r; if (i) c.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q); else c.moveTo(x + Math.cos(a) * q, y + Math.sin(a) * q); }
+  c.closePath(); c.fillStyle = col || '#ffd24a'; c.fill(); c.strokeStyle = '#6b4a10'; c.lineWidth = Math.max(1.2, r * 0.14); c.lineJoin = 'round'; c.stroke(); c.beginPath();
+}
+const left = (ms) => { const h = Math.max(1, Math.ceil(ms / 3600000)); return h + ' h'; };      // solo ore: «g» per giorni vale in italiano e basta
+/** Il bottone dell'evento del fine settimana (c'è solo di sabato e domenica): la stella, e sotto quanto manca. */
+export function eventButton(S, K, x, y) {
+  const { c, world, ui, A, now } = S, e = world.weekend(now); if (!e) return;
+  K.button(c, ui, x, y, 54, 48, '', { color: '#8a5a1c', tag: 'eventHud' }, A.evInfo);
+  K.txt(c, left(e.left).replace(/ /g, ''), x + 27, y + 37, 12.5, '#ffe9a8', 'center', 800);
+  star(c, x + 27, y + 17, 11);
+}
+export function eventPanel(S, K) {
+  const { c, world, ui, vw, vh, A, now } = S, e = world.weekend(now);
+  if (!e) { ui.evInfo = false; return; }
+  K.dim(S, 0.62);
+  const w = Math.min(540, vw - 16), h = 320, x = vw / 2 - w / 2, y = Math.max(6, vh / 2 - h / 2);
+  K.panel(c, x, y, w, h, 18, 0.96);
+  K.txt(c, t('evTitle'), vw / 2, y + 36, K.fit(c, t('evTitle'), w - 40, 16, 700), '#cfd8ff', 'center', 700);
+  K.head(c, t('ev_' + e.id + '_t'), vw / 2, y + 96, K.fit(c, t('ev_' + e.id + '_t'), w - 60, 30, 700, true), '#f2cf73', 'center');
+  K.wrap(c, t('ev_' + e.id), vw / 2, y + 142, w - 60, 17, K.CREAM, 23, 'center');
+  { const s = t('evLeft', left(e.left)); K.txt(c, s, vw / 2, y + 206, K.fit(c, s, w - 60, 16, 700), '#ffe9a8', 'center', 700); }
+  star(c, vw / 2, y + 62, 13);
+  K.button(c, ui, vw / 2 - 110, y + h - 70, 220, 48, t('close'), { color: '#5c4330', fs: 21, tag: 'evClose' }, A.evInfo);
+}
