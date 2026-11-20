@@ -16,7 +16,7 @@ const uiCanvas = document.getElementById('ui');
 const ctx = uiCanvas.getContext('2d');
 const scene = new Scene3D(glCanvas);
 
-const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 10;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
+const NEWS_KEY = 'tuzu_difesa_news', NEWS_V = 11;      // si alza a ogni aggiornamento grosso: chi ha già giocato vede una volta il foglio «Novità»
 const KEY = 'tuzu_difesa_v3';       // la chiave resta questa: i salvataggi vecchi li converte World
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
@@ -25,7 +25,7 @@ const world = new World(saved.world, Date.now(), (Date.now() & 0xffff) + 1);
 const ui = {
   screen: 'title', speed: 1, sound: saved.sound !== false, moved: !!saved.moved, seenVillage: !!saved.seenVillage,
   build: null, place: null, sel: null, vsel: null, aiming: false,
-  quests: false, settings: false, tech: false, daily: false, lost: null, away: world.away,
+  quests: false, settings: false, tech: false, daily: false, lost: null, away: world.away, todo: false, drillEnd: null, multi: null, vBanner: false,
   online: null, onlineNew: 0, fleet: null, seaOpen: false, news: false, newsDue: false,
   map: null, squad: null, qtab: 0, reportOpen: false, q: saved.q === 0 || saved.q === 1 || saved.q === 2 ? saved.q : 'auto', cloud: cloud.state,
   roles: false, story: null, rallyPick: false, fogSel: null, guideOpen: null, music: saved.music !== false, newGame: !saved.world, diffPick: 'normale',
@@ -134,7 +134,7 @@ function confirmPlace() {
 // ---------- azioni ----------
 const UNITS_MSG = { full: 'full', pop: 'needHouses', busy: 'notNow' };
 const world_unit = (type) => UNIT_DEFS[type] || {};
-const closeAll = () => { ui.squad = null; ui.resInfo = false; ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; ui.online = null; ui.fleet = null; ui.langPick = false; };
+const closeAll = () => { ui.squad = null; ui.resInfo = false; ui.build = null; ui.place = null; ui.sel = null; ui.vsel = null; ui.tech = false; ui.aiming = false; ui.roles = false; ui.fogSel = null; ui.rallyPick = false; ui.map = null; ui.online = null; ui.fleet = null; ui.langPick = false; ui.multi = null; ui.todo = false; };
 const A = {
   play() { if (ui.newGame) { world.setDiff(ui.diffPick); ui.newGame = false; save(); } ui.screen = 'play'; ui.daily = world.daily(Date.now()).available; audio.play('tap'); },
   diffPick(k) { ui.diffPick = k; audio.play('tap'); },
@@ -161,7 +161,53 @@ const A = {
   squadClose() { ui.squad = null; audio.play('tap'); },
   squadAttack() { if (world.orderAttack(ui.squad)) audio.play('horn'); },
   qtab(k) { ui.qtab = k; audio.play('tap'); },
-  claimChallenge() { const n = world.claimChallenge(Date.now()); if (n) { audio.play('cleared'); buzz(20); save(); } },
+  claimChallenge(i = 0) { const n = world.claimChallenge(Date.now(), typeof i === 'number' ? i : 0); if (n) { audio.play('cleared'); buzz(20); save(); } },
+  claimWeek() { if (world.claimWeek(Date.now())) { audio.play('won'); buzz(30); save(); } },
+  // «Da fare adesso»: la lista delle cose pronte, ognuna con un tocco
+  todo() { const on = !ui.todo; closeAll(); ui.todo = on; audio.play('tap'); },
+  todoGo(o) {
+    ui.todo = false; audio.play('tap');
+    const open = (b) => { closeAll(); if (b) { scene.setView(b.x, b.y + 20); ui.sel = { b }; } };
+    switch (o.k) {
+      case 'goal': A.claimGoal(); break;
+      case 'rebuild': A.rebuild(); break;
+      case 'ripe': A.harvestAll(); break;
+      case 'quest': ui.quests = true; ui.qtab = 0; break;
+      case 'chal': case 'week': ui.quests = true; ui.qtab = 2; break;
+      case 'towers': closeAll(); ui.build = { cat: 'dif' }; break;
+      case 'tech': closeAll(); ui.tech = true; break;
+      case 'scout': A.mapOpen(); break;
+      case 'ships': case 'shipFix': A.fleetOpen('ships'); break;
+      case 'gift': { closeAll(); const T = TRIBES[o.i]; scene.setView((T.c + 0.5) * G, (T.r + 0.5) * G + 20); ui.vsel = o.i; break; }
+      case 'castle': open(world.castle); break;
+      case 'food': if (o.fix === 'build') { closeAll(); ui.build = { cat: 'eco' }; } else if (o.fix === 'harvest') A.harvestAll(); else open(o.b); break;
+      default: open(o.b);
+    }
+  },
+  // la notte di allenamento: niente premi, niente danni
+  drill() { if (world.startDrill(Date.now())) { closeAll(); ui.speed = 1; audio.play('horn'); } else toast(t('notNow')); },
+  drillStop() { if (world.drill) world.endDrill(world.castle.hp > 0); },
+  drillOk() { ui.drillEnd = null; audio.play('tap'); },
+  /** «Mostrami»: porta dove si mette in pratica il consiglio. */
+  lostFix(adv) {
+    ui.lost = null; ui.drillEnd = null; closeAll(); audio.play('tap');
+    const open = (b) => { if (b) { scene.setView(b.x, b.y + 20); ui.sel = { b }; } };
+    if (adv === 'towers' || adv === 'barracks') ui.build = { cat: 'dif' };
+    else if (adv === 'walls') ui.build = { cat: 'mura' };
+    else if (adv === 'upgrade') open(world.d.buildings.find(o => BUILD[o.type].tower && world.upgradeCost(o) != null));
+    else if (adv === 'army') open(world.d.buildings.find(o => o.type === 'caserma' && (o.units || []).length < world.slots(o)) || world.d.buildings.find(o => o.type === 'caserma'));
+    else open(world.castle);
+  },
+  // sposta più cose: si toccano gli edifici, poi il posto nuovo, poi ✓
+  multiOpen() { closeAll(); ui.multi = { ids: [], step: 'pick', to: null }; audio.play('tap'); },
+  multiGo() { if (ui.multi && ui.multi.ids.length) { ui.multi.step = 'place'; ui.multi.to = null; audio.play('tap'); } else toast(t('moveManyHint')); },
+  multiOk() { const M = ui.multi; if (!M || !M.to) return; if (world.moveGroup(M.ids, M.to.dc, M.to.dr)) { ui.multi = null; audio.play('build'); save(); } else toast(t('why_occupied')); },
+  multiClose() { ui.multi = null; audio.play('tap'); },
+  // nome e stemma del villaggio
+  vBannerOpen() { closeAll(); ui.settings = false; ui.vBanner = true; audio.play('tap'); },
+  vBannerClose() { ui.vBanner = false; save(); audio.play('tap'); },
+  vBanner(sym, col) { world.setBanner(sym, col); audio.play('tap'); },
+  vName() { cloud.ask(t('vNameAsk'), [{ ph: t('vName'), max: 16 }], t('ok'), ([name]) => { if (name.trim().length < 2) return; world.setVillageName(name); save(); }); },
   rebuild() { const n = world.rebuildLost(); if (n) { audio.play('build'); save(); } else toast(t('why_cost')); },
   rebuildSkip() { world.d.rebuild = []; audio.play('tap'); save(); },
   // ---------- novità ----------
@@ -236,7 +282,7 @@ const A = {
   quality(q) { ui.q = q; slow = 0; setQuality(q === 'auto' ? 2 : q); save(); audio.play('tap'); },
   account() { ui.settings = false; cloud.open(); audio.play('tap'); },
   guideToggle() { const g = world.goal(); ui.guideOpen = !(ui.guideOpen == null ? !!g && g.i < 12 : ui.guideOpen); audio.play('tap'); },
-  buildOpen() { ui.sel = null; ui.vsel = null; ui.squad = null; ui.aiming = false; ui.rallyPick = false; ui.build = { cat: ui.lastCat || 'dif' }; audio.play('tap'); },
+  buildOpen() { ui.multi = null; ui.sel = null; ui.vsel = null; ui.squad = null; ui.aiming = false; ui.rallyPick = false; ui.build = { cat: ui.lastCat || 'dif' }; audio.play('tap'); },
   buildClose() { if (ui.build && world.seeBuilds(BUILD_CATS[ui.build.cat])) save(); ui.build = null; ui.place = null; audio.play('tap'); },
   cat(cat) { if (world.seeBuilds(BUILD_CATS[ui.build.cat])) save(); ui.build.cat = cat; ui.build.page = 0; ui.lastCat = cat; audio.play('tap'); },
   buildPage() { ui.build.page = ((ui.build.page || 0) + 1) % Math.ceil(BUILD_CATS[ui.build.cat].length / 8); audio.play('tap'); },
@@ -310,7 +356,7 @@ const A = {
   speed() { ui.speed = ui.speed === 1 ? 2 : 1; audio.play('tap'); },
   aim() { if (world.spellCd <= 0) { ui.aiming = !ui.aiming; ui.sel = null; audio.play('tap'); } else audio.play('no'); },
   home() { scene.setView((CASTLE.c + CASTLE.w / 2) * G, (CASTLE.r + CASTLE.h / 2) * G + 20, view.tall ? 1900 : 1150); audio.play('tap'); },
-  quests() { ui.quests = !ui.quests; ui.sel = null; audio.play('tap'); },
+  quests() { ui.quests = !ui.quests; ui.sel = null; if (ui.quests && !world.questsReady() && (world.challengesReady(Date.now()) || world.week(Date.now()).ready)) ui.qtab = 2; audio.play('tap'); },
   claimQuest(i) { const n = world.claimQuest(i); if (n) { audio.play('cleared'); buzz(20); save(); } },
   settings() { ui.settings = !ui.settings; ui.sel = null; audio.play('tap'); },
   lang(l) { ui.langSet = true; setLang(l); ui.langPick = false; save(); audio.play('tap'); },
@@ -364,10 +410,25 @@ function buildingUnder(clientX, clientY, g) {
   return best;
 }
 /** Un tocco sul mondo (non su un bottone). kind: 'touch' | 'mouse'. */
+/** «Sposta più cose»: un tocco sceglie (o lascia) un edificio; scelto il gruppo, un tocco dice dove va il suo centro. */
+function multiTap(g) {
+  const M = ui.multi, c = Math.floor(g.x / G), r = Math.floor(g.y / G);
+  if (M.step === 'pick') {
+    const b = world.buildingAt(c, r); if (!b) return;
+    if (world.moveCheck(b) !== 'ok') { toast(t('moveManyNo')); return; }
+    const k = M.ids.indexOf(b.id); if (k >= 0) M.ids.splice(k, 1); else M.ids.push(b.id);
+    audio.play('tap'); return;
+  }
+  const L = M.ids.map(id => world.byId.get(id)).filter(Boolean); if (!L.length) return;
+  let c0 = 1e9, r0 = 1e9, c1 = -1e9, r1 = -1e9;
+  for (const b of L) { const D = BUILD[b.type]; c0 = Math.min(c0, b.c); r0 = Math.min(r0, b.r); c1 = Math.max(c1, b.c + D.w - 1); r1 = Math.max(r1, b.r + D.h - 1); }
+  M.to = { dc: c - Math.round((c0 + c1) / 2), dr: r - Math.round((r0 + r1) / 2) }; audio.play('tap');
+}
 function worldTap(clientX, clientY, kind) {
   if (ui.screen !== 'play') return;
   const g = scene.pick(clientX, clientY);
   if (!g) return;
+  if (ui.multi) { multiTap(g); return; }
   if (!ui.place && !ui.aiming && !ui.rallyPick) {      // i soldati: un tocco sceglie il gruppo, il tocco dopo dice dove andare
     const reach = Math.max(30, 26 / Math.max(0.05, scene.scaleAt(g.x, g.y))), near = world.squadNear(g.x, g.y, reach);
     if (ui.squad != null) {
@@ -478,6 +539,10 @@ window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 // tasto indietro del telefono: chiude ciò che è aperto, poi esce
 function back() {
   if (ui.lost) ui.lost = null;
+  else if (ui.drillEnd) ui.drillEnd = null;
+  else if (ui.todo) ui.todo = false;
+  else if (ui.vBanner) ui.vBanner = false;
+  else if (ui.multi) ui.multi = null;
   else if (ui.away) ui.away = null;
   else if (cloud.state.open) cloud.close();
   else if (ui.story != null) A.storyOk();
@@ -603,7 +668,11 @@ function handleEvents() {
         audio.play(ev.night % 5 === 0 ? 'won' : 'cleared'); buzz([30, 60, 30]); ui.aiming = false; ui.speed = 1; save();
         if (world.daily(Date.now()).available) ui.daily = true;
         break;
-      case 'nightLost': ui.lost = { penalty: ev.penalty, night: ev.night }; ui.aiming = false; ui.speed = 1; ui.place = null; audio.play('lost'); buzz(120); save(); break;
+      case 'drill': closeAll(); ui.drillEnd = { won: ev.won, rep: ev.rep }; ui.aiming = false; ui.speed = 1; ui.squad = null; audio.play(ev.won ? 'won' : 'sad'); break;
+      case 'drillStart': banner(t('drillOn'), '#bcd0ff', 2.2); break;
+      case 'earlyBonus': banner(t('earlyBonus'), '#9ff0b4', 2.8); break;
+      case 'trap': parts(ui.fxTop, ev.x, ev.y, 14, 10, '#e8d9b0', 130, 0.5, 3, 220); audio.play('impact'); break;
+      case 'nightLost': ui.lost = { penalty: ev.penalty, night: ev.night, rep: ev.rep }; ui.aiming = false; ui.speed = 1; ui.place = null; audio.play('lost'); buzz(120); save(); break;
     }
   }
   world.events.length = 0;
@@ -714,7 +783,7 @@ function tick(real) {
   onlineT += real; if (onlineT > (ui.online ? 20 : 120)) { onlineT = 0; if (ui.screen === 'play' && (ui.online || world.status === 'day')) onlineRefresh(false); }
   if (ui.screen === 'play' && (ui.map || ui.reportOpen || ui.settings || ui.quests)) world.stepTrips(Date.now());
   if (ui.screen === 'play' && (ui.fleet || ui.seaOpen || ui.map || ui.settings || ui.quests)) world.stepFleet(Date.now());      // a pannello aperto il mondo è fermo, ma le spedizioni no
-  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.away || ui.roles || ui.story != null || ui.eventOpen || ui.news || ui.map || ui.fleet || ui.seaOpen || ui.online || ui.reportOpen || cloud.state.open;
+  const now = Date.now(), modal = ui.screen !== 'play' || ui.quests || ui.settings || ui.tech || ui.daily || ui.lost || ui.drillEnd || ui.todo || ui.vBanner || ui.away || ui.roles || ui.story != null || ui.eventOpen || ui.news || ui.map || ui.fleet || ui.seaOpen || ui.online || ui.reportOpen || cloud.state.open;
 
   if (!modal) {
     const fight = world.status !== 'day', steps = fight ? ui.speed * 2 : 1, dt = fight ? real / 2 : real;      // passi piccoli: stabile anche a x2
@@ -730,7 +799,7 @@ function tick(real) {
       scene.setView(v.x + (tx - v.x) * k, v.y + (ty - v.y) * k, v.dist + (Math.min(v.dist, 1150) - v.dist) * k);
     }
     // La notte arriva da sola: quando è l'ora, un preavviso (fermo finché c'è un pannello aperto), poi parte.
-    if (world.nightDue(now) && !(ui.lost || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.news || ui.reportOpen || ui.seaOpen || ui.langPick || cloud.state.open)) {
+    if (world.nightDue(now) && !(ui.lost || ui.drillEnd || ui.todo || ui.vBanner || ui.multi || ui.away || ui.daily || ui.story != null || ui.eventOpen || ui.news || ui.reportOpen || ui.seaOpen || ui.langPick || cloud.state.open)) {
       if (ui.nightWarn == null) { ui.nightWarn = NIGHT.warn; banner(t('nightComing'), '#cfd8ff', 3); audio.play('tap'); }
       ui.nightWarn -= real;
       if (ui.nightWarn <= 0) { ui.nightWarn = null; closeAll(); world.startNight(now, true); save(); }

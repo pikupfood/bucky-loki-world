@@ -8,6 +8,7 @@ import {
   NIGHT,
 } from './data.js';
 import { extend } from './world2.js';
+import { extend3 } from './world3.js';
 
 const N = COLS * ROWS, DAY = 86400000, AWAY_CAP = 2 * 3600 * 1000, RAID_MAX = 240;
 const DAILY = [50, 75, 100, 125, 150, 200, 300];
@@ -72,7 +73,7 @@ export class World {
       if (d.stats.conquer == null) d.stats.conquer = d.villages.filter(v => v.state === 'colony').length;
       d.dailyDay = data.dailyDay || 0; d.streak = data.streak || 0; d.lastSeen = data.lastSeen || now;
       d.diff = DIFFS[data.diff] ? data.diff : 'facile';                  // i salvataggi di prima restano com'erano
-      for (const k of ['rally', 'weather', 'event', 'evNight', 'ruins', 'met', 'shards', 'story', 'extra', 'fed', 'trophy', 'crowns', 'chal', 'endAt', 'pvpName']) if (data[k] != null) d[k] = data[k];
+      for (const k of ['rally', 'weather', 'event', 'evNight', 'ruins', 'met', 'shards', 'story', 'extra', 'fed', 'trophy', 'crowns', 'chal', 'endAt', 'pvpName', 'week', 'bonusDay', 'vname', 'banner']) if (data[k] != null) d[k] = data[k];
       if (Array.isArray(data.pvpSeen)) d.pvpSeen = data.pvpSeen.slice(-80);
       if (data.seenB && typeof data.seenB === 'object') d.seenB = { ...data.seenB };
       if (Array.isArray(data.fleet)) d.fleet = data.fleet.filter(s => s && SHIPS[s.type] && isFinite(s.id)).map(s => ({ id: s.id, type: s.type, lvl: Math.max(0, Math.min(SHIP_MAX - 1, s.lvl | 0)), hp: Math.max(1, +s.hp || 1), job: s.job && isFinite(s.job.at) && s.job.ms > 0 ? { ...s.job } : null }));
@@ -1084,7 +1085,9 @@ export class World {
     }
     const tx = (best % COLS + 0.5) * G + e.ox, ty = (((best / COLS) | 0) + 0.5) * G + e.oy;
     const away = Math.hypot(e.x - this.castle.x, e.y - this.castle.y) > 15 * G;
-    const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) || 1, v = e.speed * e.slowF * (away ? 2 : 1) * (this.season === 'inverno' ? 0.85 : 1);
+    const uf = away ? 1 : this.underfoot(e);      // trappole e fossati
+    if (e.dead) return;
+    const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) || 1, v = e.speed * e.slowF * uf * (away ? 2 : 1) * (this.season === 'inverno' ? 0.85 : 1);
     e.x += dx / d * v * dt; e.y += dy / d * v * dt;
     e.ang = lerpAngle(e.ang, Math.atan2(dy, dx), Math.min(1, dt * 10));
     e.anim += dt * v * 0.085;
@@ -1276,12 +1279,13 @@ export class World {
     this.status = 'day'; this.enemies = []; this.projs = []; this.queue = [];
     this.soldiers = this.soldiers.filter(s => s.ally == null && !s.dead);
     this.ensureHero();
-    for (const b of this.d.buildings) { b.hp = this.maxHp(b); b.burning = false; }
+    for (const b of this.d.buildings) { b.hp = this.maxHp(b); b.burning = false; b.sprung = 0; }
     for (const s of this.soldiers) { s.hp = s.maxHp; s.target = null; }
     this.clearOrders();
     this._dirty = true; this.rev++;
   }
   winNight() {
+    if (this.drill) return this.endDrill(true);      // l'allenamento: niente premi, tutto torna com'era
     this.d.night++; this.cheer(3);
     if (this.endless()) this.d.crowns = (this.d.crowns || 0) + 1;
     const reward = 40 + 12 * this.d.night;
@@ -1292,11 +1296,13 @@ export class World {
     this.afterNight();
   }
   loseNight() {
+    if (this.drill) return this.endDrill(false);
+    const rep = this.nightReport();      // perché hai perso: si guarda prima che l'alba rimetta tutto a posto
     this.cheer(-8);
     const penalty = Math.floor(this.d.res.monete * 0.25);
     this.d.res.monete -= penalty;
     this.dawn(); this.meal();
-    this.events.push({ k: 'nightLost', penalty, night: this.nextNight });
+    this.events.push({ k: 'nightLost', penalty, night: this.nextNight, rep });
   }
 
   /** Quello che il regno ha prodotto mentre il gioco era chiuso (metà resa, al massimo 2 ore). */
@@ -1346,3 +1352,4 @@ export class World {
  *  nebbia, eroe, eventi a sorpresa, villaggi che vivono. */
 World.RULES = { ease: true, clock: true, buildTime: true, diff: 'normale', fog: true, hero: true, events: true, life: true, food: true, levels: true, tribes: true, siege: true, dipl: true, roads: true, sea: true };
 extend(World);
+extend3(World);

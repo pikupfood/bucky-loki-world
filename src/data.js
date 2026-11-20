@@ -185,7 +185,7 @@ export const STEP = new Float32Array(COLS * ROWS);
 export const ROADS = [];              // { pts: [{x, y}], main }  (main = porta al castello)
 export const ROAD_AT = new Uint8Array(COLS * ROWS);
 /** Quello che si può posare su una strada della mappa: solo ciò che la sbarra (o altra strada). Mai case, campi, torri, botteghe. */
-export const ON_ROAD = { strada: 1, recinto: 1, mura: 1, cancello: 1 };
+export const ON_ROAD = { strada: 1, recinto: 1, mura: 1, cancello: 1, trappola: 1, fossato: 1 };      // quello che sbarra o difende una strada: mai una casa
 /** Di quanto gira un oggetto a ogni tocco di «Ruota», in ottavi di giro (0 = non si gira: i pezzi in fila si orientano da soli, porti e
  *  porticcioli guardano l'acqua, lampioni e alberi sono tondi). Aiuole e statue girano di 45°, gli edifici di 90°. b.rot va da 0 a 7. */
 export const rotStep = (type) => (type === 'aiuola' || type === 'statua' ? 1 : { mura: 1, recinto: 1, strada: 1, ponte: 1, cancello: 1, porto: 1, scalo: 1, lampione: 1, albero: 1, siepe: 1, piazza: 1, stendardo: 1 }[type] ? 0 : 2);
@@ -316,6 +316,9 @@ export const BUILD = {
   albero:    { w: 1, h: 1, hp: 40, cost: { legna: 6 }, cat: 'bel', min: 1, beauty: 1.5, deco: true },
   strada:    { w: 1, h: 1, hp: 20, cost: { pietra: 1 }, cat: 'mura', min: 1, beauty: 0.25, flat: true, line: true, deco: true },
   arcieri:   { w: 2, h: 2, hp: 160, cost: { legna: 50 }, cat: 'dif', min: 1, tower: true },
+  // difese povere: non sbarrano il passo (flat), i nemici ci passano sopra. trap: scatta una volta per notte · moat: rallenta chi lo attraversa
+  trappola:  { w: 1, h: 1, hp: 30, cost: { legna: 12 }, cat: 'dif', min: 1, flat: true, line: true, deco: true, trap: true, cap: (L) => 6 + 4 * L },
+  fossato:   { w: 1, h: 1, hp: 30, cost: { pietra: 3 }, cat: 'mura', min: 1, flat: true, line: true, deco: true, moat: true },
   radici:    { w: 2, h: 2, hp: 140, cost: { legna: 40, monete: 20 }, cat: 'dif', min: 2, tower: true },
   caserma:   { w: 2, h: 2, hp: 220, cost: { legna: 80, pietra: 40 }, cat: 'dif', min: 2, cap: (L) => L - 1 },
   mago:      { w: 2, h: 2, hp: 140, cost: { pietra: 60, monete: 40 }, cat: 'dif', min: 3, tower: true },
@@ -336,7 +339,7 @@ export const BUILD = {
 };
 export const BUILD_CATS = {
   eco: ['casa', 'campo', 'mulino', 'segheria', 'cava', 'mercato'], off: ['bottega', 'miniera', 'cristalliera', 'fucina'],
-  dif: ['arcieri', 'radici', 'caserma', 'mago', 'catapulta', 'braciere'], mura: ['recinto', 'mura', 'cancello', 'strada'],
+  dif: ['arcieri', 'radici', 'caserma', 'mago', 'catapulta', 'braciere', 'trappola'], mura: ['recinto', 'mura', 'cancello', 'strada', 'fossato'],
   acqua: ['porto', 'scalo', 'faro', 'mulinoacqua', 'ponte'],          // tutto quello che vuole una riva o l'acqua, in una scheda sola
   bel: ['fontana', 'taverna', 'statua', 'giardino', 'pozzo', 'lampione', 'aiuola', 'albero', 'panchina', 'stendardo', 'siepe', 'piazza'],
 };
@@ -658,6 +661,14 @@ export const TROPHIES = [
 ];
 export const CHALLENGES = [['kills', 40], ['chop', 15], ['harvest', 6], ['build', 8], ['nights', 2], ['train', 4], ['explore', 1], ['trade', 3]];
 export const CHALLENGE_REWARD = 150;
+// Tre missioni al giorno (scelte dal giorno fra quelle che il giocatore può fare), ognuna col suo premio; tutte e tre = un anticipo della notte in più.
+export const DAILY = { n: 3, reward: 80, pool: [['kills', 40], ['chop', 15], ['harvest', 6], ['build', 8], ['nights', 1], ['train', 4], ['explore', 1], ['trade', 2], ['levels', 2], ['gift', 1], ['sell', 2], ['sail', 1]] };
+// Il premio della settimana: dodici missioni del giorno ritirate da lunedì a domenica.
+export const WEEK = { need: 12, prize: { monete: 500, legna: 150, pietra: 150 } };
+// Trappola: un colpo solo per notte (più forte col castello) e un attimo di lentezza. Fossato: chi lo attraversa va a metà passo.
+export const TRAP = { dmg: 70, perCastle: 0.3, slow: 0.5, slowT: 1.5, moat: 0.45 };
+// Lo stemma del villaggio: un simbolo (0-7) e un colore; il nome ha al più sedici lettere.
+export const BANNER = { syms: 8, nameMax: 16, cols: ['#8e5bd6', '#d6453b', '#2f7dd6', '#2fa36b', '#e0a52a', '#e0e0e6', '#33343f', '#e06aa8'] };
 
 // ---------- strade costruite: chi ci cammina (abitanti e soldati) va più svelto ----------
 export const ROAD_SPEED = 1.3;

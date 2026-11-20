@@ -493,7 +493,6 @@ export function extend(World) {
     /** Il giorno del calendario (ora del telefono): gli anticipi si contano per giorno. */
     dayKey(now) { const t = new Date(now); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); },
     /** Quanti anticipi restano oggi. Le prime notti (il tutorial) non si contano. */
-    earlyLeft(now) { if (!RULES().clock || this.d.night < NIGHT.free) return Infinity; const e = this.d.early || {}; return Math.max(0, NIGHT.early - (e.day === this.dayKey(now) ? e.n : 0)); },
     /** Si può far partire la notte adesso? Se è l'ora sì; prima serve un anticipo, e qui lo si spende. */
     nightGate(now, auto) {
       if (!RULES().clock || auto || now >= (this.d.nightAt || 0)) return true;
@@ -699,18 +698,5 @@ export function extend(World) {
     },
     trophies() { return TROPHIES.map(([k, need], id) => { const have = this.trophyHave(k), done = !!this.d.trophy[id] || have >= need; return { id, k, need, have: done ? need : Math.min(need, have), done }; }); },
     checkTrophies() { TROPHIES.forEach(([k, need], id) => { if (!this.d.trophy[id] && this.trophyHave(k) >= need) { this.d.trophy[id] = 1; this.events.push({ k: 'trophy', id, kind: k, need }); } }); },
-    /** La sfida di oggi: { k, need, have, done, claimed, reward } */
-    challenge(now = this.now) {
-      const day = Math.floor(now / DAY);
-      if (!this.d.chal || this.d.chal.day !== day) { const [k, need] = CHALLENGES[day % CHALLENGES.length]; this.d.chal = { day, k, need, base: this.d.stats[k] || 0, got: 0 }; }
-      const C = this.d.chal, have = Math.min(C.need, (this.d.stats[C.k] || 0) - C.base);
-      return { k: C.k, need: C.need, have, done: have >= C.need, claimed: !!C.got, reward: CHALLENGE_REWARD + 10 * this.d.castle };
-    },
-    claimChallenge(now = this.now) {
-      const c = this.challenge(now);
-      if (!c.done || c.claimed) return 0;
-      this.d.chal.got = 1; this.d.res.monete += c.reward;
-      return c.reward;
-    },
   });
 }

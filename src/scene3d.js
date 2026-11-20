@@ -1131,7 +1131,20 @@ export class Scene3D {
     big.rotation.x = -Math.PI / 2; big.position.set(WORLD_W / 2, -0.6, WORLD_H / 2); big.receiveShadow = true; s.add(big);
     const cv = document.createElement('canvas'); paintWorld(cv, 0.5); this.mapCv = cv; this.baseCv = null; this.roadSig = ''; this.roadBox = null; this.roadRev = 0;
     this.tex = new THREE.CanvasTexture(cv); this.tex.colorSpace = THREE.SRGBColorSpace; this.tex.anisotropy = 8;
-    const map = new THREE.Mesh(new THREE.PlaneGeometry(WORLD_W, WORLD_H), new THREE.MeshLambertMaterial({ map: this.tex }));
+    // la grana del terreno: una piccola trama che si ripete e si moltiplica sul dipinto. Da vicino dà fili d'erba e sassolini nitidi
+    // (il dipinto ha 20 punti per quadretto e da vicino è morbido); da lontano si media da sola e non si vede.
+    const det = document.createElement('canvas'); det.width = det.height = 256;
+    { const d = det.getContext('2d'), rn = mulberry32(7); d.fillStyle = '#808080'; d.fillRect(0, 0, 256, 256);
+      const dot = (x, y, r, col) => { d.fillStyle = col; for (const ox of [-256, 0, 256]) for (const oy of [-256, 0, 256]) { d.beginPath(); d.arc(x + ox, y + oy, r, 0, Math.PI * 2); d.fill(); } };
+      for (let i = 0; i < 1500; i++) { const v = rn() < 0.5 ? 255 : 0; dot(rn() * 256, rn() * 256, 0.7 + rn() * 1.9, `rgba(${v},${v},${v},${0.14 + rn() * 0.26})`); }
+      d.lineCap = 'round'; for (let i = 0; i < 520; i++) { const x = rn() * 256, y = rn() * 256, a = -Math.PI / 2 + (rn() - 0.5) * 0.9, l = 3 + rn() * 5, v = rn() < 0.55 ? 255 : 0; d.strokeStyle = `rgba(${v},${v},${v},${0.2 + rn() * 0.3})`; d.lineWidth = 0.9 + rn() * 0.7; d.beginPath(); d.moveTo(x, y); d.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); d.stroke(); } }
+    this.detTex = new THREE.CanvasTexture(det); this.detTex.wrapS = this.detTex.wrapT = THREE.RepeatWrapping; this.detTex.anisotropy = 4;
+    const gm = new THREE.MeshLambertMaterial({ map: this.tex });
+    gm.onBeforeCompile = (sh) => {
+      sh.uniforms.uDet = { value: this.detTex };
+      sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'uniform sampler2D uDet;\nvoid main() {').replace('#include <map_fragment>', '#include <map_fragment>\n\tdiffuseColor.rgb *= 0.74 + 0.52 * texture2D( uDet, vMapUv * vec2( ' + (WORLD_W / 110).toFixed(2) + ', ' + (WORLD_H / 110).toFixed(2) + ' ) ).r;');
+    };
+    const map = new THREE.Mesh(new THREE.PlaneGeometry(WORLD_W, WORLD_H), gm);
     map.rotation.x = -Math.PI / 2; map.position.set(WORLD_W / 2, 0, WORLD_H / 2); map.receiveShadow = true; s.add(map);
     this.scene = s;
 
@@ -1343,6 +1356,11 @@ export class Scene3D {
     this.bedIM = mk(geom('bedB', () => roundBoxGeo(32, 6, 32, 2.6)), M('#7a5634'), DECO_CAP, false);
     this.hedgeIM = mk(geom('hedge', () => roundBoxGeo(35, 17, 35, 7)), M('#ffffff'), DECO_CAP, true);              // siepi: un cubo verde tondo per quadretto
     this.paveIM = mk(geom('pave', () => new THREE.BoxGeometry(39.4, 1.4, 39.4)), M('#ffffff'), DECO_CAP, false); this.paveIM.receiveShadow = true;      // lastricato
+    // trappole (una tavola con le punte) e fossati (terra scura con l'acqua dentro)
+    this.trapIM = mk(geom('trapB', () => new THREE.BoxGeometry(31, 2.2, 31)), M('#8a5a34'), DECO_CAP, false); this.trapIM.receiveShadow = true;
+    this.spikeIM = mk(geom('trapS', () => mergeGeos([[-9, -9], [9, -9], [0, 0], [-9, 9], [9, 9], [0, -10], [0, 10], [-10, 0], [10, 0]].map(([x, z]) => { const m = new THREE.ConeGeometry(2.6, 11, 6); m.translate(x, 6.5, z); return m; }))), M('#d4d7e0'), DECO_CAP, false);
+    this.moatIM = mk(geom('moatB', () => new THREE.BoxGeometry(G + 7, 1.3, G + 7)), M('#4b3521'), DECO_CAP, false); this.moatIM.receiveShadow = true;
+    this.moatW = mk(geom('moatW', () => new THREE.BoxGeometry(G + 0.3, 0.6, G + 0.3)), M('#3a7fa6'), DECO_CAP, false);      // l'acqua copre tutto il quadretto: i pezzi vicini si uniscono, il bordo di terra resta solo attorno
     this.bedLeaf = mk(geom('bedL', () => new THREE.SphereGeometry(1, 7, 4)), M('#4f9a4b'), DECO_CAP, false);
     this.bedFlower = mk(geom('bedF', () => new THREE.IcosahedronGeometry(1, 0)), M('#ffffff'), DECO_CAP * 4, false);
     this.lampPole = mk(geom('lampP', () => new THREE.CylinderGeometry(1.5, 2.4, 34, 6)), M('#3d3e46'), 300);
@@ -1460,7 +1478,7 @@ export class Scene3D {
     }
     this.aoIM.count = na; this.aoIM.instanceMatrix.needsUpdate = true;
     // strade, aiuole, lampioni, alberi piantati
-    let nR = 0, nB = 0, nF = 0, nL = 0, nT = 0, nBr = 0, nRail = 0, nH = 0, nP = 0;
+    let nR = 0, nB = 0, nF = 0, nL = 0, nT = 0, nBr = 0, nRail = 0, nH = 0, nP = 0, nTr = 0, nMo = 0;
     const col = this._col, isBr = (c, r) => { const o = world.buildingAt(c, r); return !!o && o.type === 'ponte'; }, dry = (c, r) => TERRAIN[r * COLS + c] !== 3;
     for (const b of world.d.buildings) {
       if (!BUILD[b.type].deco) continue;
@@ -1473,6 +1491,8 @@ export class Scene3D {
         continue;
       }
       if (b.type === 'strada') continue;        // le strade sono dipinte sulla mappa (più sotto)
+      if (b.type === 'trappola') { if (nTr < DECO_CAP) { m4.compose(P3.set(b.x, 1.1, b.y), ROT_Q[0], S3.set(1, 1, 1)); this.trapIM.setMatrixAt(nTr, m4); this.spikeIM.setMatrixAt(nTr++, m4); } continue; }
+      if (b.type === 'fossato') { if (nMo < DECO_CAP) { this.moatIM.setMatrixAt(nMo, m4.compose(P3.set(b.x, 0.7, b.y), ROT_Q[0], S3.set(1, 1, 1))); this.moatW.setMatrixAt(nMo++, m4.compose(P3.set(b.x, 1.5, b.y), ROT_Q[0], S3.set(1, 1, 1))); } continue; }
       if (b.type === 'siepe') { if (nH < DECO_CAP) { this.hedgeIM.setMatrixAt(nH, m4.compose(P3.set(b.x, 8.5, b.y), ROT_Q[0], S3.set(1, 1, 1))); this.hedgeIM.setColorAt(nH++, col.set((b.c + b.r) % 2 ? '#3f8f4a' : '#4c9c50')); } continue; }
       if (b.type === 'piazza') { if (nP < DECO_CAP) { this.paveIM.setMatrixAt(nP, m4.compose(P3.set(b.x, 0.8, b.y), ROT_Q[0], S3.set(1, 1, 1))); this.paveIM.setColorAt(nP++, col.set((b.c + b.r) % 2 ? '#d8d0bf' : '#c6bdaa')); } continue; }
       if (b.type === 'aiuola' && nB < DECO_CAP) {
@@ -1497,6 +1517,8 @@ export class Scene3D {
     this.railIM.count = nRail; this.railIM.instanceMatrix.needsUpdate = true;
     this.roadIM.count = nR; this.bedIM.count = this.bedLeaf.count = nB; this.bedFlower.count = nF; this.lampPole.count = this.lampHead.count = nL;
     this.hedgeIM.count = nH; this.paveIM.count = nP;
+    this.trapIM.count = this.spikeIM.count = nTr; this.moatIM.count = this.moatW.count = nMo;
+    for (const im of [this.trapIM, this.spikeIM, this.moatIM, this.moatW]) im.instanceMatrix.needsUpdate = true;
     for (const im of [this.roadIM, this.bedIM, this.bedLeaf, this.bedFlower, this.lampPole, this.lampHead, this.hedgeIM, this.paveIM]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
     q.identity(); S3.set(1, 1, 1);
     q.identity(); S3.set(1, 1, 1);

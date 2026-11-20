@@ -1,6 +1,6 @@
 // Interfaccia del secondo giro di tappe: la mappa intera (da lì si mandano gli esploratori), il rapporto di una spedizione,
 // il dito del Tuzu guida, il gruppo di soldati scelto, i trofei. Come ui2.js: ogni funzione riceve S (il fotogramma) e K (gli attrezzi).
-import { G, COLS, ROWS, WORLD_W, WORLD_H, TRIBES, MY_COLOR, RUINS, FOG, FW, FH, PEAKS, HILLS, NATURE, TRAITS, TROPHIES, BUILD, CROPS, TECH_ORDER, CASTLE_UP, UNITS } from './data.js';
+import { SHIPS, TECHS, TERRAIN, G, COLS, ROWS, WORLD_W, WORLD_H, TRIBES, MY_COLOR, RUINS, FOG, FW, FH, PEAKS, HILLS, NATURE, TRAITS, TROPHIES, BUILD, CROPS, TECH_ORDER, CASTLE_UP, UNITS, SHIP_ORDER } from './data.js';
 import { t } from './i18n.js';
 
 const TAU = Math.PI * 2;
@@ -291,7 +291,29 @@ function fogSpot(world) {
     return null;
   });
 }
+/** Dove toccare l'acqua per un ponte: il punto più vicino al castello da cui il ponte si stende da riva a riva (corto, ma lungo almeno `need`). */
+function bridgeSpot(world, need) {
+  return memo(world, 'bridge' + need + '|' + world.fogRev, () => {
+    const c0 = Math.floor(world.castle.x / G), r0 = Math.floor(world.castle.y / G); let best = null, bd = 1e9;
+    for (let r = Math.max(2, r0 - 34); r <= Math.min(ROWS - 3, r0 + 34); r++) for (let c = Math.max(2, c0 - 34); c <= Math.min(COLS - 3, c0 + 34); c++) {
+      if (TERRAIN[r * COLS + c] !== 3 || !world.seen(c, r)) continue;
+      const d = (c - c0) ** 2 + (r - r0) ** 2; if (d >= bd) continue;
+      const sp = world.bridgeSpan(c, r); if (sp && sp.n >= need && sp.n <= 9) { bd = d; best = { c, r }; }
+    }
+    return best;
+  });
+}
 const at = (b, dy = 20) => (b ? { x: b.x, y: b.y + dy, h: 0 } : null);
+/** Un quadretto di terra libera vicino a (x, y): lì si possono mandare i soldati (su un edificio il tocco sceglierebbe l'edificio). */
+function freeNear(world, x, y) {
+  const c0 = Math.floor(x / G), r0 = Math.floor(y / G);
+  for (let d = 0; d < 9; d++) for (let dr = -d; dr <= d; dr++) for (let dc = -d; dc <= d; dc++) {
+    if (Math.max(Math.abs(dc), Math.abs(dr)) !== d) continue;
+    const c = c0 + dc, r = r0 + dr, px = (c + 0.5) * G, py = (r + 0.5) * G;
+    if (c > 2 && r > 2 && c < COLS - 3 && r < ROWS - 3 && !world.buildingAt(c, r) && !world.natAt(c, r) && world.walkable(px, py)) return { x: px, y: py, h: 0 };
+  }
+  return { x, y, h: 0 };
+}
 /** L'albero o la roccia più vicina al castello fra quelli in vista e non ancora in lista. */
 function nat(world, kind) {
   let best = null, bd = 1e12;
@@ -313,29 +335,46 @@ function lack(world, cost) {
  */
 export function hintFor(S) {
   const { world, ui } = S, g = world.goal();
-  if (ui.resInfo || !g || world.status !== 'day') return null;
-  let B = BUILD_STEP[g.kind] || (BUILD[g.kind] ? [BUILD[g.kind].cat, g.kind] : null);
-  if (g.i > 28 && !B && !['sell', 'tech', 'ship', 'sail'].includes(g.kind)) return null;
+  if (ui.resInfo || !g || world.status !== 'day' || world.drill || ui.multi || ui.todo || ui.vBanner) return null;
+  let kind = g.kind, food = false;
+  // conquistare vuole un esercito: senza soldati la guida passa prima dalla caserma
+  if (kind === 'conquer' && !g.done && world.popUsed() < 4) kind = world.count('caserma') ? 'army' : 'caserma';
+  // servono altri soldati ma le caserme sono piene: se il castello ne permette un'altra, si costruisce quella
+  if (kind === 'army' && !g.done && !world.d.buildings.some(o => o.type === 'caserma' && (o.units || []).length < world.slots(o))) { const cp = world.cap('caserma'); if (cp.have < cp.max) kind = 'caserma'; }
+  let B = BUILD_STEP[kind] || (BUILD[kind] ? [BUILD[kind].cat, kind] : null);
   if (ui.map) {      // dentro la mappa: tocca le nuvole, poi «Manda un esploratore», poi chiudi
-    if (g.kind !== 'explore') return null;
+    if (kind !== 'explore') return null;
     if (g.done) return { tag: 'mapClose' };
     if (ui.map.sel && (ui.map.sel.kind === 'fog' || ui.map.sel.kind === 'ruin')) return { tag: 'scout' };
     const f = fogSpot(world), M = ui.mapGeo; return f && M ? { ux: M.mx + f.x * M.k, uy: M.my + f.y * M.k } : null;
   }
   // obiettivo fatto: si ritira il premio. Se c'è un pannello grande aperto sopra (le scoperte, la flotta…), prima lo si chiude: il bottone del premio sta sotto.
   if (g.done) return ui.tech || ui.settings || ui.quests || ui.roles ? { tag: 'close' } : ui.fleet ? { tag: 'fleetClose' } : { tag: 'goalClaim' };
-  if (g.kind === 'move') return { swipe: true };
+  // pannelli che il giocatore ha aperto da sé: lì il dito tace (nelle scoperte e nella flotta parla solo se l'obiettivo è quello)
+  if (ui.quests || ui.settings || ui.roles || (ui.tech && kind !== 'tech') || (ui.fleet && kind !== 'ship' && kind !== 'sail')) return null;
+  if (kind === 'move') return { swipe: true };
   // prima della notte: se mancano torri (e ci sono i materiali) la guida ne fa costruire un'altra; se manca la legna, manda a un albero
-  if (g.kind === 'night' && world.towers() < world.towersWanted()) {
-    B = ['dif', 'arcieri'];
+  if (kind === 'night' && world.towers() < world.towersWanted()) B = ['dif', 'arcieri'];
+  else {      // il cibo non basta per stanotte: prima quello (un campo da raccogliere, da seminare, o da costruire)
+    const ff = world.foodFix(S.now);
+    if (ff && ff.k === 'build') { B = ['eco', 'campo']; food = true; }
+    else if (ff && ff.b) {
+      if (ui.place) return { tag: 'placeCancel' };
+      if (ui.build) return { tag: 'buildClose' };
+      if (ff.k === 'plant' && ui.sel && ui.sel.b === ff.b) return { tag: 'crop_' + Object.keys(CROPS)[0] };
+      return ui.sel ? { tag: 'selClose' } : at(ff.b, 14);
+    }
   }
+  // un edificio che non si può (ancora) fare: castello troppo basso, scoperta che manca, limite raggiunto. Lì il dito non indica niente.
+  if (B && !food && kind !== 'night') { const D0 = BUILD[B[1]], cp = world.cap(B[1]); if (D0.min > world.d.castle || (D0.tech && !world.d.tech[D0.tech]) || cp.have >= cp.max) B = null; }
   if (B && !ui.place) { const L = lack(world, BUILD[B[1]].cost); if (L !== undefined) return ui.build ? { tag: 'buildClose' } : L; }
   if (B) {
     if (ui.place) {
       const st = ui.place.state, D = BUILD[B[1]];
       if (ui.place.type !== B[1]) return { tag: 'placeCancel' };      // sta posando un'altra cosa: prima si esce
-      if (g.kind === 'night' && world.towers() >= world.towersWanted()) return { tag: 'placeCancel' };
+      if (!food && kind === 'night' && world.towers() >= world.towersWanted()) return { tag: 'placeCancel' };
       if (st && st.ok && st.why === 'ok') return { tag: 'placeOk' };
+      if (B[1] === 'ponte') { const q = bridgeSpot(world, Math.max(1, Math.min(6, g.need - g.have))); return q ? { x: (q.c + 0.5) * G, y: (q.r + 0.5) * G, h: 0, far: true } : null; }
       if (D.line) { const n = Math.max(2, Math.min(8, g.need - g.have)), q = ui.place.a ? lineEnd(world, B[1], ui.place.a, n) : (lineSpot(world, B[1], n) || [null])[0]; return q ? { x: (q.c + 0.5) * G, y: (q.r + 0.5) * G, h: 0 } : null; }
       const q = spot(world, B[1]); return q ? { x: (q.c + D.w / 2) * G, y: (q.r + D.h / 2) * G, h: 0 } : null;
     }
@@ -345,54 +384,72 @@ export function hintFor(S) {
   // il catalogo o la posa sono ancora aperti ma l'obiettivo è un altro: il dito indica la ✕ per uscire (un giocatore nuovo restava lì)
   if (ui.place) return { tag: 'placeCancel' };
   if (ui.build) return { tag: 'buildClose' };
-  if (g.kind === 'night') {
+  if (kind === 'night') {
     if (world.clockOn() && !world.nightDue(S.now) && world.earlyLeft(S.now) <= 0) return null;      // anticipi finiti: sul bottone c'è il tempo che manca, non c'è niente da premere
     // torri al completo: se una si può potenziare, la guida lo fa fare (una per notte, dalla quarta)
     if (world.nextNight >= 4 && world.nextNight <= 8) { const up = world.d.buildings.filter(o => o.type === 'arcieri' && !(o.build > 0)), lv = up.reduce((a, o) => a + (o.lvl || 0), 0), b = up.find(o => world.upgradeCost(o) != null && world.d.res.monete >= world.upgradeCost(o)); if (b && lv < world.nextNight - 3) return ui.sel ? (ui.sel.b === b ? { tag: 'upgrade' } : { tag: 'selClose' }) : at(b, 10); }
     return { tag: 'night' };
   }
-  if (g.kind === 'level') {
+  if (kind === 'level') {
     const b = world.d.buildings.find(o => world.levelCheck(o) === 'ok') || world.d.buildings.find(o => o.type === 'casa' && !(o.build > 0));
     if (b && world.levelCheck(b) !== 'ok') { const L = lack(world, world.levelCost(b)); if (L !== undefined) return ui.sel ? { tag: 'selClose' } : L; return null; }
     if (ui.sel) return ui.sel.b === b ? { tag: 'levelUp' } : { tag: 'selClose' };
     return at(b);
   }
-  if (g.kind === 'sell') { if (ui.sel && ui.sel.b.type === 'mercato') return { tag: ui.sell ? 'sell_legna' : 'marketMode' }; return at(world.d.buildings.find(o => o.type === 'mercato')); }
-  if (g.kind === 'order') { if (ui.squad != null) return { x: world.castle.x + 170, y: world.castle.y + 190, h: 0 }; const sd = world.soldiers.find(o => !o.dead && o.ally == null); return sd ? { x: sd.x, y: sd.y, h: 30 } : null; }
-  if (g.kind === 'explore') return { tag: 'map' };
-  if (g.kind === 'castle') {
+  if (kind === 'sell') { if (ui.sel && ui.sel.b.type === 'mercato') return { tag: ui.sell ? 'sell_legna' : 'marketMode' }; return at(world.d.buildings.find(o => o.type === 'mercato')); }
+  if (kind === 'order') { if (ui.squad != null) return freeNear(world, world.castle.x + 170, world.castle.y + 190); const free = (o) => !world.buildingAt(Math.floor(o.x / G), Math.floor((o.y + 6) / G)), L = world.soldiers.filter(o => !o.dead && o.ally == null), sd = L.find(free) || L[0]; return sd ? { x: sd.x, y: sd.y + 6, h: 0 } : null; }      // ai piedi di un soldato che non sta davanti a un edificio: lì il tocco prende lui, non la casa
+  if (kind === 'explore') return { tag: 'map' };
+  if (kind === 'castle') {
     const chk = world.castleCheck();
     if (chk === 'cost') { const L = lack(world, (CASTLE_UP[world.d.castle] || {}).cost); if (L !== undefined) return ui.sel ? { tag: 'selClose' } : L; }
     if (chk !== 'ok') return null;      // servono altre notti: lo dice la guida, qui non c'è niente da toccare
     return ui.sel && ui.sel.b.type === 'castello' ? { tag: 'castleUp' } : { x: world.castle.x, y: world.castle.y + 30, h: 0 };
   }
-  if (g.kind === 'send' || g.kind === 'sendRock') return ui.sel ? { tag: 'selClose' } : nat(world, g.kind === 'send' ? 'tree' : 'rock');
-  if (g.kind === 'harvest') {
+  if (kind === 'send' || kind === 'sendRock') return ui.sel ? { tag: 'selClose' } : nat(world, kind === 'send' ? 'tree' : 'rock');
+  if (kind === 'harvest') {
     if (ui.sel && ui.sel.b.type === 'campo' && !ui.sel.b.crop) return { tag: 'crop_' + Object.keys(CROPS)[0] };
     return at(world.d.buildings.find(o => o.type === 'campo' && !(o.build > 0) && (!o.crop || world.crop(o, S.now).ripe)), 14);
   }
-  if (g.kind === 'army') {
+  if (kind === 'army') {
     { const L = lack(world, UNITS.lancia.cost); if (L !== undefined) return ui.sel ? { tag: 'selClose' } : L; }
     if (ui.sel && ui.sel.b.type === 'caserma') return { tag: 'train_lancia' };
     return at(world.d.buildings.find(o => o.type === 'caserma' && !(o.build > 0) && (o.units || []).length < world.slots(o)));
   }
-  if (g.kind === 'tech') {
-    if (ui.tech) { const id = TECH_ORDER.find(k => !world.d.tech[k]); return id ? { tag: 'tech_' + id } : null; }
+  if (kind === 'tech') {
+    // la prima scoperta che si può fare adesso; se a tutte mancano i materiali, si va a prenderli (mai un bottone che non fa niente)
+    const okId = TECH_ORDER.find(k => world.techCheck(k) === 'ok');
+    if (!okId) { const nd = TECH_ORDER.find(k => world.techCheck(k) === 'cost'), L = nd ? lack(world, TECHS[nd].cost) : null; return !L ? null : ui.tech ? { tag: 'close' } : ui.sel ? { tag: 'selClose' } : L; }
+    if (ui.tech) return { tag: 'tech_' + okId };
     if (ui.sel && ui.sel.b.type === 'bottega') return { tag: 'techOpen' };
     return at(world.d.buildings.find(o => o.type === 'bottega' && !(o.build > 0)));
   }
-  if (['village', 'gift', 'ally', 'trade'].includes(g.kind)) {
-    if (ui.vsel != null && g.kind !== 'village') return { tag: g.kind };
+  if (['village', 'gift', 'ally', 'trade'].includes(kind)) {
+    if (ui.vsel != null && kind !== 'village') return { tag: kind };
     let best = null, bd = 1e12;
-    world.d.villages.forEach((v, i) => { if (!world.known(i)) return; if (g.kind === 'trade' && v.state !== 'ally' && v.state !== 'colony') return; const T = TRIBES[i], x = (T.c + 0.5) * G, y = (T.r + 0.5) * G, d = (x - world.castle.x) ** 2 + (y - world.castle.y) ** 2; if (d < bd) { bd = d; best = { x, y, h: 40 }; } });
+    world.d.villages.forEach((v, i) => { if (!world.known(i)) return; if (kind === 'trade' && v.state !== 'ally' && v.state !== 'colony') return; const T = TRIBES[i], x = (T.c + 0.5) * G, y = (T.r + 0.5) * G, d = (x - world.castle.x) ** 2 + (y - world.castle.y) ** 2; if (d < bd) { bd = d; best = { x, y, h: 40 }; } });
     return best;
+  }
+  if (kind === 'conquer') {      // il villaggio libero più debole fra quelli conosciuti: lo si tocca, poi «Attacca»
+    let best = -1, bl = 99;
+    world.d.villages.forEach((v, i) => { if (world.known(i) && v.state === 'free' && v.level < bl) { bl = v.level; best = i; } });
+    if (best < 0) return { tag: 'map' };
+    if (ui.vsel != null) return ui.vsel === best ? { tag: 'attack' } : { tag: 'vClose' };
+    const T = TRIBES[best]; return { x: (T.c + 0.5) * G, y: (T.r + 0.5) * G, h: 40, far: true };
+  }
+  if (kind === 'ship' || kind === 'sail') {      // la flotta: bottone dell'àncora, scheda giusta, nave o partenza
+    if (!world.fleetSlots()) return null;
+    if (!ui.fleet) return ui.sel ? { tag: 'selClose' } : { tag: 'fleetHud' };
+    // per salpare serve una nave che parte (il peschereccio resta in porto): la guida fa costruire prima quella
+    const sailers = SHIP_ORDER.filter(k => !SHIPS[k].plain), can = world.d.fleet.some(s => !SHIPS[s.type].plain && world.shipFit(s));
+    if (kind === 'ship' || !can) { if (ui.fleet.tab !== 'ships') return { tag: 'fleetTab_ships' }; const ty = sailers.find(k => world.shipCheck(k) === 'ok') || (kind === 'ship' ? SHIP_ORDER.find(k => world.shipCheck(k) === 'ok') : null); return ty ? { tag: 'shNew_' + ty } : null; }
+    return ui.fleet.tab !== 'trade' ? { tag: 'fleetTab_trade' } : { tag: 'trGo' };
   }
   return null;
 }
 /** Disegna la mano che indica (dopo i bottoni: deve sapere dove sono). */
-export function finger(S, K) {
+export function finger(S, K, tagOnly) {
   const { c, ui, vw, vh, P } = S, hint = hintFor(S);
-  if (!hint) return;
+  if (!hint || (tagOnly && !hint.tag)) return;
   const bob = Math.sin(ui.time * 6) * 7;
   let x, y, up;
   if (hint.swipe) { hand(c, vw / 2 + Math.sin(ui.time * 2.4) * 120, vh * 0.56, Math.PI, 1.05); return; }      // il gesto: trascina
@@ -402,10 +459,15 @@ export function finger(S, K) {
     if (!b) return;
     up = b.y + b.h / 2 < vh * 0.5; x = b.x + b.w / 2; y = up ? b.y + b.h + 4 : b.y - 4;
     c.beginPath(); c.roundRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8, 14); c.strokeStyle = 'rgba(255,246,200,' + (0.5 + Math.sin(ui.time * 6) * 0.4) + ')'; c.lineWidth = 3.5; c.stroke();
-    if (S.tall && !up && b.y > vh - 120) { const left = b.x + b.w / 2 < vw / 2; hand(c, left ? b.x + b.w + 26 + bob : b.x - 26 - bob, b.y + b.h / 2, left ? -Math.PI / 2 : Math.PI / 2, 0.95); return; }
+    // dentro un pannello la mano sta di lato: sopra o sotto coprirebbe le scritte
+    if (tagOnly || (S.tall && !up && b.y > vh - 120)) { const left = b.x + b.w / 2 < vw / 2; hand(c, left ? b.x + b.w + 26 + bob : b.x - 26 - bob, b.y + b.h / 2, left ? -Math.PI / 2 : Math.PI / 2, 0.95); return; }
   } else {
     const p = P.pt(hint.x, hint.y, hint.h || 0);
-    if (p.x < 30 || p.x > vw - 30 || p.y < 110 || p.y > vh - 110) return;
+    if (p.x < 30 || p.x > vw - 30 || p.y < 110 || p.y > vh - 110) {      // fuori dallo schermo: se è una meta lontana (un villaggio), la mano sta sul bordo e indica da che parte andare
+      if (!hint.far) return;
+      const cx = Math.max(70, Math.min(vw - 70, p.x)), cy = Math.max(170, Math.min(vh - 170, p.y)), th = Math.atan2(p.y - cy, p.x - cx);
+      hand(c, cx - Math.cos(th) * (bob + 8), cy - Math.sin(th) * (bob + 8), th + Math.PI / 2, 0.95); return;
+    }
     up = false; x = p.x; y = p.y - 10;
   }
   hand(c, x, y + (up ? bob + 8 : -bob - 8), up ? 0 : Math.PI, 0.95);
