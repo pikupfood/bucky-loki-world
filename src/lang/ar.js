@@ -968,4 +968,7 @@ export default {
   wallsAll: "الكل ({v})",
   piratesNight: "قراصنة من البحيرة!",
   piratesGuard: "قراصنة! سفينتك الحربية توقف نصفهم.",
+  b_costiera: "برج الساحل",
+  k_costiera: "على الشاطئ، مدى بعيد",
+  d_costiera: "يقف على الشاطئ ويوقف القراصنة.",
 };

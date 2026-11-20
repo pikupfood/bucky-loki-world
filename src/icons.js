@@ -31,8 +31,8 @@ function pips(c, x, y, level) {
 export function drawTower(c, t, time) {
   const { x, y } = t, L = t.level;
   towerBase(c, x, y);
-  if (t.type === 'arcieri') {
-    poly(c, [x - 17, y + 2, x - 13, y - 30, x + 13, y - 30, x + 17, y + 2], '#9b6b3d', '#5c3a1e', 2);
+  if (t.type === 'arcieri' || t.type === 'costiera') {
+    poly(c, [x - 17, y + 2, x - 13, y - 30, x + 13, y - 30, x + 17, y + 2], t.type === 'costiera' ? '#a3a4b0' : '#9b6b3d', t.type === 'costiera' ? '#55566a' : '#5c3a1e', 2);
     poly(c, [x - 17, y + 2, x - 13, y - 30, x - 6, y - 30, x - 8, y + 2], 'rgba(255,255,255,0.14)');
     c.strokeStyle = '#5c3a1e'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(x - 15, y - 13); c.lineTo(x + 15, y - 13); c.stroke();
     ell(c, x, y - 30, 19, 9, '#c08e58', '#5c3a1e', 2);

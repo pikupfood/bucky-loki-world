@@ -968,4 +968,7 @@ export default {
   wallsAll: "Alle ({v})",
   piratesNight: "Piraten vom See!",
   piratesGuard: "Piraten! Dein Kriegsschiff hält die Hälfte auf.",
+  b_costiera: "Küstenturm",
+  k_costiera: "Am Ufer, große Reichweite",
+  d_costiera: "Steht am Ufer und hält Piraten auf.",
 };

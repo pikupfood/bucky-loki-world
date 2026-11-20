@@ -83,8 +83,8 @@ function makeTower(type, level) {
   for (let i = 0; i < 6; i++) { const a = i * 1.047 + 0.4, b = ball(g, 5.4, i % 2 ? STONE_D : '#b8b9c4', Math.cos(a) * 34.5, 2.6, Math.sin(a) * 34.5, { ns: true }); b.scale.y = 0.75; }
   cyl(g, 0.9, 0.9, 26, WOOD_D, -25, 20, 19, { ns: true, seg: 5 }); box(g, 11, 7, 0.8, MY_COLOR, -19.5, 29, 19, { ns: true });
   const u = { type, level };
-  if (type === 'arcieri') {
-    cyl(g, 16, 21, 44, WOOD, 0, 32, 0, { seg: 16 });
+  if (type === 'arcieri' || type === 'costiera') {      // la Torre costiera ha la stessa forma, ma di pietra
+    cyl(g, 16, 21, 44, type === 'costiera' ? STONE : WOOD, 0, 32, 0, { seg: 16 });
     for (let i = 0; i <= level; i++) cyl(g, 19.4 - i * 1.4, 20.2 - i * 1.4, 3, GOLDC, 0, 20 + i * 9, 0, { ns: true, seg: 16 });
     cyl(g, 25, 21, 6, WOOD_L, 0, 57, 0, { seg: 16 });
     { const rim = put(g, geom('trimA', () => new THREE.TorusGeometry(24.4, 2, 6, 18)), M(WOOD_D), 0, 60.4, 0, false); rim.rotation.x = Math.PI / 2; }

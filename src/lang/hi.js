@@ -968,4 +968,7 @@ export default {
   wallsAll: "सभी ({v})",
   piratesNight: "झील से समुद्री डाकू!",
   piratesGuard: "डाकू! तुम्हारा युद्धपोत आधों को रोकता है।",
+  b_costiera: "तटीय मीनार",
+  k_costiera: "किनारे पर, दूर तक मार",
+  d_costiera: "किनारे पर खड़ी, डाकुओं को रोकती है।",
 };

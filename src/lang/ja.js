@@ -968,4 +968,7 @@ export default {
   wallsAll: "すべて（{v}）",
   piratesNight: "湖から海賊だ！",
   piratesGuard: "海賊だ！軍船が半分を食い止めた。",
+  b_costiera: "沿岸の塔",
+  k_costiera: "岸辺に建ち、遠くまで届く",
+  d_costiera: "岸辺に立ち、海賊を止める。",
 };

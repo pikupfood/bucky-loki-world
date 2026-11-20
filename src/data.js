@@ -711,6 +711,12 @@ export const ECON = {
   for (const k in SHIPS) mul(SHIPS[k].cost, ECON.ship);
 })();
 
+// ---------- la Torre costiera (20/11/2026): una torre di pietra che vuole la riva, tira più lontano degli arcieri. Sta in «Acqua», conta fra le torri.
+BUILD.costiera = { w: 2, h: 2, hp: 200, cost: { pietra: 80, legna: 50 }, cat: 'acqua', min: 3, tower: true, shore: true, time: 8 };
+BUILD_CATS.acqua.splice(BUILD_CATS.acqua.indexOf('ponte'), 0, 'costiera');
+TOWERS.costiera = { kind: 'physical', proj: 'arrow', levels: [{ dmg: 15, rate: 0.6, range: 235 }, { up: 90, dmg: 25, rate: 0.55, range: 250 }, { up: 170, dmg: 40, rate: 0.45, range: 265 }] };
+PVP_TOWER.costiera = [22, 38, 60];
+
 // ---------- mura a livelli (20/11/2026): ogni pezzo sale due volte, e a ogni livello regge la metà in più (e si vede: è più alto) ----------
 LEVELS.mura = [{ pietra: 6 }, { pietra: 10, ferro: 3 }];
 export const WALLS = { hp: 0.5, tall: 0.22 };

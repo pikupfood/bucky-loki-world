@@ -968,4 +968,7 @@ export default {
   wallsAll: "Hepsi ({v})",
   piratesNight: "Gölden korsanlar!",
   piratesGuard: "Korsanlar! Savaş gemin yarısını durdurur.",
+  b_costiera: "Kıyı kulesi",
+  k_costiera: "Kıyıda, uzun menzil",
+  d_costiera: "Kıyıda durur, korsanları durdurur.",
 };

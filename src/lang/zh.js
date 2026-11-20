@@ -968,4 +968,7 @@ export default {
   wallsAll: "全部（{v}）",
   piratesNight: "湖上来了海盗！",
   piratesGuard: "海盗！你的战船拦住了一半。",
+  b_costiera: "海岸塔",
+  k_costiera: "建在岸边，射程远",
+  d_costiera: "立在岸边，拦住海盗。",
 };

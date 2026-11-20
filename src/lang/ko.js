@@ -968,4 +968,7 @@ export default {
   wallsAll: "전체 ({v})",
   piratesNight: "호수에서 해적이다!",
   piratesGuard: "해적이다! 전함이 절반을 막았어.",
+  b_costiera: "해안 탑",
+  k_costiera: "물가에 짓고 멀리 쏜다",
+  d_costiera: "물가에 서서 해적을 막는다.",
 };

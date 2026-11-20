@@ -238,6 +238,7 @@ const S = {
     ev_gems: 'Sabato e domenica lo scrigno del giorno dà il triplo delle gemme, il regalo il doppio.', nt_event_t: 'Evento del fine settimana!',
     nt_event: 'Solo sabato e domenica: entra a vedere che cosa c\'è.',
     wallsAll: 'Tutte ({v})', piratesNight: 'Pirati dal lago!', piratesGuard: 'Pirati! La nave da guerra ne ferma metà.',
+    b_costiera: 'Torre costiera', k_costiera: 'Sulla riva, tira lontano', d_costiera: 'Sta sulla riva e ferma i pirati.',
   },
   fr: {
     title: 'Tuzuland', subtitle: 'Ton village parmi les peuples Tuzu',
@@ -476,6 +477,7 @@ const S = {
     ev_gems: 'Samedi et dimanche, le coffre du jour donne le triple de gemmes, le cadeau le double.', nt_event_t: 'Événement du week-end !',
     nt_event: 'Samedi et dimanche seulement : viens voir ce qu\'il y a.',
     wallsAll: 'Toutes ({v})', piratesNight: 'Pirates du lac !', piratesGuard: 'Pirates ! Ton navire de guerre en arrête la moitié.',
+    b_costiera: 'Tour côtière', k_costiera: 'Sur la rive, tire loin', d_costiera: 'Sur la rive, elle arrête les pirates.',
   },
   en: {
     title: 'Tuzuland', subtitle: 'Your village among the Tuzu peoples',
@@ -704,6 +706,7 @@ const S = {
     ev_gems: 'On Saturday and Sunday the daily chest gives triple gems and the daily gift double.', nt_event_t: 'Weekend event!',
     nt_event: 'Saturday and Sunday only: come and see what\'s on.',
     wallsAll: 'All ({v})', piratesNight: 'Pirates from the lake!', piratesGuard: 'Pirates! Your warship stops half of them.',
+    b_costiera: 'Coast tower', k_costiera: 'On the shore, long range', d_costiera: 'Stands on the shore and stops pirates.',
   },
 };
 
