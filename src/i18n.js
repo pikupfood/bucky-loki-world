@@ -239,6 +239,7 @@ const S = {
     nt_event: 'Solo sabato e domenica: entra a vedere che cosa c\'è.',
     wallsAll: 'Tutte ({v})', piratesNight: 'Pirati dal lago!', piratesGuard: 'Pirati! La nave da guerra ne ferma metà.',
     b_costiera: 'Torre costiera', k_costiera: 'Sulla riva, tira lontano', d_costiera: 'Sta sulla riva e ferma i pirati.',
+    on_report: 'Segnala', on_block: 'Nascondi', on_unblock: 'Mostra', on_reported: 'Segnalazione inviata. Grazie.', on_reportMail: 'Scrivici a info@tuzu.my',
   },
   fr: {
     title: 'Tuzuland', subtitle: 'Ton village parmi les peuples Tuzu',
@@ -478,6 +479,7 @@ const S = {
     nt_event: 'Samedi et dimanche seulement : viens voir ce qu\'il y a.',
     wallsAll: 'Toutes ({v})', piratesNight: 'Pirates du lac !', piratesGuard: 'Pirates ! Ton navire de guerre en arrête la moitié.',
     b_costiera: 'Tour côtière', k_costiera: 'Sur la rive, tire loin', d_costiera: 'Sur la rive, elle arrête les pirates.',
+    on_report: 'Signaler', on_block: 'Masquer', on_unblock: 'Afficher', on_reported: 'Signalement envoyé. Merci.', on_reportMail: 'Écris-nous à info@tuzu.my',
   },
   en: {
     title: 'Tuzuland', subtitle: 'Your village among the Tuzu peoples',
@@ -707,6 +709,7 @@ const S = {
     nt_event: 'Saturday and Sunday only: come and see what\'s on.',
     wallsAll: 'All ({v})', piratesNight: 'Pirates from the lake!', piratesGuard: 'Pirates! Your warship stops half of them.',
     b_costiera: 'Coast tower', k_costiera: 'On the shore, long range', d_costiera: 'Stands on the shore and stops pirates.',
+    on_report: 'Report', on_block: 'Hide', on_unblock: 'Show', on_reported: 'Report sent. Thank you.', on_reportMail: 'Write to us at info@tuzu.my',
   },
 };
 

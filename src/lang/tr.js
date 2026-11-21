@@ -971,4 +971,9 @@ export default {
   b_costiera: "Kıyı kulesi",
   k_costiera: "Kıyıda, uzun menzil",
   d_costiera: "Kıyıda durur, korsanları durdurur.",
+  on_report: "Bildir",
+  on_block: "Gizle",
+  on_unblock: "Göster",
+  on_reported: "Bildirim gönderildi. Teşekkürler.",
+  on_reportMail: "Bize yaz: info@tuzu.my",
 };

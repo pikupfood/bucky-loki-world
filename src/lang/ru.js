@@ -971,4 +971,9 @@ export default {
   b_costiera: "Береговая башня",
   k_costiera: "На берегу, бьёт далеко",
   d_costiera: "Стоит на берегу и останавливает пиратов.",
+  on_report: "Пожаловаться",
+  on_block: "Скрыть",
+  on_unblock: "Показать",
+  on_reported: "Жалоба отправлена. Спасибо.",
+  on_reportMail: "Напиши нам: info@tuzu.my",
 };

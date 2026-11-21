@@ -971,4 +971,9 @@ export default {
   b_costiera: "해안 탑",
   k_costiera: "물가에 짓고 멀리 쏜다",
   d_costiera: "물가에 서서 해적을 막는다.",
+  on_report: "신고",
+  on_block: "숨기기",
+  on_unblock: "보이기",
+  on_reported: "신고를 보냈어요. 고마워요.",
+  on_reportMail: "info@tuzu.my 로 알려 주세요",
 };

@@ -70,7 +70,7 @@ export async function load() {
     state.villages = v.data || []; state.alliances = a.data || []; state.marches = m.data || []; state.reports = rp.data || [];
     const ids = state.marches.map(o => o.id);
     if (ids.length) { const tr = await s.from('dw_troops').select('*').in('march_id', ids); if (tr.error) throw tr.error; state.troops = tr.data || []; } else state.troops = [];
-    state.ready = true; state.loadedAt = Date.now(); state.err = '';
+    state.ready = true; state.loadedAt = Date.now(); state.err = ''; mask();
     if (state.me && state.me.alliance_id) await msgs(); else state.msgs = [];
     if (state.me) state.me = byId(state.me.id) ? { ...state.me, ...byId(state.me.id) } : state.me;
     return true;
@@ -98,7 +98,28 @@ export async function visit(id) {
 /** I messaggi pronti della mia alleanza (il server mostra solo quelli). */
 export async function msgs() {
   if (state.demo) return;
-  try { const s = await cloud.getClient(), q = await s.from('dw_msgs').select('id,village_id,code,at').order('at', { ascending: false }).limit(20); state.msgs = q.error ? [] : q.data || []; } catch (e) { /* al prossimo giro */ }
+  try { const s = await cloud.getClient(), q = await s.from('dw_msgs').select('id,village_id,code,at').order('at', { ascending: false }).limit(20); state.msgs = q.error ? [] : q.data || []; mask(); } catch (e) { /* al prossimo giro */ }
+}
+
+// ---------- segnalare e nascondere un giocatore (21/11/2026: lo chiede Apple, regola 1.2, per i nomi scelti dai giocatori) ----------
+// «Nascondi» vale solo su questo telefono (localStorage): il nome di quel villaggio diventa «•••» e le sue frasi all'alleanza non si vedono.
+// «Segnala» scrive sul server (funzione `dw_flag`, migrazione `dw_online_6_flags`); finché la funzione non c'è rende 'mail' e il gioco apre la posta.
+const BK = 'tuzu_dw_block';
+export const blocked = new Set((() => { try { return JSON.parse((typeof localStorage !== 'undefined' && localStorage.getItem(BK)) || '[]'); } catch (e) { return []; } })());
+export const isBlocked = (id) => blocked.has(id);
+export function block(id, on = true) {
+  if (on) blocked.add(id); else blocked.delete(id);
+  try { localStorage.setItem(BK, JSON.stringify([...blocked])); } catch (e) { /* senza memoria vale fino alla chiusura */ }
+  mask();
+}
+function mask() {
+  for (const v of state.villages || []) { if (v._name == null) v._name = v.name; v.name = blocked.has(v.id) ? '\u2022\u2022\u2022' : v._name; }
+  if (state.msgs && blocked.size) state.msgs = state.msgs.filter(m => !blocked.has(m.village_id));
+}
+/** Segnala un villaggio: 'ok' = registrata sul server · 'mail' = il server non l'ha presa, si scrive per posta. */
+export async function flag(id) {
+  if (state.demo) return 'ok';
+  try { await rpc('dw_flag', { p_village: id }); return 'ok'; } catch (e) { return why(e) === 'busy' ? 'ok' : 'mail'; }
 }
 export const msgSend = (code) => act('dw_msg_send', { p_code: code });
 /** Ritira il premio della settimana scorsa: il server dice quante monete, il gioco le aggiunge. */

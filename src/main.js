@@ -270,6 +270,13 @@ const A = {
   },
   onlineClose() { ui.online = null; audio.play('tap'); },
   onlineTab(k) { ui.online.tab = k; ui.online.pick = null; audio.play('tap'); },
+  onlineBlock(id) { online.block(id, !online.isBlocked(id)); audio.play('tap'); },
+  async onlineReport(id) {
+    const r = await online.flag(id);
+    if (r === 'ok') { onlineSay(t('on_reported')); return; }
+    onlineSay(t('on_reportMail'));
+    try { window.location.href = 'mailto:info@tuzu.my?subject=' + encodeURIComponent('Tuzuland report ' + id); } catch (e) { /* senza posta resta l'indirizzo scritto */ }
+  },
   onlineVisit(id) { ui.online.visit = id; online.visit(id); audio.play('tap'); },
   onlineVisitClose() { ui.online.visit = null; audio.play('tap'); },
   onlineWeek() { ui.online.week = !ui.online.week; audio.play('tap'); },

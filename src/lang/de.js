@@ -971,4 +971,9 @@ export default {
   b_costiera: "Küstenturm",
   k_costiera: "Am Ufer, große Reichweite",
   d_costiera: "Steht am Ufer und hält Piraten auf.",
+  on_report: "Melden",
+  on_block: "Ausblenden",
+  on_unblock: "Anzeigen",
+  on_reported: "Meldung gesendet. Danke.",
+  on_reportMail: "Schreib uns an info@tuzu.my",
 };

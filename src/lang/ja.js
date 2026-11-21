@@ -971,4 +971,9 @@ export default {
   b_costiera: "沿岸の塔",
   k_costiera: "岸辺に建ち、遠くまで届く",
   d_costiera: "岸辺に立ち、海賊を止める。",
+  on_report: "通報",
+  on_block: "非表示",
+  on_unblock: "表示",
+  on_reported: "通報を送信しました。ありがとう。",
+  on_reportMail: "info@tuzu.my までご連絡ください",
 };

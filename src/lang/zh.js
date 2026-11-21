@@ -971,4 +971,9 @@ export default {
   b_costiera: "海岸塔",
   k_costiera: "建在岸边，射程远",
   d_costiera: "立在岸边，拦住海盗。",
+  on_report: "举报",
+  on_block: "屏蔽",
+  on_unblock: "显示",
+  on_reported: "举报已发送，谢谢。",
+  on_reportMail: "请写信至 info@tuzu.my",
 };

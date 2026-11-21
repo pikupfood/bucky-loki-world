@@ -220,7 +220,10 @@ function infoPanel(S, K, x, y, w, h) {
     if (me && k !== 'me') { K.txt(c, t('on_dist', Math.round(Math.hypot(v.x - me.x, v.y - me.y))) + ' · ' + t('on_march', fmtH(O.travelSecs(me, v) * 1000)), x + 16, yy, 13.5, K.DIM, 'left', 700); yy += 22; }
     if (O.shielded(v)) { K.txt(c, t('on_shield', fmtH(secsLeft(v.shield_until) * 1000)), x + 16, yy, 13.5, '#9fe9ff', 'left', 800); yy += 22; }
     yy += 6;
-    if (v.kind === 'player' && k !== 'me') { K.button(c, ui, x + 16, yy, tw, 40, t('on_visit'), { color: '#2f5d7a', fs: 16, tag: 'wVisit' }, () => A.onlineVisit(v.id)); yy += 48; }
+    if (v.kind === 'player' && k !== 'me') { K.button(c, ui, x + 16, yy, tw, 40, t('on_visit'), { color: '#2f5d7a', fs: 16, tag: 'wVisit' }, () => A.onlineVisit(v.id)); yy += 46;
+      const hw = (tw - 8) / 2, bl = O.isBlocked(v.id);      // segnalare e nascondere: per i nomi scelti dai giocatori
+      K.button(c, ui, x + 16, yy, hw, 34, t('on_report'), { color: '#7a3a2c', fs: 14, r: 9, tag: 'wReport' }, () => A.onlineReport(v.id));
+      K.button(c, ui, x + 24 + hw, yy, hw, 34, t(bl ? 'on_unblock' : 'on_block'), { color: '#5c4330', fs: 14, r: 9, tag: 'wBlock' }, () => A.onlineBlock(v.id)); yy += 42; }
     if (k === 'me') { K.button(c, ui, x + 16, yy, tw, 42, t('on_rename'), { color: '#5c4330', fs: 16, tag: 'wRename' }, A.onlineRename); yy += 50; }
     else if (k === 'ally') { K.txt(c, t('on_isAlly'), x + 16, yy + 8, 14, '#9ff0b4', 'left', 800); yy += 30; }
     else if (me) {

@@ -971,4 +971,9 @@ export default {
   b_costiera: "Torre costeira",
   k_costiera: "Na margem, longo alcance",
   d_costiera: "Fica na margem e detém os piratas.",
+  on_report: "Denunciar",
+  on_block: "Ocultar",
+  on_unblock: "Mostrar",
+  on_reported: "Denúncia enviada. Obrigado.",
+  on_reportMail: "Escreva para info@tuzu.my",
 };

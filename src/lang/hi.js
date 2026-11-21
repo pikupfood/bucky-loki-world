@@ -971,4 +971,9 @@ export default {
   b_costiera: "तटीय मीनार",
   k_costiera: "किनारे पर, दूर तक मार",
   d_costiera: "किनारे पर खड़ी, डाकुओं को रोकती है।",
+  on_report: "रिपोर्ट",
+  on_block: "छिपाएँ",
+  on_unblock: "दिखाएँ",
+  on_reported: "रिपोर्ट भेज दी गई। धन्यवाद।",
+  on_reportMail: "हमें लिखें: info@tuzu.my",
 };

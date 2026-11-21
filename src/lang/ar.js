@@ -971,4 +971,9 @@ export default {
   b_costiera: "برج الساحل",
   k_costiera: "على الشاطئ، مدى بعيد",
   d_costiera: "يقف على الشاطئ ويوقف القراصنة.",
+  on_report: "إبلاغ",
+  on_block: "إخفاء",
+  on_unblock: "إظهار",
+  on_reported: "تم إرسال البلاغ. شكرًا.",
+  on_reportMail: "راسلنا على info@tuzu.my",
 };
